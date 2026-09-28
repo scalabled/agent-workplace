@@ -46,9 +46,9 @@
           "description": "Three directions on light and dark, and the chosen one on sign, avatar, card and site header."
         },
         {
-          "artifact_type": "web_page",
+          "artifact_type": "document",
           "name": "Identity guidelines",
-          "format": "html",
+          "format": "md -> pdf",
           "description": "Logo usage, clear space, minimum sizes, colours with approved pairs, type scale and don'ts."
         },
         {
@@ -64,7 +64,6 @@
         "image_generate",
         "image_edit",
         "code_interpreter",
-        "web_page_generate",
         "document_generate"
       ],
       "connectors_optional": [
@@ -78,7 +77,7 @@
         "text",
         "file"
       ],
-      "instructions": "1. Start from the brand platform in memory. If it is missing, run a 20-minute brief with the owner (personality in three words, audience, competitors, feeling to avoid) or pair with positioning work. 2. Audit existing assets and competitors' visual codes with vision_describe, so the identity neither blends in nor clashes. 3. Develop three genuinely distinct concept directions (for example wordmark, symbol plus wordmark, monogram), each with a rationale tied to the brand personality. Generate logo concepts with image_generate (clean and flat, on white and on dark) and iterate with image_edit. Keep a prompt log. 4. Build the colour system: primary, secondary, neutrals and semantic colours. Compute contrast ratios in code_interpreter against WCAG 2.2 (4.5:1 body text, 3:1 large text and UI components) and list approved text and background pairs. 5. Pair a display face and a text face from open-licence libraries, with a type scale and fallback stacks. 6. Write usage rules: clear space, minimum sizes, favicon and avatar crops, logo on photos, and don'ts. 7. After the owner picks a direction, mock it up on a sign, social avatar, business card and website header. 8. Assemble the guideline page with web_page_generate and the one-pager with document_generate. Flag that AI-generated concepts should be redrawn as vector by a designer and checked with trademark-search-prep before adoption. 9. State what could not be verified: font licences beyond the open library, and similarity to existing marks until a trademark search is run.",
+      "instructions": "1. Start from the brand platform in memory. If it is missing, run a 20-minute brief with the owner (personality in three words, audience, competitors, feeling to avoid) or pair with positioning work. 2. Audit existing assets and competitors' visual codes with vision_describe, so the identity neither blends in nor clashes. 3. Develop three genuinely distinct concept directions (for example wordmark, symbol plus wordmark, monogram), each with a rationale tied to the brand personality. Generate logo concepts with image_generate (clean and flat, on white and on dark) and iterate with image_edit. Keep a prompt log. 4. Build the colour system: primary, secondary, neutrals and semantic colours. Compute contrast ratios in code_interpreter against WCAG 2.2 (4.5:1 body text, 3:1 large text and UI components) and list approved text and background pairs. 5. Pair a display face and a text face from open-licence libraries, with a type scale and fallback stacks. 6. Write usage rules: clear space, minimum sizes, favicon and avatar crops, logo on photos, and don'ts. 7. After the owner picks a direction, mock it up on a sign, social avatar, business card and website header. 8. Assemble the guidelines and the one-pager with document_generate. Flag that AI-generated concepts should be redrawn as vector by a designer and checked with trademark-search-prep before adoption. 9. State what could not be verified: font licences beyond the open library, and similarity to existing marks until a trademark search is run.",
       "workflow": [
         {
           "activity": "llm",
@@ -126,7 +125,7 @@
         {
           "activity": "document",
           "title": "Identity guideline",
-          "brief": "Assemble the guideline page and one-pager.",
+          "brief": "Assemble the guidelines and one-pager.",
           "acceptance": "Guideline covers logo, colour, type, usage and don'ts.",
           "dependsOn": [
             4
@@ -539,7 +538,8 @@
           "id": "analytics",
           "label": "Drop-off data by step, if available",
           "required": false,
-          "source": "connector"
+          "source": "coworker",
+          "example": "Funnel drop-off from the product analyst"
         },
         {
           "id": "known_complaints",
@@ -550,10 +550,10 @@
       ],
       "outputs": [
         {
-          "artifact_type": "spreadsheet",
+          "artifact_type": "document",
           "name": "Issue log with severities",
-          "format": "xlsx",
-          "description": "Journey, step, heuristic, issue, screenshot, severity 0–4, fix and effort."
+          "format": "md",
+          "description": "Table: journey, step, heuristic, issue, screenshot, severity 0–4, fix and effort."
         },
         {
           "artifact_type": "document",
@@ -573,8 +573,6 @@
         "web_fetch",
         "vision_describe",
         "image_edit",
-        "connector_read",
-        "spreadsheet_generate",
         "document_generate"
       ],
       "connectors_optional": [
@@ -587,10 +585,9 @@
         "url",
         "screen",
         "image",
-        "text",
-        "connector_data"
+        "text"
       ],
-      "instructions": "1. Agree the key journeys and devices, and pull step drop-off data with connector_read if analytics is connected. 2. Walk each journey in the companion browser at mobile and desktop widths, screenshotting every step. Stop before payment or entering personal data, and never create accounts. 3. Evaluate each screen with vision_describe against Nielsen's 10 heuristics: visibility of system status; match with the real world; user control and freedom; consistency and standards; error prevention; recognition rather than recall; flexibility and efficiency; aesthetic and minimalist design; helping users recognise, diagnose and recover from errors; help and documentation. 4. Log each issue: journey, step, heuristic, description, evidence screenshot, severity 0–4 (frequency x impact x persistence) and suggested fix. 5. Annotate the screenshots with image_edit to show each problem. 6. Prioritise on a severity-by-effort matrix, quick wins first, and record positives worth keeping. 7. Have a second evaluator calibrate severities. 8. A heuristic review finds likely problems; recommend a usability test to confirm the top ones. 9. State what could not be verified: logged-in areas not reviewed and real user behaviour.",
+      "instructions": "1. Agree the key journeys and devices, and get step drop-off data from the owner or an analytics coworker if available. 2. Walk each journey in the companion browser at mobile and desktop widths, screenshotting every step. Stop before payment or entering personal data, and never create accounts. 3. Evaluate each screen with vision_describe against Nielsen's 10 heuristics: visibility of system status; match with the real world; user control and freedom; consistency and standards; error prevention; recognition rather than recall; flexibility and efficiency; aesthetic and minimalist design; helping users recognise, diagnose and recover from errors; help and documentation. 4. Log each issue: journey, step, heuristic, description, evidence screenshot, severity 0–4 (frequency x impact x persistence) and suggested fix. 5. Annotate the screenshots with image_edit to show each problem. 6. Prioritise on a severity-by-effort matrix, quick wins first, and record positives worth keeping. 7. Have a second evaluator calibrate severities. 8. A heuristic review finds likely problems; recommend a usability test to confirm the top ones. 9. State what could not be verified: logged-in areas not reviewed and real user behaviour.",
       "workflow": [
         {
           "activity": "browser",
@@ -739,7 +736,6 @@
         "web_fetch",
         "vision_describe",
         "code_interpreter",
-        "file_parse",
         "spreadsheet_generate",
         "document_generate"
       ],
@@ -758,7 +754,7 @@
         "file",
         "text"
       ],
-      "instructions": "1. Define the scope with a representative sample chosen per WCAG-EM (templates plus complete key journeys) and the target: WCAG 2.2 Level AA. 2. Run automated checks (axe-core or pa11y in the companion shell sandbox) on each sample page and save the output with tool versions. Automated tools catch only part of the issues. 3. Manual checks in the companion browser: keyboard-only navigation (visible focus, logical order, no traps, 2.4.11 focus not obscured), skip links, headings and landmarks, form labels and error handling (3.3.1, 3.3.3), 2.5.8 target size (at least 24 x 24 CSS px), 2.5.7 dragging alternatives, 3.3.8 accessible authentication, 3.2.6 consistent help, 3.3.7 redundant entry, reflow at 320 px, text spacing and 200% zoom. 4. Visual checks: contrast for text and UI components computed in code_interpreter, use of colour alone, and alt-text quality (vision_describe compares the image with its alt text). 5. Media: captions, transcripts and audio-description needs. Documents: check PDF tags, reading order, alt text and language with file_parse. 6. Log each failure: page, element or selector, success criterion number and name, level, evidence (screenshot or snippet), user impact, fix and priority. 7. Report by POUR principle with the top fixes and a retest plan, plus a draft accessibility statement. 8. Legal compliance determinations (for example under the ADA or the European Accessibility Act) are for the owner and counsel. The audit reports findings only and claims no conformance. 9. State what could not be verified: pages outside the sample and testing with real assistive-technology users.",
+      "instructions": "1. Define the scope with a representative sample chosen per WCAG-EM (templates plus complete key journeys) and the target: WCAG 2.2 Level AA. 2. Run automated checks (axe-core or pa11y in the companion shell sandbox) on each sample page and save the output with tool versions. Automated tools catch only part of the issues. 3. Manual checks in the companion browser: keyboard-only navigation (visible focus, logical order, no traps, 2.4.11 focus not obscured), skip links, headings and landmarks, form labels and error handling (3.3.1, 3.3.3), 2.5.8 target size (at least 24 x 24 CSS px), 2.5.7 dragging alternatives, 3.3.8 accessible authentication, 3.2.6 consistent help, 3.3.7 redundant entry, reflow at 320 px, text spacing and 200% zoom. 4. Visual checks: contrast for text and UI components computed in code_interpreter, use of colour alone, and alt-text quality (vision_describe compares the image with its alt text). 5. Media: captions, transcripts and audio-description needs. Documents: inspect the PDF tag tree, reading order, alt text and language in code_interpreter. 6. Log each failure: page, element or selector, success criterion number and name, level, evidence (screenshot or snippet), user impact, fix and priority. 7. Report by POUR principle with the top fixes and a retest plan, plus a draft accessibility statement. 8. Legal compliance determinations (for example under the ADA or the European Accessibility Act) are for the owner and counsel. The audit reports findings only and claims no conformance. 9. State what could not be verified: pages outside the sample and testing with real assistive-technology users.",
       "workflow": [
         {
           "activity": "command",
@@ -1219,7 +1215,6 @@
         }
       ],
       "tools": [
-        "file_parse",
         "code_interpreter",
         "chart_generate",
         "diagram_generate",
@@ -1237,7 +1232,7 @@
         "file",
         "image"
       ],
-      "instructions": "1. Write the one-sentence takeaway and audience. If the data doesn't support the takeaway, say so before designing anything. 2. Check the data with file_parse and code_interpreter: source, date, units and denominators; compute any derived numbers and show the working. 3. Choose the form by the question: comparison (bar), change over time (line), part-to-whole (stacked bar, rarely pie), process (flow with diagram_generate), distribution (histogram or dot plot), geography (a map only if location matters). 4. Sketch the hierarchy: the headline is the takeaway; three to five supporting points; annotations on the chart instead of legends; a source line. 5. Build with chart_generate in brand colours with a colour-blind-safe palette, direct labels and zero-based bars, avoiding 3D and dual axes. Use image_generate only for simple illustrative elements, never to represent data. 6. Accessibility: sufficient contrast, text no smaller than about 12 pt in print, alt text that states the takeaway, and a text or table equivalent on the web version built with web_page_generate. 7. Export web (SVG or HTML), social (1080 x 1350) and print (vector) versions, and check legibility of each with vision_describe. 8. Review every number against its source. 9. State what could not be verified: numbers whose original source could not be traced.",
+      "instructions": "1. Write the one-sentence takeaway and audience. If the data doesn't support the takeaway, say so before designing anything. 2. Load and check the data in code_interpreter: source, date, units and denominators; compute any derived numbers and show the working. 3. Choose the form by the question: comparison (bar), change over time (line), part-to-whole (stacked bar, rarely pie), process (flow with diagram_generate), distribution (histogram or dot plot), geography (a map only if location matters). 4. Sketch the hierarchy: the headline is the takeaway; three to five supporting points; annotations on the chart instead of legends; a source line. 5. Build with chart_generate in brand colours with a colour-blind-safe palette, direct labels and zero-based bars, avoiding 3D and dual axes. Use image_generate only for simple illustrative elements, never to represent data. 6. Accessibility: sufficient contrast, text no smaller than about 12 pt in print, alt text that states the takeaway, and a text or table equivalent on the web version built with web_page_generate. 7. Export web (SVG or HTML), social (1080 x 1350) and print (vector) versions, and check legibility of each with vision_describe. 8. Review every number against its source. 9. State what could not be verified: numbers whose original source could not be traced.",
       "workflow": [
         {
           "activity": "llm",
@@ -1365,12 +1360,6 @@
           "name": "HTML fallback deck",
           "format": "html",
           "description": "Self-contained with keyboard navigation."
-        },
-        {
-          "artifact_type": "audio_briefing",
-          "name": "Rehearsal audio",
-          "format": "mp3",
-          "description": "Speaker notes read aloud with slide cues."
         }
       ],
       "tools": [
@@ -1379,8 +1368,7 @@
         "chart_generate",
         "image_generate",
         "workspace_files",
-        "file_parse",
-        "tts"
+        "file_parse"
       ],
       "connectors_optional": [
         "google-workspace",
@@ -1390,10 +1378,9 @@
       "modalities": [
         "text",
         "file",
-        "image",
-        "audio"
+        "image"
       ],
-      "instructions": "1. Outline first: the audience, the one decision or belief the deck should produce, and a storyline, either situation, complication, resolution (Minto) or Duarte's what-is against what-could-be. 2. Write 6–12 slide headlines as full-sentence takeaways (action titles) and read them in order; they must tell the story on their own. 3. Keep one idea per slide; keep slide text short and put detail in the speaker notes. 4. Show evidence visually: charts from data with chart_generate (takeaway in the title, source on the slide), diagrams for processes, and generated images with image_generate only where they aid understanding, never as decoration. 5. Build with deck_generate as PPTX (or PDF). If that is unavailable, write one self-contained HTML deck with keyboard navigation using web_page_generate. 6. Apply the brand template or a clean default: body text 24 pt or larger, contrast of at least 4.5:1, alt text on images and a logical reading order. 7. Write speaker notes for every slide: what to say and roughly how long. 8. Optionally render the notes with tts so the owner can hear a rehearsal. 9. Report the file paths, naming every file produced on its own line as 'Artifact: <path relative to the workspace>' via workspace_files. 10. State what could not be verified: numbers in the deck without a traceable source.",
+      "instructions": "1. Outline first: the audience, the one decision or belief the deck should produce, and a storyline, either situation, complication, resolution (Minto) or Duarte's what-is against what-could-be. 2. Write 6–12 slide headlines as full-sentence takeaways (action titles) and read them in order; they must tell the story on their own. 3. Keep one idea per slide; keep slide text short and put detail in the speaker notes. 4. Show evidence visually: charts from data with chart_generate (takeaway in the title, source on the slide), diagrams for processes, and generated images with image_generate only where they aid understanding, never as decoration. 5. Build with deck_generate as PPTX (or PDF). If that is unavailable, write one self-contained HTML deck with keyboard navigation using web_page_generate. 6. Apply the brand template or a clean default: body text 24 pt or larger, contrast of at least 4.5:1, alt text on images and a logical reading order. 7. Write speaker notes for every slide: what to say and roughly how long. 8. Report the file paths, naming every file produced on its own line as 'Artifact: <path relative to the workspace>' via workspace_files. 9. State what could not be verified: numbers in the deck without a traceable source.",
       "workflow": [
         {
           "activity": "llm",
@@ -1417,15 +1404,6 @@
           "acceptance": "First line is APPROVED or CHANGES; one idea per slide; text legible; alt text present.",
           "dependsOn": [
             1
-          ]
-        },
-        {
-          "activity": "tts",
-          "title": "Rehearsal audio (optional)",
-          "brief": "Render the speaker notes as rehearsal audio.",
-          "acceptance": "Audio follows slide order with cues.",
-          "dependsOn": [
-            2
           ]
         }
       ],
@@ -1513,10 +1491,10 @@
           "description": "Front and side panels per direction, placed among competitors."
         },
         {
-          "artifact_type": "deck",
+          "artifact_type": "document",
           "name": "Packaging concept presentation",
-          "format": "pdf",
-          "description": "Brief, shelf audit, directions, tests and recommendation."
+          "format": "md -> pdf",
+          "description": "Brief, shelf audit, directions, tests and recommendation, with renders."
         },
         {
           "artifact_type": "checklist",
@@ -1530,7 +1508,6 @@
         "web_search",
         "image_generate",
         "image_edit",
-        "deck_generate",
         "document_generate"
       ],
       "connectors_optional": [
@@ -1543,7 +1520,7 @@
         "camera",
         "text"
       ],
-      "instructions": "1. Brief: product, price point, channel (shelf, e-commerce unboxing, marketplace), competitors on shelf, brand assets, format constraints, budget and run size. 2. Shelf audit: gather photos of the category shelf (owner's phone or web) and describe the category codes with vision_describe: what everyone does, and where there is room to stand out. 3. Set the information hierarchy: brand, product name, key benefit or variant, proof and claims, then mandatory information. Define the three-second read. 4. Generate two or three distinct directions as renders on the actual pack format (front and side panels) with image_generate, and use image_edit to place them on the owner's real pack photo where available. 5. Shelf-impact test: place each concept in a simulated shelf image and run squint, three-second and distance legibility checks, plus a colour-blind check on variant colour-coding. 6. Dieline notes: structure (box, pouch, label), dimensions to confirm with the printer, panels, bleed (typically 3 mm or 0.125 in), safe zone, glue flaps, barcode quiet zone, and cost flags for finishes such as foil or embossing. 7. Mandatory label checklist for the relevant rules (for example ingredients, allergens, net quantity, cosmetics INCI list, recycling marks), to be confirmed by a qualified regulatory person. Health and environmental claims ('eco-friendly', 'organic') are flagged for substantiation. 8. Sustainability options: material reduction, mono-material, recycled content, and honest claims only. Present everything with deck_generate. 9. State what could not be verified: printer specifications, material costs and regulatory requirements by market.",
+      "instructions": "1. Brief: product, price point, channel (shelf, e-commerce unboxing, marketplace), competitors on shelf, brand assets, format constraints, budget and run size. 2. Shelf audit: gather photos of the category shelf (owner's phone or web) and describe the category codes with vision_describe: what everyone does, and where there is room to stand out. 3. Set the information hierarchy: brand, product name, key benefit or variant, proof and claims, then mandatory information. Define the three-second read. 4. Generate two or three distinct directions as renders on the actual pack format (front and side panels) with image_generate, and use image_edit to place them on the owner's real pack photo where available. 5. Shelf-impact test: place each concept in a simulated shelf image and run squint, three-second and distance legibility checks, plus a colour-blind check on variant colour-coding. 6. Dieline notes: structure (box, pouch, label), dimensions to confirm with the printer, panels, bleed (typically 3 mm or 0.125 in), safe zone, glue flaps, barcode quiet zone, and cost flags for finishes such as foil or embossing. 7. Mandatory label checklist for the relevant rules (for example ingredients, allergens, net quantity, cosmetics INCI list, recycling marks), to be confirmed by a qualified regulatory person. Health and environmental claims ('eco-friendly', 'organic') are flagged for substantiation. 8. Sustainability options: material reduction, mono-material, recycled content, and honest claims only. Present everything with document_generate. 9. State what could not be verified: printer specifications, material costs and regulatory requirements by market.",
       "workflow": [
         {
           "activity": "research",
@@ -1785,6 +1762,546 @@
       "example_request": "We need a new takeaway menu and a window poster for our grand reopening. Make them print-ready; the printer wants PDFs by Thursday.",
       "typical_departments": [
         "design-creative"
+      ],
+      "version": 1
+    },
+    {
+      "id": "creative-brief",
+      "name": "Creative brief",
+      "icon": "✏️",
+      "category": "design-visual",
+      "one_liner": "One-page brief: audience insight, single-minded proposition, reasons to believe, mandatories and success measures.",
+      "description": "Writes the one-page creative brief that makes good work likely: the business problem, the audience and one evidenced insight about them, a single-minded proposition, reasons to believe, tone, mandatories, deliverables with specs and how success will be measured, then pressure-tests it before anyone starts designing or writing.",
+      "when": "before briefing designers, writers, video makers or an agency; when a campaign or asset keeps getting redone; or when stakeholders disagree about what a piece of work is for",
+      "inputs": [
+        {
+          "id": "objective",
+          "label": "Business objective and the behaviour the work must change",
+          "required": true,
+          "source": "owner",
+          "example": "Get lapsed customers to book a spring tune-up"
+        },
+        {
+          "id": "audience",
+          "label": "Who it is for and what we know about them",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "brand_assets",
+          "label": "Brand guidelines, voice and past work",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "deliverables_needed",
+          "label": "Formats, channels, sizes and deadline",
+          "required": true,
+          "source": "owner",
+          "example": "3 Instagram posts, 1 email and an A-frame sign by 14 March"
+        },
+        {
+          "id": "evidence",
+          "label": "Research, reviews or data about the audience",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "budget",
+          "label": "Budget and production constraints",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "Creative brief",
+          "format": "md -> pdf",
+          "description": "Problem, audience insight, single-minded proposition, reasons to believe, tone, mandatories, deliverables, timeline and success measures."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Brief rationale",
+          "format": "md",
+          "description": "Evidence behind the insight and proposition, with options considered and rejected."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Reference board",
+          "format": "png",
+          "description": "A few mood references illustrating tone, clearly labelled as reference, not final work."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_search",
+        "vision_describe",
+        "document_generate",
+        "image_generate",
+        "convene_meeting",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "figma",
+        "canva",
+        "google-workspace",
+        "notion",
+        "dropbox"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "image",
+        "voice"
+      ],
+      "instructions": "1. Recall brand guidelines, voice and prior work with memory_recall and embeddings_search; use vision_describe on past assets to note what worked and what did not. 2. Write the business problem in one sentence and the single behaviour the work must cause (think, feel, do). 3. Define the audience narrowly and find one insight: a truth about their situation, tension or motivation, grounded in evidence (reviews, interviews, data, and category context from web_search) with the source noted. An observation such as 'people are busy' is not an insight. 4. Write the single-minded proposition: one thing to say, in plain words, that a reader could repeat. If there are two, choose, and record the trade-off. 5. Add reasons to believe (checkable proof points, not adjectives), tone in three words with 'this, not that', mandatories (logo, legal lines, accessibility, sizes), deliverables with specs and deadlines, and success measures tied to the objective (bookings from lapsed customers, not likes). 6. Optionally create a small reference board with image_generate, labelled as reference only. 7. Pressure-test in a short session with convene_meeting: can the team repeat the proposition from memory, does the insight hold, what would a sceptic say? Tighten. 8. Render the one-page brief and rationale with document_generate and ask the owner to sign off with request_owner_decision before production starts. 9. State what could not be verified: whether the insight holds beyond the evidence gathered, and assumptions about channel performance.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Problem and audience insight",
+          "brief": "Write the problem, behaviour change, audience and evidenced insight.",
+          "acceptance": "Problem in one sentence; the insight cites evidence and is not a generic observation."
+        },
+        {
+          "activity": "llm",
+          "title": "Proposition and proof",
+          "brief": "Write the single-minded proposition, reasons to believe, tone and mandatories.",
+          "acceptance": "One proposition; every reason to believe is a checkable fact.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Brief pressure test",
+          "brief": "Voiced session where the team and a sceptic challenge the brief.",
+          "acceptance": "Minutes record challenges and the resulting edits.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "One-page brief",
+          "brief": "Render the brief, rationale and optional reference board.",
+          "acceptance": "Brief fits one page and includes mandatories, specs, deadline and success measures.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner sign-off",
+          "brief": "Owner approves the brief before any production starts.",
+          "acceptance": "Sign-off recorded before production starts.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The brief has exactly one single-minded proposition.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The audience insight is grounded in cited evidence, not a generic observation.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Success measures link to the business objective, not vanity metrics.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Deliverables list specs, channels and deadlines, plus mandatories including accessibility.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The brief fits on one page.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Reference imagery is labelled as reference, not final work.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 35,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "moodboard",
+        "campaign-plan",
+        "messaging-house",
+        "ugc-ad-brief",
+        "social-graphics-set"
+      ],
+      "example_request": "We're about to hire a freelancer for our spring campaign and last time it went round in circles. Can you write a proper brief first?",
+      "typical_departments": [
+        "design-creative",
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "ux-microcopy",
+      "name": "UX microcopy pass",
+      "icon": "💬",
+      "category": "design-visual",
+      "one_liner": "Buttons, labels, empty states and error messages rewritten so users can act, delivered as a string table with rationale.",
+      "description": "Audits and rewrites interface text (buttons, labels, hints, empty states, confirmations, error and success messages) so users know what happened and what to do next, delivered as a string table with keys, character limits, rationale and localization notes, consistent with the voice guide and plain-language principles.",
+      "when": "a flow has high drop-off or tickets about confusing screens, before a launch or redesign, when error messages are technical, or when the product is being localized",
+      "inputs": [
+        {
+          "id": "screens",
+          "label": "Screens, flows or a live URL to review",
+          "required": true,
+          "source": "file",
+          "example": "Figma export of checkout, or the staging URL"
+        },
+        {
+          "id": "string_file",
+          "label": "Existing string file or copy deck",
+          "required": false,
+          "source": "file",
+          "example": "en.json"
+        },
+        {
+          "id": "voice_guide",
+          "label": "Voice and tone guide and glossary",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "user_evidence",
+          "label": "Tickets, usability findings or analytics showing where users struggle",
+          "required": false,
+          "source": "connector",
+          "example": "Intercom conversations tagged 'checkout'"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Microcopy string table",
+          "format": "xlsx",
+          "description": "Key, screen, current text, proposed text, character limit, rationale, localization note and status."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Microcopy guidelines",
+          "format": "md",
+          "description": "Patterns for buttons, errors, empty states and confirmations with do and don't examples."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Error message audit",
+          "format": "md",
+          "description": "Each error with its cause, the user's fix, and whether the message says both."
+        }
+      ],
+      "tools": [
+        "browser",
+        "vision_describe",
+        "file_parse",
+        "memory_recall",
+        "embeddings_search",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision",
+        "memory_write"
+      ],
+      "connectors_optional": [
+        "figma",
+        "intercom",
+        "zendesk",
+        "notion",
+        "webflow",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "screen",
+        "url",
+        "file"
+      ],
+      "instructions": "1. Collect the text in context: walk the flow with browser or read screens with vision_describe, and parse the string file with file_parse. Copy is judged on the screen, never as a bare list. 2. Recall the voice guide and glossary with memory_recall; find where people get stuck in tickets and usability notes with embeddings_search. 3. Audit each string: buttons name the action with a verb ('Save address', not 'OK'); labels use nouns users recognise; hints explain the format before the error, not after; empty states say what belongs here and how to start; confirmations name the consequence of irreversible actions; errors say what happened and how to fix it, without blame or bare codes (Nielsen heuristic 9). 4. Rewrite with plain-language principles (ISO 24495-1): key word first, short sentences, one idea per string, glossary terms used consistently, sentence case, and accessible text per WCAG 2.2 (labels and instructions, link text that makes sense out of context, no meaning by colour alone). 5. Respect constraints: character limits per component, truncation, variables and plurals (ICU message format), and 30-40% expansion room for translation. Add localization notes for idioms and gendered forms. 6. Build the string table with spreadsheet_generate and the guidelines with document_generate, showing before and after side by side. 7. Ask the owner to approve changed strings with request_owner_decision; after approval, offer to save new patterns and glossary terms with memory_write. 8. State what could not be verified: how strings render on every device and language, and whether rewrites change behaviour until tested.",
+      "workflow": [
+        {
+          "activity": "browser",
+          "title": "Capture copy in context",
+          "brief": "Walk the flow and capture every string with its screen and component.",
+          "acceptance": "Every string captured with screen, component and current text."
+        },
+        {
+          "activity": "llm",
+          "title": "Audit and rewrite",
+          "brief": "Audit each string against the rules and propose a rewrite with rationale.",
+          "acceptance": "Each string has a proposed version and rationale; every error says how to fix it.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Consistency and accessibility check",
+          "brief": "A second coworker checks glossary consistency, limits and accessibility.",
+          "acceptance": "First line APPROVED or CHANGES; glossary terms consistent; character limits respected.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "String table and guidelines",
+          "brief": "Render the string table, guidelines and error audit.",
+          "acceptance": "Table includes keys, limits and localization notes.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approval",
+          "brief": "Owner approves or rejects changed strings.",
+          "acceptance": "Approved strings marked; rejected ones keep current text.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "memory",
+          "title": "Save patterns",
+          "brief": "Save approved patterns and glossary terms.",
+          "acceptance": "Memory entry cites the string table; the owner can undo it.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every error message states what happened and how the user can fix it.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Buttons name the specific action with a verb.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Proposed strings respect character limits, variables and plural forms.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Terms are consistent with the glossary across every screen.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each change has a short rationale tied to user evidence or a principle.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Localization notes flag idioms and expansion risk.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "voice-style-guide",
+        "plain-language-rewrite",
+        "heuristic-ux-review",
+        "usability-test",
+        "translate-localize"
+      ],
+      "example_request": "People keep emailing us because they don't understand the errors in our booking form. Can you go through the whole flow and fix the wording?",
+      "typical_departments": [
+        "design-creative",
+        "product"
+      ],
+      "version": 1
+    },
+    {
+      "id": "accessible-document-remediation",
+      "name": "Accessible document remediation",
+      "icon": "📄",
+      "category": "design-visual",
+      "one_liner": "Fix PDFs, DOCX files and slides for screen readers (PDF/UA, WCAG 2.2) with a before/after remediation report.",
+      "description": "Makes PDFs, Word documents and slide decks usable with screen readers and keyboards: tagged structure (PDF/UA), logical reading order, real headings, alt text, table headers, list and link semantics, document language, contrast and accessible forms, checked against WCAG 2.2 AA, with a before-and-after remediation report.",
+      "when": "documents are published online or sent to customers, someone using assistive technology cannot read a file, a public-sector or enterprise buyer requires accessible documents, or before a template is reused widely",
+      "inputs": [
+        {
+          "id": "documents",
+          "label": "The documents to remediate",
+          "required": true,
+          "source": "file",
+          "example": "Annual report PDF, three policy DOCX files and a sales deck"
+        },
+        {
+          "id": "source_files",
+          "label": "Original source files (DOCX, PPTX or design exports), if available",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "priority",
+          "label": "Which documents matter most, and the deadline",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "brand_template",
+          "label": "Brand template and styles",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Remediated documents",
+          "format": "docx / pdf",
+          "description": "Fixed files with tags, reading order, headings, alt text, table headers, title and language set."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Remediation report",
+          "format": "xlsx",
+          "description": "Per document: issues by WCAG 2.2 success criterion or PDF/UA checkpoint, fix applied, before and after status, remaining items."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Accessible authoring checklist",
+          "format": "md",
+          "description": "How to create accessible documents at source so the same fixes are not needed again."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "vision_describe",
+        "code_interpreter",
+        "document_generate",
+        "spreadsheet_generate",
+        "tts",
+        "memory_recall",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "wordpress",
+        "webflow",
+        "dropbox"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "image",
+        "audio"
+      ],
+      "instructions": "1. Prefer fixing the source: if the DOCX or PPTX exists, remediate it and re-export, because tags generated from a well-structured source beat patching a PDF. Parse every file with file_parse and inventory pages, images, tables, forms and links. 2. Check each document against WCAG 2.2 AA and, for PDFs, the Matterhorn Protocol checkpoints for PDF/UA (ISO 14289): tagged structure, logical reading order, headings nested in order, document title and language, lists and tables with header cells and scope, meaningful link text, bookmarks for long files, labelled form fields with a sensible tab order, contrast (4.5:1 for text, 3:1 for large text and graphics) and no information by colour alone. 3. Write alt text with vision_describe that describes purpose, not pixels. Charts get a short summary plus the data as a table; decorative images are marked as artifacts; complex diagrams get a longer description. 4. Fix structure, reading order, table headers, language, title, bookmarks and form labels. OCR scanned pages and proofread the text. Recompute contrast with code_interpreter and propose accessible alternatives for brand colours (from the template recalled with memory_recall) that fail. 5. Verify: rerun the automated checks, then do the manual checks automation misses (reading order, alt text quality, heading logic). Render a spoken read-through with tts to hear the order a screen reader would follow. 6. Write the remediation report with spreadsheet_generate and the authoring checklist with document_generate. 7. Ask the owner to approve replacing published files with request_owner_decision. The report states conformance status, not a legal opinion; questions about legal obligations (for example the ADA, Section 508 or the European Accessibility Act) go to the owner's counsel. 8. State what could not be verified: behaviour in every screen reader and viewer combination, and items that need testing with disabled users.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Inventory documents",
+          "brief": "Parse every file and inventory pages, images, tables, forms and links.",
+          "acceptance": "Every file inventoried with page count, images, tables, forms and whether a source file exists."
+        },
+        {
+          "activity": "analysis",
+          "title": "Audit against WCAG 2.2 and PDF/UA",
+          "brief": "Check each document against success criteria and Matterhorn checkpoints.",
+          "acceptance": "Every issue mapped to a success criterion or checkpoint.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Remediate",
+          "brief": "Fix tags, reading order, headings, alt text, tables, language and form labels.",
+          "acceptance": "Each issue fixed or listed as remaining with a reason.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Manual verification",
+          "brief": "A second coworker checks reading order, alt text and headings by hand and by a spoken read-through.",
+          "acceptance": "First line APPROVED or CHANGES; automated re-check passes or failures listed.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Report and authoring checklist",
+          "brief": "Render the remediation report and the authoring checklist.",
+          "acceptance": "Report shows before and after status per document.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves replacement",
+          "brief": "Owner approves replacing published files.",
+          "acceptance": "Approval recorded before any published file is replaced.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every issue maps to a WCAG 2.2 success criterion or a PDF/UA (Matterhorn) checkpoint, with before and after status.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Alt text describes purpose; decorative images are artifacts; charts have a text or table equivalent.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Reading order and heading hierarchy are verified manually, not only by an automated checker.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The report states conformance status and never gives a legal compliance opinion.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Source files are fixed and re-exported where they exist.",
+          "severity": "should"
+        },
+        {
+          "criterion": "An authoring checklist prevents the same issues in new documents.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "wcag-audit",
+        "plain-language-rewrite",
+        "inclusive-language-review",
+        "build-a-slide-deck",
+        "print-collateral"
+      ],
+      "example_request": "A customer who uses a screen reader told us our menu and policy PDFs are unreadable. Can you fix them and show us how to make future ones properly?",
+      "typical_departments": [
+        "design-creative",
+        "legal-compliance"
       ],
       "version": 1
     }

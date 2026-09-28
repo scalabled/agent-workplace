@@ -85,7 +85,24 @@
           "why": {
             "type": "string",
             "minLength": 15,
-            "maxLength": 300
+            "maxLength": 300,
+            "description": "owner-facing: who and why, in plain words (no voice ids or other internal notes)"
+          },
+          "voice_override": {
+            "type": "object",
+            "additionalProperties": false,
+            "minProperties": 1,
+            "properties": {
+              "openai": {
+                "type": "string",
+                "pattern": "^[a-z]+$"
+              },
+              "xai": {
+                "type": "string",
+                "pattern": "^[a-z]+$"
+              }
+            },
+            "description": "optional: the voice this member uses in this team when it differs from their primary (one of their alternates), so voices stay unique"
           }
         },
         "required": [
@@ -309,6 +326,69 @@
     "cost_class": {
       "$ref": "#/$defs/cost_class"
     },
+    "first_result_minutes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 600,
+      "description": "minutes from start to the first useful artifact the owner can see"
+    },
+    "example_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deliverable": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 100,
+          "description": "which deliverable the excerpt comes from"
+        },
+        "lines": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 6,
+          "items": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 220
+          }
+        }
+      },
+      "required": [
+        "deliverable",
+        "lines"
+      ],
+      "description": "a short illustrative excerpt of a real deliverable, so the owner sees what good looks like before running the recipe"
+    },
+    "model_hints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "by_task": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "deep",
+              "balanced",
+              "fast"
+            ]
+          }
+        },
+        "note": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 300
+        }
+      },
+      "required": [
+        "by_task"
+      ],
+      "description": "optional: per-task model tier overrides (task id -> tier) when speed matters more than the members' defaults"
+    },
     "success_criteria": {
       "type": "array",
       "items": {
@@ -360,6 +440,18 @@
             "minItems": 0,
             "maxItems": 3,
             "uniqueItems": true
+          },
+          "reassign": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 8,
+            "propertyNames": {
+              "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$"
+            },
+            "additionalProperties": {
+              "$ref": "#/$defs/id"
+            },
+            "description": "task id -> persona id: who takes over each task a swapped-out member owned when no swapped-in persona lists the task's skills"
           }
         },
         "required": [
@@ -404,7 +496,9 @@
     "duration_estimate",
     "cost_class",
     "success_criteria",
-    "variants_by_industry"
+    "variants_by_industry",
+    "first_result_minutes",
+    "example_output"
   ],
   "$defs": {
     "group_file": {
@@ -431,7 +525,7 @@
             "$ref": "#"
           },
           "minItems": 1,
-          "maxItems": 24,
+          "maxItems": 36,
           "uniqueItems": true
         }
       },
@@ -608,7 +702,9 @@
         "investment_financial_advice",
         "employment_law",
         "security",
-        "privacy"
+        "privacy",
+        "workplace_safety",
+        "insurance"
       ]
     },
     "team_role": {

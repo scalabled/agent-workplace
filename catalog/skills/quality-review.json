@@ -192,7 +192,6 @@
         "embeddings_search",
         "web_search",
         "convene_meeting",
-        "code_interpreter",
         "spreadsheet_generate",
         "document_generate"
       ],
@@ -208,7 +207,7 @@
         "audio",
         "file"
       ],
-      "instructions": "1. Load the plan, goal, success criteria and key assumptions. Find base rates for similar projects with memory_recall and web_search (reference-class forecasting: how often do projects like this overrun or miss?). 2. Frame it: 'It is [a date after the deadline]. The plan failed badly. Why?' 3. Convene a voiced session with the team, the sceptic and someone from outside the plan's discipline. Everyone writes reasons independently first (silent generation avoids groupthink), then shares one at a time, round-robin. 4. Cluster the reasons (people, process, market, technical, dependencies, assumptions) and rate likelihood and impact 1–5 in code_interpreter. 5. For the top five to seven: a mitigation (prevent), a contingency (respond), an early-warning indicator with its threshold, and an owner. 6. Name any assumption that would kill the plan if false, with the cheapest test to check it. 7. Recommend go, go with changes, or rethink to the lead, with reasons. 8. State what could not be verified: base rates from weak comparisons and risks outside the team's knowledge.",
+      "instructions": "1. Load the plan, goal, success criteria and key assumptions. Find base rates for similar projects with memory_recall and web_search (reference-class forecasting: how often do projects like this overrun or miss?). 2. Frame it: 'It is [a date after the deadline]. The plan failed badly. Why?' 3. Convene a voiced session with the team, the sceptic and someone from outside the plan's discipline. Everyone writes reasons independently first (silent generation avoids groupthink), then shares one at a time, round-robin. 4. Cluster the reasons (people, process, market, technical, dependencies, assumptions) and rate likelihood and impact 1–5 in the failure-mode sheet. 5. For the top five to seven: a mitigation (prevent), a contingency (respond), an early-warning indicator with its threshold, and an owner. 6. Name any assumption that would kill the plan if false, with the cheapest test to check it. 7. Recommend go, go with changes, or rethink to the lead, with reasons. 8. State what could not be verified: base rates from weak comparisons and risks outside the team's knowledge.",
       "workflow": [
         {
           "activity": "llm",
@@ -226,7 +225,7 @@
           ]
         },
         {
-          "activity": "analysis",
+          "activity": "llm",
           "title": "Rate and cluster",
           "brief": "Cluster and rate the reasons.",
           "acceptance": "Every reason is clustered and rated.",
@@ -625,7 +624,6 @@
         "file_parse",
         "memory_recall",
         "embeddings_search",
-        "code_interpreter",
         "document_generate",
         "tts"
       ],
@@ -640,7 +638,7 @@
         "file",
         "audio"
       ],
-      "instructions": "1. Read the brief (purpose, audience, desired action, length, format) and load the house style with memory_recall. 2. Structural edit first: does the piece lead with the answer (BLUF, or the Pyramid Principle's governing thought, key line and support)? Are the groups logical and MECE? Cut or move sections that don't serve the purpose. 3. Check audience fit: jargon, assumed knowledge and tone. 4. Line edit: active voice, concrete nouns, one idea per sentence, hedges and filler cut, parallel lists, consistent terms. Measure readability in code_interpreter where it helps. 5. Apply house style consistently: spelling variant, numerals, capitalisation, dates, serial comma, brand voice and headings. 6. Read aloud: render the edited draft with tts and fix the sentences that don't survive being spoken. 7. Flag factual claims for fact-check rather than verifying them here. 8. Return tracked suggestions with document_generate plus an editor's note: the top three structural changes and why. The verdict's first line is APPROVED or CHANGES. 9. State what could not be verified.",
+      "instructions": "1. Read the brief (purpose, audience, desired action, length, format) and load the house style with memory_recall. 2. Structural edit first: does the piece lead with the answer (BLUF, or the Pyramid Principle's governing thought, key line and support)? Are the groups logical and MECE? Cut or move sections that don't serve the purpose. 3. Check audience fit: jargon, assumed knowledge and tone. 4. Line edit: active voice, concrete nouns, one idea per sentence, hedges and filler cut, parallel lists, consistent terms. 5. Apply house style consistently: spelling variant, numerals, capitalisation, dates, serial comma, brand voice and headings. 6. Read aloud: render the edited draft with tts and fix the sentences that don't survive being spoken. 7. Flag factual claims for fact-check rather than verifying them here. 8. Return tracked suggestions with document_generate plus an editor's note: the top three structural changes and why. The verdict's first line is APPROVED or CHANGES. 9. State what could not be verified.",
       "workflow": [
         {
           "activity": "llm",
@@ -1395,7 +1393,6 @@
         "web_fetch",
         "memory_recall",
         "vision_describe",
-        "code_interpreter",
         "document_generate"
       ],
       "connectors_optional": [
@@ -1410,7 +1407,7 @@
         "image",
         "url"
       ],
-      "instructions": "1. Understand the context: audience, purpose, markets and languages, and the house style guide (memory_recall). 2. Scan with file_parse and web_fetch for: gendered defaults and titles (use role-based terms or singular 'they'); ableist idioms and metaphors; age-coded language (especially in job ads); assumptions about family, religion, culture, names or holidays; stigmatising terms around mental health, addiction or disability (person-first or identity-first, as the community prefers); exclusionary jargon; and idioms that don't translate. 3. For job ads, check requirements that screen people out without being job-related, 'culture fit' language and degree inflation; keep criteria that are genuinely required. 4. Measure accessibility of the language in code_interpreter: reading level (about eighth grade for public content), sentence length, link text and expanded acronyms. 5. Check who is shown, and in what roles, in any images with vision_describe, and flag stereotypes. 6. For each item: quote, why it may exclude, suggested alternative and confidence. Avoid over-correction and don't flatten the voice. 7. Note where community preferences differ and the owner should choose. 8. The verdict's first line is APPROVED or CHANGES. 9. State what could not be verified: community preferences that vary by region.",
+      "instructions": "1. Understand the context: audience, purpose, markets and languages, and the house style guide (memory_recall). 2. Scan with file_parse and web_fetch for: gendered defaults and titles (use role-based terms or singular 'they'); ableist idioms and metaphors; age-coded language (especially in job ads); assumptions about family, religion, culture, names or holidays; stigmatising terms around mental health, addiction or disability (person-first or identity-first, as the community prefers); exclusionary jargon; and idioms that don't translate. 3. For job ads, check requirements that screen people out without being job-related, 'culture fit' language and degree inflation; keep criteria that are genuinely required. 4. Check accessibility of the language: estimated reading level (about eighth grade for public content), sentence length, link text and expanded acronyms. 5. Check who is shown, and in what roles, in any images with vision_describe, and flag stereotypes. 6. For each item: quote, why it may exclude, suggested alternative and confidence. Avoid over-correction and don't flatten the voice. 7. Note where community preferences differ and the owner should choose. 8. The verdict's first line is APPROVED or CHANGES. 9. State what could not be verified: community preferences that vary by region.",
       "workflow": [
         {
           "activity": "ingest",
@@ -1428,9 +1425,9 @@
           ]
         },
         {
-          "activity": "analysis",
+          "activity": "llm",
           "title": "Readability and imagery check",
-          "brief": "Measure reading level and review imagery.",
+          "brief": "Estimate reading level and review imagery.",
           "acceptance": "Reading level reported; imagery notes recorded.",
           "dependsOn": [
             0

@@ -1,0 +1,1586 @@
+{
+  "version": 1,
+  "about": "Rules the lead applies with form_team and plan_create: start from a team recipe when one fits, otherwise assemble a team from the catalog. Distilled from biz-bot assemble.js/plan.js (distinct disciplines, one sceptic who speaks for whoever is not in the room, provider spread, strongest model on the hardest trade-off, coordinator never the sceptic, owner/co-owner clusters with cross-discipline reviewers) and personagram casting (unique, presentation-matched voices; no cloning). Everything here is data: weights are relative, ids are catalog ids, and nothing is a price.",
+  "principles": [
+    "Every member owns a different discipline: no two generalists, and no member whose job is to summarise the others.",
+    "Exactly one sceptic in any team of three or more. The sceptic speaks for whoever is not in the room and reviews the task where being wrong is most expensive.",
+    "The coordinator is never the sceptic. The coordinator assembles the final deliverable, so plans contain no 'coordinate' or 'summarise' tasks.",
+    "Every task has one accountable owner (co-owners take over a failed attempt) and zero to two reviewers from a different discipline who answer APPROVED or CHANGES.",
+    "Start from a team recipe when one fits; adapt it with its industry variants rather than inventing a team from scratch.",
+    "Use the smallest team that covers the skills. Add a person only for a missing discipline, a regulated domain, a deliverable that leaves the workspace, or a meeting that needs a facilitator.",
+    "Spread members across model providers so perspectives really differ, and put the strongest reasoning tier on the hardest trade-off.",
+    "Voices are unique within a team and within any meeting, so the owner can always tell who is speaking.",
+    "Regulated work is drafts and analysis for a licensed professional: staff the domain's specialist and add a human licensed-review task before anything external happens.",
+    "Staff by skills, chemistry, providers, voices and cost; never select or exclude a coworker because of gender, heritage, age, disability or appearance.",
+    "Explain the team to the owner in one plain sentence: who leads, who does what, who the sceptic is and why."
+  ],
+  "algorithm": [
+    {
+      "step": 1,
+      "name": "frame",
+      "do": "Restate the owner's goal as an outcome, list the deliverables (artifact types) and the decisions the owner must make, and note the owner's industry from the business profile."
+    },
+    {
+      "step": 2,
+      "name": "match_recipe",
+      "do": "Score every recipe with recipe_first.match_signals. If the best score is at least recipe_first.min_match_score, take its lean_variant, composition or full_variant according to the chosen size, apply the owner's industry variant, then go to step 6."
+    },
+    {
+      "step": 3,
+      "name": "derive_skills",
+      "do": "Otherwise derive the required skills from the deliverables (skills whose outputs produce those artifact types) and from the goal; mark each skill 'must' or 'nice'. Add regulated_domain_rules for any domain those skills carry."
+    },
+    {
+      "step": 4,
+      "name": "pick_members",
+      "do": "Score every persona with selection_scoring and add members greedily by marginal must-skill coverage until every must-skill has a primary or secondary owner or the size cap is reached. Fill remaining gaps with gap_filling."
+    },
+    {
+      "step": 5,
+      "name": "add_required_roles",
+      "do": "Ensure a coordinator (roles.coordinator), a sceptic (sceptic_selection), a facilitator when meeting formats require one, regulated-domain specialists and any core_crew_triggers that fit the size. If over the cap, drop the non-required member with the lowest marginal coverage."
+    },
+    {
+      "step": 6,
+      "name": "check_team",
+      "do": "Apply diversity, chemistry, seniority_mix and voice_capacity checks, resolve voices with voice_assignment, apply the lead's lead_style_overrides, and compare the plan's cost_class with budget. Compute team_scoring; if a swap raises the score by at least team_scoring.min_improvement_to_swap, swap."
+    },
+    {
+      "step": 7,
+      "name": "plan",
+      "do": "Draft a DAG of at most limits.max_plan_tasks tasks with plan_create: one owner per task (clusters), reviewers from another discipline, the sceptic reviewing the costliest task, a human licensed-review task before anything external in regulated work, and meetings per meetings."
+    },
+    {
+      "step": 8,
+      "name": "explain_and_confirm",
+      "do": "Tell the owner the team in one sentence (explain_to_owner). Ask for approval before starting when budget.ask_owner_when applies or the plan contains a regulated domain; otherwise start and report."
+    }
+  ],
+  "recipe_first": {
+    "min_match_score": 0.6,
+    "match_signals": {
+      "outcome_similarity": 0.45,
+      "deliverable_overlap": 0.25,
+      "industry_variant_available": 0.1,
+      "inputs_already_known": 0.1,
+      "owner_used_recipe_before": 0.1
+    },
+    "signal_definitions": {
+      "outcome_similarity": "Semantic similarity between the owner's goal and the recipe's outcome, name and recipe_intents phrases (0-1).",
+      "deliverable_overlap": "Share of the deliverables the owner asked for that the recipe produces.",
+      "industry_variant_available": "1 if the recipe has a variant for the owner's industry or the recipe is industry-neutral, else 0.",
+      "inputs_already_known": "Share of the recipe's required inputs_from_owner already answered by memory or connectors.",
+      "owner_used_recipe_before": "1 if the owner ran this recipe before and rated it well."
+    },
+    "size_to_variant": {
+      "lean": "lean_variant",
+      "balanced": "composition",
+      "thorough": "full_variant"
+    },
+    "adapt_with": "variants_by_industry",
+    "adaptation_rules": [
+      "Apply swap_out before swap_in; never swap out the sceptic or the coordinator without naming a replacement with the same role.",
+      "Every task a swapped-out member owned moves to a swapped-in persona who lists all its skills as primary or secondary, or to the persona the variant's reassign map names; the validator enforces this.",
+      "Each extra_skill_id becomes one new task owned by the swapped-in specialist (or the best-scoring member) and reviewed by the sceptic or the coordinator.",
+      "Re-run voice_assignment and the size cap after adapting; if the variant pushes the team over limits.max_team_members, drop full-variant extras first.",
+      "Adapting a recipe keeps its regulated_domains and adds any domain the new skills carry. When a variant would change the regulated domains, it becomes its own recipe instead."
+    ],
+    "explain": "one line per member: who and why",
+    "fallback": "Form from scratch with the algorithm when no recipe scores at least min_match_score, or when the owner rejects the recipe's team."
+  },
+  "complexity": {
+    "signals": [
+      {
+        "signal": "distinct_disciplines_needed",
+        "points": "1 per discipline beyond two"
+      },
+      {
+        "signal": "deliverable_leaves_workspace",
+        "points": 1
+      },
+      {
+        "signal": "regulated_domain_involved",
+        "points": 2
+      },
+      {
+        "signal": "two_or_more_owner_decisions",
+        "points": 1
+      },
+      {
+        "signal": "irreversible_or_money_moving_step",
+        "points": 2
+      },
+      {
+        "signal": "more_than_five_calendar_days",
+        "points": 1
+      },
+      {
+        "signal": "little_existing_data_or_new_market",
+        "points": 1
+      }
+    ],
+    "size_by_score": {
+      "lean": [
+        0,
+        2
+      ],
+      "balanced": [
+        3,
+        5
+      ],
+      "thorough": [
+        6,
+        99
+      ]
+    },
+    "owner_override": "If the owner says 'quick', 'small' or 'just', cap at lean unless a regulated domain requires a specialist; if the owner says 'thorough' or 'bulletproof', use thorough."
+  },
+  "team_size": {
+    "min": 2,
+    "lean": [
+      2,
+      3
+    ],
+    "balanced": [
+      3,
+      5
+    ],
+    "thorough": [
+      5,
+      8
+    ],
+    "max": 8
+  },
+  "roles": {
+    "sceptic": {
+      "required_when_team_size_at_least": 3,
+      "exactly": 1,
+      "default_persona_id": "red-team-sceptic",
+      "must_have_team_role": "sceptic",
+      "never_coordinator": true,
+      "placement": "reviewer on the task where being wrong is most expensive (money, customers, reputation, anything irreversible); may also own a pre-mortem, red-team or test task",
+      "conduct": "Steelman, never obstruct: every objection names the evidence that would resolve it, and the sceptic accepts the evidence when it arrives."
+    },
+    "facilitator": {
+      "required_when_meeting_formats": [
+        "debate",
+        "decision",
+        "workshop"
+      ],
+      "default_persona_id": "facilitator",
+      "alternatives": [
+        "project-manager",
+        "okr-coach",
+        "change-management-lead",
+        "communications-director",
+        "creative-director",
+        "research-director",
+        "negotiation-strategist",
+        "podcast-producer"
+      ],
+      "satisfied_by": "any member (other than the sceptic) whose team_roles include facilitator; then no extra facilitator is added",
+      "may_coordinate": true
+    },
+    "coordinator": {
+      "prefer_roles": [
+        "lead"
+      ],
+      "prefer": "the member whose discipline owns the final deliverable",
+      "fallback_persona_ids": [
+        "project-manager",
+        "operations-director"
+      ],
+      "never": "the sceptic",
+      "duty": "Assembles the final deliverable from task outputs, never claims unfinished tasks succeeded, and hands the owner decisions to the lead."
+    },
+    "reviewer": {
+      "from_other_discipline": true,
+      "max_per_task": 2,
+      "verdict_first_line": [
+        "APPROVED",
+        "CHANGES"
+      ],
+      "never_the_owner": true
+    },
+    "co_owner": {
+      "use_for": "shared ownership; a failed attempt rotates to the next co-owner"
+    },
+    "specialist": {
+      "use_for": "a bounded question via ask_coworker, or one narrow task"
+    }
+  },
+  "sceptic_selection": {
+    "rule": "Pick the sceptic from the discipline of the plan's highest-cost decision, not the coordinator's discipline. Prefer a candidate listed in the coordinator's or main owner's productive_tension_with. Use default_persona_id when nothing fits.",
+    "default_persona_id": "red-team-sceptic",
+    "by_discipline": {
+      "marketing_and_growth": [
+        "marketing-analyst",
+        "experimentation-analyst",
+        "cro-specialist"
+      ],
+      "brand_and_creative": [
+        "red-team-sceptic",
+        "ux-researcher"
+      ],
+      "social_and_reputation": [
+        "risk-ethics-advisor",
+        "crisis-comms-advisor"
+      ],
+      "sales_and_deals": [
+        "negotiation-strategist",
+        "competitive-intel-analyst"
+      ],
+      "pricing_and_promotions": [
+        "cost-margin-analyst",
+        "pricing-strategist",
+        "pricing-promotions-analyst"
+      ],
+      "finance_and_fundraising": [
+        "fractional-cfo",
+        "unit-economics-analyst",
+        "controls-specialist"
+      ],
+      "strategy_and_markets": [
+        "scenario-planner",
+        "red-team-sceptic",
+        "risk-ethics-advisor"
+      ],
+      "research_and_evidence": [
+        "evidence-reviewer",
+        "foresight-researcher"
+      ],
+      "product_and_ux": [
+        "ux-researcher",
+        "product-analyst",
+        "platform-product-manager"
+      ],
+      "engineering": [
+        "tech-lead",
+        "qa-automation-engineer",
+        "automation-scripter"
+      ],
+      "ai_features": [
+        "ai-governance-advisor",
+        "ai-engineer"
+      ],
+      "security_and_it": [
+        "security-analyst",
+        "resilience-engineer"
+      ],
+      "operations_and_quality": [
+        "quality-manager",
+        "operations-analyst",
+        "procurement-manager"
+      ],
+      "events_and_continuity": [
+        "continuity-planner",
+        "resilience-engineer"
+      ],
+      "communications_and_pr": [
+        "crisis-comms-advisor"
+      ],
+      "legal_and_compliance": [
+        "contracts-analyst",
+        "regulatory-research-analyst",
+        "ip-research-specialist"
+      ],
+      "people_and_culture": [
+        "inclusion-partner"
+      ],
+      "data_and_forecasting": [
+        "data-scientist",
+        "experimentation-analyst"
+      ],
+      "sustainability_claims": [
+        "sustainability-strategist"
+      ],
+      "ecommerce": [
+        "pricing-promotions-analyst"
+      ],
+      "workplace_safety": [
+        "workplace-safety-coordinator"
+      ],
+      "insurance_and_risk": [
+        "continuity-planner",
+        "risk-ethics-advisor"
+      ]
+    }
+  },
+  "clusters": {
+    "owners": [
+      1,
+      3
+    ],
+    "reviewers": [
+      0,
+      2
+    ],
+    "reviewer_other_discipline": true,
+    "reviewer_not_owner": true,
+    "rotate_owner_on_failure": true,
+    "max_open_tasks_per_member": 3,
+    "review_protocol": "Reviewers run in parallel; the first line is exactly APPROVED or CHANGES; an incomplete review counts as CHANGES; one revision, then the owner decides."
+  },
+  "diversity": {
+    "unique_disciplines": true,
+    "max_same_department": 3,
+    "spread_providers": true,
+    "min_distinct_primary_providers": {
+      "team_size_at_least_3": 2,
+      "team_size_at_least_6": 3
+    },
+    "strongest_model_on_hardest_tradeoff": true,
+    "voice_unique_within_team": true,
+    "people_fields_never_used_for_selection": [
+      "pronouns",
+      "age_range",
+      "heritage",
+      "look_hint",
+      "appearance"
+    ],
+    "min_distinct_primary_providers_rule": "Count each composition member's first provider_preference; the validator enforces the minimum for the default (balanced) team."
+  },
+  "chemistry": {
+    "pairs_well_with_bonus": 1,
+    "max_pairs_bonus_per_member": 3,
+    "productive_tension_bonus": 2,
+    "max_productive_tension_pairs_per_team": 2,
+    "placement": "Put a productive-tension pair on the same artifact as owner and reviewer, or in the same debate, so the friction improves one deliverable instead of spreading across the plan.",
+    "avoid": "More than two tension pairs in a team of five or fewer, or a tension pair where both members review each other's tasks."
+  },
+  "seniority_mix": {
+    "rules": [
+      "Teams of three or more include at least one lead or principal.",
+      "The sceptic, or the reviewer of the costliest task, is senior, lead or principal.",
+      "At most half the team is principal unless the size is thorough.",
+      "Specialists own narrow tasks; principals take the hardest trade-off and final reviews."
+    ],
+    "weights": {
+      "has_lead_or_principal": 1,
+      "senior_on_costliest_review": 1,
+      "principal_overload_penalty": -1
+    }
+  },
+  "core_crew_triggers": [
+    {
+      "when": "a deliverable leaves the workspace (sent, published or given to a third party)",
+      "add": "editor-in-chief",
+      "as": "reviewer"
+    },
+    {
+      "when": "facts, statistics, claims or quotes appear in an external deliverable",
+      "add": "fact-checker",
+      "as": "reviewer"
+    },
+    {
+      "when": "the plan has more than four tasks and no member has the facilitator or project role",
+      "add": "project-manager",
+      "as": "co_owner"
+    },
+    {
+      "when": "any meeting_moment will be recorded as minutes",
+      "add": "minutes-scribe",
+      "as": "specialist"
+    },
+    {
+      "when": "the final deliverable has checkable acceptance criteria and the size is thorough",
+      "add": "qa-verifier",
+      "as": "reviewer"
+    },
+    {
+      "when": "durable knowledge is created (policies, playbooks, decisions)",
+      "add": "knowledge-librarian",
+      "as": "specialist"
+    }
+  ],
+  "core_crew_note": "Recipes already reflect curated choices, so triggers apply when forming from scratch or when the owner picks the thorough size. Triggers never push a team past limits.max_team_members; lower-priority triggers are handled with ask_coworker instead.",
+  "industry_specialists": {
+    "general": null,
+    "hospitality-restaurants": "hospitality-operator",
+    "real-estate": "real-estate-specialist",
+    "construction-trades": "construction-estimator",
+    "healthcare-practice": "practice-administrator",
+    "legal-practice": "law-firm-ops-specialist",
+    "professional-services": "agency-operator",
+    "nonprofit": "nonprofit-fundraising-lead",
+    "saas-startup": "saas-operator",
+    "manufacturing": "manufacturing-specialist",
+    "fitness-wellness": "fitness-studio-operator",
+    "education-coaching": "education-program-designer",
+    "creator-economy": "creator-economy-strategist",
+    "ecommerce-retail": "ecommerce-manager",
+    "local-services": "home-services-operator"
+  },
+  "industry_rule": "Add the owner's industry specialist as a specialist or reviewer when the industry changes what 'good' looks like (rules, unit economics, customer journey). Use a recipe's variants_by_industry first when one exists.",
+  "regulated_domain_rules": {
+    "legal": {
+      "reviewer": "a licensed attorney in the relevant jurisdiction",
+      "rule": "Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent.",
+      "must_include_one_of": [
+        "contracts-analyst",
+        "regulatory-research-analyst",
+        "compliance-coordinator",
+        "legal-ops-coordinator",
+        "risk-ethics-advisor",
+        "law-firm-ops-specialist"
+      ],
+      "add_task": {
+        "activity": "human",
+        "title": "Licensed review",
+        "placement": "before any send, publish, sign, file, pay or public step",
+        "prepared_by": "the domain specialist on the team",
+        "arranged_by": "the owner",
+        "informed_owner_decision": {
+          "allowed_for": [
+            "a mutual NDA from a vetted template with no changes to liability, IP, term or governing law",
+            "replies, FAQs and marketing copy that make no legal claims",
+            "internal checklists, calendars and clause libraries"
+          ],
+          "review_always_required_for": [
+            "signing a contract worth more than the owner's threshold (default: over 10,000 in the owner's currency or longer than 12 months) or with uncapped liability, exclusivity or IP assignment",
+            "anything sent to a court, regulator or opposing party",
+            "securities, fundraising or investor material",
+            "breach or incident notifications"
+          ]
+        }
+      },
+      "approval_tier_floor": "draft",
+      "escalate_to": "licensed_professional",
+      "never": [
+        "state a legal conclusion as certain",
+        "call any output legal advice",
+        "sign, file or send a legal document on the owner's behalf"
+      ]
+    },
+    "tax_accounting": {
+      "reviewer": "a CPA, EA or chartered accountant",
+      "rule": "Organize, reconcile and draft. Filings, elections and tax positions are for a qualified professional to decide and sign.",
+      "must_include_one_of": [
+        "controller",
+        "tax-prep-coordinator",
+        "bookkeeper",
+        "fractional-cfo",
+        "payroll-benefits-admin"
+      ],
+      "add_task": {
+        "activity": "human",
+        "title": "Licensed review",
+        "placement": "before any send, publish, sign, file, pay or public step",
+        "prepared_by": "the domain specialist on the team",
+        "arranged_by": "the owner",
+        "informed_owner_decision": {
+          "allowed_for": [
+            "the monthly close and reconciliations for internal use",
+            "categorization rules and a chart-of-accounts clean-up",
+            "a year-end organizer handed to the owner's preparer"
+          ],
+          "review_always_required_for": [
+            "filings, returns and elections",
+            "tax positions and sales-tax registration or remittance decisions",
+            "payroll tax set-up and year-end forms"
+          ]
+        }
+      },
+      "approval_tier_floor": "draft",
+      "escalate_to": "licensed_professional",
+      "never": [
+        "file returns or make elections",
+        "take a tax position for the owner"
+      ]
+    },
+    "medical_clinical": {
+      "reviewer": "a licensed clinician",
+      "rule": "Administrative and non-clinical work only. No diagnosis, treatment, triage or dosing guidance; route anything clinical to the practice's clinicians; minimize protected health information.",
+      "must_include_one_of": [
+        "practice-administrator",
+        "evidence-reviewer"
+      ],
+      "add_task": {
+        "activity": "human",
+        "title": "Licensed review",
+        "placement": "before any send, publish, sign, file, pay or public step",
+        "prepared_by": "the domain specialist on the team",
+        "arranged_by": "the owner",
+        "informed_owner_decision": {
+          "allowed_for": [
+            "scheduling templates and reminder wording that contain no clinical content"
+          ],
+          "review_always_required_for": [
+            "any clinical content, triage wording or patient-facing health information"
+          ]
+        }
+      },
+      "approval_tier_floor": "draft",
+      "escalate_to": "licensed_professional",
+      "never": [
+        "diagnose, triage, treat or advise on dosing",
+        "staff a team for clinical work",
+        "process more protected health information than the administrative task needs"
+      ]
+    },
+    "investment_financial_advice": {
+      "reviewer": "a licensed financial adviser",
+      "rule": "No personalized investment advice or recommendations to buy, sell or hold. Explain mechanics and model the owner's own scenarios; say you are not a licensed adviser.",
+      "must_include_one_of": [
+        "fractional-cfo",
+        "startup-finance-analyst",
+        "investor-relations-advisor",
+        "saas-operator"
+      ],
+      "add_task": {
+        "activity": "human",
+        "title": "Licensed review",
+        "placement": "before any send, publish, sign, file, pay or public step",
+        "prepared_by": "the domain specialist on the team",
+        "arranged_by": "the owner",
+        "informed_owner_decision": {
+          "allowed_for": [
+            "internal scenario models the owner uses only for their own planning"
+          ],
+          "review_always_required_for": [
+            "securities, investor or fundraising material",
+            "loan applications and personal guarantees",
+            "exit, valuation or sale material shared with third parties"
+          ]
+        }
+      },
+      "approval_tier_floor": "draft",
+      "escalate_to": "licensed_professional",
+      "never": [
+        "recommend buying, selling or holding any security or asset",
+        "recommend a valuation, instrument or deal term",
+        "imply a coworker is a licensed adviser"
+      ]
+    },
+    "employment_law": {
+      "reviewer": "employment counsel or a qualified HR professional",
+      "rule": "Policies and processes as drafts with jurisdiction flags. Terminations, discipline, accommodations, classification and pay-equity questions escalate to the owner and counsel.",
+      "must_include_one_of": [
+        "people-partner",
+        "employment-policy-drafter",
+        "compensation-analyst",
+        "payroll-benefits-admin"
+      ],
+      "add_task": {
+        "activity": "human",
+        "title": "Licensed review",
+        "placement": "before any send, publish, sign, file, pay or public step",
+        "prepared_by": "the domain specialist on the team",
+        "arranged_by": "the owner",
+        "informed_owner_decision": {
+          "allowed_for": [
+            "recognition programs, onboarding checklists and interview kits with no pay or classification decisions",
+            "pulse surveys that keep anonymity thresholds"
+          ],
+          "review_always_required_for": [
+            "terminations, discipline, accommodations and worker classification",
+            "offer letters, pay bands and pay-equity questions",
+            "handbook policies with legal effect",
+            "final pay and benefits continuation"
+          ]
+        }
+      },
+      "approval_tier_floor": "draft",
+      "escalate_to": "licensed_professional",
+      "never": [
+        "decide terminations, discipline, accommodations, worker classification or pay-equity questions"
+      ]
+    },
+    "security": {
+      "reviewer": "a qualified security professional for high-risk changes",
+      "rule": "Defensive work only. No exploit development against systems the owner does not control; no credential handling; changes to production access go through approval.",
+      "must_include_one_of": [
+        "security-analyst",
+        "security-compliance-specialist",
+        "it-manager",
+        "integration-architect",
+        "ai-governance-advisor"
+      ],
+      "add_task": {
+        "activity": "human",
+        "title": "Licensed review",
+        "placement": "before any send, publish, sign, file, pay or public step",
+        "prepared_by": "the domain specialist on the team",
+        "arranged_by": "the owner",
+        "informed_owner_decision": {
+          "allowed_for": [
+            "read-only inventories, checklists and awareness material",
+            "reversible settings the vendor recommends, applied by the owner"
+          ],
+          "review_always_required_for": [
+            "changes to production access or identity settings for the whole business",
+            "breach or incident notifications",
+            "anything touching credentials or keys"
+          ]
+        }
+      },
+      "approval_tier_floor": "ask",
+      "escalate_to": "licensed_professional",
+      "never": [
+        "develop exploits against systems the owner does not control",
+        "handle credentials",
+        "change production access without approval"
+      ]
+    },
+    "privacy": {
+      "reviewer": "a privacy professional or counsel",
+      "rule": "Data-protection drafts only; minimize personal data; never collect or compile personal data beyond the business purpose.",
+      "must_include_one_of": [
+        "privacy-specialist",
+        "security-compliance-specialist",
+        "ai-governance-advisor",
+        "risk-ethics-advisor"
+      ],
+      "add_task": {
+        "activity": "human",
+        "title": "Licensed review",
+        "placement": "before any send, publish, sign, file, pay or public step",
+        "prepared_by": "the domain specialist on the team",
+        "arranged_by": "the owner",
+        "informed_owner_decision": {
+          "allowed_for": [
+            "internal data maps, retention calendars and access lists"
+          ],
+          "review_always_required_for": [
+            "privacy notices published to customers",
+            "breach notifications",
+            "special-category or children's data",
+            "cross-border transfer mechanisms"
+          ]
+        }
+      },
+      "approval_tier_floor": "draft",
+      "escalate_to": "licensed_professional",
+      "never": [
+        "collect or compile personal data beyond the business purpose",
+        "put personal data in URLs or share it with services the owner did not choose"
+      ]
+    },
+    "workplace_safety": {
+      "reviewer": "the site's competent person or a qualified safety or food-safety professional",
+      "rule": "Awareness and drafts only; no certification, no live-hazard judgements; route hazards to the site lead immediately.",
+      "must_include_one_of": [
+        "workplace-safety-coordinator",
+        "construction-estimator",
+        "manufacturing-specialist",
+        "hospitality-operator",
+        "home-services-operator"
+      ],
+      "add_task": {
+        "activity": "human",
+        "title": "Licensed review by the site's competent person",
+        "placement": "before any send, publish, sign, file, pay or public step",
+        "prepared_by": "the domain specialist on the team",
+        "arranged_by": "the owner",
+        "informed_owner_decision": {
+          "allowed_for": [
+            "a toolbox-talk or housekeeping checklist the site lead reads before use"
+          ],
+          "review_always_required_for": [
+            "risk assessments, hazard controls, HACCP plans and allergen matrices put into use",
+            "allergen or safety statements given to customers or staff as fact",
+            "incident reports to a regulator"
+          ]
+        }
+      },
+      "approval_tier_floor": "draft",
+      "escalate_to": "licensed_professional",
+      "never": [
+        "certify a site, process, food-safety plan or piece of equipment as safe",
+        "judge a live hazard remotely instead of routing it to the site lead at once",
+        "tell a customer a dish or product is free of an allergen"
+      ]
+    },
+    "insurance": {
+      "reviewer": "a licensed insurance broker or agent",
+      "rule": "Inventories, questions and document organization only. Never recommend coverage, limits or carriers, never say whether a claim is covered, and route coverage decisions to a licensed broker or agent.",
+      "must_include_one_of": [
+        "continuity-planner",
+        "risk-ethics-advisor",
+        "fractional-cfo"
+      ],
+      "add_task": {
+        "activity": "human",
+        "title": "Licensed review",
+        "placement": "before any send, publish, sign, file, pay or public step",
+        "prepared_by": "the domain specialist on the team",
+        "arranged_by": "the owner",
+        "informed_owner_decision": {
+          "allowed_for": [
+            "the coverage inventory and questions list prepared for the owner's broker"
+          ],
+          "review_always_required_for": [
+            "choosing coverage, limits, deductibles or carriers",
+            "claims submissions and statements to insurers",
+            "certificates of insurance issued to third parties"
+          ]
+        }
+      },
+      "approval_tier_floor": "draft",
+      "escalate_to": "licensed_professional",
+      "never": [
+        "recommend a coverage type, limit, deductible or carrier",
+        "say whether a loss or claim is covered",
+        "submit a claim or statement to an insurer without the owner and broker"
+      ]
+    }
+  },
+  "selection_scoring": {
+    "weights": {
+      "primary_skill": 5,
+      "secondary_skill": 2,
+      "industry": 2,
+      "department": 1,
+      "lead_favourite": 1,
+      "track_record": 2,
+      "pairs_well_with_member": 1,
+      "productive_tension_with_member": 2,
+      "adds_new_provider": 1,
+      "seniority_fit": 1,
+      "voice_unresolvable": -3,
+      "cost_tier_above_cap": -2,
+      "overloaded_open_tasks": -2,
+      "missing_tool_or_connector": -10
+    },
+    "definitions": {
+      "primary_skill": "Per required skill the persona lists as primary.",
+      "secondary_skill": "Per required skill the persona lists as secondary.",
+      "industry": "The persona's industries include the owner's industry.",
+      "department": "The persona's department matches the goal's main discipline.",
+      "lead_favourite": "The persona is in the current lead's staffing_style.favourite_persona_ids.",
+      "track_record": "The owner rated this persona's recent work well (0 when there is no history).",
+      "pairs_well_with_member": "Per already-chosen member in the persona's pairs_well_with (capped by chemistry.max_pairs_bonus_per_member).",
+      "productive_tension_with_member": "The persona has productive_tension_with an already-chosen member and the team has fewer than chemistry.max_productive_tension_pairs_per_team pairs.",
+      "adds_new_provider": "The persona's first provider_preference is not yet used by the team.",
+      "seniority_fit": "The persona fills a gap in seniority_mix.",
+      "voice_unresolvable": "Neither the persona's voice nor any alternate is free in the team (per provider).",
+      "cost_tier_above_cap": "The persona's model tier is deep while budget caps the plan below high.",
+      "overloaded_open_tasks": "The persona already has clusters.max_open_tasks_per_member open tasks.",
+      "missing_tool_or_connector": "The persona lacks a tool an assigned skill needs (taxonomy.baseline_tools always count as present), or a needed connector is not enabled for the owner and the skill input has no fallback."
+    },
+    "tie_breakers": [
+      "fewer open tasks",
+      "voice not yet used in this team",
+      "lower model tier",
+      "the lead's favourite",
+      "higher seniority for review tasks, lower for narrow tasks"
+    ]
+  },
+  "team_scoring": {
+    "formula": "team_score = sum(weight x component), each component normalised to 0-1",
+    "weights": {
+      "skill_coverage": 0.35,
+      "chemistry": 0.12,
+      "seniority_mix": 0.1,
+      "provider_diversity": 0.1,
+      "voice_uniqueness": 0.1,
+      "cost_fit": 0.1,
+      "industry_fit": 0.08,
+      "size_fit": 0.05
+    },
+    "components": {
+      "skill_coverage": "Share of must-skills with a primary owner (secondary counts 0.5), minus 0.1 per uncovered nice-skill, floored at 0.",
+      "chemistry": "(pairs_well_with links + 2 x productive-tension pairs, capped) / the cap for this team size.",
+      "seniority_mix": "Share of seniority_mix rules satisfied.",
+      "provider_diversity": "Distinct first providers / min(team size, 3).",
+      "voice_uniqueness": "1 if every member resolves from voice or alternates on both providers; 0.5 if a presentation fallback is needed; 0 if any clash remains.",
+      "cost_fit": "1 if the plan's cost_class is within the autonomy cap, 0.5 if one class above, else 0.",
+      "industry_fit": "1 if the owner's industry specialist or industry-listed personas cover the industry-sensitive tasks.",
+      "size_fit": "1 if the size is within the chosen band (lean, balanced or thorough), else 0.5."
+    },
+    "min_improvement_to_swap": 0.05
+  },
+  "gap_filling": {
+    "order": [
+      {
+        "strategy": "secondary_skill_holder",
+        "do": "Staff a member who lists the skill as secondary; make a primary holder elsewhere in the catalog the reviewer via ask_coworker if they are not on the team."
+      },
+      {
+        "strategy": "department_generalist",
+        "do": "Use the department's generalist from department_generalists, who can run or review most of the department's skills."
+      },
+      {
+        "strategy": "core_crew",
+        "do": "Use core crew for cross-cutting work: project-manager (planning), editor-in-chief (writing), fact-checker (claims), qa-verifier (acceptance), knowledge-librarian (knowledge)."
+      },
+      {
+        "strategy": "ask_coworker_bounded",
+        "do": "Consult a specialist for one bounded question without adding them to the team."
+      },
+      {
+        "strategy": "spawn_coworker",
+        "do": "Lead-only: spawn an ad-hoc specialist cloned from the closest persona (same department), with a bounded name, role and instructions, marked AI and generated, given a free voice. At most limits.max_adhoc_specialists per project; never for a regulated domain."
+      },
+      {
+        "strategy": "ask_owner",
+        "do": "Tell the owner plainly what is missing (a skill, a connector or information) and offer the closest recipe or a connector to enable."
+      }
+    ],
+    "department_generalists": {
+      "core-crew": "project-manager",
+      "strategy-leadership": "chief-strategist",
+      "marketing-growth": "growth-lead",
+      "content-comms-pr": "communications-director",
+      "design-creative": "creative-director",
+      "sales-partnerships": "head-of-sales",
+      "research-insights": "research-director",
+      "data-analytics": "head-of-analytics",
+      "finance-accounting": "fractional-cfo",
+      "operations-supply-chain": "operations-director",
+      "people-culture": "people-partner",
+      "legal-compliance": "contracts-analyst",
+      "it-security-automation": "it-manager",
+      "engineering": "tech-lead",
+      "product": "head-of-product",
+      "customer-success-support": "head-of-support",
+      "ecommerce-retail": "ecommerce-manager",
+      "industry-specialists": "use industry_specialists for the owner's industry"
+    },
+    "never": "Fill a regulated-domain gap with a generalist or a spawned coworker; use regulated_domain_rules.must_include_one_of and the licensed-review task."
+  },
+  "voice_assignment": {
+    "order": [
+      "persona voice",
+      "alternates",
+      "cross_surface_fallbacks",
+      "first free voice of matching presentation"
+    ],
+    "unique_within": "team and meeting",
+    "method": "Resolve OpenAI and xAI voices independently, as a matching over each member's [voice, ...alternates] that prefers earlier candidates for earlier members in claim order (backtracking), so a clash is solved by moving whoever has a free alternate. Fall back to cross-surface or presentation fallbacks only when no matching exists.",
+    "claim_order": "composition order as listed (recipes list the coordinator first), then members added later",
+    "presentation_match": "she/her: feminine, he/him: masculine, they/them: neutral or either; runtime re-checks against the live voice catalogue.",
+    "reserve_lead_voice": "In any meeting where the lead speaks, the lead's voices are excluded from coworker assignment.",
+    "record": "Store the resolved voice per member on the team so a coworker sounds the same for the whole project. A recipe may pin a member's voice with composition[].voice_override; that id must be the member's voice or one of their alternates.",
+    "never": "Clone a voice or impersonate the owner; the owner's own voice is used only from their own recordings.",
+    "until_audition": "While taxonomy.voices.audition_gate.status is 'pending', play coworkers through OpenAI where the owner has it enabled; on xAI use the first characterized voice (eve, ara, leo, rex, sal) in each member's [voice, ...alternates], resolved uniquely as above."
+  },
+  "voice_capacity": {
+    "note": "Distinct voices per presentation. A team or meeting with more members of one presentation than a provider has voices cannot be fully unique on that provider: split into two meetings, use the other provider for playback, or swap a member.",
+    "openai_tts": {
+      "feminine": 5,
+      "masculine": 6,
+      "neutral": 2
+    },
+    "xai_tts": {
+      "feminine": 7,
+      "masculine": 13,
+      "neutral": 6
+    },
+    "rule": "Keep at most 5 she/her members per team for OpenAI playback (fewer when the lead joins with a feminine voice); they/them members may take a neutral or either voice."
+  },
+  "model_policy": {
+    "tier_by_position": {
+      "sceptic": "deep",
+      "reviewer_of_owner_decision_task": "deep",
+      "coordinator": "persona default",
+      "meeting_banter": "fast",
+      "meeting_synthesis": "deep"
+    },
+    "spread_providers": "Use each persona's provider_preference. If two members land on the same provider and another provider in someone's preference list is unused, move the lower-seniority member to their next preference.",
+    "strongest_model_on_hardest_tradeoff": "The owner or reviewer of the task with needs_owner_decision, or the highest-cost task, runs on the deep tier.",
+    "local_private": "When the owner marks data as private, prefer personas whose preferences include ollama or local providers, or route to model_tiers.needs.local_private candidates.",
+    "recipe_model_hints": "A recipe's model_hints.by_task overrides the tier for those tasks (for example fast drafting when minutes matter); tier_by_position still puts the deep tier on the sceptic's review and on needs_owner_decision tasks unless the hint names that task."
+  },
+  "budget": {
+    "cost_class_caps_by_autonomy": {
+      "1": "med",
+      "2": "med",
+      "3": "high",
+      "4": "high",
+      "5": "high"
+    },
+    "ask_owner_above": "high",
+    "ask_owner_when": [
+      "the plan's cost_class exceeds the cap for the lead's autonomy",
+      "video generation or long voiced meetings are planned and the owner has not approved media spend",
+      "the thorough size is chosen for a goal the owner called quick"
+    ],
+    "downsize_order": [
+      "drop full-variant extras",
+      "switch to the lean variant",
+      "reduce media deliverables (video, long audio)",
+      "move reviewers to ask_coworker"
+    ]
+  },
+  "limits": {
+    "max_team_members": 8,
+    "max_plan_tasks": 8,
+    "max_concurrency": 3,
+    "max_revisions": 1,
+    "max_attempts": 2,
+    "max_delegation_depth": 2,
+    "max_handoff_rounds": 6,
+    "max_adhoc_specialists": 4,
+    "max_meeting_participants": 6
+  },
+  "meetings": {
+    "kickoff_when_team_size_at_least": 3,
+    "critique_before_external_deliverable": true,
+    "decision_meeting_when": "a task has needs_owner_decision or the plan has an irreversible step",
+    "debate_requires": [
+      "sceptic",
+      "facilitator, or a coordinator with the facilitator role"
+    ],
+    "owner_modes": [
+      "listen",
+      "join",
+      "skip_for_summary"
+    ],
+    "protocol": "The chair frames in under 200 words and names the hinge constraint; members open with their discipline's angle and its failure mode; the debate names one disagreement with evidence; the chair synthesises a recommendation, owners, open disagreements and asks of the owner.",
+    "rounds": {
+      "default": 2,
+      "max": 4
+    },
+    "minutes": "The minutes-scribe (or the coordinator) records decisions and actions with an owner and a date."
+  },
+  "lead_style_overrides": {
+    "lead-big-picture-visionary": {
+      "default_size": "balanced",
+      "always_includes_roles": [
+        "sceptic",
+        "facilitator"
+      ],
+      "favourite_persona_ids": [
+        "chief-strategist",
+        "scenario-planner",
+        "okr-coach",
+        "brand-strategist",
+        "fractional-cfo",
+        "communications-director",
+        "sustainability-strategist",
+        "red-team-sceptic"
+      ]
+    },
+    "lead-data-analyst": {
+      "default_size": "thorough",
+      "always_includes_roles": [
+        "reviewer",
+        "sceptic"
+      ],
+      "favourite_persona_ids": [
+        "head-of-analytics",
+        "data-analyst",
+        "experimentation-analyst",
+        "unit-economics-analyst",
+        "bi-developer",
+        "analytics-storyteller",
+        "fact-checker",
+        "data-scientist"
+      ]
+    },
+    "lead-dry-strategist": {
+      "default_size": "balanced",
+      "always_includes_roles": [
+        "sceptic"
+      ],
+      "favourite_persona_ids": [
+        "chief-strategist",
+        "scenario-planner",
+        "red-team-sceptic",
+        "pricing-strategist",
+        "unit-economics-analyst",
+        "competitive-intel-analyst",
+        "customer-interviewer",
+        "negotiation-strategist"
+      ]
+    },
+    "lead-energetic-spark": {
+      "default_size": "balanced",
+      "always_includes_roles": [
+        "sceptic",
+        "facilitator"
+      ],
+      "favourite_persona_ids": [
+        "growth-lead",
+        "creative-director",
+        "social-media-manager",
+        "senior-copywriter",
+        "podcast-producer",
+        "facilitator",
+        "red-team-sceptic",
+        "project-manager"
+      ]
+    },
+    "lead-gentle-encourager": {
+      "default_size": "balanced",
+      "always_includes_roles": [
+        "reviewer",
+        "sceptic"
+      ],
+      "favourite_persona_ids": [
+        "project-manager",
+        "bookkeeper",
+        "customer-success-manager",
+        "employee-experience-specialist",
+        "learning-designer",
+        "facilitator",
+        "minutes-scribe",
+        "risk-ethics-advisor"
+      ]
+    },
+    "lead-meticulous-planner": {
+      "default_size": "thorough",
+      "always_includes_roles": [
+        "co_owner",
+        "reviewer",
+        "sceptic"
+      ],
+      "favourite_persona_ids": [
+        "project-manager",
+        "qa-verifier",
+        "continuity-planner",
+        "privacy-specialist",
+        "minutes-scribe",
+        "controls-specialist",
+        "practice-administrator",
+        "compliance-coordinator"
+      ]
+    },
+    "lead-playful-creative": {
+      "default_size": "balanced",
+      "always_includes_roles": [
+        "facilitator",
+        "sceptic"
+      ],
+      "favourite_persona_ids": [
+        "creative-director",
+        "senior-copywriter",
+        "motion-designer",
+        "social-media-manager",
+        "illustrator",
+        "podcast-producer",
+        "project-manager",
+        "marketing-analyst"
+      ]
+    },
+    "lead-scrappy-hustler": {
+      "default_size": "lean",
+      "always_includes_roles": [
+        "sceptic"
+      ],
+      "favourite_persona_ids": [
+        "outbound-specialist",
+        "procurement-manager",
+        "prototype-builder",
+        "automation-scripter",
+        "collections-specialist",
+        "marketplace-specialist",
+        "growth-lead",
+        "cost-margin-analyst"
+      ]
+    },
+    "lead-seasoned-veteran": {
+      "default_size": "lean",
+      "always_includes_roles": [
+        "reviewer",
+        "sceptic"
+      ],
+      "favourite_persona_ids": [
+        "operations-director",
+        "process-improvement-engineer",
+        "quality-manager",
+        "manufacturing-specialist",
+        "controller",
+        "people-partner",
+        "qa-verifier",
+        "red-team-sceptic"
+      ]
+    },
+    "lead-steady-operator": {
+      "default_size": "lean",
+      "always_includes_roles": [
+        "reviewer",
+        "sceptic"
+      ],
+      "favourite_persona_ids": [
+        "project-manager",
+        "operations-director",
+        "operations-analyst",
+        "qa-verifier",
+        "logistics-coordinator",
+        "process-improvement-engineer",
+        "bookkeeper",
+        "minutes-scribe"
+      ]
+    },
+    "lead-straight-shooter": {
+      "default_size": "lean",
+      "always_includes_roles": [
+        "reviewer",
+        "sceptic"
+      ],
+      "favourite_persona_ids": [
+        "cost-margin-analyst",
+        "operations-director",
+        "fractional-cfo",
+        "head-of-support",
+        "escalations-specialist",
+        "hospitality-operator",
+        "qa-verifier"
+      ]
+    },
+    "lead-warm-mentor": {
+      "default_size": "balanced",
+      "always_includes_roles": [
+        "facilitator",
+        "reviewer",
+        "sceptic"
+      ],
+      "favourite_persona_ids": [
+        "fractional-cfo",
+        "facilitator",
+        "analytics-storyteller",
+        "learning-designer",
+        "editor-in-chief",
+        "knowledge-librarian",
+        "education-program-designer",
+        "evidence-reviewer"
+      ]
+    }
+  },
+  "lead_style_rule": "The lead's default_size replaces the complexity size when the score sits within one band of it; always_includes_roles are added if the size cap allows; favourites add selection_scoring.weights.lead_favourite. These overrides mirror each lead file's staffing_style: the lead file is the source of truth and validate.mjs flags drift. Longer term, formation should read these fields from the lead files instead of duplicating them.",
+  "explain_to_owner": {
+    "rule": "One sentence for the whole team; add one short line per member only if the owner asks or has not worked with them before.",
+    "sentence_template": "I've put {coordinator} in charge of {outcome_in_owner_words}, with {owners_and_their_jobs}, and {sceptic} as our sceptic on {costliest_task} because {why_that_is_the_risk}.",
+    "member_line_template": "{first_name}, {title}: {why}",
+    "must_mention": [
+      "who leads",
+      "who the sceptic is and what they check",
+      "anything left out on purpose to keep it lean",
+      "any licensed-review step"
+    ],
+    "never": [
+      "internal jargon such as composition, provider or tier",
+      "any suggestion that coworkers are human",
+      "cost stated as an exact price"
+    ],
+    "examples": [
+      "I've put Olumide in charge of your launch, with Ananya on positioning, Marlon on copy, Luana on social and Sabina on the run sheet, and Ruth as our sceptic on the positioning, because a wrong promise is the most expensive mistake here.",
+      "For the price change, Zainab leads with Soraya on what customers will pay and Marlon on the letters, and Tendai is our sceptic on the new prices so margin doesn't quietly slip.",
+      "It's a small one, so I'm keeping it lean: Hamish builds the email flows, Marlon writes them, and Esther holds back a test group so we know the emails really earn their keep.",
+      "Because this touches investor material, Harriet leads, Ruth plays the toughest investor in the room, and nothing reaches an investor until your lawyer and a licensed adviser have reviewed it."
+    ]
+  },
+  "recipe_intents": {
+    "launch-new-offer": [
+      "launch a new product",
+      "we're launching a service",
+      "go-live plan",
+      "launch day checklist"
+    ],
+    "positioning-sprint": [
+      "people don't get what we do",
+      "sharpen our messaging",
+      "rewrite the homepage",
+      "we compete on price"
+    ],
+    "brand-refresh": [
+      "our logo looks dated",
+      "refresh the brand",
+      "make us look more premium",
+      "brand guidelines"
+    ],
+    "content-engine": [
+      "content plan",
+      "blog every week",
+      "what should we post",
+      "thought leadership"
+    ],
+    "seo-growth-sprint": [
+      "rank on Google",
+      "SEO audit",
+      "organic traffic dropped",
+      "keyword research"
+    ],
+    "paid-ads-launch": [
+      "start Facebook ads",
+      "Google Ads",
+      "ads aren't working",
+      "ad budget plan"
+    ],
+    "email-lifecycle-program": [
+      "email automations",
+      "welcome emails",
+      "abandoned cart emails",
+      "win-back emails"
+    ],
+    "website-conversion-overhaul": [
+      "website doesn't convert",
+      "landing page",
+      "more enquiries from the site",
+      "CRO"
+    ],
+    "social-kickstart": [
+      "get going on Instagram",
+      "social media plan",
+      "two weeks of posts",
+      "TikTok"
+    ],
+    "outbound-pipeline": [
+      "cold outreach",
+      "find new clients",
+      "prospect list",
+      "sales sequences"
+    ],
+    "sales-playbook": [
+      "document our sales process",
+      "onboard a new salesperson",
+      "objection handling",
+      "battlecards"
+    ],
+    "win-a-deal": [
+      "big pitch next week",
+      "respond to an RFP",
+      "win this client",
+      "proposal and negotiation"
+    ],
+    "partner-program": [
+      "referral partners",
+      "affiliate program",
+      "reseller program",
+      "partnerships"
+    ],
+    "pricing-refresh": [
+      "raise prices",
+      "new pricing tiers",
+      "are we charging enough",
+      "packaging"
+    ],
+    "referral-and-reviews-engine": [
+      "get more reviews",
+      "referral program",
+      "testimonials",
+      "word of mouth"
+    ],
+    "investor-pitch-pack": [
+      "raise money",
+      "pitch deck",
+      "financial model for investors",
+      "data room"
+    ],
+    "fundraising-campaign": [
+      "grant application",
+      "donor appeal",
+      "fundraising campaign",
+      "funder proposal"
+    ],
+    "pr-push": [
+      "get press coverage",
+      "press release",
+      "pitch journalists",
+      "media interview"
+    ],
+    "event-webinar-launch": [
+      "host a webinar",
+      "plan an event",
+      "workshop launch",
+      "launch party"
+    ],
+    "market-entry-study": [
+      "open in a new city",
+      "expand to a new country",
+      "new customer segment",
+      "should we enter this market"
+    ],
+    "video-podcast-series": [
+      "start a podcast",
+      "YouTube series",
+      "video show",
+      "pilot episode"
+    ],
+    "ecommerce-growth-sprint": [
+      "grow online store",
+      "Shopify sales",
+      "increase order value",
+      "promo calendar"
+    ],
+    "local-visibility-boost": [
+      "Google Business Profile",
+      "show up on Maps",
+      "near me searches",
+      "local SEO"
+    ],
+    "monthly-close-pack": [
+      "month-end close",
+      "reconcile the books",
+      "management accounts"
+    ],
+    "cash-runway-rescue": [
+      "running out of cash",
+      "cash flow forecast",
+      "runway"
+    ],
+    "annual-plan-and-budget": [
+      "annual plan",
+      "set OKRs",
+      "next year's budget"
+    ],
+    "business-plan-for-lender": [
+      "bank loan business plan",
+      "lender pack",
+      "partner business plan"
+    ],
+    "hire-a-role": [
+      "hire someone",
+      "job description",
+      "interview questions"
+    ],
+    "onboarding-program": [
+      "onboard new staff",
+      "first 90 days",
+      "new hire checklist"
+    ],
+    "handbook-and-policies": [
+      "employee handbook",
+      "HR policies",
+      "staff policies"
+    ],
+    "contract-review-desk": [
+      "review this contract",
+      "redline",
+      "NDA review"
+    ],
+    "privacy-compliance-baseline": [
+      "GDPR",
+      "privacy policy",
+      "data protection"
+    ],
+    "sop-library": [
+      "write our processes down",
+      "SOPs",
+      "process documentation"
+    ],
+    "inventory-and-supplier-tuneup": [
+      "stockouts",
+      "reorder points",
+      "supplier performance"
+    ],
+    "support-desk-setup": [
+      "customer support setup",
+      "help desk",
+      "support macros"
+    ],
+    "churn-rescue": [
+      "customers are cancelling",
+      "reduce churn",
+      "win back customers"
+    ],
+    "internal-tool-build": [
+      "build an internal tool",
+      "tracker app",
+      "calculator"
+    ],
+    "mvp-prototype": [
+      "prototype an idea",
+      "MVP",
+      "clickable prototype"
+    ],
+    "kpi-dashboard": [
+      "dashboard",
+      "KPIs",
+      "metrics we should track"
+    ],
+    "security-hardening": [
+      "are we secure",
+      "security checklist",
+      "after a phishing scare"
+    ],
+    "automation-sweep": [
+      "automate repetitive work",
+      "save time with automation",
+      "Zapier"
+    ],
+    "crisis-response": [
+      "something went wrong publicly",
+      "crisis",
+      "bad press"
+    ],
+    "strategy-offsite": [
+      "strategy day",
+      "leadership offsite",
+      "where should we focus"
+    ],
+    "vendor-selection": [
+      "choose software",
+      "compare vendors",
+      "which tool should we buy"
+    ],
+    "weekly-operating-rhythm": [
+      "weekly meeting",
+      "scorecard",
+      "run the business without me"
+    ],
+    "restaurant-profit-tuneup": [
+      "restaurant margins",
+      "menu costing",
+      "labour costs"
+    ],
+    "practice-front-desk-streamline": [
+      "no-shows",
+      "front desk",
+      "appointment reminders"
+    ],
+    "first-hour-business-checkup": [
+      "get to know my business",
+      "where do I start",
+      "quick wins today",
+      "business health check",
+      "what should we do first"
+    ],
+    "get-paid-faster": [
+      "customers pay late",
+      "chase overdue invoices",
+      "get paid faster",
+      "cash is tight this month",
+      "reduce DSO"
+    ],
+    "year-end-and-tax-prep": [
+      "tax season",
+      "year-end close",
+      "my accountant needs documents",
+      "get ready for taxes",
+      "organize receipts for the preparer"
+    ],
+    "first-employee-setup": [
+      "hiring my first employee",
+      "first hire",
+      "set up payroll for a new employee",
+      "employee paperwork",
+      "onboard my first staff member"
+    ],
+    "open-a-new-location": [
+      "open a second location",
+      "new store or site",
+      "pop-up shop",
+      "expand to a new area",
+      "choose a location"
+    ],
+    "team-pulse-and-retention": [
+      "my team seems unhappy",
+      "people keep leaving",
+      "staff morale",
+      "employee pulse survey",
+      "keep good people"
+    ],
+    "ai-adoption-plan": [
+      "use AI safely",
+      "AI policy for my team",
+      "my team uses ChatGPT",
+      "where can AI help us",
+      "AI tools risk"
+    ],
+    "product-roadmap-reset": [
+      "product roadmap",
+      "what to build next",
+      "our backlog is a mess",
+      "prioritize features",
+      "improve activation"
+    ],
+    "margin-rescue": [
+      "margins are sliding",
+      "busy but not profitable",
+      "cut costs safely",
+      "where is the money going",
+      "raise prices or cut costs"
+    ],
+    "client-intake-streamline": [
+      "client intake",
+      "consult no-shows",
+      "conflict check process",
+      "new client onboarding for my practice",
+      "enquiries wait too long"
+    ]
+  },
+  "informed_owner_decision": {
+    "what": "For an item on a domain's add_task.informed_owner_decision.allowed_for list, the licensed-review task can complete when the owner records 'proceed without professional review' after reading a one-paragraph risk summary. The choice is stored as a decision_record and the deliverable keeps its DRAFT, not-professionally-reviewed label.",
+    "risk_summary_must_say": [
+      "what a professional reviewer would check",
+      "what could go wrong and roughly how costly it could be",
+      "that the coworkers are AI and not licensed professionals",
+      "how to get a review later, and when it becomes worth paying for"
+    ],
+    "offered_when": "The owner says they have no professional for this or asks to proceed. The lead offers it once, plainly, and never nudges toward skipping review.",
+    "never_for": "Anything on the domain's review_always_required_for list: review stays mandatory for signing contracts above the threshold, filings and elections, securities or investor material, terminations and classification, breach notifications and clinical content.",
+    "revisit": "The lead offers professional review again when the item is renewed, at filing season, or when the stakes rise (a bigger contract, more staff, a regulator letter)."
+  },
+  "first_session_recipe": "first-hour-business-checkup",
+  "starter_recipes_by_industry": {
+    "general": [
+      "first-hour-business-checkup",
+      "get-paid-faster",
+      "margin-rescue"
+    ],
+    "hospitality-restaurants": [
+      "first-hour-business-checkup",
+      "restaurant-profit-tuneup",
+      "local-visibility-boost"
+    ],
+    "real-estate": [
+      "first-hour-business-checkup",
+      "referral-and-reviews-engine",
+      "automation-sweep"
+    ],
+    "construction-trades": [
+      "first-hour-business-checkup",
+      "get-paid-faster",
+      "win-a-deal"
+    ],
+    "healthcare-practice": [
+      "first-hour-business-checkup",
+      "practice-front-desk-streamline",
+      "local-visibility-boost"
+    ],
+    "legal-practice": [
+      "first-hour-business-checkup",
+      "client-intake-streamline",
+      "contract-review-desk"
+    ],
+    "professional-services": [
+      "first-hour-business-checkup",
+      "get-paid-faster",
+      "positioning-sprint"
+    ],
+    "nonprofit": [
+      "first-hour-business-checkup",
+      "fundraising-campaign",
+      "annual-plan-and-budget"
+    ],
+    "saas-startup": [
+      "first-hour-business-checkup",
+      "churn-rescue",
+      "product-roadmap-reset"
+    ],
+    "manufacturing": [
+      "first-hour-business-checkup",
+      "margin-rescue",
+      "inventory-and-supplier-tuneup"
+    ],
+    "fitness-wellness": [
+      "first-hour-business-checkup",
+      "churn-rescue",
+      "local-visibility-boost"
+    ],
+    "education-coaching": [
+      "first-hour-business-checkup",
+      "client-intake-streamline",
+      "launch-new-offer"
+    ],
+    "creator-economy": [
+      "first-hour-business-checkup",
+      "content-engine",
+      "video-podcast-series"
+    ],
+    "ecommerce-retail": [
+      "first-hour-business-checkup",
+      "ecommerce-growth-sprint",
+      "margin-rescue"
+    ],
+    "local-services": [
+      "first-hour-business-checkup",
+      "local-visibility-boost",
+      "get-paid-faster"
+    ]
+  },
+  "day_one": "On day one the lead offers first_session_recipe (30 minutes, no connectors needed), then the three starter_recipes_by_industry for the owner's industry, each with its first_result_minutes and example_output so the owner sees what good looks like before choosing."
+}

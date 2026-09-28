@@ -33,6 +33,9 @@ The owner can text, talk (push-to-talk or voice notes) or hold a live voice conv
 - **Few destinations.** Keep top-level navigation to 3–4 places at most, such as Lead, Team/Floor, Projects and Inbox. A command palette and keyboard shortcuts cover everything else.
 - **Faces are the status UI.** Avatars and their state (listening, thinking, speaking, working, needs you) replace most badges, spinners and tables. Captions are always available.
 - **Calm, premium look.** Generous whitespace, typography first, one accent color per agent, subtle motion, and matching light and dark themes. Nothing is decorative without a job.
+- **Dark by default, everywhere.** The app and the landing page share one dark theme, with rich blacks, luminous per-agent accents and subtle glow. A light theme stays available as an option. Inside the app, dark stays calm and minimal.
+- **A flashy landing page.** The public marketing page is where bold motion, generated imagery and big typography belong. It uses generated images and shows the real coworker faces. It contains no fabricated testimonials, customer logos or metrics.
+- **Modern, hip knowledge workers.** Every lead and coworker has a contemporary name and the look of a modern creative or knowledge professional. The whole cast shares one editorial "staff photo shoot" art direction and stays diverse in gender and heritage.
 - **Zero-config start.** Onboarding is a conversation with the chosen lead plus the match quiz. The app works keyless with the mock provider or local Ollama, and adding a provider key is one step.
 - **Obvious next action.** Every screen has one clear primary action. Advanced controls (grants, budgets, model policy) sit behind "More" or Settings.
 

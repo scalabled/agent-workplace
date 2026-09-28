@@ -1068,7 +1068,9 @@
           "label": "Where customer questions arrive",
           "required": true,
           "source": "connector",
-          "example": "Zendesk tickets, the shared inbox"
+          "example": "Zendesk tickets, the shared inbox",
+          "fallback": "file",
+          "fallback_example": "pasted customer emails or a helpdesk CSV export"
         },
         {
           "id": "policies",
@@ -1111,7 +1113,8 @@
         "code_interpreter",
         "document_generate",
         "web_page_generate",
-        "request_owner_decision"
+        "request_owner_decision",
+        "file_parse"
       ],
       "connectors_optional": [
         "zendesk",
@@ -1127,7 +1130,7 @@
         "connector_data",
         "web_page"
       ],
-      "instructions": "1. Read recent questions with connector_read from support and inbox tools; include review and sales-call questions if available. 2. Cluster questions in code_interpreter and rank the clusters by frequency; write each cluster as the question customers actually ask, in their words. 3. Answer each from approved sources found with embeddings_search: answer first, then the detail, in plain language, with the source policy linked. Never invent a policy. 4. Route questions with no approved answer to the owner with request_owner_decision, rather than guessing. 5. Render the FAQ with document_generate and an accessible page with FAQ structured data using web_page_generate. Publishing to the website is the owner's action or a separately approved step. 6. State what could not be verified, such as policies that may be out of date.",
+      "instructions": "1. Read recent questions with connector_read (or file_parse on the owner's export when nothing is connected) from support and inbox tools; include review and sales-call questions if available. 2. Cluster questions in code_interpreter and rank the clusters by frequency; write each cluster as the question customers actually ask, in their words. 3. Answer each from approved sources found with embeddings_search: answer first, then the detail, in plain language, with the source policy linked. Never invent a policy. 4. Route questions with no approved answer to the owner with request_owner_decision, rather than guessing. 5. Render the FAQ with document_generate and an accessible page with FAQ structured data using web_page_generate. Publishing to the website is the owner's action or a separately approved step. 6. State what could not be verified, such as policies that may be out of date.",
       "workflow": [
         {
           "activity": "mcp",

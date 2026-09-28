@@ -778,7 +778,9 @@
           "label": "Team members, hours available and costs",
           "required": true,
           "source": "connector",
-          "example": "Gusto roster and pay rates"
+          "example": "Gusto roster and pay rates",
+          "fallback": "file",
+          "fallback_example": "team roster spreadsheet with hours and rates"
         },
         {
           "id": "known_costs",
@@ -837,7 +839,7 @@
         "connector_data",
         "file"
       ],
-      "instructions": "1. Recall the plan with memory_recall; pull team capacity and pay with connector_read; parse quotes with file_parse. 2. Break scope into phases and work packages. For each, estimate people (role, hours or FTE), tools and suppliers. 3. Use three-point estimates (optimistic, most likely, pessimistic) and PERT expected values ((O + 4M + P) / 6) with code_interpreter for uncertain items. Show the basis of each estimate. 4. Compare demand to capacity by month; flag over-allocation and options (hire, contract, re-sequence, cut scope). 5. Keep contingency as a separate line (typically 10-20% depending on uncertainty), not hidden in estimates. 6. Show cash timing by month (deposits, milestones, payroll) and compare with the budget limit. Build the plan with spreadsheet_generate and charts with chart_generate. 7. Put the budget and any hiring decision to the owner with request_owner_decision. Hiring, contracts and purchases are separate approved steps. 8. Write the brief with document_generate. 9. State what could not be verified: estimates without quotes and availability not confirmed by the people named.",
+      "instructions": "1. Recall the plan with memory_recall; pull team capacity and pay with connector_read (or file_parse on the owner's export when nothing is connected); parse quotes with file_parse. 2. Break scope into phases and work packages. For each, estimate people (role, hours or FTE), tools and suppliers. 3. Use three-point estimates (optimistic, most likely, pessimistic) and PERT expected values ((O + 4M + P) / 6) with code_interpreter for uncertain items. Show the basis of each estimate. 4. Compare demand to capacity by month; flag over-allocation and options (hire, contract, re-sequence, cut scope). 5. Keep contingency as a separate line (typically 10-20% depending on uncertainty), not hidden in estimates. 6. Show cash timing by month (deposits, milestones, payroll) and compare with the budget limit. Build the plan with spreadsheet_generate and charts with chart_generate. 7. Put the budget and any hiring decision to the owner with request_owner_decision. Hiring, contracts and purchases are separate approved steps. 8. Write the brief with document_generate. 9. State what could not be verified: estimates without quotes and availability not confirmed by the people named.",
       "workflow": [
         {
           "activity": "ingest",
@@ -1233,7 +1235,9 @@
           "label": "Tasks or workstreams",
           "required": true,
           "source": "connector",
-          "example": "Jira epics for the product launch"
+          "example": "Jira epics for the product launch",
+          "fallback": "file",
+          "fallback_example": "task list export or a pasted list of workstreams"
         },
         {
           "id": "external_parties",
@@ -1275,7 +1279,8 @@
         "code_interpreter",
         "diagram_generate",
         "spreadsheet_generate",
-        "document_generate"
+        "document_generate",
+        "file_parse"
       ],
       "connectors_optional": [
         "jira",
@@ -1288,7 +1293,7 @@
         "text",
         "connector_data"
       ],
-      "instructions": "1. Pull tasks with connector_read or from the plan via memory_recall. For each, list predecessors with type (finish-to-start, start-to-start, finish-to-finish, start-to-finish) and any lead or lag. 2. Mark external dependencies (supplier, partner, approval) with an owner on our side and a confirmation date. 3. With code_interpreter check for cycles and dangling tasks, then run the forward pass (ES, EF) and backward pass (LS, LF) and compute total float for every task. 4. Identify the critical path and near-critical tasks (float under a few days). For complex webs, a design structure matrix can reveal tightly coupled clusters. 5. Render the network with diagram_generate and the CPM table with spreadsheet_generate. 6. Write the brief with document_generate: what drives the end date, which external dependencies are most dangerous, and actions (confirm dates, add buffer, decouple). 7. State what could not be verified: external dates not confirmed in writing and durations that are estimates.",
+      "instructions": "1. Pull tasks with connector_read (or file_parse on the owner's export when nothing is connected) or from the plan via memory_recall. For each, list predecessors with type (finish-to-start, start-to-start, finish-to-finish, start-to-finish) and any lead or lag. 2. Mark external dependencies (supplier, partner, approval) with an owner on our side and a confirmation date. 3. With code_interpreter check for cycles and dangling tasks, then run the forward pass (ES, EF) and backward pass (LS, LF) and compute total float for every task. 4. Identify the critical path and near-critical tasks (float under a few days). For complex webs, a design structure matrix can reveal tightly coupled clusters. 5. Render the network with diagram_generate and the CPM table with spreadsheet_generate. 6. Write the brief with document_generate: what drives the end date, which external dependencies are most dangerous, and actions (confirm dates, add buffer, decouple). 7. State what could not be verified: external dates not confirmed in writing and durations that are estimates.",
       "workflow": [
         {
           "activity": "ingest",
@@ -1396,7 +1401,9 @@
           "label": "Chat threads, tickets, logs and call transcripts",
           "required": true,
           "source": "connector",
-          "example": "Slack #orders channel, Zendesk tickets, hosting status emails"
+          "example": "Slack #orders channel, Zendesk tickets, hosting status emails",
+          "fallback": "file",
+          "fallback_example": "pasted chat threads, exported tickets and screenshots of alerts"
         },
         {
           "id": "people_involved",
@@ -1454,7 +1461,7 @@
         "connector_data",
         "file"
       ],
-      "instructions": "1. Collect evidence with connector_read and file_parse (including call transcripts); search past incidents with embeddings_search. 2. Build a timestamped timeline from evidence: detection, escalation, actions, recovery. Every entry cites its source. 3. Quantify impact: customers, orders, revenue, time, reputation signals. 4. Gather blameless accounts from the coworkers involved with ask_coworker, asking 'what made sense at the time?', and offer the lead a facilitated, voiced review the owner can listen to. Focus on systems and conditions, never on individuals (just culture). 5. Identify contributing factors (usually several) using 5 Whys or an Ishikawa diagram (drawn with diagram_generate) as exploration tools; record what went well and where we got lucky. 6. Write action items that are specific, owned, dated and prioritized (prevent, detect faster, respond better). Avoid vague actions like 'be more careful'. 7. Render the post-mortem with document_generate and hand the lessons to the knowledge librarian with message_coworker so they are saved to memory for future plans. 8. Escalate to the lead if the incident involved a data breach, safety, legal or regulatory exposure. 9. State what could not be verified: gaps in the timeline and factors based on recollection rather than evidence.",
+      "instructions": "1. Collect evidence with connector_read (or file_parse on the owner's export when nothing is connected) and file_parse (including call transcripts); search past incidents with embeddings_search. 2. Build a timestamped timeline from evidence: detection, escalation, actions, recovery. Every entry cites its source. 3. Quantify impact: customers, orders, revenue, time, reputation signals. 4. Gather blameless accounts from the coworkers involved with ask_coworker, asking 'what made sense at the time?', and offer the lead a facilitated, voiced review the owner can listen to. Focus on systems and conditions, never on individuals (just culture). 5. Identify contributing factors (usually several) using 5 Whys or an Ishikawa diagram (drawn with diagram_generate) as exploration tools; record what went well and where we got lucky. 6. Write action items that are specific, owned, dated and prioritized (prevent, detect faster, respond better). Avoid vague actions like 'be more careful'. 7. Render the post-mortem with document_generate and hand the lessons to the knowledge librarian with message_coworker so they are saved to memory for future plans. 8. Escalate to the lead if the incident involved a data breach, safety, legal or regulatory exposure. 9. State what could not be verified: gaps in the timeline and factors based on recollection rather than evidence.",
       "workflow": [
         {
           "activity": "ingest",

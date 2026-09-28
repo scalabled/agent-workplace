@@ -73,6 +73,22 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200
+          },
+          "fallback": {
+            "type": "string",
+            "enum": [
+              "file",
+              "owner",
+              "web",
+              "memory"
+            ],
+            "description": "how the skill still runs when the connector is not enabled (required for a required connector input)"
+          },
+          "fallback_example": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "the export or paste the owner can give instead, e.g. 'aged receivables CSV export'"
           }
         },
         "required": [
@@ -207,7 +223,8 @@
       "description": "rubric"
     },
     "approval_tier": {
-      "$ref": "#/$defs/approval_tier"
+      "$ref": "#/$defs/approval_tier",
+      "description": "taxonomy.approval_tiers; always_ask for sending, publishing, paying, signing, deleting and creating or changing an automation (runs inside an active standing_grant are covered)"
     },
     "effort": {
       "type": "object",
@@ -311,7 +328,7 @@
             "$ref": "#"
           },
           "minItems": 1,
-          "maxItems": 16,
+          "maxItems": 30,
           "uniqueItems": true
         }
       },
@@ -348,6 +365,8 @@
         "image_generate",
         "image_edit",
         "video_generate",
+        "media_assemble",
+        "avatar_video_render",
         "document_generate",
         "spreadsheet_generate",
         "deck_generate",
@@ -560,7 +579,9 @@
         "investment_financial_advice",
         "employment_law",
         "security",
-        "privacy"
+        "privacy",
+        "workplace_safety",
+        "insurance"
       ]
     },
     "cost_class": {
