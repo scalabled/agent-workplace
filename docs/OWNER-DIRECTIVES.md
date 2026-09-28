@@ -1,0 +1,41 @@
+# Owner directives
+
+Binding requirements from the owner, added after the original brief. They override anything in PRODUCT.md, EXPERIENCE.md or ARCHITECTURE.md that conflicts with them, and they must be reflected in all three documents and in the MVP.
+
+## D1. Useful from minute one: persona, skill and lead catalog
+
+- Ship a comprehensive catalog of coworker personas and skills. The lead uses it to form expert teams in one step, from team recipes and formation rules (`catalog/`).
+- Offer several lead personalities for the owner to choose from. Each has a name, an avatar, a distinct voice and a backstory whose history can relate to the owner. A short match quiz helps the owner pick one they get along with, and they can switch leads at any time.
+- Backstories are character lore. Agents say they are AI if sincerely asked, and they never claim real-world actions they did not take.
+
+## D2. Communication comes first: agents stay reachable while they work
+
+The owner can text, talk (push-to-talk or voice notes) or hold a live voice conversation with the lead or any coworker at any moment. That includes while the agent is running parallel background work. Talking to an agent must never wait for its work to finish.
+
+- **Two loops per agent.** Each agent runs a conversation loop and one or more work loops.
+  - The conversation loop is always on, uses a fast model, and has read access to the agent's live work state: current task, step, progress, partial outputs and blockers.
+  - Work loops run in the background (plan tasks, tool loops, media generation, research).
+  - The conversation loop never blocks on a work loop.
+- **Status comes from state.** Questions like "Where are you with X?" are answered from the run ledger and event stream, not by pausing or re-running the work. Target latency: text acknowledgement under 1 s, first spoken audio under 1.5 s.
+- **Steering mid-flight.** While an agent works, the owner can redirect, reprioritize, add context, pause, resume or cancel. Messages are delivered into running work loops at safe checkpoints: between steps or tool calls. Sibling tasks keep running.
+- **Voice front, brain back** [PG]. A realtime voice session handles turn-taking and quick acknowledgements such as "one sec, pulling up the draft." Substantive answers stream from the reasoning model as speakable chunks. Barge-in is always allowed.
+- **Agents start conversations too.** Working agents can message, call or raise a hand to ask a question, share a milestone or flag a blocker. This is governed by the attention budget and proactivity dial [BB].
+  - Decisions go to the Inbox and never block unrelated work.
+  - Urgent items can escalate to a spoken ping, within the owner's settings.
+- **Every channel on every surface.** Text, push-to-talk, voice notes and live voice work from anywhere in the app, including mobile.
+  - The owner can talk to the lead while listening in on a meeting, or whisper to one coworker mid-task.
+  - Avatars show "working" and "available" together; presence is never "busy, try later".
+- **Concurrency built in.** Every agent has its own mailbox and session. Many conversations and many work loops run at once without head-of-line blocking.
+
+## D3. The interface is minimal, intuitive and sleek
+
+- **One primary surface.** The conversation with the lead sits next to a quiet presence strip of the active team. Everything else appears through progressive disclosure, never a dashboard by default.
+- **Few destinations.** Keep top-level navigation to 3–4 places at most, such as Lead, Team/Floor, Projects and Inbox. A command palette and keyboard shortcuts cover everything else.
+- **Faces are the status UI.** Avatars and their state (listening, thinking, speaking, working, needs you) replace most badges, spinners and tables. Captions are always available.
+- **Calm, premium look.** Generous whitespace, typography first, one accent color per agent, subtle motion, and matching light and dark themes. Nothing is decorative without a job.
+- **Zero-config start.** Onboarding is a conversation with the chosen lead plus the match quiz. The app works keyless with the mock provider or local Ollama, and adding a provider key is one step.
+- **Obvious next action.** Every screen has one clear primary action. Advanced controls (grants, budgets, model policy) sit behind "More" or Settings.
+
+## D4. Deliver an MVP early and iterate
+
+- Build a runnable MVP quickly and show it early. Then integrate the remaining features in small, demoable increments, each one runnable and reviewed with the owner.

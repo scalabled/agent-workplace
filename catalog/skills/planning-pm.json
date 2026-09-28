@@ -1,0 +1,1729 @@
+{
+  "category": "planning-pm",
+  "version": 1,
+  "skills": [
+    {
+      "id": "plan-a-project",
+      "name": "Plan a project",
+      "icon": "🗺",
+      "category": "planning-pm",
+      "one_liner": "Milestones, owners, dependencies and risks, short enough to read in a minute.",
+      "description": "Turns an objective into a scoped plan short enough to read in a minute: three to eight tasks with acceptance criteria, dependencies and an owner discipline each, dated milestones where dates exist, and the risks that would derail it. Clarifies with at most one round of questions.",
+      "when": "the owner states a goal that needs several steps or people",
+      "inputs": [
+        {
+          "id": "objective",
+          "label": "What done looks like and by when",
+          "required": true,
+          "source": "owner",
+          "example": "Open a December pop-up shop in the market hall"
+        },
+        {
+          "id": "constraints",
+          "label": "Budget, dates, people and non-negotiables",
+          "required": false,
+          "source": "owner",
+          "example": "£6k budget, must open by 1 December"
+        },
+        {
+          "id": "context",
+          "label": "Relevant past projects, suppliers and preferences",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Project plan",
+          "format": "md",
+          "description": "Outcome, 3-8 tasks with acceptance criteria, owner discipline, dependencies, milestones, risks."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Plan at a glance",
+          "format": "mermaid",
+          "description": "Task dependency flow with milestones."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "ask_coworker",
+        "diagram_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "asana",
+        "trello",
+        "monday",
+        "clickup",
+        "linear",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "voice"
+      ],
+      "instructions": "1. Clarify the outcome and constraints in one round of questions at most; if something is unknown, state the assumption and proceed. Recall related past work and preferences with memory_recall. 2. Break the work down (a light work breakdown structure) into three to eight tasks, each producing a tangible deliverable. No 'coordinate' or 'summarise' tasks. 3. Give every task a verifiable acceptance criterion, an owner discipline (for example: operations, design, finance) and its dependencies. Use ask_coworker to sanity-check effort with the relevant specialist when unsure. 4. Add dated milestones where dates exist, and a quick pre-mortem: the three risks most likely to derail it, each with a mitigation. 5. Draw the dependency flow with diagram_generate and write the plan with document_generate. Keep it readable in about a minute. 6. Offer to run it as a plan with coworkers when the owner agrees; nothing is booked, bought or sent by this skill. 7. State what could not be verified: assumptions about dates, budgets and availability.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Draft the plan",
+          "brief": "Draft outcome, 3-8 tasks with acceptance criteria, owners, dependencies, milestones and risks.",
+          "acceptance": "Every task has acceptance criteria, an owner discipline and dependencies."
+        },
+        {
+          "activity": "review",
+          "title": "Plan review",
+          "brief": "Check tasks are deliverables, dependencies make sense and risks are real.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner confirms",
+          "brief": "Owner confirms outcome, constraints and assumptions.",
+          "acceptance": "Confirmation or changes recorded.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render the plan",
+          "brief": "Render the plan and dependency diagram.",
+          "acceptance": "Readable in about a minute; diagram matches tasks.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Three to eight tasks, each with a verifiable acceptance criterion.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every task has an owner discipline and explicit dependencies.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The top risks each have a mitigation.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Readable in about a minute.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Assumptions are listed.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 15,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "timeline-gantt",
+        "raci-matrix",
+        "risk-register",
+        "status-report",
+        "launch-checklist"
+      ],
+      "example_request": "I want to open a pop-up shop for December. Can you plan out what needs to happen and when?",
+      "typical_departments": [
+        "core-crew",
+        "operations-supply-chain"
+      ],
+      "biz_bot_name": "plan-a-project",
+      "version": 1
+    },
+    {
+      "id": "raci-matrix",
+      "name": "RACI matrix",
+      "icon": "Ⓡ",
+      "category": "planning-pm",
+      "one_liner": "Who is responsible, accountable, consulted and informed for each deliverable.",
+      "description": "Builds a RACI matrix (responsible, accountable, consulted, informed) for each deliverable or decision, then checks it against the rules: exactly one accountable per row, at least one responsible, few consulted, and nobody overloaded, so everyone knows who does what.",
+      "when": "people are unsure who owns what, work falls between the cracks, or several people think they are in charge",
+      "inputs": [
+        {
+          "id": "work_items",
+          "label": "Deliverables, decisions or recurring activities",
+          "required": true,
+          "source": "owner",
+          "example": "Supplier bookings, invoices, social posts, event setup, cash-up"
+        },
+        {
+          "id": "people_or_roles",
+          "label": "People or roles involved",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "current_pain",
+          "label": "Where things currently go wrong",
+          "required": false,
+          "source": "owner",
+          "example": "Nobody sends the invoices after events"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "RACI matrix",
+          "format": "xlsx",
+          "description": "Rows of work items, columns of roles, R/A/C/I cells, rule checks and load per person."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Issues and fixes",
+          "format": "md",
+          "description": "Gaps, overloads and conflicts found, with proposed changes."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "spreadsheet_generate",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "asana",
+        "notion",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text"
+      ],
+      "instructions": "1. List work items as deliverables or decisions (nouns, not vague areas). Recall people, roles and past friction with memory_recall. 2. Assign R, A, C and I per row, using roles where the team changes often. For decision-heavy rows consider DACI (driver, approver, contributors, informed). 3. Check the rules with formulas in the sheet built with spreadsheet_generate: exactly one A per row; at least one R; C kept to those whose input is genuinely needed; no person with an A on too many rows; no row where A has no authority to decide. 4. Highlight the rows linked to the current pain and propose fixes. 5. Build the matrix with spreadsheet_generate and the issues brief with document_generate. 6. Ask the owner to confirm assignments with request_owner_decision; changes to someone's formal role or pay are for the owner and HR, not this skill. 7. State what could not be verified: whether the people named have agreed to their assignments.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Work items and assignments",
+          "brief": "List work items and assign R, A, C and I.",
+          "acceptance": "Every row has assignments."
+        },
+        {
+          "activity": "llm",
+          "title": "Rule checks",
+          "brief": "Check one A per row, at least one R, C count and load per person.",
+          "acceptance": "Rule violations and overloads listed.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "RACI review",
+          "brief": "Check fixes resolve the current pain.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner confirms",
+          "brief": "Owner confirms assignments.",
+          "acceptance": "Confirmation recorded.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render",
+          "brief": "Render the matrix and issues brief.",
+          "acceptance": "Matrix passes all rule checks.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Exactly one accountable per row and at least one responsible.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Overloaded people and gaps are flagged with fixes.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Work items are specific deliverables or decisions.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Consulted roles are kept to those whose input is needed.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Rows tied to the owner's current pain are addressed first.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "plan-a-project",
+        "org-design",
+        "change-plan",
+        "status-report",
+        "sop-writing"
+      ],
+      "example_request": "Every time we run an event, three people think they're in charge of the suppliers and nobody sends the invoices. Can you sort out who does what?",
+      "typical_departments": [
+        "core-crew",
+        "people-culture",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "risk-register",
+      "name": "Risk register (RAID log)",
+      "icon": "🎲",
+      "category": "planning-pm",
+      "one_liner": "Risks, assumptions, issues and dependencies with owners and triggers.",
+      "description": "Builds a RAID log (risks, assumptions, issues, dependencies) from a pre-mortem: risks phrased as cause, event and effect, scored likelihood x impact on a 5x5 scale, with an owner, response (avoid, reduce, transfer, accept), trigger and review date, and a heat map of the top risks.",
+      "when": "a project, launch, move or big decision is coming and the owner wants to know what could go wrong and what to do now",
+      "inputs": [
+        {
+          "id": "project",
+          "label": "The project or plan",
+          "required": true,
+          "source": "coworker",
+          "example": "Warehouse move over a January weekend"
+        },
+        {
+          "id": "known_worries",
+          "label": "What the owner already worries about",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "history",
+          "label": "Past incidents or similar projects",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "risk_appetite",
+          "label": "What level of risk is acceptable",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "RAID log",
+          "format": "xlsx",
+          "description": "Risks, assumptions, issues and dependencies with scores, owners, responses, triggers and review dates, plus a heat-map tab."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Top risks",
+          "format": "md",
+          "description": "The five risks to act on now, with actions and owners."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "convene_meeting",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "asana",
+        "jira",
+        "notion",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "voice"
+      ],
+      "instructions": "1. Recall the plan, past incidents and similar projects with memory_recall and embeddings_search. 2. Run a pre-mortem with convene_meeting (Klein): imagine the project has failed and list why. Include a sceptic; the owner can listen or join. 3. Write each risk as cause, event and effect ('Because the lift is shared, we may not get access on Saturday, delaying the move by a day'). Separate risks (might happen), issues (happening now), assumptions (believed true, need validating) and dependencies (on others). 4. Score likelihood and impact on a 1-5 scale with defined anchors (for example impact 5 = more than a week's delay or more than £10k), consistent with ISO 31000 principles. 5. Assign an owner, a response (avoid, reduce, transfer, accept) with specific actions, an early-warning trigger and a review date. Assumptions get a validation date. 6. Rank by score and build the log, with a conditional-formatted likelihood x impact heat-map tab, with spreadsheet_generate. Write the top-five brief with document_generate. 7. Escalate to the lead any risk scoring 20 or more, or anything touching safety, legal or regulatory exposure. 8. State what could not be verified: likelihood scores based on judgement and dependencies not yet confirmed by the other party.",
+      "workflow": [
+        {
+          "activity": "meeting",
+          "title": "Pre-mortem",
+          "brief": "Voiced pre-mortem imagining failure and listing causes.",
+          "acceptance": "At least ten candidate risks captured."
+        },
+        {
+          "activity": "llm",
+          "title": "Write RAID entries",
+          "brief": "Write risks as cause-event-effect and separate assumptions, issues and dependencies.",
+          "acceptance": "Every entry typed and phrased correctly.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Score and rank",
+          "brief": "Score likelihood and impact with anchors and rank.",
+          "acceptance": "Scores use defined anchors; ranking produced.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic review",
+          "brief": "Challenge scores, missing risks and weak responses.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Log, heat map and brief",
+          "brief": "Render the RAID log, heat map and top-five brief.",
+          "acceptance": "Every top risk has owner, response, trigger and review date.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Risks are phrased as cause, event and effect.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every risk has an owner, a response, a trigger and a review date.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Issues, assumptions and dependencies are separated from risks.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Scoring uses defined anchors.",
+          "severity": "should"
+        },
+        {
+          "criterion": "High-scoring and safety or legal risks are escalated.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "pre-mortem",
+        "plan-a-project",
+        "dependency-map",
+        "business-continuity-plan",
+        "status-report"
+      ],
+      "example_request": "We're moving the whole warehouse over a weekend in January. What could go wrong and what should we do about it now?",
+      "typical_departments": [
+        "core-crew",
+        "operations-supply-chain",
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "timeline-gantt",
+      "name": "Timeline & Gantt",
+      "icon": "📆",
+      "category": "planning-pm",
+      "one_liner": "A dated timeline with the critical path highlighted.",
+      "description": "Turns a task list into a dated timeline: durations, dependencies (finish-to-start and others), working days and holidays, milestones and buffers, with the critical path computed by the critical path method (not eyeballed) and highlighted in a Gantt chart.",
+      "when": "the owner needs to see when things will actually happen and what drives the end date",
+      "inputs": [
+        {
+          "id": "tasks",
+          "label": "Tasks with rough durations",
+          "required": true,
+          "source": "owner",
+          "example": "Strip out, rewire, plaster, paint, fit shelving, stock, soft open"
+        },
+        {
+          "id": "start_or_deadline",
+          "label": "Start date or fixed deadline",
+          "required": true,
+          "source": "owner",
+          "example": "Start 4 November; must reopen before 1 December"
+        },
+        {
+          "id": "calendar",
+          "label": "Working days, holidays and closures",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "dependencies",
+          "label": "Known dependencies between tasks",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "diagram",
+          "name": "Gantt chart",
+          "format": "mermaid",
+          "description": "Tasks, dates, milestones and the critical path highlighted."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Schedule",
+          "format": "xlsx",
+          "description": "Tasks with duration, dependencies, start, finish, float and critical flag."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Critical path summary",
+          "format": "md",
+          "description": "What drives the end date, float on other tasks and where to add buffer."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "code_interpreter",
+        "diagram_generate",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "asana",
+        "monday",
+        "clickup",
+        "trello",
+        "jira",
+        "linear",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text"
+      ],
+      "instructions": "1. Collect tasks, durations and dependencies; recall the working calendar and holidays with memory_recall. Ask for three-point estimates (optimistic, likely, pessimistic) on the riskiest tasks. 2. With code_interpreter run the critical path method: forward pass (earliest start and finish), backward pass (latest start and finish), float per task. Detect cycles and missing links. 3. Apply the working calendar (weekends, holidays, closures) and dependency types (finish-to-start by default; start-to-start or finish-to-finish where real). 4. Mark milestones and add a project buffer at the end of the critical path (critical chain style) rather than padding every task. 5. If there is a deadline, report whether it is met and by how much; if not, list options (fast-track, crash with more resources, cut scope). 6. Render the Gantt with diagram_generate, the schedule with spreadsheet_generate and the summary with document_generate. 7. State what could not be verified: durations that are guesses and dependencies on outside parties not yet confirmed.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Tasks, durations and dependencies",
+          "brief": "Collect tasks with durations and dependencies.",
+          "acceptance": "Every task has a duration and at least one dependency or is a start task."
+        },
+        {
+          "activity": "analysis",
+          "title": "Critical path",
+          "brief": "Run forward and backward passes on the working calendar; compute float.",
+          "acceptance": "Critical path computed; no cycles; float per task.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render Gantt and schedule",
+          "brief": "Render the Gantt chart and schedule.",
+          "acceptance": "Critical path highlighted; milestones and buffer shown.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Schedule review",
+          "brief": "Check durations, dependency types and calendar.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner confirms dates",
+          "brief": "Owner confirms dates and the deadline options if needed.",
+          "acceptance": "Confirmation or chosen option recorded.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The critical path is computed, not eyeballed, and highlighted.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Working days, holidays and closures are applied.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every task has a start, finish, duration and dependency.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Buffer is shown explicitly.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Deadline gaps come with options.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 25,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "plan-a-project",
+        "dependency-map",
+        "resource-plan",
+        "launch-checklist",
+        "status-report"
+      ],
+      "example_request": "Can you turn this list of refurb jobs into a proper timeline so I can see when the shop can actually reopen?",
+      "typical_departments": [
+        "core-crew",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "status-report",
+      "name": "Status report",
+      "icon": "🚦",
+      "category": "planning-pm",
+      "one_liner": "Progress, blockers and decisions needed, honest RAG status included.",
+      "description": "Writes an honest one-page status report: red, amber or green set by stated criteria rather than mood, progress against the baseline, blockers with impact, decisions needed with deadlines, and next steps, pulled from the project tracker. Optionally adds a 60-second ear-friendly version, ready to be voiced as a listen-in briefing.",
+      "when": "a stakeholder (owner, partner, client, lender) needs to know how a project is really going",
+      "inputs": [
+        {
+          "id": "project",
+          "label": "The project and its baseline plan",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "tracker",
+          "label": "Where progress is tracked",
+          "required": false,
+          "source": "connector",
+          "example": "Asana project 'New website'"
+        },
+        {
+          "id": "audience",
+          "label": "Who reads the report",
+          "required": true,
+          "source": "owner",
+          "example": "My business partner"
+        },
+        {
+          "id": "period",
+          "label": "Period covered",
+          "required": false,
+          "source": "owner",
+          "example": "Last two weeks"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Status report",
+          "format": "md",
+          "description": "RAG with criteria, progress vs baseline, done, next, blockers, decisions needed, risks."
+        },
+        {
+          "artifact_type": "script",
+          "name": "60-second spoken version",
+          "format": "md",
+          "description": "The status rewritten for listening, ready to voice as a listen-in briefing."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "embeddings_search",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "asana",
+        "jira",
+        "linear",
+        "monday",
+        "clickup",
+        "trello",
+        "slack",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Recall the baseline plan with memory_recall; pull task status, dates and comments with connector_read and search notes with embeddings_search. 2. Set RAG by stated criteria: green (on track against baseline dates, budget and scope), amber (at risk, with a recovery plan in place), red (off track, needs a decision or help). Avoid 'watermelon' status (green outside, red inside): if any critical-path task is late, overall cannot be green. 3. Write, in this order: overall RAG with one-line reason, decisions needed (with deadline and options), progress vs baseline (milestones and dates), done this period, next period, blockers with impact, top risks. 4. Every amber or red item has cause, impact and a recovery plan or the decision needed. Keep to one page. 5. Render with document_generate and, if the owner wants, a 60-second ear-friendly version the lead can voice as a listen-in briefing. 6. Sharing with outside stakeholders is the owner's choice; the report is a draft for them. 7. State what could not be verified: statuses that are self-reported and not reflected in the tracker.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull progress",
+          "brief": "Read task status, dates and comments from the tracker.",
+          "acceptance": "Every milestone has a current status and date."
+        },
+        {
+          "activity": "llm",
+          "title": "Draft the report",
+          "brief": "Set RAG by criteria and write the one-page report.",
+          "acceptance": "RAG criteria stated; decisions needed listed first.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Honesty check",
+          "brief": "Check RAG against evidence and look for watermelon status.",
+          "acceptance": "First line APPROVED or CHANGES; any mismatch between RAG and evidence quoted.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render report",
+          "brief": "Render the one-page report.",
+          "acceptance": "Fits on one page.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Ear-friendly version",
+          "brief": "Rewrite the approved report as a 60-second spoken version.",
+          "acceptance": "About 150 words; content matches the report.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "RAG status is set by stated criteria and matches the evidence.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every amber or red item has cause, impact and recovery plan or decision needed.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Decisions needed have deadlines and options.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Progress is shown against baseline dates.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Fits on one page for a busy reader.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 15,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "weekly-review",
+        "plan-a-project",
+        "risk-register",
+        "standup-digest",
+        "listen-in-briefing"
+      ],
+      "example_request": "Give me a straight status on the new website project for my business partner: what's done, what's late and what we need to decide.",
+      "typical_departments": [
+        "core-crew"
+      ],
+      "version": 1
+    },
+    {
+      "id": "resource-plan",
+      "name": "Resource & budget plan",
+      "icon": "⚒",
+      "category": "planning-pm",
+      "one_liner": "People, tools and money needed by phase, with contingencies.",
+      "description": "Works out what a project or initiative really needs by phase (roles and FTE, tools, suppliers and money) from bottom-up three-point estimates, compares demand to available capacity, separates contingency from estimates, and shows cash timing by month.",
+      "when": "the owner is committing to a project, expansion or launch and needs to know the people, tools and money it will take",
+      "inputs": [
+        {
+          "id": "scope",
+          "label": "The project or initiative and its phases",
+          "required": true,
+          "source": "coworker",
+          "example": "Second location launch plan"
+        },
+        {
+          "id": "current_capacity",
+          "label": "Team members, hours available and costs",
+          "required": true,
+          "source": "connector",
+          "example": "Gusto roster and pay rates"
+        },
+        {
+          "id": "known_costs",
+          "label": "Quotes, rates and tool prices",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "budget_limit",
+          "label": "Budget or cash constraint",
+          "required": false,
+          "source": "owner",
+          "example": "£120k including fit-out"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Resource and budget plan",
+          "format": "xlsx",
+          "description": "By phase: roles, FTE, tools, suppliers, costs (three-point), contingency, cash timing by month."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "What it takes",
+          "format": "md",
+          "description": "Totals, capacity gaps, biggest cost drivers, contingency and options."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Cost and capacity charts",
+          "format": "svg",
+          "description": "Spend by month and capacity vs demand."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "gusto",
+        "rippling",
+        "quickbooks",
+        "xero",
+        "asana",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Recall the plan with memory_recall; pull team capacity and pay with connector_read; parse quotes with file_parse. 2. Break scope into phases and work packages. For each, estimate people (role, hours or FTE), tools and suppliers. 3. Use three-point estimates (optimistic, most likely, pessimistic) and PERT expected values ((O + 4M + P) / 6) with code_interpreter for uncertain items. Show the basis of each estimate. 4. Compare demand to capacity by month; flag over-allocation and options (hire, contract, re-sequence, cut scope). 5. Keep contingency as a separate line (typically 10-20% depending on uncertainty), not hidden in estimates. 6. Show cash timing by month (deposits, milestones, payroll) and compare with the budget limit. Build the plan with spreadsheet_generate and charts with chart_generate. 7. Put the budget and any hiring decision to the owner with request_owner_decision. Hiring, contracts and purchases are separate approved steps. 8. Write the brief with document_generate. 9. State what could not be verified: estimates without quotes and availability not confirmed by the people named.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load scope, capacity and quotes",
+          "brief": "Load phases, team capacity and supplier quotes.",
+          "acceptance": "Every phase has work packages; capacity per person per month known."
+        },
+        {
+          "activity": "analysis",
+          "title": "Estimate and compare to capacity",
+          "brief": "Three-point estimates and demand vs capacity by month.",
+          "acceptance": "Every estimate shows its basis; over-allocations flagged.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Budget, contingency and cash timing",
+          "brief": "Total costs, separate contingency and cash by month.",
+          "acceptance": "Contingency separate; cash timing by month.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Plan review",
+          "brief": "Check estimates, capacity logic and totals.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves budget",
+          "brief": "Owner approves budget and capacity options.",
+          "acceptance": "Decision recorded.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render",
+          "brief": "Render the plan, charts and brief.",
+          "acceptance": "Totals tie across sheet and brief.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every estimate shows its basis; uncertain items use three-point estimates.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Contingency is shown separately from estimates.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Capacity conflicts are flagged with options.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Cash timing is shown by month against the budget limit.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Totals tie across all outputs.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "plan-a-project",
+        "annual-budget",
+        "capacity-plan",
+        "timeline-gantt",
+        "change-request"
+      ],
+      "example_request": "What will it actually take, people, money and tools, to launch our second location by spring?",
+      "typical_departments": [
+        "core-crew",
+        "finance-accounting",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "launch-checklist",
+      "name": "Launch checklist",
+      "icon": "🏁",
+      "category": "planning-pm",
+      "one_liner": "Go/no-go checklist with owners, dates and rollback steps.",
+      "description": "Builds a go/no-go launch checklist in the style of an aviation-grade checklist: short do-confirm lists at each pause point, objective go/no-go criteria, a launch-day runbook with times and owners, tested rollback steps, communications and a hypercare owner for the days after.",
+      "when": "something is going live (system switch, store opening, product launch, event) and nothing can be missed",
+      "inputs": [
+        {
+          "id": "what_goes_live",
+          "label": "What is launching and when",
+          "required": true,
+          "source": "owner",
+          "example": "Switch to the new booking system on Monday 7:00"
+        },
+        {
+          "id": "plan",
+          "label": "Project plan and known risks",
+          "required": false,
+          "source": "coworker"
+        },
+        {
+          "id": "people",
+          "label": "Who is available on the day",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "rollback_option",
+          "label": "How to go back if it fails",
+          "required": false,
+          "source": "owner",
+          "example": "Old system stays live read-only for two weeks"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "checklist",
+          "name": "Launch checklist",
+          "format": "xlsx",
+          "description": "Pause points (T-7, T-1, go, T+1), items, owner, due, evidence, status."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Launch-day runbook and rollback",
+          "format": "md",
+          "description": "Timed steps, owners, go/no-go criteria, rollback trigger and steps, comms."
+        },
+        {
+          "artifact_type": "decision_record",
+          "name": "Go/no-go record",
+          "format": "md",
+          "description": "Criteria results, decision, who decided and when."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "spreadsheet_generate",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "asana",
+        "slack",
+        "microsoft-teams",
+        "google-workspace",
+        "notion"
+      ],
+      "modalities": [
+        "text"
+      ],
+      "instructions": "1. Recall the plan, risks and past launches with memory_recall. 2. Organize by pause points (T-7 days, T-1 day, go time, T+1 day). Keep each list to about five to nine killer items in do-confirm style (the checklist-manifesto principle): things that are easy to miss and costly if missed. 3. Give every item an owner, due time and the evidence that proves it is done (a screenshot, a test result, a signed-off message). 4. Define objective go/no-go criteria (for example: data migration row counts match, test booking and payment succeed end to end, staff trained, support macros ready). 5. Write the launch-day runbook with times, and a rollback plan: trigger (what failure means we go back), steps, owner and how long it takes. Mark rollback 'untested' unless rehearsed. 6. Plan communications (customers, staff, suppliers) and name a hypercare owner for the first days. 7. Check each go/no-go criterion against its evidence, offer the lead a short voiced go/no-go meeting, and put the decision to the owner with request_owner_decision. Build the checklist with spreadsheet_generate and runbook with document_generate. 8. State what could not be verified: items marked done without evidence and rollback steps not rehearsed.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Draft checklist by pause point",
+          "brief": "Draft killer items per pause point with owners and evidence.",
+          "acceptance": "Each pause point has five to nine items with owner, due and evidence."
+        },
+        {
+          "activity": "llm",
+          "title": "Go/no-go criteria, runbook and rollback",
+          "brief": "Write objective criteria, timed runbook and rollback plan.",
+          "acceptance": "Criteria objective; rollback has trigger, steps, owner and duration.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Checklist review",
+          "brief": "Check for missing killer items and untestable criteria.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Go/no-go check",
+          "brief": "Check each criterion against its evidence.",
+          "acceptance": "First line APPROVED or CHANGES; each criterion marked met or not with evidence.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner decides go",
+          "brief": "Owner makes the go/no-go decision.",
+          "acceptance": "Decision recorded with time and rationale.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render",
+          "brief": "Render checklist, runbook and decision record.",
+          "acceptance": "Files consistent; decision record complete.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every item has an owner, due time and evidence of completion.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Go/no-go criteria are objective.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Rollback has a trigger, steps, owner and duration, and is marked untested if not rehearsed.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Lists are short killer-item lists per pause point.",
+          "severity": "should"
+        },
+        {
+          "criterion": "A hypercare owner is named.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "launch-tiering",
+        "test-plan",
+        "plan-a-project",
+        "store-opening-checklist",
+        "post-mortem"
+      ],
+      "example_request": "We're switching to the new booking system on Monday. Give me a checklist so nothing gets missed and we can switch back if it goes wrong.",
+      "typical_departments": [
+        "core-crew",
+        "operations-supply-chain",
+        "product"
+      ],
+      "version": 1
+    },
+    {
+      "id": "weekly-review",
+      "name": "Weekly review",
+      "icon": "◷",
+      "category": "planning-pm",
+      "one_liner": "Weekly review of goals and work: what moved, what is stuck, what matters next.",
+      "description": "Reviews the week against goals: what moved, what stalled, exactly three next moves (each with its first concrete step) and one thing to stop or drop, in under 300 words, with an optional two-minute ear-friendly version for listening.",
+      "when": "the owner asks for a weekly (or periodic) review of goals and work",
+      "inputs": [
+        {
+          "id": "goals",
+          "label": "Current goals or OKRs",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "work_log",
+          "label": "Project logs, completed tasks and notes from the period",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "tracker",
+          "label": "Task tracker or calendar",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "Weekly review",
+          "format": "md",
+          "description": "Moved, stalled, three next moves with first steps, one thing to stop."
+        },
+        {
+          "artifact_type": "script",
+          "name": "Two-minute spoken version",
+          "format": "md",
+          "description": "The review rewritten for listening, ready to voice as a listen-in briefing."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "connector_read"
+      ],
+      "connectors_optional": [
+        "asana",
+        "trello",
+        "linear",
+        "google-workspace",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Use memory_recall, the project logs and documents via embeddings_search, and the tracker via connector_read, to list what progressed and what stalled against the current goals (a GTD-style weekly review: get clear, get current). 2. For stalled items, say why in one line (blocked, deprioritized, unclear next step). 3. Propose exactly three next moves, each tied to a goal and with the first concrete step (a verb, an owner, a when). 4. Propose one thing to stop or drop, with a one-line reason. 5. Ask one question only if it blocks a next move. Keep it under 300 words. 6. Offer a two-minute ear-friendly version the lead can voice as a listen-in briefing. 7. State what could not be verified: work not logged anywhere the review can see.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Draft the review",
+          "brief": "Gather the week's evidence and draft moved, stalled, three next moves and one stop.",
+          "acceptance": "Under 300 words; exactly three next moves each with a first step; one stop with reason."
+        },
+        {
+          "activity": "llm",
+          "title": "Ear-friendly version",
+          "brief": "Rewrite the review for listening when the owner wants it.",
+          "acceptance": "About 300 spoken words or fewer; matches the text.",
+          "dependsOn": [
+            0
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Under 300 words.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Exactly three next moves, each with a concrete first step.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Exactly one thing to stop or drop, with a reason.",
+          "severity": "must"
+        },
+        {
+          "criterion": "At most one question, and only if it blocks a next move.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Based on logged evidence, not assumptions.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 10,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "status-report",
+        "okr-set",
+        "daily-brief",
+        "retrospective",
+        "plan-a-project"
+      ],
+      "example_request": "It's Friday. What did we actually get done this week, and what should I focus on next week?",
+      "typical_departments": [
+        "core-crew",
+        "strategy-leadership"
+      ],
+      "biz_bot_name": "weekly-review",
+      "version": 1
+    },
+    {
+      "id": "dependency-map",
+      "name": "Dependency map & critical path",
+      "icon": "⛓",
+      "category": "planning-pm",
+      "one_liner": "Map dependencies and compute the critical path and slack.",
+      "description": "Maps every dependency in a plan (internal and external, typed finish-to-start, start-to-start and so on), detects cycles, runs forward and backward passes to compute the critical path and float for every task, and names who owns each external dependency and when it will be confirmed.",
+      "when": "a plan has many moving parts or outside parties, and the owner needs to know what can actually delay them",
+      "inputs": [
+        {
+          "id": "tasks",
+          "label": "Tasks or workstreams",
+          "required": true,
+          "source": "connector",
+          "example": "Jira epics for the product launch"
+        },
+        {
+          "id": "external_parties",
+          "label": "Suppliers, partners or approvals involved",
+          "required": false,
+          "source": "owner",
+          "example": "Packaging supplier, photographer, web developer"
+        },
+        {
+          "id": "durations",
+          "label": "Durations or estimates",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "diagram",
+          "name": "Dependency network",
+          "format": "mermaid",
+          "description": "Tasks as nodes, typed dependencies as edges, critical path highlighted, external dependencies marked."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "CPM table",
+          "format": "xlsx",
+          "description": "Task, duration, predecessors, type, ES, EF, LS, LF, float, critical flag, external owner."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "What can delay us",
+          "format": "md",
+          "description": "Critical path, near-critical tasks, external dependencies and their confirmation dates."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "code_interpreter",
+        "diagram_generate",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "jira",
+        "linear",
+        "asana",
+        "monday",
+        "clickup"
+      ],
+      "modalities": [
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Pull tasks with connector_read or from the plan via memory_recall. For each, list predecessors with type (finish-to-start, start-to-start, finish-to-finish, start-to-finish) and any lead or lag. 2. Mark external dependencies (supplier, partner, approval) with an owner on our side and a confirmation date. 3. With code_interpreter check for cycles and dangling tasks, then run the forward pass (ES, EF) and backward pass (LS, LF) and compute total float for every task. 4. Identify the critical path and near-critical tasks (float under a few days). For complex webs, a design structure matrix can reveal tightly coupled clusters. 5. Render the network with diagram_generate and the CPM table with spreadsheet_generate. 6. Write the brief with document_generate: what drives the end date, which external dependencies are most dangerous, and actions (confirm dates, add buffer, decouple). 7. State what could not be verified: external dates not confirmed in writing and durations that are estimates.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Collect tasks",
+          "brief": "Collect tasks and durations.",
+          "acceptance": "Every task has a duration or is flagged."
+        },
+        {
+          "activity": "llm",
+          "title": "Type dependencies",
+          "brief": "List typed predecessors and external dependencies with owners.",
+          "acceptance": "Every dependency typed; externals have owner and confirmation date.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "CPM and cycle check",
+          "brief": "Detect cycles, run forward and backward passes and compute float.",
+          "acceptance": "No cycles; float for every task; critical path listed.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render network and table",
+          "brief": "Render the network diagram and CPM table.",
+          "acceptance": "Critical path highlighted.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Dependency review",
+          "brief": "Check dependency logic and external risks.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Cycles are detected and reported; none remain.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Float is computed for every task and the critical path is listed.",
+          "severity": "must"
+        },
+        {
+          "criterion": "External dependencies have an owner and a confirmation date.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Dependency types are explicit.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Near-critical tasks are flagged.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "timeline-gantt",
+        "risk-register",
+        "plan-a-project",
+        "resource-plan",
+        "change-request"
+      ],
+      "example_request": "Our new product launch depends on the packaging supplier, the photographer and the website. Which of these can actually delay us?",
+      "typical_departments": [
+        "core-crew",
+        "operations-supply-chain",
+        "engineering"
+      ],
+      "version": 1
+    },
+    {
+      "id": "post-mortem",
+      "name": "Blameless post-mortem",
+      "icon": "↺",
+      "category": "planning-pm",
+      "one_liner": "Timeline, contributing factors, what went well and action items.",
+      "description": "Runs a blameless post-mortem after something went wrong: a timestamped timeline from real evidence, customer impact quantified, contributing factors (not a single root cause, not a person), what went well and where we got lucky, and specific, owned, dated action items. Lessons are saved to memory.",
+      "when": "an outage, missed deadline, failed launch, complaint or near miss has happened and the owner wants to learn from it without blame",
+      "inputs": [
+        {
+          "id": "incident",
+          "label": "What happened, roughly when",
+          "required": true,
+          "source": "owner",
+          "example": "Online orders were down for six hours on Saturday"
+        },
+        {
+          "id": "evidence",
+          "label": "Chat threads, tickets, logs and call transcripts",
+          "required": true,
+          "source": "connector",
+          "example": "Slack #orders channel, Zendesk tickets, hosting status emails"
+        },
+        {
+          "id": "people_involved",
+          "label": "Who was involved (roles)",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "impact_data",
+          "label": "Orders, revenue or customers affected",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Post-mortem",
+          "format": "md -> docx",
+          "description": "Summary, impact, timeline, contributing factors, what went well, where we got lucky, action items."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Contributing-factors diagram",
+          "format": "mermaid",
+          "description": "Ishikawa-style map of contributing factors."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Action items",
+          "format": "md",
+          "description": "Specific actions with owner, due date and priority."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "embeddings_search",
+        "ask_coworker",
+        "diagram_generate",
+        "document_generate",
+        "message_coworker"
+      ],
+      "connectors_optional": [
+        "slack",
+        "zendesk",
+        "jira",
+        "linear",
+        "github",
+        "zoom",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Collect evidence with connector_read and file_parse (including call transcripts); search past incidents with embeddings_search. 2. Build a timestamped timeline from evidence: detection, escalation, actions, recovery. Every entry cites its source. 3. Quantify impact: customers, orders, revenue, time, reputation signals. 4. Gather blameless accounts from the coworkers involved with ask_coworker, asking 'what made sense at the time?', and offer the lead a facilitated, voiced review the owner can listen to. Focus on systems and conditions, never on individuals (just culture). 5. Identify contributing factors (usually several) using 5 Whys or an Ishikawa diagram (drawn with diagram_generate) as exploration tools; record what went well and where we got lucky. 6. Write action items that are specific, owned, dated and prioritized (prevent, detect faster, respond better). Avoid vague actions like 'be more careful'. 7. Render the post-mortem with document_generate and hand the lessons to the knowledge librarian with message_coworker so they are saved to memory for future plans. 8. Escalate to the lead if the incident involved a data breach, safety, legal or regulatory exposure. 9. State what could not be verified: gaps in the timeline and factors based on recollection rather than evidence.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Collect evidence",
+          "brief": "Gather chats, tickets, logs and recordings.",
+          "acceptance": "Source list covering the incident window."
+        },
+        {
+          "activity": "llm",
+          "title": "Timeline and impact",
+          "brief": "Build the timestamped timeline and quantify impact.",
+          "acceptance": "Every timeline entry cites a source; impact quantified.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Blameless accounts",
+          "brief": "Collect accounts from the coworkers involved, focused on systems and conditions.",
+          "acceptance": "Accounts captured from everyone involved; no blame language.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Factors and actions",
+          "brief": "Write contributing factors, what went well and action items.",
+          "acceptance": "Several contributing factors; actions specific, owned and dated.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Blameless language and action review",
+          "brief": "Check for blame language and vague actions.",
+          "acceptance": "First line APPROVED or CHANGES; blaming phrases quoted.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Hand off lessons",
+          "brief": "Send lessons learned to the knowledge librarian for memory.",
+          "acceptance": "Hand-off sent with a link to the post-mortem.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The timeline is timestamped and every entry cites evidence.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Language is blameless: systems and conditions, not individuals.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Action items are specific, owned, dated and prioritized.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Customer impact is quantified.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Includes what went well and where we got lucky.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "root-cause-analysis",
+        "retrospective",
+        "incident-runbook",
+        "risk-register",
+        "decision-archive"
+      ],
+      "example_request": "Our online orders were down for six hours on Saturday. I don't want to blame anyone. I want to understand what happened and make sure it doesn't happen again.",
+      "typical_departments": [
+        "core-crew",
+        "engineering",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "change-request",
+      "name": "Change request & scope control",
+      "icon": "🔀",
+      "category": "planning-pm",
+      "one_liner": "Impact of a scope change on time, cost and risk, with a decision request.",
+      "description": "Assesses a scope change before anyone says yes: what is being asked, why, and its impact on time (via the critical path), cost, quality and risk, with options (accept, accept with a trade, defer, decline), a recommendation, a decision request and a client-ready message.",
+      "when": "a client, partner or the owner asks for more (or different) work mid-project, and the plan, price or deadline may need to change",
+      "inputs": [
+        {
+          "id": "request",
+          "label": "The change requested and by whom",
+          "required": true,
+          "source": "owner",
+          "example": "Client wants a mobile app as well as the website"
+        },
+        {
+          "id": "baseline",
+          "label": "Current plan, budget and scope (SOW)",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "rates_and_capacity",
+          "label": "Rates and team capacity",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "contract_terms",
+          "label": "Change clauses in the agreement",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Change request",
+          "format": "md -> docx",
+          "description": "Description, reason, impact on scope, time, cost, quality and risk, options and recommendation."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Impact analysis",
+          "format": "xlsx",
+          "description": "Added work, effort, cost, schedule impact via critical path, and risk changes."
+        },
+        {
+          "artifact_type": "decision_record",
+          "name": "Change decision",
+          "format": "md",
+          "description": "Decision, who decided, when, and the new baseline."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Message to the requester",
+          "format": "md",
+          "description": "Clear, friendly explanation of the impact and options."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "workspace_files",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "asana",
+        "jira",
+        "hubspot",
+        "google-workspace",
+        "docusign"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Recall the baseline scope, plan and rates with memory_recall; read the agreement's change clause from the workspace with workspace_files. 2. Describe the change precisely: what is added, removed or altered, why, and who asked. Separate true changes from clarifications of existing scope. 3. Assess impact with code_interpreter: added effort and cost at current rates, schedule impact by rerunning the critical path, quality and risk effects, and knock-on effects on other work (integrated change control). 4. Offer options: accept with new price and date; accept with a trade (swap out something of equal effort); defer to a later phase; decline. Recommend one with reasons. 5. Build the impact sheet with spreadsheet_generate and the change request with document_generate. Draft a friendly, clear message to the requester explaining impact and options. 6. Put the decision to the owner with request_owner_decision. Once decided, record it and update the baseline. Signing a contract amendment or sending the message are separate approved steps; contract wording goes to counsel if terms change materially. 7. State what could not be verified: estimates not yet reviewed by the people doing the work.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Describe the change",
+          "brief": "Describe the change and separate it from clarifications.",
+          "acceptance": "Change described with requester and reason."
+        },
+        {
+          "activity": "analysis",
+          "title": "Impact analysis",
+          "brief": "Quantify effort, cost, schedule (critical path), quality and risk impact.",
+          "acceptance": "Days, cost and risk changes quantified.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Options and recommendation",
+          "brief": "Write accept, trade, defer and decline options with a recommendation.",
+          "acceptance": "At least three options including a trade.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Change review",
+          "brief": "Check impact maths and fairness of options.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner decides",
+          "brief": "Owner decides and approves the message to the requester.",
+          "acceptance": "Decision recorded.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Record and update baseline",
+          "brief": "Write the decision record and updated baseline.",
+          "acceptance": "Baseline updated with who and when.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Impact on time, cost and risk is quantified; schedule impact uses the critical path.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Options include at least a trade-off and a deferral, with a recommendation.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The decision is recorded with who decided and when, and the baseline is updated.",
+          "severity": "must"
+        },
+        {
+          "criterion": "True changes are separated from clarifications of existing scope.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The message to the requester is clear and friendly.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "agency-sow-scope",
+        "timeline-gantt",
+        "resource-plan",
+        "decision-record",
+        "status-report"
+      ],
+      "example_request": "The client now wants a mobile app as well as the website 'while we're at it'. What does that do to the deadline and the price, and how do I say it?",
+      "typical_departments": [
+        "core-crew",
+        "industry-specialists"
+      ],
+      "version": 1
+    }
+  ]
+}

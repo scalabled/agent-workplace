@@ -1,0 +1,1097 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-workplace.local/catalog/schema/lead.schema.json",
+  "title": "Lead personality",
+  "description": "One selectable lead (catalog/leads/<lead-id>.json). Compatible superset of biz-bot's principal record {name, title, tone, rules, proactivity, voice}.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^lead-[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 48
+    },
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 60
+    },
+    "handle": {
+      "$ref": "#/$defs/handle"
+    },
+    "pronouns": {
+      "$ref": "#/$defs/pronouns"
+    },
+    "age_range": {
+      "$ref": "#/$defs/age_range"
+    },
+    "heritage": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 80
+    },
+    "is_ai": {
+      "$ref": "#/$defs/honesty"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 60,
+      "description": "e.g. 'Chief of staff' (biz-bot principal.title)"
+    },
+    "archetype": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 60
+    },
+    "tagline": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 140
+    },
+    "tone": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 300,
+      "description": "biz-bot principal.tone compat: voice and style in one or two sentences"
+    },
+    "personality": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 120
+          },
+          "minItems": 3,
+          "maxItems": 6,
+          "uniqueItems": true
+        },
+        "temperament": {
+          "type": "string",
+          "minLength": 30,
+          "maxLength": 400
+        },
+        "humor": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 300
+        },
+        "pushback_style": {
+          "type": "string",
+          "minLength": 30,
+          "maxLength": 400,
+          "description": "how they push back on the owner"
+        },
+        "bad_news_style": {
+          "type": "string",
+          "minLength": 30,
+          "maxLength": 400
+        },
+        "celebration_style": {
+          "type": "string",
+          "minLength": 30,
+          "maxLength": 300
+        },
+        "traits": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 40
+          },
+          "minItems": 3,
+          "maxItems": 6,
+          "uniqueItems": true
+        },
+        "sliders": {
+          "$ref": "#/$defs/sliders"
+        },
+        "quirks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 160
+          },
+          "minItems": 2,
+          "maxItems": 4,
+          "uniqueItems": true
+        },
+        "pet_peeves": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 160
+          },
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "values",
+        "temperament",
+        "humor",
+        "pushback_style",
+        "bad_news_style",
+        "celebration_style",
+        "traits",
+        "sliders",
+        "quirks",
+        "pet_peeves"
+      ]
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "proactivity": {
+          "type": "string",
+          "enum": [
+            "off",
+            "quiet",
+            "on"
+          ]
+        },
+        "autonomy": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "1 = asks before almost everything; 5 = acts within standing grants and reports after"
+        },
+        "verbosity": {
+          "type": "string",
+          "enum": [
+            "terse",
+            "balanced",
+            "detailed"
+          ]
+        },
+        "check_in_cadence": {
+          "type": "string",
+          "enum": [
+            "on_request",
+            "daily_morning",
+            "twice_daily",
+            "weekly",
+            "milestones"
+          ]
+        }
+      },
+      "required": [
+        "proactivity",
+        "autonomy",
+        "verbosity",
+        "check_in_cadence"
+      ]
+    },
+    "communication": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "greeting": {
+          "type": "string",
+          "minLength": 15,
+          "maxLength": 300
+        },
+        "morning_brief_opening": {
+          "type": "string",
+          "minLength": 15,
+          "maxLength": 300
+        },
+        "delegating": {
+          "type": "string",
+          "minLength": 15,
+          "maxLength": 300
+        },
+        "asking_approval": {
+          "type": "string",
+          "minLength": 15,
+          "maxLength": 300
+        },
+        "reporting_failure": {
+          "type": "string",
+          "minLength": 15,
+          "maxLength": 300
+        },
+        "celebrating": {
+          "type": "string",
+          "minLength": 15,
+          "maxLength": 300
+        },
+        "signature_phrases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 120
+          },
+          "minItems": 3,
+          "maxItems": 8,
+          "uniqueItems": true
+        },
+        "words_they_avoid": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 60
+          },
+          "minItems": 2,
+          "maxItems": 10,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "greeting",
+        "morning_brief_opening",
+        "delegating",
+        "asking_approval",
+        "reporting_failure",
+        "celebrating",
+        "signature_phrases",
+        "words_they_avoid"
+      ]
+    },
+    "backstory": {
+      "type": "string",
+      "minLength": 1500,
+      "maxLength": 3600,
+      "description": "character lore, 300-500 words (word count checked by the index builder)"
+    },
+    "origin_moments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 80
+          },
+          "story": {
+            "type": "string",
+            "minLength": 150,
+            "maxLength": 1200
+          },
+          "share_when": {
+            "type": "string",
+            "minLength": 15,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "title",
+          "story",
+          "share_when"
+        ]
+      },
+      "minItems": 2,
+      "maxItems": 4,
+      "uniqueItems": true
+    },
+    "relatability_hooks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "owner_kind": {
+            "type": "string",
+            "minLength": 5,
+            "maxLength": 160
+          },
+          "connection": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 400
+          }
+        },
+        "required": [
+          "owner_kind",
+          "connection"
+        ]
+      },
+      "minItems": 3,
+      "maxItems": 8,
+      "uniqueItems": true
+    },
+    "rapport_topics": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 80
+      },
+      "minItems": 3,
+      "maxItems": 10,
+      "uniqueItems": true
+    },
+    "staffing_style": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "approach": {
+          "type": "string",
+          "minLength": 40,
+          "maxLength": 600
+        },
+        "default_size": {
+          "type": "string",
+          "enum": [
+            "lean",
+            "balanced",
+            "thorough"
+          ]
+        },
+        "favourite_persona_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 3,
+          "maxItems": 8,
+          "uniqueItems": true
+        },
+        "always_includes_roles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/team_role"
+          },
+          "minItems": 0,
+          "maxItems": 3,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "approach",
+        "default_size",
+        "favourite_persona_ids",
+        "always_includes_roles"
+      ]
+    },
+    "rituals": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "daily": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 60
+              },
+              "when": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 80
+              },
+              "format": {
+                "type": "string",
+                "enum": [
+                  "brief",
+                  "check_in",
+                  "kickoff",
+                  "standup",
+                  "brainstorm",
+                  "debate",
+                  "critique",
+                  "decision",
+                  "briefing",
+                  "retro",
+                  "workshop",
+                  "interview"
+                ]
+              },
+              "what_happens": {
+                "type": "string",
+                "minLength": 20,
+                "maxLength": 400
+              }
+            },
+            "required": [
+              "name",
+              "when",
+              "format",
+              "what_happens"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true
+        },
+        "weekly": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 60
+              },
+              "when": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 80
+              },
+              "format": {
+                "type": "string",
+                "enum": [
+                  "brief",
+                  "check_in",
+                  "kickoff",
+                  "standup",
+                  "brainstorm",
+                  "debate",
+                  "critique",
+                  "decision",
+                  "briefing",
+                  "retro",
+                  "workshop",
+                  "interview"
+                ]
+              },
+              "what_happens": {
+                "type": "string",
+                "minLength": 20,
+                "maxLength": 400
+              }
+            },
+            "required": [
+              "name",
+              "when",
+              "format",
+              "what_happens"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "daily",
+        "weekly"
+      ]
+    },
+    "voice": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "openai_realtime": {
+          "type": "string",
+          "enum": [
+            "alloy",
+            "ash",
+            "ballad",
+            "coral",
+            "echo",
+            "sage",
+            "shimmer",
+            "verse"
+          ]
+        },
+        "openai_live": {
+          "type": "string",
+          "enum": [
+            "alloy",
+            "ash",
+            "ballad",
+            "beacon",
+            "bossa",
+            "cedar",
+            "cinder",
+            "coral",
+            "delta",
+            "echo",
+            "gleam",
+            "marin",
+            "meridian",
+            "quartz",
+            "ripple",
+            "sage",
+            "shimmer",
+            "stone",
+            "tempo",
+            "verse",
+            "vesper",
+            "willow"
+          ]
+        },
+        "xai_realtime": {
+          "type": "string",
+          "enum": [
+            "eve",
+            "ara",
+            "rex",
+            "sal",
+            "leo"
+          ]
+        },
+        "openai_tts": {
+          "type": "string",
+          "enum": [
+            "marin",
+            "cedar",
+            "alloy",
+            "ash",
+            "ballad",
+            "coral",
+            "echo",
+            "fable",
+            "onyx",
+            "nova",
+            "sage",
+            "shimmer",
+            "verse"
+          ]
+        },
+        "xai_tts": {
+          "type": "string",
+          "enum": [
+            "eve",
+            "ara",
+            "leo",
+            "rex",
+            "sal",
+            "carina",
+            "zagan",
+            "helix",
+            "orion",
+            "luna",
+            "iris",
+            "altair",
+            "zenith",
+            "perseus",
+            "helios",
+            "lux",
+            "kepler",
+            "rigel",
+            "cosmo",
+            "celeste",
+            "ursa",
+            "sirius",
+            "lumen",
+            "castor",
+            "naksh",
+            "atlas"
+          ]
+        },
+        "speed": {
+          "type": "number",
+          "minimum": 0.9,
+          "maximum": 1.1
+        },
+        "delivery_notes": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 300
+        },
+        "tts_instructions": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 400
+        }
+      },
+      "required": [
+        "openai_realtime",
+        "xai_realtime",
+        "openai_tts",
+        "xai_tts",
+        "speed",
+        "delivery_notes"
+      ]
+    },
+    "avatar": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "portrait_prompt": {
+          "$ref": "#/$defs/portrait_prompt"
+        },
+        "appearance": {
+          "$ref": "#/$defs/appearance"
+        },
+        "accent_color": {
+          "$ref": "#/$defs/hex_color"
+        },
+        "expression_palette": {
+          "$ref": "#/$defs/expression_palette"
+        },
+        "signature_look": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "portrait_prompt",
+        "appearance",
+        "accent_color",
+        "expression_palette",
+        "signature_look"
+      ]
+    },
+    "best_for_owners_who": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 200
+      },
+      "minItems": 3,
+      "maxItems": 6,
+      "uniqueItems": true
+    },
+    "might_not_suit_owners_who": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 200
+      },
+      "minItems": 2,
+      "maxItems": 4,
+      "uniqueItems": true
+    },
+    "honesty_note": {
+      "type": "string",
+      "minLength": 40,
+      "maxLength": 500,
+      "description": "how this lead answers 'are you real?' and frames lore"
+    },
+    "operating_principles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 300
+      },
+      "minItems": 3,
+      "maxItems": 8,
+      "uniqueItems": true
+    },
+    "guardrails": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 300
+      },
+      "minItems": 2,
+      "maxItems": 8,
+      "uniqueItems": true
+    },
+    "rules": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 600,
+      "description": "biz-bot principal.rules compat: default standing rules; the owner's own rules override"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "handle",
+    "pronouns",
+    "age_range",
+    "heritage",
+    "is_ai",
+    "title",
+    "archetype",
+    "tagline",
+    "tone",
+    "personality",
+    "defaults",
+    "communication",
+    "backstory",
+    "origin_moments",
+    "relatability_hooks",
+    "rapport_topics",
+    "staffing_style",
+    "rituals",
+    "voice",
+    "avatar",
+    "best_for_owners_who",
+    "might_not_suit_owners_who",
+    "honesty_note",
+    "operating_principles",
+    "guardrails"
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+      "maxLength": 48,
+      "description": "kebab-case, globally unique across all catalog records"
+    },
+    "handle": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,31}$",
+      "description": "lowercase ASCII-folded first name; unique across coworkers and leads; used for @mentions"
+    },
+    "pronouns": {
+      "type": "string",
+      "enum": [
+        "she/her",
+        "he/him",
+        "they/them"
+      ]
+    },
+    "age_range": {
+      "type": "string",
+      "pattern": "^(2[4-9]|[3-6][0-9]|7[0-2])-(2[4-9]|[3-6][0-9]|7[0-2])$",
+      "description": "e.g. '35-39'; within 24-72"
+    },
+    "hex_color": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    },
+    "color_alpha": {
+      "type": "string",
+      "pattern": "^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"
+    },
+    "slider": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "sliders": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "warmth": {
+          "$ref": "#/$defs/slider",
+          "description": "0 reserved and cool, 100 openly warm and effusive"
+        },
+        "directness": {
+          "$ref": "#/$defs/slider",
+          "description": "0 diplomatic and indirect, 100 blunt"
+        },
+        "formality": {
+          "$ref": "#/$defs/slider",
+          "description": "0 casual, 100 formal"
+        },
+        "humor": {
+          "$ref": "#/$defs/slider",
+          "description": "0 earnest, 100 playful and witty"
+        },
+        "risk_appetite": {
+          "$ref": "#/$defs/slider",
+          "description": "0 cautious, 100 bold"
+        },
+        "detail": {
+          "$ref": "#/$defs/slider",
+          "description": "0 big-picture, 100 meticulous"
+        },
+        "pace": {
+          "$ref": "#/$defs/slider",
+          "description": "0 deliberate and unhurried, 100 rapid"
+        }
+      },
+      "required": [
+        "warmth",
+        "directness",
+        "formality",
+        "humor",
+        "risk_appetite",
+        "detail",
+        "pace"
+      ],
+      "description": "0-100 integers; 50 is balanced (taxonomy.slider_definitions)"
+    },
+    "team_role": {
+      "type": "string",
+      "enum": [
+        "lead",
+        "co_owner",
+        "reviewer",
+        "sceptic",
+        "facilitator",
+        "specialist"
+      ]
+    },
+    "honesty": {
+      "const": true,
+      "description": "Always true: this persona is an AI (taxonomy.honesty_policy)"
+    },
+    "appearance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skin_tone": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 120
+        },
+        "complexion_details": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "minItems": 0,
+          "maxItems": 6,
+          "uniqueItems": true
+        },
+        "hair": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "style": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 120
+            },
+            "texture": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 60
+            },
+            "color": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 60
+            }
+          },
+          "required": [
+            "style",
+            "color"
+          ]
+        },
+        "head_covering": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120
+        },
+        "facial_hair": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120,
+          "description": "must keep the lips fully visible"
+        },
+        "eyewear": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 120,
+          "description": "clear lenses only"
+        },
+        "accessories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 80
+          },
+          "minItems": 0,
+          "maxItems": 6,
+          "uniqueItems": true
+        },
+        "attire": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "alt_text": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 300,
+          "description": "one-sentence accessible description of the portrait"
+        },
+        "procedural": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "avatar": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 3
+            },
+            "eyeColor": {
+              "$ref": "#/$defs/hex_color"
+            },
+            "eyeSpacing": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "eyeWidth": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "eyeBrowColor": {
+              "$ref": "#/$defs/hex_color"
+            },
+            "eyeBrowSize": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "eyeLidColor": {
+              "$ref": "#/$defs/hex_color"
+            },
+            "eyeOutlineColor": {
+              "$ref": "#/$defs/hex_color"
+            },
+            "mouthSize": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "mouthWidth": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "mouthHeight": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "noseSize": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "noseWidth": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "noseHeight": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "lipColor": {
+              "$ref": "#/$defs/color_alpha"
+            },
+            "lipSize": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "skinHue": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            },
+            "skinBrightness": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "skinGrayScale": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "showHair": {
+              "type": "boolean"
+            },
+            "showNose": {
+              "type": "boolean"
+            },
+            "showOutline": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "avatar",
+            "eyeColor",
+            "eyeSpacing",
+            "eyeWidth",
+            "eyeBrowColor",
+            "eyeBrowSize",
+            "eyeLidColor",
+            "eyeOutlineColor",
+            "mouthSize",
+            "mouthWidth",
+            "mouthHeight",
+            "noseSize",
+            "noseWidth",
+            "noseHeight",
+            "lipColor",
+            "lipSize",
+            "skinHue",
+            "skinBrightness",
+            "skinGrayScale"
+          ],
+          "description": "oncloudnine PersonaSettings look fields for the CSS-bust fallback (taxonomy.appearance_fields.procedural). Never 0 for size/brightness fields."
+        }
+      },
+      "required": [
+        "skin_tone",
+        "hair",
+        "head_covering",
+        "facial_hair",
+        "eyewear",
+        "accessories",
+        "attire",
+        "alt_text",
+        "procedural"
+      ],
+      "description": "Descriptive fields drive prompts and alt text; procedural drives the fallback bust"
+    },
+    "portrait_prompt": {
+      "type": "string",
+      "minLength": 200,
+      "maxLength": 1600,
+      "pattern": "^A single adult, front-facing portrait, unobstructed face, relaxed closed lips, head and shoulders, natural facial proportions, no text\\. ",
+      "description": "Full generator prompt: starts with taxonomy.portrait_conventions.prompt_prefix verbatim, then follows prompt_order"
+    },
+    "expression_palette": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resting": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 300,
+          "description": "the approved portrait: calm, attentive, lips closed"
+        },
+        "thinking": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 300,
+          "description": "edit instruction relative to resting (image_edit with edit_prefix)"
+        },
+        "delighted": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 300,
+          "description": "edit instruction; closed-lip smile keeps the warp valid"
+        },
+        "concerned": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 300,
+          "description": "edit instruction relative to resting"
+        }
+      },
+      "required": [
+        "resting",
+        "thinking",
+        "delighted",
+        "concerned"
+      ],
+      "description": "Short edit instructions per expression state (taxonomy.portrait_conventions.expression_palette_generation)"
+    }
+  }
+}

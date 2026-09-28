@@ -1,0 +1,1851 @@
+{
+  "category": "product-management",
+  "version": 1,
+  "skills": [
+    {
+      "id": "prd",
+      "name": "Product requirements document",
+      "icon": "📋",
+      "category": "product-management",
+      "one_liner": "Problem, goals, users, scope, requirements, acceptance criteria and risks.",
+      "description": "Writes a product requirements document that starts from the problem and evidence, not the solution: goals and non-goals, users and jobs to be done, success metrics with baselines, scope, prioritized requirements, user stories with Given/When/Then acceptance criteria, risks, open questions with owners and a rollout plan.",
+      "when": "the owner wants something built (by a developer, agency or coworkers) and needs a clear spec to get quotes, align people or hold the build to account",
+      "inputs": [
+        {
+          "id": "problem",
+          "label": "The problem and who has it, in the owner's words",
+          "required": true,
+          "source": "owner",
+          "example": "Customers keep phoning to reschedule appointments; we lose 6 hours a week to it"
+        },
+        {
+          "id": "evidence",
+          "label": "Tickets, call logs, interviews, analytics",
+          "required": false,
+          "source": "connector",
+          "example": "Zendesk tickets tagged 'reschedule'"
+        },
+        {
+          "id": "sketches",
+          "label": "Sketches, screenshots or whiteboard photos",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "constraints",
+          "label": "Budget, deadline, platforms, integrations",
+          "required": false,
+          "source": "owner",
+          "example": "Must work with our current booking system; £10k budget"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "PRD",
+          "format": "md -> docx",
+          "description": "Problem, evidence, goals, non-goals, users, metrics, scope, requirements, stories with acceptance criteria, risks, open questions, rollout."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "User flow",
+          "format": "mermaid",
+          "description": "The main flow and key alternate paths."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "connector_read",
+        "file_parse",
+        "ask_coworker",
+        "diagram_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "zendesk",
+        "intercom",
+        "linear",
+        "jira",
+        "notion",
+        "confluence",
+        "figma"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Gather evidence with memory_recall, embeddings_search and connector_read (tickets, feedback, analytics); read sketches and whiteboard photos with file_parse. Quantify the problem (how often, how costly, for whom). 2. Write the problem statement and goals before any solution. List non-goals explicitly to stop scope creep. 3. Describe users and their jobs to be done ('When I..., I want to..., so I can...'), and the success metric with baseline, target and how it will be measured. 4. Define scope and prioritize requirements with MoSCoW (must, should, could, won't this time). 5. Write user stories that are INVEST (independent, negotiable, valuable, estimable, small, testable), each with Given/When/Then acceptance criteria covering the happy path, edge cases and errors. Draw the main flow with diagram_generate. 6. Ask an engineering coworker with ask_coworker to check feasibility and flag technical risks; include accessibility (WCAG 2.2 AA) and privacy requirements where personal data is involved. 7. List risks, dependencies and open questions, each with an owner; add a rollout and measurement plan. Render with document_generate. 8. State what could not be verified: assumptions about users or volumes, and technical constraints not yet confirmed.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Gather evidence",
+          "brief": "Collect and quantify evidence of the problem; read sketches.",
+          "acceptance": "Problem quantified with at least one data source."
+        },
+        {
+          "activity": "llm",
+          "title": "Draft the PRD",
+          "brief": "Write problem, goals, non-goals, users, metrics, scope, requirements and stories.",
+          "acceptance": "Every must-have requirement has Given/When/Then criteria.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Feasibility and testability review",
+          "brief": "Engineering-minded review of feasibility, risks and testable criteria.",
+          "acceptance": "First line APPROVED or CHANGES; untestable criteria quoted.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner signs off scope",
+          "brief": "Owner confirms scope, non-goals and success metric.",
+          "acceptance": "Sign-off recorded with any changes.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render PRD",
+          "brief": "Render the PRD and user flow.",
+          "acceptance": "Open questions each have an owner.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The problem is stated with evidence before any solution.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Non-goals are listed.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every must-have requirement has testable Given/When/Then acceptance criteria.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The success metric has a baseline, target and measurement method.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Open questions and risks each have an owner.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "story-map",
+        "rice-prioritization",
+        "instrumentation-plan",
+        "test-plan",
+        "wireframes"
+      ],
+      "example_request": "Customers keep asking if they can reschedule their own appointments online. Write up what we'd need to build so I can get quotes from developers.",
+      "typical_departments": [
+        "product",
+        "engineering"
+      ],
+      "version": 1
+    },
+    {
+      "id": "story-map",
+      "name": "User story map",
+      "icon": "🧱",
+      "category": "product-management",
+      "one_liner": "Backbone, walking skeleton and release slices (Jeff Patton).",
+      "description": "Builds a Jeff Patton user story map: the user's journey as a backbone of activities, the tasks and stories beneath each, a walking skeleton that covers the whole journey thinly, and release slices defined by outcomes, so the team can see the smallest version worth shipping.",
+      "when": "a product or feature keeps growing in scope, the team cannot agree on an MVP, or a backlog has lost sight of the user's journey",
+      "inputs": [
+        {
+          "id": "product_goal",
+          "label": "What the product or feature is for",
+          "required": true,
+          "source": "owner",
+          "example": "A customer portal for viewing jobs, invoices and booking visits"
+        },
+        {
+          "id": "users",
+          "label": "Main user types",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "backlog",
+          "label": "Existing ideas, requests or backlog",
+          "required": false,
+          "source": "connector",
+          "example": "Trello board of feature ideas"
+        },
+        {
+          "id": "prd",
+          "label": "PRD or brief, if any",
+          "required": false,
+          "source": "coworker"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "diagram",
+          "name": "Story map",
+          "format": "svg",
+          "description": "Backbone of activities left to right, stories beneath by priority, release slice lines."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Sliced backlog",
+          "format": "xlsx",
+          "description": "Stories with activity, slice, outcome, estimate and acceptance criteria."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Release slices",
+          "format": "md",
+          "description": "Walking skeleton and each release slice with its outcome and success metric."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "convene_meeting",
+        "diagram_generate",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "trello",
+        "linear",
+        "jira",
+        "asana",
+        "figma",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "voice"
+      ],
+      "instructions": "1. Recall users and goals with memory_recall and pull existing ideas with connector_read. 2. Write the narrative flow as a backbone of user activities from left to right in the order the user experiences them (for example: find, book, prepare, receive service, pay, follow up). 3. Under each activity list user tasks, then the stories that support them, ordered top to bottom by importance. Write stories in INVEST form. 4. Run a mapping session with convene_meeting with product, design and engineering coworkers (the owner can listen) to find gaps, duplicates and missing unhappy paths. 5. Draw the walking skeleton: the thinnest set of stories that lets a user complete the whole journey end to end. 6. Slice releases horizontally by outcome, not by component: each slice names the outcome it achieves and the metric that shows it. 7. Render the map with diagram_generate, the sliced backlog with spreadsheet_generate and the release plan with document_generate. 8. State what could not be verified: stories based on assumed user behaviour, and estimates not yet confirmed by builders.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Backbone and stories",
+          "brief": "Write the activity backbone and stories beneath each activity.",
+          "acceptance": "Backbone ordered by user narrative; every story under an activity."
+        },
+        {
+          "activity": "meeting",
+          "title": "Mapping session",
+          "brief": "Voiced session to find gaps, duplicates and unhappy paths.",
+          "acceptance": "Minutes list added and removed stories.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Walking skeleton and slices",
+          "brief": "Define the walking skeleton and outcome-based release slices.",
+          "acceptance": "Skeleton covers every backbone activity; each slice has an outcome and metric.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Slice review",
+          "brief": "Check slices are thin, end to end and outcome based.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render map and plan",
+          "brief": "Render the map, backlog and slice plan.",
+          "acceptance": "Map and backlog consistent.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The backbone follows the user's narrative order.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The walking skeleton lets a user complete the whole journey, however thinly.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each release slice names an outcome and a metric.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Stories meet INVEST.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Unhappy paths are represented.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 50,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "prd",
+        "rice-prioritization",
+        "outcome-roadmap",
+        "wireframes",
+        "plan-a-project"
+      ],
+      "example_request": "We want to build a customer portal but it keeps growing. Can you map it out so we know the smallest version worth launching?",
+      "typical_departments": [
+        "product"
+      ],
+      "version": 1
+    },
+    {
+      "id": "rice-prioritization",
+      "name": "RICE prioritization",
+      "icon": "⇅",
+      "category": "product-management",
+      "one_liner": "Reach-impact-confidence-effort scoring with the reasoning visible.",
+      "description": "Scores a backlog with RICE (reach x impact x confidence / effort) using real reach data, a stated impact scale, honest confidence and builder estimates, shows the reasoning for every score, tests the ranking's sensitivity, and keeps strategic must-dos visible rather than gaming the numbers.",
+      "when": "there are more ideas or requests than capacity, and the owner wants a defensible order instead of whoever shouted loudest",
+      "inputs": [
+        {
+          "id": "backlog",
+          "label": "Candidate features or projects",
+          "required": true,
+          "source": "connector",
+          "example": "40 items in Linear"
+        },
+        {
+          "id": "usage_data",
+          "label": "Data to estimate reach",
+          "required": false,
+          "source": "connector",
+          "example": "GA4 users per page; Intercom request counts"
+        },
+        {
+          "id": "goal",
+          "label": "The outcome being optimized for this period",
+          "required": true,
+          "source": "memory",
+          "example": "Increase repeat bookings"
+        },
+        {
+          "id": "capacity",
+          "label": "Builder capacity for the period",
+          "required": false,
+          "source": "owner",
+          "example": "Two developers, one quarter"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Scored backlog",
+          "format": "xlsx",
+          "description": "Reach, impact, confidence, effort, RICE score, rationale per factor, sensitivity rank."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Priority rationale",
+          "format": "md",
+          "description": "Top items, what fits capacity, what was deprioritized and why, strategic exceptions."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "memory_recall",
+        "ask_coworker",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "linear",
+        "jira",
+        "asana",
+        "trello",
+        "clickup",
+        "google-analytics",
+        "intercom"
+      ],
+      "modalities": [
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Pull the backlog with connector_read and recall the period's goal with memory_recall. Merge duplicates and restate each item as the problem it solves. 2. Reach: people or events affected per period, from usage data where possible (state the period and source). 3. Impact on the goal per person on a fixed scale: 3 massive, 2 high, 1 medium, 0.5 low, 0.25 minimal, with a one-line reason. 4. Confidence: 100% (data-backed), 80% (some evidence), 50% (a hunch). Be honest; low confidence is a reason to test, not to inflate. 5. Effort in person-weeks, estimated by the builders via ask_coworker, not guessed. 6. Compute RICE = reach x impact x confidence / effort with live formulas in a sheet built with spreadsheet_generate, and add sensitivity columns (for example halve and double impact) to see whether the top items hold. 7. Cut the list at capacity. List strategic must-dos (compliance, contractual commitments, platform health) separately with their reason rather than tweaking scores to fit them in. Compare with cost of delay where timing matters. 8. Build the scored sheet with spreadsheet_generate and write the rationale with document_generate. 9. State what could not be verified: reach figures without data and estimates not reviewed by builders.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull the backlog",
+          "brief": "Read backlog items from the tracker.",
+          "acceptance": "All items loaded with ids."
+        },
+        {
+          "activity": "llm",
+          "title": "Reach from data",
+          "brief": "Estimate reach per item from usage data.",
+          "acceptance": "Each reach value has a period and source or is marked estimate.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Impact, confidence and effort",
+          "brief": "Score impact and confidence with reasons; collect effort from builders.",
+          "acceptance": "Every factor has a one-line rationale; effort from a builder.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Score and sensitivity",
+          "brief": "Build the scored sheet with RICE formulas and sensitivity columns.",
+          "acceptance": "Formulas live; stability of the top ten reported.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Prioritization review",
+          "brief": "Check reasoning, honesty of confidence and strategic exceptions.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render",
+          "brief": "Render the scored sheet and rationale.",
+          "acceptance": "Capacity cut line and exceptions visible.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every reach, impact, confidence and effort value has a stated reason or source.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Effort comes from builder estimates.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Strategic must-dos are listed separately, not forced through score tweaks.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Sensitivity of the top items is reported.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The cut line reflects actual capacity.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "feedback-triage",
+        "outcome-roadmap",
+        "prd",
+        "opportunity-solution-tree",
+        "compare-options"
+      ],
+      "example_request": "We've got 40 feature requests and two developers. Help me decide what to build next without it just being whoever shouted loudest.",
+      "typical_departments": [
+        "product"
+      ],
+      "version": 1
+    },
+    {
+      "id": "outcome-roadmap",
+      "name": "Outcome roadmap",
+      "icon": "🛣",
+      "category": "product-management",
+      "one_liner": "Now/Next/Later roadmap tied to outcomes and metrics.",
+      "description": "Builds a Now/Next/Later roadmap framed as problems and outcomes with metrics rather than features and dates, with confidence falling as the horizon lengthens, linked to OKRs, plus a customer-safe version that makes no date promises.",
+      "when": "customers or the team keep asking what's coming, date-based roadmaps keep slipping, or priorities need communicating",
+      "inputs": [
+        {
+          "id": "strategy_and_okrs",
+          "label": "Strategy and current OKRs",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "prioritized_opportunities",
+          "label": "Prioritized backlog or opportunities",
+          "required": true,
+          "source": "coworker",
+          "example": "RICE-scored backlog"
+        },
+        {
+          "id": "commitments",
+          "label": "Contractual or promised items",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "audiences",
+          "label": "Who sees internal vs external versions",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Internal roadmap",
+          "format": "md",
+          "description": "Now/Next/Later with outcome, metric, owner, confidence and link to OKRs."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Customer-safe roadmap",
+          "format": "md",
+          "description": "Themes and problems we're working on, with no dates or internal detail, ready for a web page or email."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "diagram_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "linear",
+        "jira",
+        "notion",
+        "asana",
+        "confluence"
+      ],
+      "modalities": [
+        "text"
+      ],
+      "instructions": "1. Recall strategy, OKRs and commitments with memory_recall and embeddings_search. 2. Frame each roadmap item as a problem or outcome ('Customers can rebook without calling', metric: phone reschedules down 50%), not a feature list. Group into themes. 3. Place items in Now (committed, in progress, owners named), Next (shaped, likely next), Later (directional, uncertain). Confidence falls from Now to Later; Later items carry no dates. 4. Link every item to an OKR or strategic choice; anything that links to nothing is questioned. 5. Show dependencies and a simple visual with diagram_generate. 6. Have a reviewer check that it is outcome-framed and honest about confidence, then ask the owner to approve with request_owner_decision. 7. Render the internal roadmap and a customer-safe version with document_generate; the customer version omits dates, internal names and commercially sensitive items. Turning it into a web page or deck, and publishing it, are separate approved steps. 8. State what could not be verified: items whose outcome metric has no baseline yet.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Frame outcomes",
+          "brief": "Turn priorities into outcome-framed items grouped by theme.",
+          "acceptance": "Every item has an outcome and metric."
+        },
+        {
+          "activity": "llm",
+          "title": "Place in Now/Next/Later",
+          "brief": "Place items by horizon with confidence and OKR links.",
+          "acceptance": "Now items have owners; Later items have no dates.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Roadmap review",
+          "brief": "Check outcome framing, OKR links and honesty of confidence.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves",
+          "brief": "Owner approves internal and external versions.",
+          "acceptance": "Approval recorded.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render versions",
+          "brief": "Render the internal and customer-safe versions.",
+          "acceptance": "Customer version contains no dates or internal-only items.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Items are framed as problems or outcomes with a metric, not features.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Later items carry no dates; Now items have owners.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The customer version omits dates and internal or sensitive information.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every item links to an OKR or strategic choice.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Confidence is stated per horizon.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "okr-set",
+        "rice-prioritization",
+        "opportunity-solution-tree",
+        "release-notes",
+        "strategy-choice-cascade"
+      ],
+      "example_request": "Our customers keep asking what's coming next and I keep promising dates we miss. Can you make a roadmap that doesn't box us in?",
+      "typical_departments": [
+        "product",
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "opportunity-solution-tree",
+      "name": "Opportunity solution tree",
+      "icon": "🌲",
+      "category": "product-management",
+      "one_liner": "Outcome, opportunities, solutions and assumption tests (Teresa Torres).",
+      "description": "Builds Teresa Torres' opportunity solution tree from real customer evidence: one measurable outcome at the root, opportunities (needs and pains, not solutions) with interview evidence, at least three candidate solutions for the target opportunity, and quick assumption tests across desirability, viability, feasibility and usability.",
+      "when": "the owner wants to move a metric and is tempted to jump to a solution, or has customer interviews and needs to turn them into what to try",
+      "inputs": [
+        {
+          "id": "desired_outcome",
+          "label": "The metric to move",
+          "required": true,
+          "source": "owner",
+          "example": "Increase first-year membership renewals from 55% to 70%"
+        },
+        {
+          "id": "interviews",
+          "label": "Interview transcripts or notes (recordings transcribed first)",
+          "required": true,
+          "source": "file",
+          "example": "12 member interview transcripts"
+        },
+        {
+          "id": "other_evidence",
+          "label": "Surveys, cancellation reasons, usage data",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "constraints",
+          "label": "What is off the table",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "diagram",
+          "name": "Opportunity solution tree",
+          "format": "svg",
+          "description": "Outcome, opportunities with evidence counts, solutions and tests."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Assumption test plan",
+          "format": "md",
+          "description": "Riskiest assumptions per solution with test, metric, success threshold, cost and time."
+        },
+        {
+          "artifact_type": "dataset",
+          "name": "Evidence table",
+          "format": "csv",
+          "description": "Opportunities with supporting quotes and interview ids."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "embeddings_search",
+        "memory_recall",
+        "diagram_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "zoom",
+        "typeform",
+        "intercom",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Parse interview transcripts and notes with file_parse (recordings are transcribed first, for example by the interview-synthesis skill); recall prior research with memory_recall and embeddings_search. 2. Set one measurable outcome at the root. Keep it a product or business outcome the team can influence. 3. Extract opportunities from story-based interview moments: needs, pains and desires in the customer's words, never disguised solutions ('I want an app'). Cluster similar moments (embeddings_search finds them across transcripts) and count how many interviews support each; keep verbatim quotes with interview ids. 4. Structure the opportunity space as a tree (parent opportunities broken into smaller, solvable ones) and choose a target opportunity by size, importance to the outcome and fit, stating why. 5. Generate at least three distinct solutions for the target opportunity and compare them rather than falling for the first. 6. For each solution list assumptions across desirability, viability, feasibility, usability and ethics; pick the riskiest and design fast tests (one-question survey, fake door, prototype test, concierge) with a success threshold, cost and time. 7. Render the tree with diagram_generate and the test plan with document_generate. Minimize personal data in the evidence table. 8. State what could not be verified: opportunities supported by only one interview and assumptions not yet tested.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Read transcripts",
+          "brief": "Parse interview transcripts and notes.",
+          "acceptance": "One parsed transcript or note set per interview."
+        },
+        {
+          "activity": "llm",
+          "title": "Extract and cluster opportunities",
+          "brief": "Extract needs and pains and cluster them with evidence counts.",
+          "acceptance": "Every opportunity has a count and at least one verbatim quote.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Tree, target and solutions",
+          "brief": "Structure the tree, choose a target opportunity and generate three or more solutions.",
+          "acceptance": "Target choice justified; three or more distinct solutions.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Assumption tests",
+          "brief": "List assumptions and design tests for the riskiest.",
+          "acceptance": "Each test has metric, threshold, cost and time.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Discovery review",
+          "brief": "Check opportunities are needs not solutions, and tests are fast and decisive.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render",
+          "brief": "Render the tree, test plan and evidence table.",
+          "acceptance": "Evidence table contains ids and quotes only.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "A single measurable outcome sits at the root.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Opportunities are customer needs or pains with evidence counts and quotes, not solutions.",
+          "severity": "must"
+        },
+        {
+          "criterion": "At least three solutions are compared for the target opportunity.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Assumption tests are fast and have success thresholds.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Personal data is minimized in evidence.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 75,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "interview-synthesis",
+        "jtbd-interview-guide",
+        "rice-prioritization",
+        "prd",
+        "ab-test-design"
+      ],
+      "example_request": "We need more members renewing after their first year. I've got 12 interview recordings. Help me figure out what to try.",
+      "typical_departments": [
+        "product",
+        "research-insights"
+      ],
+      "version": 1
+    },
+    {
+      "id": "usability-test",
+      "name": "Usability test plan & report",
+      "icon": "🖱",
+      "category": "product-management",
+      "one_liner": "Tasks, script, recruiting and a severity-ranked findings report.",
+      "description": "Plans and reports a usability test: goals, realistic non-leading task scenarios, screener and consent, think-aloud script, then transcribes sessions, measures task success and SUS, and produces a severity-ranked findings report (Nielsen 0-4) with clips, quotes and prioritized fixes.",
+      "when": "before launching or after changing a flow, when conversion is poor, or when the owner wants to see where real people get stuck",
+      "inputs": [
+        {
+          "id": "product_and_flow",
+          "label": "What is being tested and its URL, prototype or screenshots",
+          "required": true,
+          "source": "owner",
+          "example": "New online booking flow on staging"
+        },
+        {
+          "id": "research_goals",
+          "label": "What the owner wants to learn",
+          "required": true,
+          "source": "owner",
+          "example": "Can first-time customers book a service without calling?"
+        },
+        {
+          "id": "participants",
+          "label": "Who can take part and how to reach them",
+          "required": false,
+          "source": "owner",
+          "example": "Five regular customers who have agreed"
+        },
+        {
+          "id": "session_recordings",
+          "label": "Recordings of completed sessions, for the report",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Test plan and script",
+          "format": "md -> docx",
+          "description": "Goals, participants, tasks, script, consent wording, metrics."
+        },
+        {
+          "artifact_type": "form",
+          "name": "Screener",
+          "format": "json",
+          "description": "Short screener questions to recruit the right participants."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Rainbow sheet",
+          "format": "xlsx",
+          "description": "Observations by participant and task, success, time and SUS scores."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Findings report",
+          "format": "md -> pdf",
+          "description": "Severity-ranked findings with evidence, frequency and recommended fixes."
+        }
+      ],
+      "tools": [
+        "document_generate",
+        "stt",
+        "vision_describe",
+        "spreadsheet_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "zoom",
+        "calendly",
+        "typeform",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "audio",
+        "video",
+        "screen",
+        "image",
+        "file"
+      ],
+      "instructions": "1. Write goals and choose five to eight tasks as realistic scenarios with a clear end state ('You need a haircut next Saturday morning; book one'), never naming the UI element to click. 2. Write the screener, consent wording (recording, data use, right to stop) and a think-aloud script with neutral probes ('What are you thinking?'), and render with document_generate. Five participants per round finds most major problems; plan another round after fixes. 3. The owner or a coworker runs the sessions; recruiting messages are drafts for the owner to send. Confirm consent was recorded with request_owner_decision before analysing. 4. Transcribe sessions with stt and review screen recordings or screenshots with vision_describe. Remove names and personal details from transcripts. 5. Record task success (complete, with help, fail), time on task and errors in a rainbow sheet with spreadsheet_generate; compute SUS scores with formulas in the same workbook. 6. Write findings: each with evidence (quote or clip timestamp), frequency (how many participants), severity 0-4 (Nielsen) and a recommended fix. Lead with the top three. 7. Render the report with document_generate. Escalate to the lead if a finding shows a legal or accessibility barrier that should block launch. 8. State what could not be verified: behaviours seen in only one session and tasks not tested.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Plan, tasks and script",
+          "brief": "Write goals, tasks, screener, consent wording and script.",
+          "acceptance": "Tasks are realistic, non-leading and have end states."
+        },
+        {
+          "activity": "review",
+          "title": "Script review",
+          "brief": "Check for leading wording and missing consent elements.",
+          "acceptance": "First line APPROVED or CHANGES; leading phrases quoted.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Sessions run with consent",
+          "brief": "Owner or coworker recruits and runs sessions and confirms consent.",
+          "acceptance": "Consent confirmed for every session.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "stt",
+          "title": "Transcribe sessions",
+          "brief": "Transcribe recordings and redact personal details.",
+          "acceptance": "One redacted transcript per session.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Analyse",
+          "brief": "Build the rainbow sheet, compute success, time and SUS, and rank findings.",
+          "acceptance": "Every finding has evidence, frequency and severity.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Findings report",
+          "brief": "Render the severity-ranked report.",
+          "acceptance": "Top three findings lead the report with fixes.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Tasks are realistic scenarios and never name the UI element to use.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Consent is recorded for every session; transcripts are redacted.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each finding has evidence, frequency and a severity rating.",
+          "severity": "must"
+        },
+        {
+          "criterion": "At least five participants, or the limitation is stated.",
+          "severity": "should"
+        },
+        {
+          "criterion": "SUS and task success are reported.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "heuristic-ux-review",
+        "wireframes",
+        "prd",
+        "beta-program",
+        "wcag-audit"
+      ],
+      "example_request": "Before we launch the new booking flow, can you set up a quick usability test and tell me what trips people up? I can get five regulars to try it.",
+      "typical_departments": [
+        "product",
+        "design-creative",
+        "research-insights"
+      ],
+      "version": 1
+    },
+    {
+      "id": "beta-program",
+      "name": "Beta program",
+      "icon": "β",
+      "category": "product-management",
+      "one_liner": "Beta cohort, success criteria, feedback loop and graduation rules.",
+      "description": "Designs and runs a beta: a cohort chosen to represent target segments, success and graduation criteria set before starting, clear beta terms, sign-up and feedback forms, a weekly feedback loop that closes with every participant, and invitations sent only after the owner approves.",
+      "when": "a new product, feature or service is ready for real users but not for everyone, and the owner wants to learn safely before a full launch",
+      "inputs": [
+        {
+          "id": "what_is_in_beta",
+          "label": "The product or feature and its known limits",
+          "required": true,
+          "source": "owner",
+          "example": "Online ordering for collection, card payment only"
+        },
+        {
+          "id": "candidate_customers",
+          "label": "Customer list or segments to invite from",
+          "required": true,
+          "source": "connector",
+          "example": "Square customers with 5+ visits"
+        },
+        {
+          "id": "learning_goals",
+          "label": "What the beta must answer",
+          "required": true,
+          "source": "owner",
+          "example": "Do people reorder? Does the kitchen cope at lunchtime?"
+        },
+        {
+          "id": "duration",
+          "label": "How long the beta runs",
+          "required": false,
+          "source": "owner",
+          "example": "Four weeks"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Beta plan",
+          "format": "md",
+          "description": "Goals, cohort, criteria, terms, cadence, owners and graduation rules."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Sign-up and feedback form questions",
+          "format": "md",
+          "description": "Sign-up questions with terms and a short weekly feedback form, ready to build in the form tool."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Invitations and updates",
+          "format": "md",
+          "description": "Invitation, welcome, weekly check-in and thank-you messages."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Graduation criteria",
+          "format": "md",
+          "description": "Measurable criteria to move from beta to general availability."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision",
+        "connector_write",
+        "send_external"
+      ],
+      "connectors_optional": [
+        "square",
+        "shopify",
+        "hubspot",
+        "mailchimp",
+        "typeform",
+        "intercom",
+        "slack",
+        "linear"
+      ],
+      "modalities": [
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Recall the product and prior feedback with memory_recall. Write learning goals and set success and graduation criteria before inviting anyone (for example: 60% of participants order twice, no severity-1 bugs for two weeks, kitchen ticket time under 12 minutes). 2. Select the cohort with connector_read, filtering and balancing it in a sheet built with spreadsheet_generate, to represent target segments (not only fans), with a size that can answer the goals. 3. Write beta terms in plain language: what is unfinished, what data is collected and why, how to leave, and any perks. 4. Write the sign-up and weekly feedback form questions (short: one rating, one open question, one bug report field), collecting only the personal data needed; if a form tool is enabled, create the forms there with connector_write after approval. 5. Draft invitations, welcome, weekly check-in and thank-you messages with document_generate. Plan a weekly triage of feedback and a visible 'you said, we did' update. 6. Ask the owner to approve the cohort, terms and messages with request_owner_decision. Only then send invitations individually with send_external. 7. At the end, score results against the graduation criteria and recommend graduate, extend or rethink. 8. State what could not be verified: behaviour of segments not in the cohort, and criteria that depend on data not yet instrumented.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Goals and criteria",
+          "brief": "Set learning goals, success and graduation criteria.",
+          "acceptance": "Criteria are measurable and set before invitations."
+        },
+        {
+          "activity": "llm",
+          "title": "Select the cohort",
+          "brief": "Choose a cohort representing target segments.",
+          "acceptance": "Cohort composition by segment reported.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Terms, forms and messages",
+          "brief": "Write terms, build forms and draft messages.",
+          "acceptance": "Forms collect only needed data; terms state data use and exit.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Beta review",
+          "brief": "Check criteria, cohort, terms and messages.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves",
+          "brief": "Owner approves cohort, terms and messages.",
+          "acceptance": "Explicit approval recorded.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Send invitations",
+          "brief": "Send approved invitations individually.",
+          "acceptance": "One receipt per invitation; nothing unapproved sent.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Success and graduation criteria are measurable and set before the beta starts.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Beta terms state what is unfinished, what data is collected and how to leave.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Invitations are sent only after explicit owner approval.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The cohort represents target segments, not just enthusiasts.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Every participant hears what changed because of their feedback.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "launch-tiering",
+        "feedback-triage",
+        "usability-test",
+        "customer-onboarding-plan",
+        "release-notes"
+      ],
+      "example_request": "We're about to try online ordering with some regulars before opening it to everyone. Can you set up a proper beta so we actually learn something?",
+      "typical_departments": [
+        "product",
+        "customer-success-support"
+      ],
+      "version": 1
+    },
+    {
+      "id": "release-notes",
+      "name": "Release notes & changelog",
+      "icon": "📝",
+      "category": "product-management",
+      "one_liner": "Customer-facing release notes and an internal changelog.",
+      "description": "Turns shipped changes into customer-facing release notes that lead with the benefit in plain language, plus an internal changelog in Keep a Changelog format (Added, Changed, Deprecated, Removed, Fixed, Security), with a screenshot list for annotated captures and breaking changes impossible to miss.",
+      "when": "changes have shipped and customers or the team need to know what's new, what changed and what they must do",
+      "inputs": [
+        {
+          "id": "shipped_changes",
+          "label": "Export or list of merged pull requests and closed issues",
+          "required": true,
+          "source": "file",
+          "example": "Linear issues closed this cycle; GitHub merged PRs export"
+        },
+        {
+          "id": "version_and_date",
+          "label": "Release version and date",
+          "required": false,
+          "source": "owner",
+          "example": "v2.4, 1 October"
+        },
+        {
+          "id": "screenshots",
+          "label": "Screenshots of new features",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "audience",
+          "label": "Who reads the customer notes",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Customer release notes",
+          "format": "md",
+          "description": "Benefit-first notes grouped by theme, with actions required and screenshots."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Internal changelog",
+          "format": "md",
+          "description": "Keep a Changelog format with links to issues and PRs."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Screenshot list",
+          "format": "md",
+          "description": "Screens to capture with callout notes, released features only, personal data removed."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "embeddings_search",
+        "memory_recall",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "github",
+        "linear",
+        "jira",
+        "intercom",
+        "wordpress",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Read the list or tracker export of shipped changes with file_parse and find related notes with embeddings_search; include only items actually released (merged and deployed), each linked to its issue or PR. Recall the audience and voice with memory_recall. 2. Write the internal changelog in Keep a Changelog format with Semantic Versioning: Added, Changed, Deprecated, Removed, Fixed, Security. 3. Write customer notes benefit-first in plain language ('You can now reschedule your own appointments from the confirmation email'), grouped by theme, with the most valuable change first. 4. Put breaking changes, deprecations and any action customers must take at the top, clearly marked, with dates. 5. List the screenshots worth showing with callout notes; annotated captures come from the image-edit-retouch skill, with personal data removed. Never show unreleased features. 6. Have a reviewer check each note against what actually shipped. Render with document_generate. Publishing is a separate approved step. 7. State what could not be verified: changes whose customer impact is unclear and items not confirmed as deployed.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Collect shipped changes",
+          "brief": "Read the list or export of merged and deployed changes.",
+          "acceptance": "Every item links to an issue or PR and is confirmed released."
+        },
+        {
+          "activity": "llm",
+          "title": "Write notes and changelog",
+          "brief": "Write customer notes and the internal changelog.",
+          "acceptance": "Breaking changes and required actions at the top.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Screenshot list",
+          "brief": "List screenshots with callout notes for released features only.",
+          "acceptance": "Every listed screenshot shows released UI; redaction noted.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Accuracy review",
+          "brief": "Check every note against what shipped.",
+          "acceptance": "First line APPROVED or CHANGES; mismatches listed.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render",
+          "brief": "Render notes and changelog with screenshots.",
+          "acceptance": "Files render; links resolve.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every item corresponds to a shipped, deployed change with a link.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Breaking changes, deprecations and required actions are at the top.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No unreleased or internal-only details in customer notes.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Customer notes lead with the benefit in plain language.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Screenshots are current and redacted.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 25,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "launch-tiering",
+        "newsletter-issue",
+        "kb-article",
+        "tech-docs",
+        "code-change-with-tests"
+      ],
+      "example_request": "We shipped a bunch of stuff this month. Can you write release notes customers will actually read, and a proper changelog for the team?",
+      "typical_departments": [
+        "product",
+        "engineering",
+        "content-comms-pr"
+      ],
+      "version": 1
+    },
+    {
+      "id": "launch-tiering",
+      "name": "Launch plan & tiering",
+      "icon": "🚀",
+      "category": "product-management",
+      "one_liner": "Tier the launch (1-3) and plan assets, channels and readiness checks.",
+      "description": "Decides how big a launch should be (tier 1, 2 or 3) from explicit criteria (customer impact, audience size, revenue at stake, risk), then plans assets, channels, owners and readiness checks for that tier, including creative briefs for launch visuals and, for tier 1, a short teaser video, with a go/no-go review.",
+      "when": "something new is shipping and the owner needs to know whether it deserves a big launch, a quiet release or something in between, and what must be ready",
+      "inputs": [
+        {
+          "id": "what_is_launching",
+          "label": "The product, feature or offer and its value",
+          "required": true,
+          "source": "owner",
+          "example": "Online booking app for customers"
+        },
+        {
+          "id": "launch_date",
+          "label": "Target date and any hard constraints",
+          "required": true,
+          "source": "owner",
+          "example": "3 November"
+        },
+        {
+          "id": "audience",
+          "label": "Who it is for and how many",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "brand",
+          "label": "Brand assets and voice",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "channels",
+          "label": "Channels available (email, social, in-store, partners)",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Launch plan and tier rationale",
+          "format": "md",
+          "description": "Tier decision, goals, audience, messages, channel plan, timeline and owners."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Readiness checklist",
+          "format": "xlsx",
+          "description": "Positioning, pricing, support, docs, legal review, analytics, assets: owner, due, status."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Launch visuals brief",
+          "format": "md",
+          "description": "Channels, sizes, message, brand guidance and alt-text needs for launch visuals."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Teaser video brief (tier 1)",
+          "format": "md",
+          "description": "Concept, length, shots and captions for a short teaser labelled illustrative, for the ai-video-clip skill."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "spreadsheet_generate",
+        "message_coworker",
+        "convene_meeting",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "asana",
+        "linear",
+        "hubspot",
+        "mailchimp",
+        "meta-business",
+        "slack",
+        "canva"
+      ],
+      "modalities": [
+        "text",
+        "voice"
+      ],
+      "instructions": "1. Recall audience, brand and past launches with memory_recall. Score the launch on customer impact, audience reach, revenue at stake, competitive significance and risk; map to tier 1 (major, all channels), tier 2 (notable, owned channels) or tier 3 (quiet, release notes and in-product). 2. Write the plan for that tier: goal and success metrics, target audience, key message and proof, channel plan, timeline (T-minus), owners. 3. Build the readiness checklist with spreadsheet_generate: positioning and messaging, pricing, sales and support enablement (FAQ, macros), help docs, legal or claims review, analytics instrumentation, assets, rollback plan. 4. Write creative briefs for launch visuals and, for tier 1, a short teaser video, and hand them to the design and media coworkers with message_coworker (ai-image-set, ai-video-clip). Generated media must be labelled illustrative and must never depict features that do not exist or fake customer footage. 5. Hold a readiness review with convene_meeting a few days before launch; every red item gets an owner and date or delays the launch. 6. Put the go/no-go decision to the owner with request_owner_decision. Sending and publishing launch content are separate approved steps. 7. Render the plan with document_generate. 8. State what could not be verified: readiness items self-reported by owners and success metrics without a baseline.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Tier decision",
+          "brief": "Score the launch on explicit criteria and choose a tier.",
+          "acceptance": "Tier justified by criteria scores."
+        },
+        {
+          "activity": "llm",
+          "title": "Plan and readiness checklist",
+          "brief": "Write the plan and readiness checklist for the tier.",
+          "acceptance": "Every readiness item has an owner and due date.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Creative briefs",
+          "brief": "Write briefs for launch visuals and, for tier 1, a teaser video; hand them to the media team.",
+          "acceptance": "Briefs name channels, sizes, message and alt-text needs; hand-off sent.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Readiness review",
+          "brief": "Voiced readiness review with owners and a sceptic.",
+          "acceptance": "Every red item has an owner and date or a delay decision.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Go/no-go",
+          "brief": "Owner makes the go/no-go decision.",
+          "acceptance": "Decision recorded with date.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The tier is justified by explicit criteria.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every readiness item has an owner, due date and status.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Creative briefs require generated visuals and video to be labelled illustrative and never to depict non-existent features or fake customers.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Success metrics and measurement are defined before launch.",
+          "severity": "should"
+        },
+        {
+          "criterion": "A rollback plan exists for risky launches.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 50,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "launch-checklist",
+        "messaging-house",
+        "release-notes",
+        "campaign-plan",
+        "ai-video-clip"
+      ],
+      "example_request": "We're launching our new online booking app next month. Is it a big launch or a quiet one, and what do we need ready?",
+      "typical_departments": [
+        "product",
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "instrumentation-plan",
+      "name": "Analytics instrumentation plan",
+      "icon": "📐",
+      "category": "product-management",
+      "one_liner": "Event taxonomy, properties and dashboards to measure a feature.",
+      "description": "Designs what to track for a feature: the questions to answer, an event taxonomy with consistent object-action names, typed properties with allowed values, destinations and consent handling, with no personal data in events, then verifies events fire correctly before anyone relies on the numbers.",
+      "when": "a feature is being built or has shipped without measurement, or the owner cannot answer basic questions about how people use something",
+      "inputs": [
+        {
+          "id": "feature",
+          "label": "The feature or flow to measure",
+          "required": true,
+          "source": "owner",
+          "example": "New quote request form"
+        },
+        {
+          "id": "questions",
+          "label": "What the owner wants to know",
+          "required": true,
+          "source": "owner",
+          "example": "How many start vs finish, and where they drop"
+        },
+        {
+          "id": "analytics_setup",
+          "label": "Current analytics tools and existing events",
+          "required": false,
+          "source": "connector",
+          "example": "GA4 property with default events"
+        },
+        {
+          "id": "staging_url",
+          "label": "Where to verify events",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Tracking plan",
+          "format": "xlsx",
+          "description": "Event, trigger, properties with types and allowed values, destination, owner, status."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Measurement plan",
+          "format": "md",
+          "description": "Questions, metrics, event mapping, consent handling and dashboard spec."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Event QA checklist",
+          "format": "md",
+          "description": "Each event verified in staging with evidence."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-analytics",
+        "shopify",
+        "stripe",
+        "hubspot",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "url"
+      ],
+      "instructions": "1. List the questions to answer and the metrics that answer them; tie each to the KPI tree or feature goal. 2. Read existing events with connector_read to reuse names and avoid duplicates. Use object-action naming in one consistent case ('Quote Form Started', 'Quote Form Submitted'), preferring the analytics platform's recommended events where they fit. 3. For each event define the trigger (exactly when it fires), properties with types and allowed values, destination and owner, and lay out the funnel as an ordered event table. 4. Privacy: no personal data (names, emails, phone numbers, free text) in event properties; respect consent choices; document retention. 5. Build the tracking plan with spreadsheet_generate and the measurement plan with document_generate, including the dashboard spec. 6. After a developer implements it (directly or via a code-change skill) and triggers each event in staging, confirm with connector_read that each arrives once with the right properties in the platform's realtime or debug data; ask the owner with request_owner_decision to sign off the plan before implementation. 7. Record QA results; nothing is reported on until events pass QA. 8. State what could not be verified: events not testable in staging and data loss from consent or ad blockers.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Questions and metrics",
+          "brief": "List questions and the metrics that answer them.",
+          "acceptance": "Every metric maps to a question."
+        },
+        {
+          "activity": "llm",
+          "title": "Event taxonomy and tracking plan",
+          "brief": "Design events, triggers and typed properties.",
+          "acceptance": "Consistent naming; every property typed with allowed values.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Privacy and consistency review",
+          "brief": "Check for personal data in events, consent handling and naming consistency.",
+          "acceptance": "First line APPROVED or CHANGES; any personal data property is blocking.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Implementation",
+          "brief": "A developer implements the events.",
+          "acceptance": "Implementation confirmed in staging.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "mcp",
+          "title": "Verify events",
+          "brief": "Confirm each staged event arrives once with correct properties in the analytics platform.",
+          "acceptance": "Each event arrives once with correct properties, with evidence.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Plans and QA record",
+          "brief": "Render tracking plan, measurement plan and QA checklist.",
+          "acceptance": "Status column shows verified for every event.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every event maps to a question or metric.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No personal data in event properties; consent is respected.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Events are verified in staging before the data is used.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Naming is consistent object-action throughout.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Properties are typed with allowed values.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "kpi-tree",
+        "funnel-analysis",
+        "dashboard-build",
+        "ab-test-design",
+        "prd"
+      ],
+      "example_request": "We added a new quote request form but have no idea how many people start it versus finish it. What should we track and how?",
+      "typical_departments": [
+        "product",
+        "data-analytics",
+        "engineering"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feedback-triage",
+      "name": "Product feedback triage",
+      "icon": "📥",
+      "category": "product-management",
+      "one_liner": "Cluster feedback into opportunities with evidence counts and asks.",
+      "description": "Gathers feedback from every channel (tickets, reviews, calls, surveys, chats), codes it into themes with a documented scheme, reframes requests as underlying problems, and ranks opportunities by evidence count, segment and revenue affected, with verbatim quotes.",
+      "when": "feedback is scattered across channels and the owner wants to know what customers actually need and how many of them",
+      "inputs": [
+        {
+          "id": "feedback_sources",
+          "label": "Where feedback lives",
+          "required": true,
+          "source": "connector",
+          "example": "Zendesk tickets, Google reviews, the suggestions form, call notes"
+        },
+        {
+          "id": "period",
+          "label": "Time window",
+          "required": true,
+          "source": "owner",
+          "example": "Last 90 days"
+        },
+        {
+          "id": "customer_data",
+          "label": "Segment and revenue per customer, for weighting",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "existing_themes",
+          "label": "Existing tags or themes",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Coded feedback",
+          "format": "xlsx",
+          "description": "Each item with source, date, theme, underlying problem, segment and revenue weight."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Top opportunities",
+          "format": "md",
+          "description": "Ranked opportunities with counts, segments, revenue affected, quotes and suggested next step."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Coding scheme",
+          "format": "md",
+          "description": "Theme definitions and rules so future triage is consistent."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "embeddings_search",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "zendesk",
+        "intercom",
+        "freshdesk",
+        "gorgias",
+        "typeform",
+        "google-business-profile",
+        "hubspot",
+        "slack"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Pull feedback with connector_read and file_parse, including call and voice-note transcripts. Keep source, date and customer id; drop other personal data. 2. Start from existing themes (embeddings_search over past triage) group similar new items by searching for near-duplicates with embeddings_search, then refine by reading samples. 3. Code with a documented scheme following thematic analysis: each theme has a definition, include and exclude rules, and examples. Double-code a 10% sample to check consistency. 4. Reframe requests as underlying problems ('export to Excel' may mean 'my accountant needs the numbers monthly'), using jobs-to-be-done language. 5. Merge duplicates and weight themes by count, distinct customers, segments and revenue affected. 6. Rank opportunities and include at least two verbatim quotes per theme. Build the coded sheet with spreadsheet_generate and the brief and scheme with document_generate. 7. Flag anything urgent (safety, legal, data exposure, a key account at risk) to the lead immediately rather than waiting for the report. 8. State what could not be verified: sources that could not be read, and themes whose counts are small.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Collect feedback",
+          "brief": "Pull and transcribe feedback from all sources for the period.",
+          "acceptance": "Item counts per source; personal data reduced to ids."
+        },
+        {
+          "activity": "llm",
+          "title": "Cluster and code",
+          "brief": "Cluster and code items with a documented scheme.",
+          "acceptance": "Every item coded; scheme has definitions and rules.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Reframe and rank",
+          "brief": "Reframe requests as problems and rank by evidence and revenue.",
+          "acceptance": "Each theme has counts, segments, revenue and two or more quotes.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Coding reliability check",
+          "brief": "Double-code a sample and check agreement and framing.",
+          "acceptance": "First line APPROVED or CHANGES; agreement rate reported.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render",
+          "brief": "Render coded sheet, brief and scheme.",
+          "acceptance": "Brief leads with the top three opportunities.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every theme has a count, segments, revenue affected and at least two verbatim quotes.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Requests are reframed as underlying problems.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Personal data is minimized to customer ids.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The coding scheme is documented for consistent future triage.",
+          "severity": "should"
+        },
+        {
+          "criterion": "A double-coded sample checks consistency.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "rice-prioritization",
+        "opportunity-solution-tree",
+        "voc-report",
+        "review-mining",
+        "interview-synthesis"
+      ],
+      "example_request": "We've got feedback everywhere: support tickets, reviews, the suggestions box. What are customers actually asking for, and how many of them?",
+      "typical_departments": [
+        "product",
+        "customer-success-support",
+        "research-insights"
+      ],
+      "version": 1
+    }
+  ]
+}

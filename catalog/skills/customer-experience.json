@@ -1,0 +1,1830 @@
+{
+  "category": "customer-experience",
+  "version": 1,
+  "skills": [
+    {
+      "id": "ticket-triage",
+      "name": "Support ticket triage",
+      "icon": "🎫",
+      "category": "customer-experience",
+      "one_liner": "Categorize, prioritize and route a ticket backlog with suggested replies.",
+      "description": "Triages a ticket backlog against a contact-reason taxonomy using impact x urgency and SLA age. Safety, legal-threat, privacy-request and fraud tickets are flagged and routed, suggested replies are drafted for the top reasons, and tags and routing are written back only after approval. No customer is messaged by this skill.",
+      "when": "the support inbox has piled up, after a weekend, holiday or incident, or the team can't tell what to answer first",
+      "inputs": [
+        {
+          "id": "open_tickets",
+          "label": "Open tickets with subject, body, channel, customer, age and history",
+          "required": true,
+          "source": "connector",
+          "example": "340 open tickets in Gorgias"
+        },
+        {
+          "id": "taxonomy",
+          "label": "Existing contact-reason categories and SLAs",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "routing_rules",
+          "label": "Who handles what",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "macros_kb",
+          "label": "Existing macros and help articles",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Triaged backlog",
+          "format": "xlsx",
+          "description": "Ticket, reason, sentiment, priority, SLA status, flag, route, confidence and suggested macro."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Suggested replies",
+          "format": "md",
+          "description": "Drafts for the top five reasons, for agents to edit and send."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Backlog report",
+          "format": "md",
+          "description": "Volume by reason, oldest tickets, SLA breaches, repeat contacts and upstream causes."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "connector_write",
+        "embeddings_search",
+        "code_interpreter",
+        "document_generate",
+        "spreadsheet_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "zendesk",
+        "freshdesk",
+        "intercom",
+        "gorgias",
+        "hubspot",
+        "shopify",
+        "slack"
+      ],
+      "modalities": [
+        "connector_data",
+        "text"
+      ],
+      "instructions": "1. Pull open tickets (subject, body, channel, customer tier, age, previous contacts) with connector_read. Mask payment details and any personal data not needed for triage. 2. Reuse the existing contact-reason taxonomy, or propose a two-level one with 10–25 reasons. 3. Classify each ticket in code_interpreter with embeddings_search support: reason, sentiment, urgency, customer value and confidence. Prioritise with impact x urgency and SLA age. 4. Flag must-escalate tickets: safety issues; legal threats or regulator complaints; privacy requests (access or deletion, routed to the privacy owner with their deadline); chargebacks or fraud; VIPs; and anything the customer calls a complaint. 5. Route each ticket to an owner or queue with a reason. 6. Draft suggested replies for the top five reasons from existing macros and help articles. These are drafts for agents to edit and send. 7. Raise the write-back batch with request_owner_decision; only after approval write tags, priority and assignment with connector_write, keeping receipts. No customer-facing message is sent. 8. Report volume by reason, the oldest tickets, SLA breaches, repeat contacts and the upstream causes to fix. 9. State what could not be verified: low-confidence classifications and tickets needing account data the connector can't read.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull open tickets",
+          "brief": "Read open tickets and history from the help desk.",
+          "acceptance": "All open tickets loaded, with counts per channel."
+        },
+        {
+          "activity": "analysis",
+          "title": "Classify and prioritise",
+          "brief": "Classify reason, sentiment, urgency and value, and prioritise.",
+          "acceptance": "Each ticket has reason, priority and confidence; low-confidence ones are flagged.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Suggested replies",
+          "brief": "Draft replies for the top five reasons from macros and KB.",
+          "acceptance": "Each draft is linked to its reason and source macro or article.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Escalation and accuracy check",
+          "brief": "Check flags and a sample of classifications.",
+          "acceptance": "First line is APPROVED or CHANGES; all safety, legal and privacy tickets flagged; sample accuracy at least 90%.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Approve write-back",
+          "brief": "The owner approves tags and routing changes.",
+          "acceptance": "Approval recorded for the batch.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "mcp",
+          "title": "Write tags and routing",
+          "brief": "Write approved tags, priority and assignment to the help desk.",
+          "acceptance": "Receipt shows updated tickets; no customer-facing message sent.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Safety, legal-threat, privacy-request and fraud tickets are flagged and routed",
+          "severity": "must"
+        },
+        {
+          "criterion": "No reply is sent to customers by this skill",
+          "severity": "must"
+        },
+        {
+          "criterion": "Write-back happens only after approval, with a receipt",
+          "severity": "must"
+        },
+        {
+          "criterion": "The taxonomy reuses existing categories where they exist",
+          "severity": "should"
+        },
+        {
+          "criterion": "Upstream root causes are named",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "macro-library",
+        "kb-article",
+        "escalation-response",
+        "voc-report",
+        "wismo-deflection"
+      ],
+      "example_request": "We came back from a long weekend to 340 unanswered emails in Gorgias. Sort them so we tackle the right ones first, and draft replies for the common ones.",
+      "typical_departments": [
+        "customer-success-support"
+      ],
+      "version": 1
+    },
+    {
+      "id": "macro-library",
+      "name": "Support macro library",
+      "icon": "⌨️",
+      "category": "customer-experience",
+      "one_liner": "Reusable, on-voice replies for the top contact reasons.",
+      "description": "Builds reusable, on-voice support replies (macros) for the contact reasons that make up most volume. Each one is learned from real resolved tickets and checked against current written policy: answer first, clear next step and timing, variables with fallbacks, an internal note for agents, and a KB link. Imported to the help desk only after approval.",
+      "when": "agents answer the same questions differently, handle times are high, or a new agent is joining",
+      "inputs": [
+        {
+          "id": "ticket_history",
+          "label": "Last 90 days of resolved tickets",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "policies",
+          "label": "Current returns, shipping, billing and service policies",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "voice_guide",
+          "label": "Voice and tone guide",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "existing_macros",
+          "label": "Current saved replies",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Macro library",
+          "format": "md",
+          "description": "One macro per reason with variables, internal note, tags and KB link."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Macro index",
+          "format": "xlsx",
+          "description": "Reason, volume share, macro name, tags, policy reference and last-reviewed date."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "connector_write",
+        "embeddings_search",
+        "memory_recall",
+        "code_interpreter",
+        "document_generate",
+        "spreadsheet_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "zendesk",
+        "freshdesk",
+        "intercom",
+        "gorgias",
+        "hubspot",
+        "notion"
+      ],
+      "modalities": [
+        "connector_data",
+        "text"
+      ],
+      "instructions": "1. Rank contact reasons by volume over the last 90 days with connector_read and code_interpreter, and target the top 15–25 (usually 70–80% of volume). 2. For each reason, read at least ten real resolved tickets to learn the actual resolution and what customers ask next. 3. Load the voice and tone guide and the current policies with memory_recall; flag policy gaps or contradictions to the owner rather than papering over them. 4. Write each macro: a brief, human opening (no scripted over-apology), the answer first, numbered steps, what happens next and when, and one question to confirm resolution. Add variables for name, order and dates with safe fallbacks, and an internal note for agents (when not to use it, what to check first). 5. Write in plain language, avoid jargon and blame, and keep formatting accessible (short paragraphs, never image-only instructions). Link to KB articles where they exist. 6. QA each macro against written policy and against three real tickets. 7. Raise the import with request_owner_decision; only after approval create the macros in the help desk with connector_write, named and tagged consistently. 8. State what could not be verified: policies that aren't written down and reasons with fewer than ten examples.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull ticket history",
+          "brief": "Read 90 days of resolved tickets and existing macros.",
+          "acceptance": "Ticket count and date range recorded."
+        },
+        {
+          "activity": "analysis",
+          "title": "Rank contact reasons",
+          "brief": "Rank reasons by volume and pick the top set.",
+          "acceptance": "Chosen reasons and their share of volume listed.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Write macros",
+          "brief": "Write each macro from real resolutions and policy.",
+          "acceptance": "Every macro has answer-first text, next step with timing, variables and internal note.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Policy and tone QA",
+          "brief": "Check each macro against policy, voice guide and three real tickets.",
+          "acceptance": "First line is APPROVED or CHANGES; every macro matches current policy and the voice guide.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Approve import",
+          "brief": "The owner approves the macro set for import.",
+          "acceptance": "Approval recorded.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "mcp",
+          "title": "Import macros",
+          "brief": "Create approved macros in the help desk.",
+          "acceptance": "Receipt lists each macro created.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every macro matches current written policy",
+          "severity": "must"
+        },
+        {
+          "criterion": "The answer comes first, with a clear next step and timing",
+          "severity": "must"
+        },
+        {
+          "criterion": "Import only after approval",
+          "severity": "must"
+        },
+        {
+          "criterion": "Variables and internal notes are included",
+          "severity": "should"
+        },
+        {
+          "criterion": "Covers the reasons that make up most of the volume",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "ticket-triage",
+        "kb-article",
+        "voice-style-guide",
+        "escalation-response"
+      ],
+      "example_request": "Every agent answers 'where's my refund' differently. Write us a proper set of saved replies for our top questions, in our voice.",
+      "typical_departments": [
+        "customer-success-support"
+      ],
+      "version": 1
+    },
+    {
+      "id": "kb-article",
+      "name": "Knowledge base article (KCS)",
+      "icon": "📖",
+      "category": "customer-experience",
+      "one_liner": "Task-based help articles written from real tickets, KCS-style.",
+      "description": "Writes task-based help articles from real tickets using Knowledge-Centered Service: the title and problem in the customer's own words, environment, one-action numbered steps validated against the current product, annotated screenshots with alt text, and metadata with an owner and review date. Published to the help centre only after owner approval.",
+      "when": "the same question keeps coming in, help-centre searches return nothing, or an article is out of date",
+      "inputs": [
+        {
+          "id": "topic_evidence",
+          "label": "Tickets and help-centre searches on the topic",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "product_access",
+          "label": "Screenshots or a walkthrough of the current product",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "style",
+          "label": "Help-centre style and voice guide",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "web_page",
+          "name": "Help article",
+          "format": "html",
+          "description": "Title, issue, environment, steps, cause, related articles, with alt text on images."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Annotated screenshots",
+          "format": "png",
+          "description": "Click targets highlighted per step."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Article backlog",
+          "format": "md",
+          "description": "Other gaps found, ranked by ticket volume."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "embeddings_search",
+        "vision_describe",
+        "image_edit",
+        "web_page_generate",
+        "document_generate",
+        "publish_external",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "zendesk",
+        "freshdesk",
+        "intercom",
+        "gorgias",
+        "notion",
+        "confluence",
+        "wordpress"
+      ],
+      "modalities": [
+        "connector_data",
+        "screen",
+        "image",
+        "text"
+      ],
+      "instructions": "1. Find candidates with connector_read and embeddings_search: top contact reasons without an article, help-centre searches with no results, and poorly rated articles. 2. Read five to ten real tickets per topic and capture the customer's own words for the title and problem statement (KCS: capture in the workflow, structure for reuse). 3. Structure the article: a title naming the task or problem in customer language ('Change the delivery address on an order'); the issue; the environment (plan, device, app version); numbered resolution steps, one action each; the cause if useful; related articles. 4. Capture screenshots (owner-provided or from a product walkthrough), read them with vision_describe, highlight click targets with image_edit, and write alt text for each. 5. Write in plain language: second person, present tense, roughly eighth-grade reading level, UI labels in bold exactly as they appear. 6. Validate by following the steps against the current product (or have a coworker do it). 7. Add metadata: tags, audience, owner and last-reviewed date. Render with web_page_generate. 8. Publish to the help centre with publish_external only after owner approval via request_owner_decision; link it from the relevant macros and set a review date. 9. State what could not be verified: steps not tested on every plan, device or app version.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Find gaps from tickets and searches",
+          "brief": "Identify topics from ticket volume and failed searches.",
+          "acceptance": "Each topic has ticket count and example searches."
+        },
+        {
+          "activity": "llm",
+          "title": "Draft the article",
+          "brief": "Write the KCS-structured article in customer language.",
+          "acceptance": "Title and problem use the customer's words; steps are one action each.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Annotated screenshots",
+          "brief": "Highlight click targets and write alt text.",
+          "acceptance": "Every image is tied to a step and has alt text.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Step validation",
+          "brief": "Follow every step against the current product.",
+          "acceptance": "First line is APPROVED or CHANGES; each step reproduced against the current product.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves publication",
+          "brief": "The owner approves the article for the help centre.",
+          "acceptance": "Approval recorded with the article version.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Publish to help centre",
+          "brief": "Publish the approved article through the help-desk connector.",
+          "acceptance": "Receipt with the article URL; exactly one publish.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Title and problem use the customer's own words",
+          "severity": "must"
+        },
+        {
+          "criterion": "Steps are validated against the current product",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every image has alt text",
+          "severity": "must"
+        },
+        {
+          "criterion": "Published only after owner approval",
+          "severity": "must"
+        },
+        {
+          "criterion": "Last-reviewed date and owner are set",
+          "severity": "should"
+        },
+        {
+          "criterion": "Linked from relevant macros",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "macro-library",
+        "faq-builder",
+        "ticket-triage",
+        "tech-docs",
+        "plain-language-rewrite"
+      ],
+      "example_request": "Half our tickets are people who can't figure out how to pause their subscription. Write a help article with screenshots so we can point them to it.",
+      "typical_departments": [
+        "customer-success-support"
+      ],
+      "version": 1
+    },
+    {
+      "id": "csat-nps-analysis",
+      "name": "CSAT & NPS driver analysis",
+      "icon": "💯",
+      "category": "customer-experience",
+      "one_liner": "What drives satisfaction and detraction, with fixes ranked by impact.",
+      "description": "Explains what drives CSAT, NPS or CES. Each metric is computed to its standard definition with confidence intervals and cut by segment and touchpoint. Verbatims are coded, themes and operational data are linked to scores in a key-driver analysis, and fixes are ranked by impact and effort. Small samples are flagged, and correlation is never presented as causation.",
+      "when": "a satisfaction score dropped or plateaued, before planning, or when the owner asks 'why are customers unhappy?'",
+      "inputs": [
+        {
+          "id": "responses",
+          "label": "Survey responses with score, comment, date, channel and segment",
+          "required": true,
+          "source": "connector",
+          "example": "NPS export from the survey tool"
+        },
+        {
+          "id": "operational_data",
+          "label": "Linked tickets, orders, delivery times or usage",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "prior_results",
+          "label": "Previous periods' results",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Driver analysis report",
+          "format": "md -> pdf",
+          "description": "Scores with intervals, themes, drivers, segment cuts and ranked fixes."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Coded responses and driver model",
+          "format": "xlsx",
+          "description": "Every response coded; driver model with method and sample sizes."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Driver impact chart",
+          "format": "png",
+          "description": "Themes by effect on score and share of respondents."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "embeddings_search",
+        "chart_generate",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "zendesk",
+        "intercom",
+        "freshdesk",
+        "typeform",
+        "hubspot",
+        "google-workspace"
+      ],
+      "modalities": [
+        "connector_data",
+        "file",
+        "text"
+      ],
+      "instructions": "1. Pull responses (score, comment, date, channel, segment) and linked ticket, order or usage data with connector_read or file_parse; note response rates. 2. Compute each metric to its standard definition in code_interpreter: NPS = % promoters (9–10) minus % detractors (0–6); CSAT = % scoring 4–5 on a 5-point scale; CES as the mean. Give confidence intervals and never compare segments under n=30. 3. Code comments against a codebook (theme, sentiment, touchpoint), with embeddings_search proposing clusters and a close reading refining them. Report themes as % of respondents. 4. Run a key-driver analysis relating themes and operational data (resolution time, contacts to resolve, delivery delay) to scores: regression or relative importance, or simple lift tables for small samples. 5. Cut by channel, product, team and customer tenure, and trend over time with control bands. 6. Rank fixes by effect on score x number of customers affected ÷ effort, separating quick wins from systemic fixes. 7. List detractors who asked for follow-up so the team can contact them; nobody is contacted automatically. 8. State what could not be verified: non-response bias and causal claims from correlational data.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull responses",
+          "brief": "Read survey responses and linked operational data.",
+          "acceptance": "Response count, response rate and period recorded."
+        },
+        {
+          "activity": "analysis",
+          "title": "Scores and intervals",
+          "brief": "Compute metrics with intervals by segment.",
+          "acceptance": "Standard definitions used; segments under n=30 flagged.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Code verbatims",
+          "brief": "Code comments into themes.",
+          "acceptance": "Every comment coded; themes as % of respondents.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Driver analysis",
+          "brief": "Relate themes and operational data to scores.",
+          "acceptance": "Method and sample size stated for each driver.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Findings and fix list",
+          "brief": "Render report, coded data and chart.",
+          "acceptance": "Fixes ranked by impact and effort.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Statistical honesty review",
+          "brief": "Check comparisons, sample sizes and causal language.",
+          "acceptance": "First line is APPROVED or CHANGES; no segment comparisons under n=30; correlation not presented as causation.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Metrics use the standard definitions, with confidence intervals",
+          "severity": "must"
+        },
+        {
+          "criterion": "Small samples are flagged and no comparisons are made under n=30",
+          "severity": "must"
+        },
+        {
+          "criterion": "Correlation is not presented as causation",
+          "severity": "must"
+        },
+        {
+          "criterion": "Themes are reported as % of respondents",
+          "severity": "should"
+        },
+        {
+          "criterion": "Fixes are ranked by impact and effort",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "voc-report",
+        "survey-design",
+        "churn-risk-review",
+        "root-cause-analysis",
+        "data-story"
+      ],
+      "example_request": "Our NPS dropped from 52 to 31 in two quarters. Here's the survey export. What's actually driving it?",
+      "typical_departments": [
+        "customer-success-support",
+        "data-analytics"
+      ],
+      "version": 1
+    },
+    {
+      "id": "customer-onboarding-plan",
+      "name": "Customer onboarding plan",
+      "icon": "🚀",
+      "category": "customer-experience",
+      "one_liner": "Milestones to first value with checklists, emails and success criteria.",
+      "description": "Designs onboarding to first value. The activation milestone is defined from retention data, and the current journey is mapped with its waits and drop-offs. Output includes stage checklists with exit criteria for customer and team, paths by segment, a welcome sequence, a kickoff agenda and risk triggers with playbooks.",
+      "when": "new customers are slow to get going, some never activate, or early churn is high",
+      "inputs": [
+        {
+          "id": "usage_data",
+          "label": "Early usage and retention by customer",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "current_journey",
+          "label": "What happens today from purchase to first value",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "segments",
+          "label": "Customer segments or account tiers",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "resources",
+          "label": "Who on the team does onboarding and how much time they have",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Onboarding plan",
+          "format": "md",
+          "description": "Activation milestone, stages, owners, exit criteria, risk triggers and metrics."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Stage checklists",
+          "format": "xlsx",
+          "description": "Customer tasks and our tasks per stage."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Welcome sequence",
+          "format": "md",
+          "description": "Emails or in-app messages timed to stages, one action each."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Journey map",
+          "format": "mermaid -> svg",
+          "description": "Current and target journeys with waits and drop-offs."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "document_generate",
+        "spreadsheet_generate",
+        "diagram_generate"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "intercom",
+        "salesforce",
+        "calendly",
+        "zoom",
+        "asana",
+        "google-workspace"
+      ],
+      "modalities": [
+        "connector_data",
+        "text"
+      ],
+      "instructions": "1. Define 'first value' with data in code_interpreter: which early actions predict retention (for example, customers who do X within 14 days retain twice as well). Agree the activation milestone and a target time-to-value. 2. Map the current journey from purchase or contract to first value with diagram_generate: steps, owners, wait times and drop-offs. 3. Design the stages (welcome and kickoff, setup, training, first value, habit and expansion), each with customer tasks, our tasks, a checklist and exit criteria. 4. Set paths by segment: high-touch, low-touch and tech-touch by account value and complexity. 5. Write the welcome sequence timed to stages, one action per message, plus a kickoff agenda (goals, success criteria, roles, timeline) and a training outline. 6. Define risk triggers (no login by day 3, setup incomplete by day 10) and a playbook for each. 7. Set metrics: time to first value, activation rate, onboarding CSAT and early churn. 8. State what could not be verified: activation correlations from small cohorts.",
+      "workflow": [
+        {
+          "activity": "analysis",
+          "title": "Activation analysis",
+          "brief": "Find early actions that predict retention.",
+          "acceptance": "The activation milestone is justified with data or labelled a hypothesis, with cohort sizes."
+        },
+        {
+          "activity": "llm",
+          "title": "Journey map and stages",
+          "brief": "Map the current journey and design the stages and paths.",
+          "acceptance": "Each stage has owner, tasks and exit criteria.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Checklists and kickoff kit",
+          "brief": "Build stage checklists, kickoff agenda and training outline.",
+          "acceptance": "Checklists cover customer and team tasks.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Welcome sequence",
+          "brief": "Write the welcome messages.",
+          "acceptance": "One action per message, timed to stages.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Customer-eye review",
+          "brief": "Read the plan as a new customer would.",
+          "acceptance": "First line is APPROVED or CHANGES; every stage has exit criteria; every message has one action.",
+          "dependsOn": [
+            2,
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The activation milestone is justified with data or labelled a hypothesis",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each stage has an owner, tasks and exit criteria",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every risk trigger has a playbook",
+          "severity": "must"
+        },
+        {
+          "criterion": "Paths differ by segment",
+          "severity": "should"
+        },
+        {
+          "criterion": "Messages have one action each",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "churn-risk-review",
+        "kb-article",
+        "email-flow-design",
+        "qbr-deck",
+        "training-module"
+      ],
+      "example_request": "New clients take six weeks to get going with our software and some never do. Build an onboarding plan that gets them to their first win in the first two weeks.",
+      "typical_departments": [
+        "customer-success-support"
+      ],
+      "version": 1
+    },
+    {
+      "id": "churn-risk-review",
+      "name": "Churn risk review",
+      "icon": "⚠️",
+      "category": "customer-experience",
+      "one_liner": "Health signals, at-risk accounts and a save play for each.",
+      "description": "Reviews account health using usage, support, billing and relationship signals, weighted by how well each predicted past churn. It ranks at-risk accounts by risk x value with specific evidence for each, a churn-reason hypothesis and a tailored save play within approved limits, and names the systemic drivers to fix upstream.",
+      "when": "renewals are coming up, revenue retention is slipping, or the owner senses customers are quietly leaving",
+      "inputs": [
+        {
+          "id": "account_signals",
+          "label": "Usage, tickets, billing, NPS and contract data per account",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "past_churn",
+          "label": "Accounts that churned and when",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "save_limits",
+          "label": "What the team may offer to save an account",
+          "required": false,
+          "source": "owner",
+          "example": "Up to one free month or a downgrade"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Health scores and at-risk list",
+          "format": "xlsx",
+          "description": "Signals, validated weights, score, risk x value rank and evidence per account."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Save plays per account",
+          "format": "md",
+          "description": "Reason hypothesis, play, owner, date and message angle."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Health distribution and churn drivers",
+          "format": "png",
+          "description": "Where risk sits and why."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "embeddings_search",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "stripe",
+        "intercom",
+        "zendesk",
+        "freshdesk"
+      ],
+      "modalities": [
+        "connector_data",
+        "text"
+      ],
+      "instructions": "1. Pull signals per account with connector_read: usage trend (logins, key actions, seats), support tickets and sentiment, billing (failed payments, downgrades, discount expiries), relationship (champion left, no executive contact, NPS) and contract (renewal date, term). 2. Build or refresh a health score in code_interpreter, with weights validated against past churn: compare churned and retained accounts and show each signal's lift. Drop signals that did not predict. 3. Rank accounts by risk x value and list the top at-risk ones with specific evidence (for example 'usage down 60% since the champion left in May'). 4. Assign each a churn-reason hypothesis: value not realised, poor fit, budget, competitor, service failure or champion loss. 5. Write a save play per account (re-onboarding, executive sponsor call, success-plan reset, right-sized offer within the owner's limits) with an owner, date and message angle. 6. Summarise the systemic drivers across accounts and the upstream fixes. 7. State what could not be verified: accounts with missing signals and weak predictive power where past churn is small.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull health signals",
+          "brief": "Read usage, support, billing, relationship and contract data.",
+          "acceptance": "Every account has signals or a list of gaps."
+        },
+        {
+          "activity": "analysis",
+          "title": "Score validation and ranking",
+          "brief": "Validate weights against past churn and rank accounts.",
+          "acceptance": "Each signal's lift is shown; ranking uses risk x value.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Reason hypotheses and save plays",
+          "brief": "Assign reasons and write save plays.",
+          "acceptance": "Every at-risk account has evidence, a reason and a play with owner and date.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Evidence and offer check",
+          "brief": "Check evidence and that offers are within limits.",
+          "acceptance": "First line is APPROVED or CHANGES; each at-risk account cites evidence; offers within approved limits.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Churn risk report",
+          "brief": "Render the scores, plays and chart.",
+          "acceptance": "Report includes systemic drivers.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Health signals are validated against past churn or labelled unvalidated",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every at-risk account cites specific evidence",
+          "severity": "must"
+        },
+        {
+          "criterion": "Save offers stay within owner-approved limits",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each play has an owner and a date",
+          "severity": "should"
+        },
+        {
+          "criterion": "Systemic drivers are identified",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "cancellation-flow",
+        "account-plan",
+        "qbr-deck",
+        "cohort-analysis",
+        "customer-onboarding-plan"
+      ],
+      "example_request": "Renewals are coming up for 40 accounts next quarter. Which ones are about to leave us, and what should we do about each?",
+      "typical_departments": [
+        "customer-success-support"
+      ],
+      "version": 1
+    },
+    {
+      "id": "qbr-deck",
+      "name": "Quarterly business review",
+      "icon": "🏆",
+      "category": "customer-experience",
+      "one_liner": "A QBR deck that proves value, surfaces risks and proposes next steps.",
+      "description": "Builds a quarterly business review deck that proves value against the customer's own goals, with the calculation shown. It covers what worked and what didn't and what we're doing about it, and proposes next-quarter goals and a mutual action plan. It comes with speaker notes, a customer pre-read and an internal prep page.",
+      "when": "a quarterly or annual review with a key customer is coming up, or a renewal needs its value made visible",
+      "inputs": [
+        {
+          "id": "success_plan",
+          "label": "The customer's goals and success metrics",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "account_data",
+          "label": "Usage, outcomes, support history and billing for the period",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "customer_inputs",
+          "label": "Numbers the customer shared (volumes, costs, outcomes)",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "known_issues",
+          "label": "Problems during the period",
+          "required": false,
+          "source": "owner",
+          "example": "Check-in kiosk outages in March"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "deck",
+          "name": "QBR deck",
+          "format": "pptx",
+          "description": "8–12 slides with action titles, value calculations and speaker notes."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Customer pre-read",
+          "format": "md -> pdf",
+          "description": "One page sent two days before."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Internal prep notes",
+          "format": "md",
+          "description": "Risks, stakeholders, asks and walk-away points."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "code_interpreter",
+        "chart_generate",
+        "deck_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "stripe",
+        "zendesk",
+        "intercom",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "connector_data",
+        "text",
+        "file"
+      ],
+      "instructions": "1. Recall the customer's success plan with memory_recall: goals and success metrics set at onboarding or at the last QBR. 2. Pull usage, outcomes, support history and billing with connector_read. Compute value in the customer's terms (hours saved, revenue, cost reduction, service levels) in code_interpreter, showing the calculation and using customer-validated inputs where possible. 3. Storyline for 8–12 slides: goals recap; results against goals; what worked; what didn't and what we're doing about it; roadmap fit; recommendations; next-quarter goals and a mutual action plan. 4. Be honest about misses. A QBR that only brags loses trust. 5. Propose expansion only where it serves a goal the customer stated; no hard sell. 6. Build charts with chart_generate, takeaway in the title. Use the customer's logo only with permission. 7. Build the deck with deck_generate with speaker notes, and a one-page pre-read to send two days before. 8. Write an internal prep page: risks, stakeholders, asks and walk-away points. 9. State what could not be verified: value estimates that rest on assumptions.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull account data and goals",
+          "brief": "Read the success plan, usage, outcomes, tickets and billing.",
+          "acceptance": "Every stated goal has data for the period or a gap noted."
+        },
+        {
+          "activity": "analysis",
+          "title": "Value delivered",
+          "brief": "Compute value against each goal with the calculation shown.",
+          "acceptance": "Each value figure shows inputs and formula.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Build deck and pre-read",
+          "brief": "Build the deck, pre-read and internal prep page.",
+          "acceptance": "Speaker notes on every slide; misses addressed.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Customer-eye review",
+          "brief": "Read it as the customer's executive would.",
+          "acceptance": "First line is APPROVED or CHANGES; value claims show their calculation; misses are addressed with remedies.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Results are tied to the customer's own stated goals",
+          "severity": "must"
+        },
+        {
+          "criterion": "Value calculations are shown with their inputs",
+          "severity": "must"
+        },
+        {
+          "criterion": "Misses and risks are stated with a remedy",
+          "severity": "must"
+        },
+        {
+          "criterion": "A mutual action plan with owners and dates is included",
+          "severity": "should"
+        },
+        {
+          "criterion": "Expansion is proposed only where it serves a stated goal",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "account-plan",
+        "churn-risk-review",
+        "build-a-slide-deck",
+        "data-story",
+        "customer-onboarding-plan"
+      ],
+      "example_request": "QBR with our biggest hotel client next week. Pull their numbers and build a deck that shows what we've done for them, and be honest about the check-in kiosk problems.",
+      "typical_departments": [
+        "customer-success-support",
+        "sales-partnerships"
+      ],
+      "version": 1
+    },
+    {
+      "id": "escalation-response",
+      "name": "Escalation & complaint response",
+      "icon": "🧯",
+      "category": "customer-experience",
+      "one_liner": "HEARD-based reply, remedy options and a root-cause hand-off.",
+      "description": "Handles an escalated complaint. It builds the full history, assesses severity and legal or safety implications, and drafts a HEARD reply (Hear, Empathise, Apologise, Resolve, Diagnose) with a proportional remedy from the remedy matrix. The root cause is handed off with evidence and a follow-up is set. The reply is sent once, only after owner approval.",
+      "when": "a customer is angry, has escalated, threatened to leave or post publicly, or a complaint has bounced between people",
+      "inputs": [
+        {
+          "id": "case_history",
+          "label": "All tickets, orders, calls and public posts about the case",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "remedy_matrix",
+          "label": "What remedies are allowed and up to what value",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "owner_view",
+          "label": "Anything the owner knows that records don't show",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "voice_guide",
+          "label": "Voice and tone guide",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "email_draft",
+          "name": "HEARD reply",
+          "format": "md",
+          "description": "Short, specific, human reply with remedy and timing."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Case summary and remedy decision",
+          "format": "md",
+          "description": "Timeline, severity, flags, remedy options and recommendation."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Root-cause hand-off note",
+          "format": "md",
+          "description": "What went wrong upstream, with evidence, for the owning team."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "embeddings_search",
+        "memory_recall",
+        "document_generate",
+        "message_coworker",
+        "request_owner_decision",
+        "send_external"
+      ],
+      "connectors_optional": [
+        "zendesk",
+        "freshdesk",
+        "intercom",
+        "gorgias",
+        "google-workspace",
+        "microsoft-365",
+        "shopify"
+      ],
+      "modalities": [
+        "connector_data",
+        "text"
+      ],
+      "instructions": "1. Read the full history with connector_read (tickets, orders, calls, public posts) and build a timeline of what happened and what the customer was told. 2. Assess severity, public visibility and customer value. Legal threats, injury or safety issues, discrimination claims and regulator complaints go to the owner (and, where needed, a licensed professional) before any reply. 3. Draft the reply with HEARD: Hear (restate their experience specifically), Empathise, Apologise for what we got wrong without admitting legal liability or blaming staff, Resolve (the concrete remedy and its timing), Diagnose (what we're changing so it doesn't recur). 4. Choose a remedy from the remedy matrix (refund, replacement, credit, service-recovery gesture) proportional to the impact; anything beyond the limits goes to the owner via request_owner_decision. 5. Suggest a phone call for high-emotion cases, and keep the written reply short and human. 6. Hand the root cause to the operations or product owner with message_coworker, including the evidence. 7. Set a follow-up date and what will be confirmed. 8. Send only after owner approval, exactly once, with send_external, keeping the receipt. 9. State what could not be verified: claims the customer made that records don't show.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Gather history and timeline",
+          "brief": "Read every interaction and build the timeline.",
+          "acceptance": "Timeline covers every contact with dates and sources."
+        },
+        {
+          "activity": "llm",
+          "title": "Assess and choose remedy",
+          "brief": "Assess severity and flags and choose a remedy.",
+          "acceptance": "Legal, safety and regulator flags handled; remedy within matrix or marked for approval.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft HEARD reply",
+          "brief": "Write the reply.",
+          "acceptance": "All five HEARD elements present and specific to this customer.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Tone and liability review",
+          "brief": "Check tone, liability language, blame and remedy limits.",
+          "acceptance": "First line is APPROVED or CHANGES; no admission of legal liability or blame on staff; remedy within limits or approved.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves reply and remedy",
+          "brief": "The owner approves the reply text and remedy.",
+          "acceptance": "Approval recorded with the final text.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Send the reply",
+          "brief": "Send the approved reply once through the help-desk or email connector.",
+          "acceptance": "Sent once with a receipt.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Root-cause hand-off",
+          "brief": "Hand off the upstream cause with evidence to the owning coworker.",
+          "acceptance": "Hand-off names the owning team and attaches evidence.",
+          "dependsOn": [
+            1
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The reply restates the customer's specific experience and names the remedy and its timing",
+          "severity": "must"
+        },
+        {
+          "criterion": "No admission of legal liability and no blame on individual staff",
+          "severity": "must"
+        },
+        {
+          "criterion": "Legal threats, injury and regulator complaints are escalated before replying",
+          "severity": "must"
+        },
+        {
+          "criterion": "Sent only after approval, once, with a receipt",
+          "severity": "must"
+        },
+        {
+          "criterion": "The root cause is handed off with evidence",
+          "severity": "should"
+        },
+        {
+          "criterion": "A follow-up date is set",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "review-response",
+        "root-cause-analysis",
+        "crisis-holding-statement",
+        "ticket-triage",
+        "dispute-letter-draft"
+      ],
+      "example_request": "A bride's florist order arrived wilted and she's furious: three emails and a one-star review. Help me write back and decide what we offer her.",
+      "typical_departments": [
+        "customer-success-support"
+      ],
+      "version": 1
+    },
+    {
+      "id": "voc-report",
+      "name": "Voice-of-customer report",
+      "icon": "📣",
+      "category": "customer-experience",
+      "one_liner": "Themes from tickets, reviews and surveys with verbatims and asks.",
+      "description": "Turns tickets, reviews, surveys, call notes and public posts into one voice-of-customer report. Everything is coded with a single codebook and themes are ranked by unique customers, with the source mix shown. Verbatims are de-identified, each theme becomes an ask with an owner and evidence, last period's asks are tracked, and an audio highlight reel is added.",
+      "when": "before quarterly planning, after a launch, or when teams argue about what customers want",
+      "inputs": [
+        {
+          "id": "sources",
+          "label": "Tickets, reviews, survey comments, call notes and community posts for the period",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "period",
+          "label": "Period to cover",
+          "required": true,
+          "source": "owner",
+          "example": "Last quarter"
+        },
+        {
+          "id": "last_asks",
+          "label": "Last period's asks and their status",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "VOC report",
+          "format": "md -> pdf",
+          "description": "Ranked themes, trends, de-identified verbatims and asks per team."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Coded feedback",
+          "format": "xlsx",
+          "description": "Every item with source, date, codes and theme."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Customer voices highlight reel",
+          "format": "mp3",
+          "description": "Verbatims read aloud, labelled as customer quotes read by AI voices."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Theme trends",
+          "format": "png",
+          "description": "Themes over time by source."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "x_search",
+        "embeddings_search",
+        "code_interpreter",
+        "chart_generate",
+        "document_generate",
+        "tts"
+      ],
+      "connectors_optional": [
+        "zendesk",
+        "intercom",
+        "freshdesk",
+        "gorgias",
+        "typeform",
+        "google-business-profile",
+        "hubspot",
+        "slack"
+      ],
+      "modalities": [
+        "connector_data",
+        "text",
+        "audio"
+      ],
+      "instructions": "1. Gather sources for the period with connector_read and file_parse (tickets, reviews, survey comments, call notes and transcripts, community posts) plus public mentions via x_search. Record volume per source. 2. De-identify: remove names, emails, order numbers and other identifiers from anything quoted. 3. Code everything with one codebook across sources (theme, sub-theme, sentiment, journey stage, segment), with embeddings_search proposing clusters and reading refining them. 4. Rank themes in code_interpreter by reach (unique customers), severity and trend against last period, and show the source mix so one loud channel doesn't dominate. 5. Pick two or three verbatims per theme, de-identified, with source type and date. 6. Turn themes into asks, each with an owner team, the evidence, a suggested action and the expected impact; report the status of last period's asks. 7. Render a three-to-five-minute highlight reel with tts, clearly labelled as customer quotes read by AI voices. 8. State what could not be verified: gaps in source coverage and sampling bias towards people who complain.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Gather feedback sources",
+          "brief": "Read all feedback sources for the period.",
+          "acceptance": "Volume per source recorded."
+        },
+        {
+          "activity": "analysis",
+          "title": "Unified coding and ranking",
+          "brief": "Code with one codebook and rank themes by reach, severity and trend.",
+          "acceptance": "Themes ranked by unique customers with source mix.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "VOC report and asks",
+          "brief": "Write the report, asks and chart.",
+          "acceptance": "Each ask has an owner team and evidence.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Evidence and privacy review",
+          "brief": "Check counts and de-identification.",
+          "acceptance": "First line is APPROVED or CHANGES; counts reproducible; no personal data in quotes.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Audio highlight reel",
+          "brief": "Render the verbatim highlight reel.",
+          "acceptance": "Reel begins with the AI-voice label; three to five minutes.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Themes are ranked by unique customers, with the source mix shown",
+          "severity": "must"
+        },
+        {
+          "criterion": "Quotes are verbatim and de-identified",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each ask has an owner team and evidence",
+          "severity": "must"
+        },
+        {
+          "criterion": "Last period's asks are tracked",
+          "severity": "should"
+        },
+        {
+          "criterion": "The audio clearly labels AI voices reading real customer quotes",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "review-mining",
+        "csat-nps-analysis",
+        "feedback-triage",
+        "interview-synthesis",
+        "listen-in-briefing"
+      ],
+      "example_request": "Pull together what customers told us this quarter across support, reviews and the survey. I want to walk into the planning meeting knowing what to fix.",
+      "typical_departments": [
+        "customer-success-support",
+        "research-insights"
+      ],
+      "version": 1
+    },
+    {
+      "id": "cancellation-flow",
+      "name": "Save & cancellation flow",
+      "icon": "🚪",
+      "category": "customer-experience",
+      "one_liner": "Respectful cancellation flow with reasons capture and fair save offers.",
+      "description": "Designs a respectful save-and-cancel flow: cancellation as easy as sign-up, one reason question, reason-matched offers (pause, downgrade, fix) that are capped and modelled, an equal-prominence 'cancel anyway', and a clear confirmation. A win-back sequence respects unsubscribes. It is prototyped in the canvas, reviewed for dark patterns, and auto-renewal law is flagged for counsel.",
+      "when": "cancelling is hard or impossible online, churn is high, or the owner wants to save customers without trapping them",
+      "inputs": [
+        {
+          "id": "cancellation_data",
+          "label": "Cancellations with reasons, tenure, plan and past save outcomes",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "current_flow",
+          "label": "How cancelling works today",
+          "required": true,
+          "source": "owner",
+          "example": "Customers have to email us"
+        },
+        {
+          "id": "offer_limits",
+          "label": "Discounts, pauses or downgrades the owner will allow",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "markets",
+          "label": "Where subscribers are",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "app",
+          "name": "Cancellation flow prototype",
+          "format": "canvas",
+          "description": "Clickable flow from entry to confirmation."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Flow spec and copy",
+          "format": "md",
+          "description": "Screens, reason list, offer rules, confirmation content and metrics."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Offer economics",
+          "format": "xlsx",
+          "description": "Save-rate assumptions, discount cost, retained LTV and cannibalisation."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Confirmation and win-back emails",
+          "format": "md",
+          "description": "Confirmation with end date and data export, and a 30/60/90-day win-back."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "web_search",
+        "app_build",
+        "document_generate",
+        "spreadsheet_generate"
+      ],
+      "connectors_optional": [
+        "stripe",
+        "shopify",
+        "kajabi",
+        "mindbody",
+        "klaviyo",
+        "intercom"
+      ],
+      "modalities": [
+        "connector_data",
+        "text",
+        "app"
+      ],
+      "instructions": "1. Pull cancellation data with connector_read: volumes, stated reasons, tenure, plan, and which saves have worked. 2. Principle: cancelling must be as easy as signing up. No obstruction, confirmshaming, hidden links or forced calls; dark patterns destroy trust and can breach consumer law. 3. Design the flow: a one-click entry; one reason question (six to eight reasons plus 'other'); a reason-matched offer (pause for 'not using it right now', downgrade for 'too expensive', help or fix for 'not working', none for 'moving or closing'); a 'cancel anyway' button of equal prominence; and a confirmation screen and email with end date and data export. 4. Model offer economics in code_interpreter: save-rate assumptions, discount cost, retained LTV and cannibalisation (people who would have stayed anyway). Cap offers within the owner's limits. 5. Write a win-back sequence (for example at 30, 60 and 90 days) built on genuine improvements, respecting unsubscribes. 6. Prototype the flow with app_build for review. 7. Flag auto-renewal and cancellation laws for the markets served (for example US state automatic-renewal laws, ROSCA, and UK and EU consumer rules; current requirements found with web_search) for counsel to confirm. 8. Set metrics: save rate by reason, 90-day retention of saved customers and complaint rate. 9. State what could not be verified: save-rate assumptions and legal requirements by jurisdiction.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Cancellation data",
+          "brief": "Read cancellations, reasons and past save outcomes.",
+          "acceptance": "Reason distribution and save history loaded."
+        },
+        {
+          "activity": "analysis",
+          "title": "Reasons and offer economics",
+          "brief": "Model offers by reason with caps.",
+          "acceptance": "Each offer shows cost, expected saves and cannibalisation.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "app",
+          "title": "Prototype the flow",
+          "brief": "Build the clickable cancellation flow.",
+          "acceptance": "Cancel reachable in three steps or fewer, with an equal-prominence cancel button.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Dark-pattern and fairness review",
+          "brief": "Check the flow against dark-pattern and fairness criteria.",
+          "acceptance": "First line is APPROVED or CHANGES; no confirmshaming, obstruction or hidden cancel.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Flow spec, copy and win-back",
+          "brief": "Write the spec, copy, confirmation and win-back emails.",
+          "acceptance": "Confirmation states end date and data export; legal flags listed for counsel.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Cancelling is as easy as signing up and takes three steps or fewer",
+          "severity": "must"
+        },
+        {
+          "criterion": "No dark patterns (confirmshaming, obstruction, hidden options)",
+          "severity": "must"
+        },
+        {
+          "criterion": "Offers are reason-matched, capped and modelled",
+          "severity": "must"
+        },
+        {
+          "criterion": "Auto-renewal and cancellation laws are flagged for counsel review",
+          "severity": "must"
+        },
+        {
+          "criterion": "The confirmation states the end date and how to export data",
+          "severity": "should"
+        },
+        {
+          "criterion": "Win-back respects unsubscribes",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "churn-risk-review",
+        "loyalty-program",
+        "website-terms-draft",
+        "email-flow-design",
+        "membership-retention"
+      ],
+      "example_request": "Our subscription box cancel page is just 'email us'. I want it to be fair and easy, but still give people a reason to stay if we can fix what's wrong.",
+      "typical_departments": [
+        "customer-success-support",
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "review-response",
+      "name": "Public review responses",
+      "icon": "⭐",
+      "category": "customer-experience",
+      "one_liner": "Reply drafts to Google, Yelp or marketplace reviews on-voice and on-policy.",
+      "description": "Drafts on-voice, on-policy replies to public reviews on Google, Yelp or marketplaces. Praise is thanked specifically and with varied wording. Complaints are acknowledged without disclosing private details or arguing, and moved offline. Suspected fake reviews get a platform flag rather than a public accusation. Replies are posted only after owner approval, with receipts.",
+      "when": "new reviews arrive, especially negative ones, or the review profile has gone unanswered",
+      "inputs": [
+        {
+          "id": "reviews",
+          "label": "New reviews with rating, date and any linked order",
+          "required": true,
+          "source": "connector",
+          "example": "14 new Google reviews this week"
+        },
+        {
+          "id": "voice_guide",
+          "label": "Voice and tone guide",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "sector_rules",
+          "label": "Sector-specific limits (health, legal or financial services)",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "owner_context",
+          "label": "Anything the owner knows about specific reviews",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "message_draft",
+          "name": "Review reply drafts",
+          "format": "md",
+          "description": "One reply per review, varied and specific."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Review summary and flags",
+          "format": "md",
+          "description": "Themes this week, suspected fake reviews with flag reports, and items for the owner."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "embeddings_search",
+        "memory_recall",
+        "document_generate",
+        "request_owner_decision",
+        "publish_external"
+      ],
+      "connectors_optional": [
+        "google-business-profile",
+        "amazon-seller-central",
+        "etsy",
+        "shopify",
+        "opentable",
+        "meta-business"
+      ],
+      "modalities": [
+        "connector_data",
+        "text"
+      ],
+      "instructions": "1. Pull new reviews from connected profiles with connector_read (or the owner's pasted text), with rating, date and any linked order. 2. Classify each review: praise, mixed, complaint, suspected fake, or policy-violating. 3. Praise: thank them specifically (name what they liked), keep it brief and vary the wording; never copy and paste. 4. Complaints: acknowledge and apologise for the experience. Never confirm private details (health, order contents, staff names) or argue the facts in public. Say what's changing if the complaint is valid, and invite contact through a business channel. 5. Regulated sectors: a healthcare practice must never confirm that someone is a patient, and legal or financial services avoid discussing matters. Route those replies to the owner. 6. Suspected fake or policy-violating reviews: draft a platform flag report with reasons, and never accuse the reviewer publicly. 7. Never offer incentives to change or remove reviews, and never write reviews. 8. Batch the replies for approval with request_owner_decision; post with publish_external only after approval, keeping a receipt per reply. 9. State what could not be verified: whether each reviewer is a real customer.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull new reviews",
+          "brief": "Read new reviews from connected profiles.",
+          "acceptance": "Every new review loaded with rating and date."
+        },
+        {
+          "activity": "llm",
+          "title": "Draft replies",
+          "brief": "Classify and draft a reply per review.",
+          "acceptance": "Each reply is specific; no two replies share an opening line.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Privacy and tone check",
+          "brief": "Check privacy, tone, sector rules and incentives.",
+          "acceptance": "First line is APPROVED or CHANGES; no private details disclosed; no arguments; replies vary.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves replies",
+          "brief": "The owner approves, edits or skips each reply.",
+          "acceptance": "Decision recorded per reply.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Post approved replies",
+          "brief": "Post only approved replies through the connector.",
+          "acceptance": "Only approved replies posted; a receipt per reply.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "No private or protected details are disclosed (for example confirming someone is a patient)",
+          "severity": "must"
+        },
+        {
+          "criterion": "Never offers incentives to change or remove reviews",
+          "severity": "must"
+        },
+        {
+          "criterion": "Posted only after owner approval, with a receipt",
+          "severity": "must"
+        },
+        {
+          "criterion": "Praise replies are specific and varied",
+          "severity": "should"
+        },
+        {
+          "criterion": "Complaints are invited to resolve offline through a business channel",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 15,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "review-mining",
+        "escalation-response",
+        "referral-review-engine",
+        "local-seo-gbp",
+        "voc-report"
+      ],
+      "example_request": "We got 14 new Google reviews this week, including two nasty ones. Draft replies in my voice. I'll approve before anything goes up.",
+      "typical_departments": [
+        "customer-success-support",
+        "marketing-growth"
+      ],
+      "version": 1
+    }
+  ]
+}

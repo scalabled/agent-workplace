@@ -1,0 +1,2139 @@
+{
+  "category": "it-security",
+  "version": 1,
+  "skills": [
+    {
+      "id": "threat-model-stride",
+      "name": "Threat model (STRIDE)",
+      "icon": "🧩",
+      "category": "it-security",
+      "one_liner": "Data-flow diagram, STRIDE threats and ranked mitigations.",
+      "description": "Threat-models a system the owner controls. It draws a data-flow diagram with trust boundaries, enumerates STRIDE threats per element (spoofing, tampering, repudiation, information disclosure, denial of service, elevation of privilege), ranks them by likelihood and impact, and maps each to a concrete mitigation and an owner-accepted residual risk.",
+      "when": "before launching logins, payments, customer data storage, a new integration or an AI feature, or after a near-miss",
+      "inputs": [
+        {
+          "id": "system_description",
+          "label": "What the system does, its components and data",
+          "required": true,
+          "source": "owner",
+          "example": "Booking site with customer accounts, card payments via a processor, admin panel"
+        },
+        {
+          "id": "architecture_docs",
+          "label": "Diagrams, screenshots or docs",
+          "required": false,
+          "source": "file",
+          "example": "Whiteboard photo of the architecture"
+        },
+        {
+          "id": "data_classes",
+          "label": "Sensitive data handled",
+          "required": true,
+          "source": "owner",
+          "example": "Names, emails, phone numbers, appointment notes"
+        },
+        {
+          "id": "existing_controls",
+          "label": "Controls already in place",
+          "required": false,
+          "source": "memory",
+          "example": "MFA on admin, managed hosting"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "diagram",
+          "name": "Data-flow diagram",
+          "format": "mermaid + svg",
+          "description": "External entities, processes, data stores, flows and trust boundaries."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Threat register",
+          "format": "xlsx",
+          "description": "Element, STRIDE category, threat, likelihood, impact, score, mitigation, owner and status."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Threat model report",
+          "format": "md -> docx",
+          "description": "Top risks, mitigations in priority order, and residual risks for the owner to accept."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "file_parse",
+        "vision_describe",
+        "diagram_generate",
+        "ask_coworker",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "github",
+        "cloudflare-docs",
+        "deepwiki",
+        "jira",
+        "linear"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "image"
+      ],
+      "instructions": "1. Confirm scope: only systems the owner controls. Parse docs with file_parse, read whiteboard photos or screenshots with vision_describe, and recall existing controls with memory_recall. 2. Draw the data-flow diagram with diagram_generate: external entities, processes, data stores, flows and every trust boundary (browser to server, server to payment processor, admin to back office). 3. Walk every element and flow crossing a boundary through STRIDE, and write each threat as 'an attacker can X because Y, leading to Z'. 4. Score likelihood and impact (1-5) and rank. Map mitigations to recognized practice (MFA and phishing-resistant sign-in, least privilege, input validation and output encoding, secrets management, logging and alerting, rate limiting, backups), referencing OWASP ASVS where it is a web application. 5. Use ask_coworker to have an engineer check feasibility and effort of each mitigation. 6. Build the threat register with spreadsheet_generate and the report with document_generate, and put the residual risks to the owner for acceptance with request_owner_decision. 7. Regulated domain (security): Defensive work only. No exploit development against systems the owner does not control; no credential handling; changes to production access go through approval. Escalate to a qualified security professional for high-risk changes (licensed review) before anything leaves the workspace; never present the output as professional advice and never imply a licence you do not hold. 8. State what could not be verified, such as configuration details not visible in the documents, and never test live systems.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Understand the system",
+          "brief": "Parse architecture material and list components, data classes and existing controls.",
+          "acceptance": "Component and data inventory complete, with unknowns listed."
+        },
+        {
+          "activity": "document",
+          "title": "Draw the data-flow diagram",
+          "brief": "Render the diagram with trust boundaries.",
+          "acceptance": "Every component and flow appears; trust boundaries are marked.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Enumerate and rank threats",
+          "brief": "Apply STRIDE per element and flow; score and rank.",
+          "acceptance": "Each boundary-crossing flow has been considered for all six categories.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Engineering review",
+          "brief": "An engineer checks threats and mitigations for accuracy and feasibility.",
+          "acceptance": "First line is APPROVED or CHANGES; infeasible mitigations flagged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Register and report",
+          "brief": "Render the threat register and report.",
+          "acceptance": "Top 10 threats each have a mitigation and owner.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review",
+          "brief": "Raise a decision card (request_owner_decision) asking the owner to route the draft to a qualified security professional for high-risk changes. Highlight high-risk changes such as authentication or production access.",
+          "acceptance": "Owner confirms the licensed reviewer has approved, or returns their changes; nothing external happens before this step completes.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner accepts residual risk",
+          "brief": "Decision card listing residual risks.",
+          "acceptance": "Owner accepts, or asks for more mitigation, per risk.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The security rule is restated and the work is routed to a qualified security professional for high-risk changes for licensed review before anything is sent, signed or published.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Scope is limited to systems the owner controls; no testing of live systems.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every top threat has a concrete mitigation and an owner.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Trust boundaries are explicit on the diagram.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Residual risks are accepted by the owner in writing.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "security-baseline",
+        "architecture-decision-record",
+        "incident-runbook",
+        "code-review",
+        "api-integration"
+      ],
+      "example_request": "We're adding online payments and customer logins to our booking site. What could go wrong security-wise before we launch, and what do we fix first?",
+      "regulated_domains": [
+        "security"
+      ],
+      "typical_departments": [
+        "it-security-automation",
+        "engineering"
+      ],
+      "version": 1
+    },
+    {
+      "id": "security-baseline",
+      "name": "Security baseline (CIS IG1)",
+      "icon": "🔐",
+      "category": "it-security",
+      "one_liner": "Gap check against CIS Controls IG1 with a 30-day hardening plan.",
+      "description": "Checks the business against CIS Controls v8 Implementation Group 1, the essential safeguards for small organizations: assets, software, data protection, secure configuration, accounts and MFA, patching, logs, email and browser protection, malware, backups, awareness, vendors and incident response. The result is a gap list and a 30-day hardening plan.",
+      "when": "the owner has never assessed security, an insurer or customer asks about controls, or after a scare such as a phishing attempt",
+      "inputs": [
+        {
+          "id": "environment",
+          "label": "Devices, core systems and where data lives",
+          "required": true,
+          "source": "owner",
+          "example": "12 laptops, Google Workspace, QuickBooks, a shared drive"
+        },
+        {
+          "id": "admin_settings",
+          "label": "Admin console settings or screenshots",
+          "required": false,
+          "source": "connector",
+          "example": "Google Workspace security settings"
+        },
+        {
+          "id": "questionnaire_answers",
+          "label": "Answers to the IG1 self-assessment",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "insurer_requirements",
+          "label": "Cyber insurance or customer requirements",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "IG1 gap assessment",
+          "format": "xlsx",
+          "description": "Each safeguard: status, evidence, risk, fix, effort and owner."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "30-day hardening plan",
+          "format": "md -> pdf",
+          "description": "Week-by-week fixes ordered by risk reduction per hour of effort."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Quick wins",
+          "format": "md",
+          "description": "The first five changes, with click-by-click steps for the owner's tools."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "vision_describe",
+        "web_fetch",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "rippling"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "image",
+        "screen"
+      ],
+      "instructions": "1. Collect evidence: read admin security settings with connector_read if enabled, read screenshots with vision_describe, and run a short IG1 self-assessment with the owner. Never ask for or handle passwords. 2. Assess each IG1 safeguard as in place, partial, missing or unknown, with its evidence. Fetch vendor hardening guides with web_fetch for the owner's specific tools. 3. Prioritize by risk reduction per hour: MFA on email and admin accounts first, then a password manager, automatic updates, backups with a tested restore, separate admin accounts, email authentication (SPF, DKIM, DMARC), device encryption and screen lock, and phishing awareness. 4. Write the 30-day plan and quick-win steps specific to the owner's tools, and build the gap workbook with spreadsheet_generate and the plan with document_generate. 5. Changes to production access or security settings are made by the owner or their IT provider after approval; ask the owner to approve the plan with request_owner_decision. 6. Regulated domain (security): Defensive work only. No exploit development against systems the owner does not control; no credential handling; changes to production access go through approval. Escalate to a qualified security professional for high-risk changes (licensed review) before anything leaves the workspace; never present the output as professional advice and never imply a licence you do not hold. 7. State what could not be verified, especially safeguards marked from the owner's answers without evidence.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read admin settings",
+          "brief": "Read security-relevant admin settings from enabled connectors.",
+          "acceptance": "Settings captured, or marked for self-assessment."
+        },
+        {
+          "activity": "ingest",
+          "title": "Self-assessment and screenshots",
+          "brief": "Collect the owner's IG1 answers and read settings screenshots.",
+          "acceptance": "Every IG1 safeguard has an answer or 'unknown'.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Score the gaps",
+          "brief": "Assess safeguards and rank fixes by risk reduction per hour.",
+          "acceptance": "Every gap has a risk, fix, effort and owner.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Plan and quick wins",
+          "brief": "Render the gap workbook, 30-day plan and quick-win steps.",
+          "acceptance": "Quick wins have step-by-step instructions for the owner's tools.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Security analyst review",
+          "brief": "A security analyst checks accuracy and prioritization.",
+          "acceptance": "First line is APPROVED or CHANGES; mis-prioritized fixes flagged.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review",
+          "brief": "Raise a decision card (request_owner_decision) asking the owner to route the draft to a qualified security professional for high-risk changes. Flag any high-risk configuration changes.",
+          "acceptance": "Owner confirms the licensed reviewer has approved, or returns their changes; nothing external happens before this step completes.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The security rule is restated and the work is routed to a qualified security professional for high-risk changes for licensed review before anything is sent, signed or published.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No passwords, recovery codes or secrets are requested or stored.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each safeguard's status cites its evidence or is marked 'unverified'.",
+          "severity": "must"
+        },
+        {
+          "criterion": "MFA on email and admin accounts is the first fix unless already in place.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Steps are specific to the owner's actual tools.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "access-review",
+        "backup-dr-plan",
+        "incident-runbook",
+        "threat-model-stride",
+        "saas-stack-audit"
+      ],
+      "example_request": "We're 12 people, everything's in Google Workspace and a few laptops. The insurance renewal is asking about our security. Where are we weak and what should we fix this month?",
+      "regulated_domains": [
+        "security"
+      ],
+      "typical_departments": [
+        "it-security-automation"
+      ],
+      "version": 1
+    },
+    {
+      "id": "access-review",
+      "name": "Access review",
+      "icon": "🗝️",
+      "category": "it-security",
+      "one_liner": "Joiner-mover-leaver audit of who can reach what, with removals to approve.",
+      "description": "A joiner-mover-leaver audit of who can reach what. It matches every account and admin role across core systems to the current roster and finds leavers still active, excess privileges, shared logins, accounts without MFA, public share links and stale OAuth grants. Removals are listed for the owner to approve and are applied one by one with receipts.",
+      "when": "someone has left or changed roles, quarterly as a hygiene check, before an audit or insurance renewal, or after a suspected account compromise",
+      "inputs": [
+        {
+          "id": "roster",
+          "label": "Current staff and contractors with roles",
+          "required": true,
+          "source": "connector",
+          "example": "BambooHR or Rippling roster"
+        },
+        {
+          "id": "systems",
+          "label": "Core systems to review",
+          "required": true,
+          "source": "owner",
+          "example": "Google Workspace, QuickBooks, Shopify, Slack"
+        },
+        {
+          "id": "account_exports",
+          "label": "User and admin exports where no connector exists",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "role_access_rules",
+          "label": "Who should have what by role",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Access matrix",
+          "format": "xlsx",
+          "description": "Person, system, role, last login, MFA status, expected access and finding."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Removals and downgrades to approve",
+          "format": "md",
+          "description": "Each change with its reason and risk, for per-item approval."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Access review record",
+          "format": "md -> pdf",
+          "description": "Scope, date, findings, approvals and receipts, as audit evidence."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision",
+        "connector_write"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "rippling",
+        "bamboohr",
+        "slack",
+        "github",
+        "shopify",
+        "quickbooks"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Read users, roles, last-login and MFA status from each system with connector_read, or parse exports with file_parse. Never request or handle passwords, tokens or recovery codes. 2. Read the roster and join it to accounts in code_interpreter; match on work email first, then on name with manual confirmation. 3. Flag leavers still active, movers with old access, admin roles beyond need, shared or generic logins, accounts without MFA, external guests, public links to sensitive folders and OAuth app grants nobody uses. 4. Propose for each finding: remove, downgrade, transfer ownership, or keep with a reason. Protect business continuity by transferring files and ownership before removing an account. 5. Build the access matrix with spreadsheet_generate and the record with document_generate. 6. Regulated domain (security): Defensive work only. No exploit development against systems the owner does not control; no credential handling; changes to production access go through approval. Escalate to a qualified security professional for high-risk changes (licensed review) before anything leaves the workspace; never present the output as professional advice and never imply a licence you do not hold. 7. Ask for per-item approval with request_owner_decision. Only approved changes are applied, with connector_write, one at a time with receipts; anything the connector cannot do goes to the owner as steps. 8. State what could not be verified, such as systems without an export or accounts that could not be matched to a person.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read accounts",
+          "brief": "Read users, roles, last login and MFA from each enabled system.",
+          "acceptance": "Account list per system, or a request for an export."
+        },
+        {
+          "activity": "ingest",
+          "title": "Load roster and exports",
+          "brief": "Load the roster and any exported account lists.",
+          "acceptance": "Roster and all account lists loaded.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Match and flag",
+          "brief": "Join accounts to people and flag every finding type.",
+          "acceptance": "Every account is matched or listed as unmatched.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Propose changes",
+          "brief": "Propose an action per finding, including ownership transfer before removal.",
+          "acceptance": "Each proposal has a reason and a continuity step.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "IT manager review",
+          "brief": "An IT manager checks proposals for business-continuity risk.",
+          "acceptance": "First line is APPROVED or CHANGES; risky removals flagged.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review",
+          "brief": "Raise a decision card (request_owner_decision) asking the owner to route the draft to a qualified security professional for high-risk changes. Highlight admin and production-access changes.",
+          "acceptance": "Owner confirms the licensed reviewer has approved, or returns their changes; nothing external happens before this step completes.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves each change",
+          "brief": "Decision card with per-item approve or decline.",
+          "acceptance": "Every proposed change has an explicit decision.",
+          "dependsOn": [
+            5
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Apply approved changes",
+          "brief": "Apply approved changes with idempotency keys and receipts.",
+          "acceptance": "Receipt per change; declined items untouched.",
+          "dependsOn": [
+            6
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The security rule is restated and the work is routed to a qualified security professional for high-risk changes for licensed review before anything is sent, signed or published.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No passwords, tokens or recovery codes are requested or handled.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every change is individually approved and receipted.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Files and ownership are transferred before an account is removed.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The record is complete enough to serve as audit evidence.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "security-baseline",
+        "saas-stack-audit",
+        "employee-onboarding-plan",
+        "soc2-readiness",
+        "incident-runbook"
+      ],
+      "example_request": "Two people left last month and I have no idea if they can still get into our systems. Check who has access to what and clean it up — but ask me before you remove anything.",
+      "regulated_domains": [
+        "security"
+      ],
+      "typical_departments": [
+        "it-security-automation"
+      ],
+      "version": 1
+    },
+    {
+      "id": "backup-dr-plan",
+      "name": "Backup & disaster recovery plan",
+      "icon": "💾",
+      "category": "it-security",
+      "one_liner": "3-2-1 backups, RTO/RPO targets and a tested restore runbook.",
+      "description": "A backup and disaster-recovery plan the owner can trust. It inventories critical systems and data, sets RTO and RPO per tier, applies 3-2-1 (with an immutable or offline copy), closes SaaS backup gaps, writes a step-by-step restore runbook, and records a real restore test.",
+      "when": "the owner is unsure they could recover from a dead server, ransomware or accidental deletion, or an insurer or customer asks about recovery",
+      "inputs": [
+        {
+          "id": "systems_and_data",
+          "label": "Where important data lives",
+          "required": true,
+          "source": "owner",
+          "example": "Office NAS with client files, Google Drive, QuickBooks Online"
+        },
+        {
+          "id": "tolerances",
+          "label": "How long the business can be down, and how much work it can lose",
+          "required": true,
+          "source": "owner",
+          "example": "One day down; lose at most a few hours of work"
+        },
+        {
+          "id": "current_backups",
+          "label": "What backups exist today",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "storage_inventory",
+          "label": "Storage accounts and sizes",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Backup and DR plan",
+          "format": "md -> docx",
+          "description": "Systems, tiers, RTO and RPO, the 3-2-1 design, responsibilities and a test schedule."
+        },
+        {
+          "artifact_type": "sop",
+          "name": "Restore runbook",
+          "format": "md -> pdf",
+          "description": "Step-by-step restore per system, with verification checks."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Backup architecture",
+          "format": "mermaid",
+          "description": "Sources, copies, media, offsite and immutable copies."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Restore test record",
+          "format": "md",
+          "description": "Date, what was restored, time taken, result and fixes."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "spreadsheet_generate",
+        "diagram_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "dropbox",
+        "box",
+        "quickbooks",
+        "xero"
+      ],
+      "modalities": [
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Recall the environment with memory_recall and read storage inventories with connector_read if enabled. 2. Build an inventory with spreadsheet_generate: system, data, owner, size, and business impact if lost; group into tiers. 3. Set RTO (how fast it must be back) and RPO (how much data can be lost) per tier from the owner's tolerances, and check they are realistic for the budget. 4. Design 3-2-1: three copies on two kinds of media, one offsite, plus one immutable or offline copy for ransomware resilience, with backup credentials separate from everyday admin accounts. 5. Close SaaS gaps: cloud providers keep services running, but restoring user-deleted or ransomware-encrypted data is usually the customer's job, so add third-party backup or export routines where needed. 6. Write a restore runbook per tier with verification checks, and draw the architecture with diagram_generate. 7. Schedule a real restore test (a file, a mailbox, a full system each quarter) and record it through request_owner_decision when the owner or IT provider performs it; an untested backup is not a backup. 8. Render the plan and runbook with document_generate, and state what could not be verified, such as backup completeness before the first restore test.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Inventory storage",
+          "brief": "Read storage accounts and sizes from enabled connectors.",
+          "acceptance": "Storage inventory, or taken from the owner."
+        },
+        {
+          "activity": "llm",
+          "title": "Tiers, RTO and RPO",
+          "brief": "Tier systems and set RTO and RPO from tolerances.",
+          "acceptance": "Every system has a tier, RTO and RPO.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Design and runbook",
+          "brief": "Design 3-2-1 with an immutable copy, close SaaS gaps, and write restore runbooks.",
+          "acceptance": "Every tier has a restore procedure with verification checks.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render plan and diagram",
+          "brief": "Render the plan, runbook and architecture diagram.",
+          "acceptance": "Files render; diagram shows every copy.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Resilience review",
+          "brief": "A resilience engineer checks that the design meets the RTO and RPO and resists ransomware.",
+          "acceptance": "First line is APPROVED or CHANGES; unmet targets flagged.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Record a restore test",
+          "brief": "Owner or IT provider performs a restore test; record the result.",
+          "acceptance": "Test record with time taken and result.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "At least one backup copy is offsite and one is immutable or offline.",
+          "severity": "must"
+        },
+        {
+          "criterion": "A restore test is scheduled and its result recorded.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Backup credentials are separate from everyday admin accounts.",
+          "severity": "must"
+        },
+        {
+          "criterion": "RTO and RPO are stated per tier and achievable within budget.",
+          "severity": "should"
+        },
+        {
+          "criterion": "SaaS data has its own backup or export routine.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "business-continuity-plan",
+        "security-baseline",
+        "incident-runbook",
+        "saas-stack-audit"
+      ],
+      "example_request": "If our office server died tomorrow, I honestly don't know if we could get our client files back. Set up a proper backup plan and show me how to test it.",
+      "typical_departments": [
+        "it-security-automation",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "saas-stack-audit",
+      "name": "SaaS stack & spend audit",
+      "icon": "🧾",
+      "category": "it-security",
+      "one_liner": "Inventory of tools, owners, overlap, spend and renewal dates.",
+      "description": "Finds every tool the business pays for, from accounting records, card statements, invoices and sign-in lists. It records owner, seats paid versus used, spend, renewal date and notice period, overlapping functions and data risk, and recommends cancel, consolidate, downgrade or renegotiate with the savings attached, plus a renewal calendar.",
+      "when": "subscriptions keep auto-renewing, spend feels high, several tools do the same job, or before budgeting",
+      "inputs": [
+        {
+          "id": "spend_records",
+          "label": "Accounting or card data for the last 12 months",
+          "required": true,
+          "source": "connector",
+          "example": "QuickBooks expenses or card statements"
+        },
+        {
+          "id": "invoices_and_receipts",
+          "label": "Invoices, receipts or screenshots",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "tool_owners",
+          "label": "Who uses or owns each tool",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "sso_app_list",
+          "label": "Apps connected to company sign-in",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "SaaS inventory",
+          "format": "xlsx",
+          "description": "Tool, category, owner, seats paid and used, monthly and annual cost, renewal and notice dates, risk."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Recommendations",
+          "format": "md -> docx",
+          "description": "Cancel, consolidate, downgrade or renegotiate, each with savings and migration effort."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Renewal calendar",
+          "format": "xlsx",
+          "description": "Upcoming renewals with notice deadlines and the decision needed."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "vision_describe",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "google-workspace",
+        "microsoft-365",
+        "rippling",
+        "stripe",
+        "paypal"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file",
+        "image"
+      ],
+      "instructions": "1. Pull 12 months of software spend with connector_read (accounting, card or payment platforms), parse statements with file_parse, and read receipt screenshots with vision_describe. 2. Add apps connected to company sign-in, which reveal free or expensed tools, and ask the owner who owns each one. 3. In code_interpreter normalize vendors, compute monthly and annual cost, and find duplicates by function (for example three file-sharing tools). 4. Record seats paid versus used, renewal date, notice period, and data sensitivity (does it hold customer or financial data, who is admin). 5. Recommend per tool: keep, cancel, consolidate into another tool, downgrade the plan or seats, or renegotiate at renewal, with savings and migration effort. 6. Build the inventory and renewal calendar with spreadsheet_generate and the recommendations with document_generate. Cancelling or changing a subscription is the owner's action. 7. State what could not be verified, such as seat usage for tools without an admin export, or charges paid on personal cards.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull spend data",
+          "brief": "Read software spend from accounting and payment connectors.",
+          "acceptance": "12 months of transactions pulled, or exports requested."
+        },
+        {
+          "activity": "ingest",
+          "title": "Parse statements and receipts",
+          "brief": "Parse statements and receipt images.",
+          "acceptance": "Every software charge captured with vendor and amount.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Normalize and find overlap",
+          "brief": "Normalize vendors, compute cost, find overlaps and usage gaps.",
+          "acceptance": "One row per tool; overlaps grouped by function.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Recommend actions",
+          "brief": "Recommend an action per tool with savings and effort.",
+          "acceptance": "Every tool has an action and a rationale.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Operations review",
+          "brief": "An IT manager checks that recommendations do not break workflows or remove needed data.",
+          "acceptance": "First line is APPROVED or CHANGES; risky cancellations flagged.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Inventory and calendar",
+          "brief": "Render the inventory, recommendations and renewal calendar.",
+          "acceptance": "Totals reconcile to the spend data.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Total software spend reconciles to the source records.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No subscription is cancelled or changed by a coworker.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every tool has an owner and a renewal or notice date, or is marked unknown.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Savings are shown per recommendation.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Tools holding sensitive data are flagged.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "access-review",
+        "budget-vs-actual",
+        "vendor-rfq",
+        "security-baseline",
+        "automation-opportunity-scan"
+      ],
+      "example_request": "I think we pay for three different tools that do the same thing, and subscriptions keep auto-renewing. Find everything we're paying for and tell me what to cut.",
+      "typical_departments": [
+        "it-security-automation",
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "workflow-automation",
+      "name": "Workflow automation design & build",
+      "icon": "⚙️",
+      "category": "it-security",
+      "one_liner": "Design, build and test a trigger-action automation with alerts and receipts.",
+      "description": "Designs, builds and tests a trigger-action automation with data mapping, idempotency keys, retries, alerts, and a receipt for every run. Any step with an external effect has a human approval gate. It is dry-run on sample data and switched on only with owner approval, and ships with a runbook and an off switch.",
+      "when": "the owner or team does the same copy-paste or notification work many times a week between tools",
+      "inputs": [
+        {
+          "id": "current_process",
+          "label": "How the work is done today, step by step",
+          "required": true,
+          "source": "owner",
+          "example": "Calendly booking -> copy into HubSpot -> send welcome email"
+        },
+        {
+          "id": "systems",
+          "label": "Systems involved and connectors enabled",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "sample_data",
+          "label": "A few real or sample records",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "volume_and_timing",
+          "label": "How often it happens and how fast it must run",
+          "required": false,
+          "source": "owner",
+          "example": "About 40 bookings a week; within 10 minutes"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "diagram",
+          "name": "Automation design",
+          "format": "mermaid",
+          "description": "Trigger, steps, branches, error paths and approval gates."
+        },
+        {
+          "artifact_type": "sop",
+          "name": "Runbook",
+          "format": "md -> docx",
+          "description": "What it does, owner, alerts, how to pause it, and how to fix common failures."
+        },
+        {
+          "artifact_type": "dataset",
+          "name": "Test results",
+          "format": "json",
+          "description": "Dry-run inputs, outputs and assertions."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "diagram_generate",
+        "code_interpreter",
+        "document_generate",
+        "request_owner_decision",
+        "schedule_automation",
+        "connector_write"
+      ],
+      "connectors_optional": [
+        "zapier",
+        "calendly",
+        "hubspot",
+        "google-workspace",
+        "slack",
+        "airtable",
+        "stripe",
+        "shopify"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Map the current process and simplify before automating (eliminate, combine, rearrange, simplify). Read the relevant records with connector_read to understand real field formats. 2. Design the automation with diagram_generate: trigger, filters, field mapping and transforms, branches, an idempotency key per record so re-runs never duplicate, retries with backoff, an alert to a named person on failure, and a receipt log. 3. Put a human approval gate before any step that sends, publishes, pays or deletes; use least-privilege connector scopes. 4. Test the transforms and assertions against sample data in code_interpreter, including edge cases (missing fields, duplicates, special characters, time zones). 5. Write the runbook with document_generate: purpose, owner, alerts, pause switch and common fixes. 6. Ask for approval with request_owner_decision. On approval, create the automation with schedule_automation (for product-native triggers) or build it through connector_write (for example in Zapier), first in test mode, then live after one supervised run. 7. Watch the first live runs and compare receipts with expectations. 8. State what could not be verified, such as behaviour under rate limits or vendor API changes.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read real records",
+          "brief": "Read sample records from each connected system to learn field formats.",
+          "acceptance": "Field map with formats for each system."
+        },
+        {
+          "activity": "llm",
+          "title": "Design the automation",
+          "brief": "Design trigger, mapping, idempotency, retries, alerts and approval gates.",
+          "acceptance": "Every external effect has an approval gate; every run writes a receipt.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Diagram and runbook",
+          "brief": "Render the design diagram and runbook.",
+          "acceptance": "Diagram shows error paths; runbook has a pause switch.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Dry-run tests",
+          "brief": "Run transforms against sample and edge-case data.",
+          "acceptance": "All assertions pass, or failures are fixed and re-run.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Integration review",
+          "brief": "An integration architect checks scopes, idempotency and failure handling.",
+          "acceptance": "First line is APPROVED or CHANGES; over-broad scopes flagged.",
+          "dependsOn": [
+            2,
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves go-live",
+          "brief": "Decision card with the design, test results and runbook.",
+          "acceptance": "Owner approves test-mode build and go-live.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "schedule",
+          "title": "Create the trigger",
+          "brief": "Create the product-native trigger or schedule as approved.",
+          "acceptance": "Automation exists with a receipt and an off switch.",
+          "dependsOn": [
+            5
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Build in the connector",
+          "brief": "Where an external automation tool is used, build it in test mode, run once supervised, then enable.",
+          "acceptance": "Supervised run receipt matches expectations.",
+          "dependsOn": [
+            6
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every run is idempotent and leaves a receipt.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Any send, publish, payment or deletion inside the automation has an approval gate.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Owner approval is recorded before the automation goes live.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Failures alert a named person.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Connector scopes are least-privilege.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "automation-opportunity-scan",
+        "process-map",
+        "api-integration",
+        "connector-setup",
+        "sop-writing"
+      ],
+      "example_request": "Every time someone books a consultation on Calendly, I copy their details into HubSpot and send a welcome email by hand. Automate it so it just happens.",
+      "typical_departments": [
+        "it-security-automation",
+        "engineering"
+      ],
+      "version": 1
+    },
+    {
+      "id": "automation-opportunity-scan",
+      "name": "Automation opportunity scan",
+      "icon": "🔎",
+      "category": "it-security",
+      "one_liner": "Find repetitive work and rank automation candidates by hours saved and risk.",
+      "description": "Finds repetitive work worth automating. A short voiced interview with the owner, a voice-note or time log, and activity data are used to inventory recurring tasks, apply ECRS (eliminate, combine, rearrange, simplify) first, and rank candidates by hours saved, error reduction, complexity and risk, with payback estimates.",
+      "when": "the owner feels buried in admin, is about to hire for admin work, or wants to know where automation would actually pay off",
+      "inputs": [
+        {
+          "id": "week_description",
+          "label": "How the owner and team spend a typical week",
+          "required": true,
+          "source": "owner",
+          "example": "A voice note describing Monday admin"
+        },
+        {
+          "id": "time_log",
+          "label": "Any time tracking or a one-week log",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "tools_in_use",
+          "label": "Systems and connectors enabled",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "hourly_value",
+          "label": "Value of an hour of the owner's or team's time",
+          "required": false,
+          "source": "owner",
+          "example": "$60 per hour"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Automation opportunity register",
+          "format": "xlsx",
+          "description": "Task, frequency, minutes, people, error rate, complexity, risk, hours saved, payback and score."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Top five recommendations",
+          "format": "md -> pdf",
+          "description": "What to eliminate, simplify or automate first, and why."
+        }
+      ],
+      "tools": [
+        "convene_meeting",
+        "stt",
+        "file_parse",
+        "memory_recall",
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "asana",
+        "trello",
+        "clickup",
+        "zapier"
+      ],
+      "modalities": [
+        "text",
+        "voice",
+        "audio",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Interview the owner in a short voiced session with convene_meeting (interview format), or transcribe a voice note with stt; parse any time log with file_parse and recall tools with memory_recall. 2. Read activity volumes with connector_read where available (for example how many invoices, bookings or emails of each type per week). 3. List every recurring task with frequency, minutes, who does it, and how often it goes wrong. 4. Apply ECRS before automating: can the task be eliminated, combined, rearranged or simplified? 5. Score candidates in code_interpreter: hours saved per month multiplied by value, error reduction, build complexity, and risk (sensitive data, external effects, money). High-risk tasks need approval gates and score lower. 6. Estimate payback for the top candidates and build the register with spreadsheet_generate. 7. Write the top-five recommendations with document_generate, naming which skill or coworker would build each. 8. State what could not be verified, such as time estimates the owner gave from memory.",
+      "workflow": [
+        {
+          "activity": "meeting",
+          "title": "Owner interview",
+          "brief": "Short voiced interview about the week's recurring work.",
+          "acceptance": "At least 10 recurring tasks captured with rough time."
+        },
+        {
+          "activity": "ingest",
+          "title": "Logs and voice notes",
+          "brief": "Transcribe voice notes and parse time logs.",
+          "acceptance": "Tasks merged with times and frequencies.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "mcp",
+          "title": "Read activity volumes",
+          "brief": "Read task volumes from connected systems.",
+          "acceptance": "Volumes captured where connectors exist.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Score and rank",
+          "brief": "Apply ECRS and score candidates by value, complexity and risk.",
+          "acceptance": "Every task scored; payback computed for the top ten.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic review",
+          "brief": "Challenge estimated savings and hidden risks.",
+          "acceptance": "First line is APPROVED or CHANGES; overstated savings corrected.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Register and recommendations",
+          "brief": "Render the register and the top-five brief.",
+          "acceptance": "Top five include an owner, an approach and a payback estimate.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Elimination and simplification are considered before automation.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Tasks involving money, sending or sensitive data are flagged with required approval gates.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Savings use the owner's own time estimates or volumes.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Each recommendation names who would build it.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "workflow-automation",
+        "process-map",
+        "value-stream-map",
+        "saas-stack-audit",
+        "sop-writing"
+      ],
+      "example_request": "I spend my whole Monday on admin — invoices, scheduling, chasing forms. Find what we could automate and tell me what's actually worth doing.",
+      "typical_departments": [
+        "it-security-automation",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "incident-runbook",
+      "name": "Incident response runbook",
+      "icon": "🚨",
+      "category": "it-security",
+      "one_liner": "Roles, severity levels, first steps and communications for incidents.",
+      "description": "An incident response runbook on the NIST lifecycle: roles, severity levels with examples, first-hour playbooks for the incidents small businesses really face (invoice fraud and email compromise, ransomware, lost device, account takeover, data exposure, vendor breach), a contact tree and message templates, tested in a voiced tabletop exercise.",
+      "when": "the business has no plan for a security incident, after a near-miss, or when an insurer or customer requires one",
+      "inputs": [
+        {
+          "id": "environment",
+          "label": "Systems, data and IT support arrangements",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "contacts",
+          "label": "Insurer, IT provider, bank, counsel contacts",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "recent_incidents",
+          "label": "Past incidents or near-misses",
+          "required": false,
+          "source": "owner",
+          "example": "A spoofed supplier email almost led to paying a fake invoice"
+        },
+        {
+          "id": "insurance_policy",
+          "label": "Cyber insurance policy requirements",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "sop",
+          "name": "Incident response runbook",
+          "format": "md -> pdf",
+          "description": "Roles, severity levels, playbooks per incident type, contact tree and templates."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Triage decision tree",
+          "format": "mermaid",
+          "description": "From 'something looks wrong' to severity and first steps."
+        },
+        {
+          "artifact_type": "minutes",
+          "name": "Tabletop exercise minutes",
+          "format": "md",
+          "description": "Scenario, decisions, gaps found and fixes."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "file_parse",
+        "web_fetch",
+        "document_generate",
+        "diagram_generate",
+        "convene_meeting",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "slack",
+        "microsoft-teams"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "voice"
+      ],
+      "instructions": "1. Recall the environment with memory_recall and parse the insurance policy with file_parse for notification and panel-vendor requirements. 2. Fetch current public guidance (national cyber agency and NIST incident handling) with web_fetch and cite it. 3. Define roles (incident lead, technical lead, communications, scribe) with backups, and severity levels 1-4 with concrete examples. 4. Write a first-hour playbook per incident type: for email compromise and invoice fraud, call the bank immediately and verify payment changes by phone to a known number; for ransomware, isolate devices without wiping; for a lost device, trigger remote lock; for account takeover, reset sessions and enforce MFA. Include evidence preservation. 5. Add the contact tree and templates for internal, customer and regulator communications. Breach-notification duties and timelines vary by jurisdiction and are decided with counsel. 6. Draw the triage decision tree with diagram_generate and render the runbook with document_generate. 7. Run a voiced tabletop exercise with convene_meeting using a realistic scenario; the owner can listen or join. Record gaps and fix the runbook. 8. Regulated domain (security): Defensive work only. No exploit development against systems the owner does not control; no credential handling; changes to production access go through approval. Escalate to a qualified security professional for high-risk changes (licensed review) before anything leaves the workspace; never present the output as professional advice and never imply a licence you do not hold. 9. Ask the owner to approve the final runbook with request_owner_decision, and state what could not be verified, such as insurer requirements not in the policy document.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Guidance and requirements",
+          "brief": "Fetch public incident-handling guidance and read insurer requirements.",
+          "acceptance": "Cited guidance and a list of insurer requirements."
+        },
+        {
+          "activity": "llm",
+          "title": "Draft runbook",
+          "brief": "Draft roles, severity levels, playbooks, contacts and templates.",
+          "acceptance": "Each incident type has first-hour steps and an escalation path.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Decision tree and runbook",
+          "brief": "Render the triage tree and runbook.",
+          "acceptance": "Tree and runbook agree on severity definitions.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Security analyst review",
+          "brief": "A security analyst checks steps for correctness and safety.",
+          "acceptance": "First line is APPROVED or CHANGES; unsafe steps (for example wiping evidence) flagged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Tabletop exercise",
+          "brief": "Voiced tabletop exercise on a realistic scenario.",
+          "acceptance": "Minutes list decisions, gaps and fixes.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review",
+          "brief": "Raise a decision card (request_owner_decision) asking the owner to route the draft to a qualified security professional for high-risk changes. Note that breach-notification questions also go to counsel.",
+          "acceptance": "Owner confirms the licensed reviewer has approved, or returns their changes; nothing external happens before this step completes.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Final runbook",
+          "brief": "Update the runbook with tabletop fixes and reviewer changes.",
+          "acceptance": "Every tabletop gap is closed or has an owner.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The security rule is restated and the work is routed to a qualified security professional for high-risk changes for licensed review before anything is sent, signed or published.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Payment-change fraud steps include out-of-band verification by phone to a known number.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Breach-notification decisions are routed to counsel.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every role has a named backup.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The runbook has been exercised in a tabletop at least once.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 75,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "security-baseline",
+        "business-continuity-plan",
+        "crisis-holding-statement",
+        "backup-dr-plan",
+        "post-mortem"
+      ],
+      "example_request": "Last month someone in accounts almost paid a fake invoice from a spoofed supplier email. Write us a runbook for when something like that actually happens.",
+      "regulated_domains": [
+        "security"
+      ],
+      "typical_departments": [
+        "it-security-automation"
+      ],
+      "version": 1
+    },
+    {
+      "id": "security-questionnaire",
+      "name": "Security questionnaire response",
+      "icon": "📋",
+      "category": "it-security",
+      "one_liner": "Draft answers to a customer's security questionnaire from real controls.",
+      "description": "Drafts truthful answers to a customer's security questionnaire (a spreadsheet, portal export, or standard formats like SIG Lite or CAIQ) from the business's real controls and evidence. Unknowns are flagged instead of answered yes, evidence is linked, and approved answers go into a reusable answer library.",
+      "when": "a customer or prospect sends a security or vendor-risk questionnaire and a deal depends on it",
+      "inputs": [
+        {
+          "id": "questionnaire",
+          "label": "The questionnaire file",
+          "required": true,
+          "source": "file",
+          "example": "200-row spreadsheet from a prospect"
+        },
+        {
+          "id": "controls_evidence",
+          "label": "Policies, settings, prior answers and vendor reports",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "deadline",
+          "label": "When it is due",
+          "required": true,
+          "source": "owner",
+          "example": "Friday"
+        },
+        {
+          "id": "subprocessors",
+          "label": "Key vendors that host or process data",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Completed questionnaire draft",
+          "format": "xlsx",
+          "description": "Answer, explanation, evidence reference and confidence per question."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Gaps and commitments",
+          "format": "md -> docx",
+          "description": "Questions that cannot honestly be answered yes, with options."
+        },
+        {
+          "artifact_type": "dataset",
+          "name": "Answer library",
+          "format": "json",
+          "description": "Approved answers for reuse, with evidence and review dates."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "embeddings_search",
+        "memory_recall",
+        "ask_coworker",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision",
+        "memory_write"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "notion",
+        "confluence",
+        "dropbox"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Parse the questionnaire with file_parse and group questions by domain (governance, access, encryption, logging, vendor management, incident response, business continuity, privacy). 2. Find evidence with embeddings_search and memory_recall: policies, admin settings, the answer library and vendors' own security reports for hosted services. 3. Draft each answer as Yes, No, Partial or Not applicable with a short factual explanation and an evidence reference. Never overclaim: if there is no evidence, mark it 'needs confirmation' rather than yes. 4. Use ask_coworker to confirm technical answers with the IT or security coworker. 5. List gaps and options (honest 'no', compensating control, or a planned date only if the owner commits to it), and ask the owner to decide with request_owner_decision. 6. Build the completed draft with spreadsheet_generate and the gaps memo with document_generate. 7. Regulated domain (security): Defensive work only. No exploit development against systems the owner does not control; no credential handling; changes to production access go through approval. Escalate to a qualified security professional for high-risk changes (licensed review) before anything leaves the workspace; never present the output as professional advice and never imply a licence you do not hold. 8. After approval, save approved answers to the library with memory_write, with review dates. State what could not be verified.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Parse the questionnaire",
+          "brief": "Parse and group the questions.",
+          "acceptance": "Every question captured and grouped."
+        },
+        {
+          "activity": "llm",
+          "title": "Draft answers from evidence",
+          "brief": "Draft each answer with evidence and confidence.",
+          "acceptance": "Every Yes has an evidence reference; unknowns marked 'needs confirmation'.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Security compliance review",
+          "brief": "A security compliance specialist checks accuracy and overclaiming.",
+          "acceptance": "First line is APPROVED or CHANGES; overclaims corrected.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner decides on gaps",
+          "brief": "Decision card with gaps and options.",
+          "acceptance": "Each gap has a decision.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render draft and gap memo",
+          "brief": "Render the completed questionnaire and gaps memo.",
+          "acceptance": "Answers reflect the owner's gap decisions.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review",
+          "brief": "Raise a decision card (request_owner_decision) asking the owner to route the draft to a qualified security professional for high-risk changes. Before the owner returns it to the customer.",
+          "acceptance": "Owner confirms the licensed reviewer has approved, or returns their changes; nothing external happens before this step completes.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "memory",
+          "title": "Update answer library",
+          "brief": "Save approved answers with evidence and review dates.",
+          "acceptance": "Library entries saved with provenance.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The security rule is restated and the work is routed to a qualified security professional for high-risk changes for licensed review before anything is sent, signed or published.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No answer claims a control without evidence.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Future commitments appear only when the owner has approved them.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Answers are concise and consistent across similar questions.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Approved answers are saved for reuse.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "soc2-readiness",
+        "security-baseline",
+        "vendor-dpa-review",
+        "proposal-writing",
+        "access-review"
+      ],
+      "example_request": "A big client sent us a 200-question security spreadsheet and wants it back Friday. Fill in what you can from what we actually do, and flag what we can't honestly say yes to.",
+      "regulated_domains": [
+        "security"
+      ],
+      "typical_departments": [
+        "it-security-automation",
+        "sales-partnerships"
+      ],
+      "version": 1
+    },
+    {
+      "id": "soc2-readiness",
+      "name": "SOC 2 readiness check",
+      "icon": "🏅",
+      "category": "it-security",
+      "one_liner": "Trust Services Criteria gap check with an evidence plan.",
+      "description": "A SOC 2 readiness check against the Trust Services Criteria: the Security common criteria plus any chosen Availability, Confidentiality, Processing Integrity or Privacy criteria. It sets scope, finds control gaps, and plans evidence (what, who, how often), and it explains Type I versus Type II and the timeline to an audit window. Only an independent CPA firm can perform the audit.",
+      "when": "customers or prospects ask for SOC 2, or the owner wants to know how far away a report is and what it will take",
+      "inputs": [
+        {
+          "id": "company_and_system",
+          "label": "The product or service in scope, and its infrastructure",
+          "required": true,
+          "source": "owner",
+          "example": "9-person B2B SaaS on a major cloud provider"
+        },
+        {
+          "id": "existing_controls",
+          "label": "Policies, settings and practices in place",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "target_date",
+          "label": "When the owner needs a report",
+          "required": true,
+          "source": "owner",
+          "example": "Type I within six months"
+        },
+        {
+          "id": "criteria_choice",
+          "label": "Trust Services Criteria to include beyond Security",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Readiness gap matrix",
+          "format": "xlsx",
+          "description": "Criterion, control, status, gap, remediation, owner, evidence and frequency."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Readiness roadmap",
+          "format": "md -> pdf",
+          "description": "Scope, policy set, remediation sequence, observation period and audit timeline."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "System boundary diagram",
+          "format": "mermaid",
+          "description": "In-scope systems, data flows and subservice organizations."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "embeddings_search",
+        "connector_read",
+        "spreadsheet_generate",
+        "document_generate",
+        "diagram_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "github",
+        "google-workspace",
+        "microsoft-365",
+        "jira",
+        "linear",
+        "rippling"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Define scope with the owner: the system, the people, and subservice organizations (cloud hosting and other vendors), with the carve-out or inclusive method noted. Draw the boundary with diagram_generate. 2. Collect evidence of existing controls with file_parse, embeddings_search and connector_read (for example code review settings, access lists, onboarding and offboarding records). 3. Assess each Security common criterion (control environment, communication, risk assessment, monitoring, control activities, logical access, operations, change management, risk mitigation) plus any chosen criteria: in place, partial or missing. 4. Plan remediation and evidence: the policy set, control owners, evidence types and frequency, and tooling. Explain that Type I tests design at a point in time and Type II tests operation over an observation period. 5. Build the gap matrix with spreadsheet_generate and the roadmap with document_generate, and ask the owner to choose the criteria and target report type with request_owner_decision. 6. Regulated domain (security): Defensive work only. No exploit development against systems the owner does not control; no credential handling; changes to production access go through approval. Escalate to a qualified security professional for high-risk changes (licensed review) before anything leaves the workspace; never present the output as professional advice and never imply a licence you do not hold. 7. State what could not be verified. Readiness is not attestation: only an independent CPA firm can issue a SOC 2 report.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Scope and boundary",
+          "brief": "Agree the system, people, vendors and criteria.",
+          "acceptance": "Scope written; subservice organizations listed."
+        },
+        {
+          "activity": "mcp",
+          "title": "Collect evidence",
+          "brief": "Read evidence from connected systems and documents.",
+          "acceptance": "Evidence index with source per item.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Gap assessment",
+          "brief": "Assess each criterion and control against evidence.",
+          "acceptance": "Every in-scope criterion has a status and evidence or gap.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Matrix, roadmap and diagram",
+          "brief": "Render the gap matrix, roadmap and boundary diagram.",
+          "acceptance": "Roadmap sequences remediation before the observation period.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Compliance review",
+          "brief": "A security compliance specialist checks mapping accuracy and realism of the timeline.",
+          "acceptance": "First line is APPROVED or CHANGES; unrealistic dates flagged.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner chooses criteria and type",
+          "brief": "Decision card on criteria and report type.",
+          "acceptance": "Owner decides.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review",
+          "brief": "Raise a decision card (request_owner_decision) asking the owner to route the draft to a qualified security professional for high-risk changes. Recommend engaging an independent CPA firm for the audit itself.",
+          "acceptance": "Owner confirms the licensed reviewer has approved, or returns their changes; nothing external happens before this step completes.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The security rule is restated and the work is routed to a qualified security professional for high-risk changes for licensed review before anything is sent, signed or published.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The output never claims SOC 2 compliance or certification; it is readiness only.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every control marked in place cites evidence.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Type I versus Type II and the observation period are explained plainly.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Subservice organizations are identified.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "security-questionnaire",
+        "security-baseline",
+        "access-review",
+        "policy-draft",
+        "risk-register"
+      ],
+      "example_request": "Enterprise prospects keep asking if we're SOC 2. We're a 9-person SaaS. How far off are we, and what would it take to get a Type I in six months?",
+      "regulated_domains": [
+        "security"
+      ],
+      "typical_departments": [
+        "it-security-automation",
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "ai-use-policy",
+      "name": "AI acceptable-use policy",
+      "icon": "🤖",
+      "category": "it-security",
+      "one_liner": "Rules for using AI tools safely: data, disclosure, review and approvals.",
+      "description": "Drafts an AI acceptable-use policy people will follow. It covers approved tools, what data may and may not go into them, required human review, disclosure to customers, IP and confidentiality, prohibited uses, and how to report problems such as prompt injection or leaks. It is structured on the NIST AI Risk Management Framework and comes with an AI tool inventory and a one-page staff guide.",
+      "when": "staff are already using AI tools informally, a customer asks how the business uses AI, or before rolling out AI coworkers more widely",
+      "inputs": [
+        {
+          "id": "current_use",
+          "label": "How people use AI today",
+          "required": true,
+          "source": "owner",
+          "example": "Pasting client emails into chatbots to draft replies"
+        },
+        {
+          "id": "data_types",
+          "label": "Sensitive data the business handles",
+          "required": true,
+          "source": "memory",
+          "example": "Client financials, employee records"
+        },
+        {
+          "id": "tools",
+          "label": "AI tools in use or wanted, including this workspace",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "customer_commitments",
+          "label": "Contract or customer requirements about AI or data",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "policy_draft",
+          "name": "AI acceptable-use policy",
+          "format": "md -> docx",
+          "description": "Marked DRAFT for review: scope, principles, data rules, review, disclosure, prohibited uses, reporting."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "AI tool inventory",
+          "format": "xlsx",
+          "description": "Tool, owner, data allowed, account type, retention settings, approval status."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Staff one-pager",
+          "format": "md -> pdf",
+          "description": "Do's and don'ts with examples."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "file_parse",
+        "web_fetch",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "notion",
+        "confluence"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url"
+      ],
+      "instructions": "1. Recall data types and practices with memory_recall and parse customer commitments with file_parse. 2. Inventory AI tools, including this workspace's coworkers, with account type (business or consumer), data retention and training settings, which you verify on the vendor's current terms page with web_fetch. 3. Classify data into allowed, allowed-with-care and never (for example customer personal data, credentials, health or financial records never go into unapproved tools), with examples in the business's own terms. 4. Write the policy around NIST AI RMF functions (govern, map, measure, manage): approved tools and who approves new ones, a human review requirement before AI output leaves the business, disclosure to customers when AI is used in their interactions, IP and confidentiality, prohibited uses (for example sole AI decisions about hiring, credit or anyone's access to services), and reporting of incidents such as leaked data or prompt injection. 5. Flag jurisdiction-specific obligations (privacy law and emerging AI regulation) for counsel rather than deciding them. 6. Build the inventory with spreadsheet_generate and the policy and one-pager with document_generate, and ask the owner to approve the data classes with request_owner_decision. 7. Regulated domain (privacy): Data-protection drafts only; minimize personal data; never collect or compile personal data beyond the business purpose. Escalate to a privacy professional or counsel (licensed review) before anything leaves the workspace; never present the output as professional advice and never imply a licence you do not hold. 8. State what could not be verified, such as vendor retention settings on plans the owner has not confirmed.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Tool inventory and terms",
+          "brief": "Inventory AI tools and verify retention and training terms on vendor pages.",
+          "acceptance": "Each tool has cited terms and an account type."
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves data classes",
+          "brief": "Decision card with the allowed, with-care and never data classes.",
+          "acceptance": "Owner approves or edits classes.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft policy and one-pager",
+          "brief": "Draft the policy on NIST AI RMF functions plus the staff one-pager.",
+          "acceptance": "Every rule has an example; jurisdiction items are flagged.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Risk and ethics review",
+          "brief": "A risk and ethics advisor checks coverage, practicality and prohibited uses.",
+          "acceptance": "First line is APPROVED or CHANGES; unenforceable rules flagged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render the pack",
+          "brief": "Render the policy draft, inventory and one-pager.",
+          "acceptance": "Pack renders; policy marked DRAFT.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review",
+          "brief": "Raise a decision card (request_owner_decision) asking the owner to route the draft to a privacy professional or counsel.",
+          "acceptance": "Owner confirms the licensed reviewer has approved, or returns their changes; nothing external happens before this step completes.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The privacy rule is restated and the work is routed to a privacy professional or counsel for licensed review before anything is sent, signed or published.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Data rules give concrete examples of what never goes into AI tools.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Human review is required before AI output leaves the business.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The inventory includes this workspace's own coworkers.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The staff one-pager fits on one page.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "policy-draft",
+        "privacy-notice-draft",
+        "data-map-ropa",
+        "training-module",
+        "security-baseline"
+      ],
+      "example_request": "Half my team is pasting client emails into chatbots. I need simple rules for what's OK before something leaks.",
+      "regulated_domains": [
+        "privacy"
+      ],
+      "typical_departments": [
+        "it-security-automation",
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "watch-a-page",
+      "name": "Watch a page",
+      "icon": "◉",
+      "category": "it-security",
+      "one_liner": "Tell the owner when something on a site changes: price, stock, policy, job posting.",
+      "description": "Records what a page says now (price, stock, date, policy text, job posting) as a small JSON snapshot, then sets up a watcher that re-checks on a schedule and reports only meaningful changes, quoting the old and new values.",
+      "when": "the owner wants to be told when something on a site changes: a price, a deadline, availability, a policy or a posting",
+      "inputs": [
+        {
+          "id": "page_url",
+          "label": "The page to watch",
+          "required": true,
+          "source": "owner",
+          "example": "https://city.example.gov/food-truck-permits"
+        },
+        {
+          "id": "what_to_watch",
+          "label": "The values that matter",
+          "required": true,
+          "source": "owner",
+          "example": "Next application window dates"
+        },
+        {
+          "id": "change_rule",
+          "label": "What counts as a meaningful change",
+          "required": false,
+          "source": "owner",
+          "example": "Any date change; price moves over 5 percent"
+        },
+        {
+          "id": "frequency",
+          "label": "How often to check",
+          "required": false,
+          "source": "owner",
+          "example": "Daily at 8am"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "dataset",
+          "name": "Page snapshot",
+          "format": "json",
+          "description": "URL, watched values, capture time and the extraction description."
+        },
+        {
+          "artifact_type": "message_draft",
+          "name": "Change report",
+          "format": "md",
+          "description": "What changed, old versus new values quoted, and the source link."
+        }
+      ],
+      "tools": [
+        "web_fetch",
+        "browser",
+        "workspace_files",
+        "request_owner_decision",
+        "schedule_automation",
+        "web_watch"
+      ],
+      "connectors_optional": [
+        "slack",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "web_page"
+      ],
+      "instructions": "1. Fetch the page with web_fetch; if the values only appear after scripts run or a filter is applied, use browser through the desktop companion. Never log in with the owner's credentials. 2. Extract exactly the values the owner cares about into a small JSON object (url, values, how each was found, captured_at) and save it as a project record named after the page with workspace_files. 3. Agree the change rule and frequency, then ask the owner with request_owner_decision to approve the watcher. 4. On approval, create the recurring check with schedule_automation, using web_watch as the checker. 5. On each run, compare with the saved record and report only what changed per the rule, quoting old and new values with the link; stay quiet otherwise. 6. Respect the site's terms and do not check more often than needed. 7. State what could not be verified, for example when the page layout changed and a value could not be found; report that as a problem rather than as a change.",
+      "workflow": [
+        {
+          "activity": "browser",
+          "title": "Read the page",
+          "brief": "Open the page and extract the values to watch as JSON.",
+          "acceptance": "A JSON object with the watched values and the source URL."
+        },
+        {
+          "activity": "storage",
+          "title": "Save the snapshot",
+          "brief": "Save the extracted values as a project record named after the page.",
+          "acceptance": "The record exists.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Approve the watcher",
+          "brief": "Decision card with the values, change rule and frequency.",
+          "acceptance": "Owner approves or edits.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "schedule",
+          "title": "Start the watcher",
+          "brief": "Create the scheduled page watch as approved.",
+          "acceptance": "Watcher exists with a receipt and an off switch.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Reports quote old and new values with the source link.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The watcher is created only after owner approval.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Owner credentials are never used by the watcher.",
+          "severity": "must"
+        },
+        {
+          "criterion": "A missing value after a layout change is reported as an extraction problem, not a change.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Check frequency is no higher than needed.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 10,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "browse-and-extract",
+        "competitor-teardown",
+        "regulatory-research",
+        "compliance-calendar",
+        "anomaly-watch"
+      ],
+      "example_request": "Tell me when the city posts the new food-truck permit dates on this page, and when our supplier's price for oat milk changes.",
+      "typical_departments": [
+        "it-security-automation",
+        "research-insights"
+      ],
+      "biz_bot_name": "watch-a-page",
+      "version": 1
+    }
+  ]
+}

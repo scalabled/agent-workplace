@@ -1,0 +1,2175 @@
+{
+  "category": "marketing",
+  "version": 1,
+  "skills": [
+    {
+      "id": "positioning-statement",
+      "name": "Positioning (Obviously Awesome method)",
+      "icon": "🎯",
+      "category": "marketing",
+      "one_liner": "Competitive alternatives, unique attributes, value, best-fit customers and market category.",
+      "description": "Works through April Dunford's positioning method: competitive alternatives, unique attributes, value, best-fit customers and market category. The result is a positioning canvas and statement, with evidence behind every claim, that the owner can defend in front of a skeptical buyer.",
+      "when": "the owner's offer is misunderstood, compared to the wrong alternatives, or sold on price; or before a launch, rebrand or new website",
+      "inputs": [
+        {
+          "id": "business_profile",
+          "label": "Business profile: offer, price points, customers served",
+          "required": true,
+          "source": "memory",
+          "example": "House book: bookkeeping for independent restaurants, $450-$1,200/month"
+        },
+        {
+          "id": "best_fit_customers",
+          "label": "3-5 customers the owner wishes they had 100 more of, and why",
+          "required": true,
+          "source": "owner",
+          "example": "The two-site taqueria that signed in a week and referred three friends"
+        },
+        {
+          "id": "competitors",
+          "label": "Named competitors and what customers do instead (including 'do nothing')",
+          "required": false,
+          "source": "owner",
+          "example": "Local freelancers, a national online bookkeeping service, the owner's spreadsheet"
+        },
+        {
+          "id": "win_loss_notes",
+          "label": "Won and lost deal notes or CRM reasons",
+          "required": false,
+          "source": "connector",
+          "example": "HubSpot closed-won and closed-lost reasons for the last 12 months"
+        },
+        {
+          "id": "customer_voice",
+          "label": "Reviews, testimonials or interview transcripts",
+          "required": false,
+          "source": "file",
+          "example": "Google reviews export, three customer call transcripts"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "Positioning canvas",
+          "format": "md -> pdf",
+          "description": "One page: alternatives, unique attributes, value, best-fit customer characteristics, market category and relevant trend."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Positioning statement and evidence table",
+          "format": "md -> docx",
+          "description": "The statement plus a table linking each attribute and value claim to its proof."
+        },
+        {
+          "artifact_type": "minutes",
+          "name": "Positioning workshop minutes",
+          "format": "md",
+          "description": "Decisions the owner made on category and best-fit customer, with the options rejected."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_search",
+        "web_fetch",
+        "connector_read",
+        "convene_meeting",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "google-business-profile"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url",
+        "connector_data",
+        "voice"
+      ],
+      "instructions": "1. Recall the business profile and past decisions with memory_recall, and search uploaded reviews, transcripts and notes with embeddings_search for the customer's own words. 2. List competitive alternatives from the customer's point of view: named competitors, adjacent solutions, hiring someone, a spreadsheet, and doing nothing. Check competitor claims on their own pages with web_search and web_fetch, and cite them. 3. If a CRM is enabled, use connector_read to pull closed-won and closed-lost reasons; tag which alternative each deal was compared against. 4. List unique attributes: capabilities the alternatives genuinely lack. Drop any attribute you cannot prove. 5. Translate each attribute into value (attribute -> benefit -> value), in the customer's words, with a proof point: a number, a quote or a demo moment. 6. Define best-fit customers by observable characteristics (situation, trigger, constraints) that make them care most about that value, not by demographics. 7. Propose two or three market-category framings (head-to-head, a subsegment of an existing category, or a new category) and say what each one makes obvious and what it costs. 8. Convene a short positioning workshop with convene_meeting (owner can listen or join) to pressure-test the canvas; raise the category choice as a decision card with request_owner_decision. 9. Write the positioning statement (For [best-fit customer] who [situation], [offer] is a [category] that [value]. Unlike [alternative], we [unique attribute].) and render the canvas and evidence table with document_generate. 10. State which claims could not be verified, and which assumptions need real customer evidence before they go on the website.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Map competitive alternatives",
+          "brief": "List what best-fit customers would do if this business did not exist, with cited evidence from competitor sites and reviews.",
+          "acceptance": "3-6 alternatives including the status quo, each with at least one source link."
+        },
+        {
+          "activity": "mcp",
+          "title": "Pull win/loss evidence",
+          "brief": "If a CRM is enabled, read closed-won and closed-lost reasons for the last 12 months; otherwise use uploaded notes and reviews.",
+          "acceptance": "At least 10 deals or reviews tagged by alternative and reason, or a note that no data was available."
+        },
+        {
+          "activity": "llm",
+          "title": "Draft the positioning canvas",
+          "brief": "Fill all five components plus the market-category options, with a proof point for every attribute and value claim.",
+          "acceptance": "Every attribute has proof; value is written in customer language; best-fit customers are defined by observable traits.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Positioning workshop",
+          "brief": "Voiced workshop with the brand strategist, a customer-evidence specialist and the sceptic; the owner can listen or join and chooses the market category.",
+          "acceptance": "Minutes record the chosen category, the rejected options and the reasons.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic review",
+          "brief": "Challenge each claim as a skeptical buyer comparing against the strongest alternative.",
+          "acceptance": "First line is APPROVED or CHANGES; every unprovable claim is flagged or removed.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render canvas and statement",
+          "brief": "Render the one-page canvas and the statement with its evidence table.",
+          "acceptance": "Canvas fits on one page; statement follows the template; evidence table links every claim to a source.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every unique attribute is something the named alternatives genuinely lack, with evidence.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Value is expressed in the customer's words and tied to a proof point.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Best-fit customers are defined by situation and trigger, not by age, gender or ethnicity.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No superlatives ('best', 'leading') without substantiation.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The market category makes the value obvious to a buyer in under five seconds.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Assumptions needing more customer evidence are listed with a way to test them.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "messaging-house",
+        "competitor-teardown",
+        "review-mining",
+        "customer-segments",
+        "jtbd-interview-guide"
+      ],
+      "example_request": "We keep getting compared to cheap freelancers, but we're a proper bookkeeping firm just for restaurants. Help me position us so the right owners get it in five seconds.",
+      "typical_departments": [
+        "marketing-growth",
+        "strategy-leadership",
+        "research-insights"
+      ],
+      "version": 1
+    },
+    {
+      "id": "messaging-house",
+      "name": "Messaging house",
+      "icon": "🏠",
+      "category": "marketing",
+      "one_liner": "Core message, pillars and proof points that every channel draws from.",
+      "description": "Builds a messaging house: a core message (the roof), three pillars, proof points under each, and a foundation of voice and reasons to believe, plus audience variants and a say-this-not-that list, so every channel and every teammate draws from the same source.",
+      "when": "different people or channels describe the business differently, or after positioning is settled and before campaigns, websites or sales decks are written",
+      "inputs": [
+        {
+          "id": "positioning",
+          "label": "Approved positioning canvas or statement",
+          "required": true,
+          "source": "memory",
+          "example": "Positioning canvas from last month's workshop"
+        },
+        {
+          "id": "audiences",
+          "label": "Priority audiences or buyer roles",
+          "required": true,
+          "source": "owner",
+          "example": "Owner-operators, finance managers at multi-site groups"
+        },
+        {
+          "id": "proof_library",
+          "label": "Proof points: stats, testimonials, case studies, awards",
+          "required": false,
+          "source": "file",
+          "example": "Case study PDF, review export, 'we cut close time from 15 to 5 days'"
+        },
+        {
+          "id": "voice_guide",
+          "label": "Existing voice or style guide",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "Messaging house",
+          "format": "md -> pdf",
+          "description": "One page: core message, three pillars, proof points and foundation."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Message matrix by audience",
+          "format": "xlsx",
+          "description": "Rows per audience and funnel stage with headline, supporting line, proof and CTA."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Say this, not that",
+          "format": "md -> docx",
+          "description": "Preferred phrasing, banned phrasing and why, with example rewrites."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "file_parse",
+        "ask_coworker",
+        "document_generate",
+        "spreadsheet_generate",
+        "memory_write"
+      ],
+      "connectors_optional": [
+        "notion",
+        "google-workspace",
+        "confluence"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Recall the positioning, voice guide and brand decisions with memory_recall; if positioning is missing or stale, stop and recommend running positioning-statement first. 2. Parse the proof library with file_parse and search past content with embeddings_search; build a proof inventory where each item has a source, a date and a permission status for named testimonials. 3. Write the core message (one sentence, value-first) and test it against the positioning: does it name the value for the best-fit customer and imply the alternative? 4. Choose three pillars that are distinct, provable and important to buyers. Under each, list 2-4 proof points from the inventory, and never a claim without proof. 5. Write the foundation: voice attributes (we are / we are not), reasons to believe, and mandatory qualifiers. 6. Adapt headlines and supporting lines for each audience and funnel stage in a message matrix built with spreadsheet_generate. Use ask_coworker to have a sales or support coworker check that the wording matches what customers actually say. 7. Draft the say-this-not-that list, including jargon to avoid and claims that need substantiation. 8. Render the house and matrix with document_generate and propose a memory entry with memory_write so every coworker drafts from it. 9. List proof points that could not be verified or lack permission, and mark them as not for external use.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Build the proof inventory",
+          "brief": "Parse testimonials, case studies, reviews and stats into a proof inventory with source, date and permission status.",
+          "acceptance": "Every proof item has a source; named testimonials show whether permission exists."
+        },
+        {
+          "activity": "llm",
+          "title": "Draft the house",
+          "brief": "Write the core message, three pillars with proof, foundation and audience variants.",
+          "acceptance": "Pillars are distinct; every pillar has at least two verified proof points.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Brand and copy review",
+          "brief": "A copywriter or editor checks clarity, distinctiveness and consistency with the voice guide.",
+          "acceptance": "First line is APPROVED or CHANGES; any vague or unprovable line is named.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render house and matrix",
+          "brief": "Render the one-page house, the audience matrix and the say-this-not-that list.",
+          "acceptance": "Three files render; matrix covers every priority audience across awareness, consideration and decision.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "memory",
+          "title": "Save as the messaging source",
+          "brief": "Propose a memory entry pointing coworkers to the approved house.",
+          "acceptance": "Memory proposal exists with provenance and the owner can undo it.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every pillar has at least two proof points with a source.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Core message is one sentence and states value for the best-fit customer.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Named testimonials are used only where permission is recorded.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Pillars are mutually exclusive and together cover the top buying reasons.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The matrix covers every priority audience and funnel stage.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "positioning-statement",
+        "voice-style-guide",
+        "campaign-plan",
+        "email-copy",
+        "landing-page-cro"
+      ],
+      "example_request": "Every time someone on my team writes a post or a sales email it sounds like a different company. Can we get one set of messages everyone pulls from?",
+      "typical_departments": [
+        "marketing-growth",
+        "content-comms-pr"
+      ],
+      "version": 1
+    },
+    {
+      "id": "campaign-plan",
+      "name": "Integrated campaign plan",
+      "icon": "🗓️",
+      "category": "marketing",
+      "one_liner": "Audience, message, channels, calendar, budget and KPIs on one page.",
+      "description": "An integrated campaign on one page: SMART objective, audience and job-to-be-done, big idea, channel mix across paid, earned, shared and owned media, calendar, budget split and KPIs with a UTM plan, so the owner can approve it in one read and the team can execute it.",
+      "when": "the owner has a launch, seasonal push, event or offer with a date and budget, and needs channels, timing and spend coordinated",
+      "inputs": [
+        {
+          "id": "goal",
+          "label": "What the campaign must achieve, by when",
+          "required": true,
+          "source": "owner",
+          "example": "Fill 120 Easter weekend catering orders by April 10"
+        },
+        {
+          "id": "budget_cap",
+          "label": "Maximum spend including production",
+          "required": true,
+          "source": "owner",
+          "example": "$4,000"
+        },
+        {
+          "id": "offer",
+          "label": "The offer or product and its price",
+          "required": true,
+          "source": "owner",
+          "example": "Spring catering menu, trays from $85"
+        },
+        {
+          "id": "messaging",
+          "label": "Messaging house or positioning",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "past_performance",
+          "label": "Past channel results (CPA, CTR, conversion)",
+          "required": false,
+          "source": "connector",
+          "example": "GA4 and Meta Ads results from last spring"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Campaign one-pager",
+          "format": "md -> pdf",
+          "description": "Objective, audience, big idea, channel roles, calendar, budget, KPIs and risks on one page."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Budget and channel calendar",
+          "format": "xlsx",
+          "description": "Week-by-week activities, owners, spend by channel and KPI targets with formulas."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Campaign timeline",
+          "format": "mermaid",
+          "description": "Gantt of production, launch and measurement milestones."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "web_search",
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "diagram_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-analytics",
+        "google-ads",
+        "meta-business",
+        "shopify",
+        "mailchimp",
+        "klaviyo"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Turn the goal into a SMART objective with one primary KPI and two leading indicators; recall the messaging and past campaigns with memory_recall. 2. Define the audience by situation and job-to-be-done, and map the path using See-Think-Do-Care stages. 3. Read past channel performance with connector_read if available; otherwise research realistic benchmarks for the industry with web_search and label them as benchmarks, not promises. 4. Pick the big idea and the channel roles across PESO (paid, earned, shared, owned). Every channel gets a job, a message variant and a KPI. 5. Use code_interpreter to back-solve the budget: target orders / expected conversion rate / cost per visit, per channel, within the cap. Show the arithmetic. 6. Raise the budget split and launch date as a single decision card with request_owner_decision. 7. Build the week-by-week calendar and budget workbook with spreadsheet_generate, the timeline with diagram_generate, and the one-pager with document_generate. Include a UTM naming plan. 8. Name what could not be verified, especially any benchmark used instead of the owner's own data.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Benchmarks and seasonality",
+          "brief": "Research seasonal demand and channel benchmarks for this industry; cite sources.",
+          "acceptance": "At least three cited benchmarks, each labelled as a benchmark."
+        },
+        {
+          "activity": "mcp",
+          "title": "Read past performance",
+          "brief": "Read past campaign results from enabled analytics and ad connectors.",
+          "acceptance": "A table of past CPA, CTR and conversion by channel, or a note that none was available."
+        },
+        {
+          "activity": "analysis",
+          "title": "Back-solve the budget",
+          "brief": "Compute the funnel math from the goal to spend per channel within the cap, with sensitivity at plus and minus 30 percent conversion.",
+          "acceptance": "Arithmetic shown; total spend is at or under the cap.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft the one-pager",
+          "brief": "Write objective, audience, big idea, channel roles, KPIs, risks and the UTM plan.",
+          "acceptance": "Each channel has a job, message variant and KPI.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic review",
+          "brief": "Challenge the conversion assumptions, the timeline and single points of failure.",
+          "acceptance": "First line is APPROVED or CHANGES; each risk has a mitigation.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves budget split",
+          "brief": "Decision card with the budget split, launch date and the one trade-off that matters most.",
+          "acceptance": "Owner approves or edits the split.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render plan, workbook and timeline",
+          "brief": "Render the one-pager, the budget calendar and the Gantt.",
+          "acceptance": "All three files render and the numbers match across them.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Objective is specific, measurable and dated, with one primary KPI.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Total planned spend is at or below the owner's cap, with the arithmetic shown.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Benchmarks are cited and labelled as benchmarks, not forecasts.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every channel has a distinct job and a KPI.",
+          "severity": "should"
+        },
+        {
+          "criterion": "A UTM convention is defined before launch.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "messaging-house",
+        "content-calendar",
+        "paid-ads-plan",
+        "email-flow-design",
+        "social-media-plan",
+        "attribution-report"
+      ],
+      "example_request": "We're launching our spring catering menu in six weeks with about $4,000 to spend. Plan the campaign so we actually fill the Easter weekend.",
+      "typical_departments": [
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "seo-audit",
+      "name": "SEO audit & keyword clusters",
+      "icon": "🔍",
+      "category": "marketing",
+      "one_liner": "Technical and content SEO audit plus a prioritized keyword-cluster plan.",
+      "description": "A technical and content SEO audit covering indexability, Core Web Vitals, on-page issues and cannibalization, joined to Search Console data. It ends in a prioritized fix list and a keyword-cluster plan (pillar plus cluster pages, mapped to search intent) for what to write next.",
+      "when": "organic traffic is flat or falling, a site is being redesigned or migrated, or the owner asks what to write next for search",
+      "inputs": [
+        {
+          "id": "site_url",
+          "label": "Website URL and key pages",
+          "required": true,
+          "source": "owner",
+          "example": "https://example-bakery.com"
+        },
+        {
+          "id": "search_console",
+          "label": "Google Search Console access (16 months of queries)",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "analytics",
+          "label": "GA4 landing-page performance",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "priority_offers",
+          "label": "Products or services that matter most commercially",
+          "required": true,
+          "source": "memory",
+          "example": "Wedding cakes, corporate catering"
+        },
+        {
+          "id": "competitor_sites",
+          "label": "2-3 competitors that outrank the site",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "SEO audit report",
+          "format": "md -> docx",
+          "description": "Findings by severity with example URLs, evidence and effort."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Keyword cluster map",
+          "format": "xlsx",
+          "description": "Clusters with intent, volume proxy, current rank, target URL and priority."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Technical fix list",
+          "format": "md",
+          "description": "Ordered fixes with owner, effort and how to verify each one."
+        }
+      ],
+      "tools": [
+        "web_fetch",
+        "web_search",
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "chart_generate"
+      ],
+      "connectors_optional": [
+        "google-search-console",
+        "google-analytics",
+        "wordpress",
+        "webflow",
+        "shopify"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "connector_data"
+      ],
+      "instructions": "1. Fetch robots.txt, the XML sitemap and a sample of key templates with web_fetch; check status codes, canonicals, noindex tags, duplicate titles and meta descriptions, heading structure, internal links and structured data. 2. Fetch public PageSpeed Insights results for the top templates with web_fetch and compare Core Web Vitals to the thresholds (LCP 2.5 s or less, INP 200 ms or less, CLS 0.1 or less). 3. If Search Console is enabled, use connector_read to pull 16 months of query and page data; otherwise ask the owner for an export. 4. In code_interpreter: find quick wins (queries at positions 8-20 with high impressions), CTR gaps against position, cannibalization (several URLs ranking for one query) and decaying pages. 5. Map queries to intent (informational, commercial, transactional, navigational) and group them into topic clusters, each with one target URL. Check competitor coverage with web_search. 6. Assess E-E-A-T signals on key pages: named author, first-hand experience, references and an about page. 7. Prioritize fixes by impact and effort; build the cluster map with spreadsheet_generate, charts with chart_generate and the report with document_generate. 8. Say what could not be verified (for example no Search Console access, or JavaScript-rendered content the reader could not see) and never promise rankings.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Crawl sample and technical checks",
+          "brief": "Fetch robots.txt, the sitemap, key templates and PageSpeed results; log technical issues with example URLs.",
+          "acceptance": "Each issue has at least one example URL and a severity."
+        },
+        {
+          "activity": "mcp",
+          "title": "Pull Search Console data",
+          "brief": "Read query and page performance for the last 16 months from Search Console, if enabled.",
+          "acceptance": "Dataset of queries and pages with clicks, impressions, CTR and position, or a note that the owner must export it."
+        },
+        {
+          "activity": "analysis",
+          "title": "Quick wins and clusters",
+          "brief": "Compute quick wins, CTR gaps, cannibalization and decay; cluster queries by intent with one target URL each.",
+          "acceptance": "Clusters have one target URL each; quick wins are ranked by impressions.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Write findings and plan",
+          "brief": "Write the audit narrative and a 90-day plan: fixes first, then new cluster content.",
+          "acceptance": "Every recommendation cites the finding it addresses.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Technical review",
+          "brief": "A web or front-end engineer checks the technical claims and fix instructions.",
+          "acceptance": "First line is APPROVED or CHANGES; incorrect or risky fixes are flagged.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render report and cluster map",
+          "brief": "Render the report, the cluster map workbook and the fix checklist.",
+          "acceptance": "Files render; fix list items each have a verification step.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every issue lists example URLs, severity and a way to verify the fix.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No ranking or traffic guarantees are made.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each keyword cluster maps to exactly one target URL.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Quick wins are drawn from the owner's own Search Console data when available.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Core Web Vitals are reported against current thresholds per template.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "content-calendar",
+        "blog-article",
+        "web-performance-audit",
+        "local-seo-gbp",
+        "landing-page-cro"
+      ],
+      "example_request": "Our site traffic has been flat for a year even though we blog every week. Can you figure out what's wrong with our SEO and what we should write next?",
+      "typical_departments": [
+        "marketing-growth",
+        "engineering"
+      ],
+      "version": 1
+    },
+    {
+      "id": "content-calendar",
+      "name": "Content calendar",
+      "icon": "📅",
+      "category": "marketing",
+      "one_liner": "A themed, multi-channel calendar with formats, owners and repurposing.",
+      "description": "A themed, multi-channel content calendar built from real customer questions ('They Ask, You Answer' big five: cost, problems, comparisons, reviews, best-of). It sets pillars, formats, owners and dates, and a repurposing ladder that turns each pillar piece into many derivatives. Cadence is sized to the team's real capacity.",
+      "when": "the owner wants to publish consistently, keeps running out of ideas, or needs content aligned to launches, seasons and search demand",
+      "inputs": [
+        {
+          "id": "capacity",
+          "label": "Who creates content and how many hours per week",
+          "required": true,
+          "source": "owner",
+          "example": "One marketing assistant, about 8 hours a week"
+        },
+        {
+          "id": "channels",
+          "label": "Channels in use",
+          "required": true,
+          "source": "owner",
+          "example": "Blog, Instagram, monthly newsletter"
+        },
+        {
+          "id": "customer_questions",
+          "label": "Questions customers ask (support, sales, reviews)",
+          "required": false,
+          "source": "connector",
+          "example": "Zendesk ticket subjects, sales call notes"
+        },
+        {
+          "id": "key_dates",
+          "label": "Launches, seasons and events for the period",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "messaging",
+          "label": "Messaging house and pillars",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Content calendar",
+          "format": "xlsx",
+          "description": "Date, theme, pillar, format, channel, owner, status, funnel stage and repurposing parent."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Quarterly content themes",
+          "format": "md -> pdf",
+          "description": "Monthly themes, pillars and the repurposing ladder."
+        },
+        {
+          "artifact_type": "dataset",
+          "name": "Idea bank",
+          "format": "csv",
+          "description": "Backlog of sourced ideas with the question each one answers."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "connector_read",
+        "web_search",
+        "spreadsheet_generate",
+        "document_generate",
+        "ask_coworker"
+      ],
+      "connectors_optional": [
+        "google-search-console",
+        "zendesk",
+        "intercom",
+        "hubspot",
+        "notion",
+        "asana"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Recall messaging, pillars and key dates with memory_recall. 2. Harvest real questions: support ticket subjects and sales notes via connector_read, past content and transcripts via embeddings_search, and search demand via Search Console or web_search. Use ask_coworker to have a sales or support coworker add the ten questions they hear most. 3. Sort questions into the big five (cost, problems, comparisons, reviews, best-of) and by funnel stage; drop duplicates. 4. Set monthly themes tied to key dates, then choose one pillar piece per theme and a repurposing ladder (for example article -> carousel -> short video -> newsletter section -> sales email). 5. Size the cadence to capacity: estimate hours per format and never plan more than 80 percent of the stated hours. 6. Build the calendar and idea bank with spreadsheet_generate (importable CSV columns for Asana or Notion) and the theme plan with document_generate. 7. Note any demand estimates that could not be verified and any questions that need an expert answer before publishing.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Harvest real questions",
+          "brief": "Collect customer questions from connectors, past work and search demand; cite sources.",
+          "acceptance": "At least 30 distinct questions, each with a source."
+        },
+        {
+          "activity": "llm",
+          "title": "Themes, pillars and ladder",
+          "brief": "Group questions into themes and pillars; design the repurposing ladder per pillar piece.",
+          "acceptance": "Every month has a theme; every pillar piece has at least three derivatives.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Build the calendar",
+          "brief": "Create the calendar workbook sized to capacity, the theme plan and the idea bank.",
+          "acceptance": "Planned hours are at most 80 percent of stated capacity; every row has an owner and date.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Editorial review",
+          "brief": "An editor checks brand fit, duplication and whether the cadence is realistic.",
+          "acceptance": "First line is APPROVED or CHANGES; overloaded weeks are flagged.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every planned piece answers a real, sourced customer question or search demand.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Planned effort fits within 80 percent of stated capacity.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Big-five topics are all represented across the quarter.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Each pillar piece has a repurposing ladder.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The calendar exports cleanly to CSV for a project tool.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "seo-audit",
+        "blog-article",
+        "social-media-plan",
+        "newsletter-issue",
+        "messaging-house"
+      ],
+      "example_request": "I want to post consistently but I run out of ideas by week two. Give me a content calendar for next quarter that my one marketing assistant can actually keep up with.",
+      "typical_departments": [
+        "marketing-growth",
+        "content-comms-pr"
+      ],
+      "version": 1
+    },
+    {
+      "id": "paid-ads-plan",
+      "name": "Paid ads test plan & creative",
+      "icon": "💸",
+      "category": "marketing",
+      "one_liner": "Account structure, audiences, creative variants and a budget pacing plan.",
+      "description": "A paid-media test plan: account structure, audiences, a creative testing matrix (hooks x formats x offers) with generated creative variants, a target CPA derived from unit economics, and a budget pacing plan with an incrementality sanity check. On approval it can load campaigns into the ad account in paused state, never live.",
+      "when": "the owner wants to start, restructure or rescue paid social or search ads and needs a disciplined test rather than boosted posts",
+      "inputs": [
+        {
+          "id": "monthly_budget",
+          "label": "Monthly ad budget ceiling",
+          "required": true,
+          "source": "owner",
+          "example": "$1,500 per month"
+        },
+        {
+          "id": "unit_economics",
+          "label": "Average order value or deal value, and gross margin",
+          "required": true,
+          "source": "memory",
+          "example": "AOV $120, 55 percent gross margin"
+        },
+        {
+          "id": "offer_and_landing",
+          "label": "Offer and landing page URL",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "ad_accounts",
+          "label": "Existing ad account performance",
+          "required": false,
+          "source": "connector",
+          "example": "Meta Ads and Google Ads, last 90 days"
+        },
+        {
+          "id": "brand_assets",
+          "label": "Logo, product photos and brand colors",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Paid media test plan",
+          "format": "md -> pdf",
+          "description": "Structure, audiences, test matrix, pacing, KPIs, stop-loss rules and the measurement plan."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Budget pacing and CPA model",
+          "format": "xlsx",
+          "description": "Target CPA from unit economics, daily budgets, learning-phase math and a weekly tracker."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Creative variants",
+          "format": "png",
+          "description": "Ad creative concepts per hook and format, with the prompt log."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Ad copy sheet",
+          "format": "md -> docx",
+          "description": "Headlines, primary text and descriptions per variant, within platform character limits."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "image_generate",
+        "document_generate",
+        "ask_coworker",
+        "request_owner_decision",
+        "connector_write"
+      ],
+      "connectors_optional": [
+        "meta-business",
+        "google-ads",
+        "google-analytics",
+        "shopify",
+        "canva"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "connector_data",
+        "url"
+      ],
+      "instructions": "1. Read current account structure and 90 days of results with connector_read if enabled; note tracking gaps (pixel or conversion API, GA4 conversions) before planning anything. 2. In code_interpreter derive the break-even and target CPA from AOV, gross margin and repeat rate, then compute daily budgets that can exit the learning phase (roughly 50 optimization events per ad set per week on Meta) within the cap. If they cannot, consolidate ad sets or optimize for a higher-volume event. 3. Design the structure: few, well-funded campaigns; broad or Advantage-style audiences plus one retargeting layer; for search, themed ad groups by intent with exact and phrase match and negatives. 4. Build a creative testing matrix that tests one variable at a time (hook, format, offer), writing copy with PAS and AIDA. Generate concept visuals with image_generate at platform ratios (1:1, 4:5, 9:16) and keep the prompt log. 5. Use ask_coworker to have a fact-checker confirm that every claim in the copy is substantiated and fits platform ad policies. 6. Add pacing and stop-loss rules (for example pause a variant at 2x target CPA after enough spend) and an incrementality sanity check (geo holdout or platform lift study when the budget allows). 7. Render the plan, workbook and copy sheet with document_generate and spreadsheet_generate. 8. Ask for approval with request_owner_decision. Only if approved and a connector is enabled, use connector_write to create the campaigns in PAUSED state with the owner's budget caps; turning spend on is always the owner's action. 9. State what could not be verified, such as conversion tracking accuracy or platform-reported attribution.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read account and tracking",
+          "brief": "Read existing campaigns, results and conversion setup from enabled ad connectors.",
+          "acceptance": "Summary of structure, 90-day results and tracking gaps, or a note that no account exists."
+        },
+        {
+          "activity": "analysis",
+          "title": "Target CPA and pacing",
+          "brief": "Compute break-even CPA, target CPA and daily budgets that can exit learning within the cap.",
+          "acceptance": "Arithmetic shown; budget never exceeds the cap.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Structure and test matrix",
+          "brief": "Design structure, audiences, one-variable-at-a-time tests, copy and stop-loss rules.",
+          "acceptance": "Each test isolates one variable and has a success metric and minimum spend.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Generate creative variants",
+          "brief": "Generate concept visuals per hook and format at platform aspect ratios; log prompts.",
+          "acceptance": "At least two visuals per hook in the required ratios, with a prompt log.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Claims and policy review",
+          "brief": "Fact-check claims and check platform ad-policy risks (health, finance, before/after, personal attributes).",
+          "acceptance": "First line is APPROVED or CHANGES; each risky claim is fixed or removed.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves plan and caps",
+          "brief": "Decision card with budget caps, creative and whether to load campaigns paused.",
+          "acceptance": "Owner approves, edits or declines loading.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Load campaigns paused",
+          "brief": "If approved and a connector is enabled, create campaigns in PAUSED state with the approved caps; record receipts.",
+          "acceptance": "Receipts show campaigns created paused; nothing is spending.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Planned daily budgets never exceed the owner's cap.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Campaigns are only ever created paused; enabling spend is left to the owner.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every ad claim is substantiated and checked against platform policies.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Target CPA is derived from the owner's unit economics, with the arithmetic shown.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each test changes one variable and has a minimum spend before judging.",
+          "severity": "should"
+        },
+        {
+          "criterion": "An incrementality sanity check is planned for budgets that allow it.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "campaign-plan",
+        "ab-test-design",
+        "social-graphics-set",
+        "landing-page-cro",
+        "attribution-report",
+        "unit-economics"
+      ],
+      "example_request": "I've been boosting Instagram posts randomly and have no idea if it works. Set up a proper ads test for our online pottery classes with $1,500 a month.",
+      "typical_departments": [
+        "marketing-growth",
+        "design-creative"
+      ],
+      "version": 1
+    },
+    {
+      "id": "email-flow-design",
+      "name": "Lifecycle email flows",
+      "icon": "✉️",
+      "category": "marketing",
+      "one_liner": "Welcome, nurture, abandon and win-back flows with triggers and copy.",
+      "description": "Designs lifecycle email flows (welcome, browse or cart abandon, post-purchase, nurture, win-back, sunset): triggers, filters, delays, splits and full copy, segmented by RFM. Includes a deliverability and consent check (SPF, DKIM, DMARC, one-click unsubscribe). With approval it loads the flows into the email platform as drafts.",
+      "when": "customers buy or sign up once and go quiet, the email platform has no automations, or open and click rates are sliding",
+      "inputs": [
+        {
+          "id": "platform",
+          "label": "Email platform in use",
+          "required": true,
+          "source": "owner",
+          "example": "Klaviyo"
+        },
+        {
+          "id": "customer_data",
+          "label": "List size, segments and purchase history",
+          "required": false,
+          "source": "connector",
+          "example": "Shopify orders and Klaviyo profiles"
+        },
+        {
+          "id": "brand_voice",
+          "label": "Voice guide and messaging house",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "offers",
+          "label": "Allowed incentives (discount limits, free shipping rules)",
+          "required": true,
+          "source": "owner",
+          "example": "No more than 10 percent off; free shipping over $60"
+        },
+        {
+          "id": "auth_status",
+          "label": "Domain authentication status or a screenshot of it",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "diagram",
+          "name": "Flow maps",
+          "format": "mermaid",
+          "description": "Trigger, filters, delays, splits and exits for each flow."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Flow emails",
+          "format": "md -> html",
+          "description": "Subject, preview text, body and CTA for every email, with A/B subject options."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Deliverability and consent checklist",
+          "format": "md",
+          "description": "SPF, DKIM, DMARC, one-click unsubscribe, spam-rate target, consent basis by region."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "vision_describe",
+        "code_interpreter",
+        "diagram_generate",
+        "document_generate",
+        "request_owner_decision",
+        "connector_write"
+      ],
+      "connectors_optional": [
+        "klaviyo",
+        "mailchimp",
+        "shopify",
+        "woocommerce",
+        "hubspot"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "image",
+        "file"
+      ],
+      "instructions": "1. Read existing flows, segments and order history with connector_read. If only a screenshot of the authentication settings is available, read it with vision_describe. 2. Run an RFM segmentation in code_interpreter (recency, frequency, monetary quintiles) to choose which flows matter most and to set win-back timing from the median repurchase interval. 3. Design each flow: trigger, entry filters, delays, conditional splits (first-time versus repeat, high versus low value), exit conditions and frequency caps so no one gets more than one flow email a day. 4. Write every email: subject plus two A/B alternatives, preview text, a body in the brand voice, one primary CTA, and incentives only within the owner's limits. 5. Check deliverability and consent: SPF, DKIM and DMARC aligned; one-click unsubscribe; spam complaints under 0.3 percent; consent basis flagged per region (CAN-SPAM, GDPR/PECR, CASL) for the owner to confirm. 6. Render flow maps with diagram_generate and the email pack with document_generate. 7. Ask for approval with request_owner_decision. If approved and a connector is enabled, use connector_write to load the flows in draft or manual status only; the owner switches them live. 8. State what could not be verified, such as authentication records or consent provenance for imported contacts.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read platform and customer data",
+          "brief": "Read flows, segments and orders from the enabled email and commerce connectors.",
+          "acceptance": "Summary of existing flows, list size and data gaps."
+        },
+        {
+          "activity": "analysis",
+          "title": "RFM and timing",
+          "brief": "Segment customers by RFM and compute the median repurchase interval to time win-back.",
+          "acceptance": "Segment table and timing rationale shown.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Design flows and write emails",
+          "brief": "Design every flow's logic and write all emails with subject tests.",
+          "acceptance": "Each flow has trigger, filters, delays, exits; each email has one CTA.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render maps and email pack",
+          "brief": "Render flow diagrams, the email pack and the deliverability checklist.",
+          "acceptance": "All flows diagrammed; email pack complete.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Copy and compliance review",
+          "brief": "A copy editor and a compliance-minded reviewer check voice, claims, incentive limits and unsubscribe handling.",
+          "acceptance": "First line is APPROVED or CHANGES; any consent or claim issue is flagged.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves loading",
+          "brief": "Decision card to load flows as drafts in the platform.",
+          "acceptance": "Owner approves or declines.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Load flows as drafts",
+          "brief": "If approved, create the flows in draft or manual status with receipts.",
+          "acceptance": "Receipts confirm flows exist in draft; nothing is live.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Flows are loaded only in draft or manual status; going live is the owner's action.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Incentives stay within the owner's stated limits.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every email has a working unsubscribe path and a single primary CTA.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Frequency caps prevent more than one flow email per day per contact.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Win-back timing is based on the owner's own repurchase data.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "email-copy",
+        "rfm-segmentation",
+        "abandoned-cart-recovery",
+        "customer-onboarding-plan",
+        "newsletter-issue"
+      ],
+      "example_request": "People buy once from our tea shop and never come back. Can you set up proper email flows in Klaviyo — welcome, abandoned cart, win-back — so they run on their own?",
+      "typical_departments": [
+        "marketing-growth",
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "landing-page-cro",
+      "name": "Landing page CRO review",
+      "icon": "🧪",
+      "category": "marketing",
+      "one_liner": "LIFT-model review with prioritized fixes and test hypotheses.",
+      "description": "A LIFT-model review of a landing page (value proposition, relevance, clarity, urgency, anxiety, distraction) from desktop and mobile screenshots and analytics. It produces fixes prioritized with PIE, written hypotheses, sample-size estimates, and a mock-up of the recommended variant.",
+      "when": "a landing page, signup or checkout page gets traffic but converts poorly, or before spending more on ads that point to it",
+      "inputs": [
+        {
+          "id": "page_url",
+          "label": "Landing page URL",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "screenshots",
+          "label": "Desktop and mobile screenshots (full page)",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "funnel_data",
+          "label": "Visitors, conversion rate and drop-off by step",
+          "required": false,
+          "source": "connector",
+          "example": "GA4: 3,000 visits a month, 1.3 percent trial signups"
+        },
+        {
+          "id": "traffic_sources",
+          "label": "Main traffic sources and the ads or emails that point here",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "CRO review",
+          "format": "md -> docx",
+          "description": "LIFT findings with annotated evidence and prioritized fixes."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Test backlog",
+          "format": "xlsx",
+          "description": "Hypotheses with PIE scores, primary metric, MDE and required sample size."
+        },
+        {
+          "artifact_type": "web_page",
+          "name": "Variant mock-up",
+          "format": "html",
+          "description": "A self-contained mock-up of the top recommended variant."
+        }
+      ],
+      "tools": [
+        "web_fetch",
+        "vision_describe",
+        "connector_read",
+        "code_interpreter",
+        "document_generate",
+        "web_page_generate"
+      ],
+      "connectors_optional": [
+        "google-analytics",
+        "google-ads",
+        "meta-business",
+        "shopify",
+        "webflow"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "image",
+        "screen",
+        "connector_data",
+        "web_page"
+      ],
+      "instructions": "1. Fetch the page with web_fetch and read the owner's desktop and mobile screenshots with vision_describe to see what is above the fold, the visual hierarchy and the form. 2. Check message match: compare the headline and offer with the ads or emails that send traffic. 3. Score the page on the six LIFT factors. For each weakness, write evidence (what you saw, where) and a specific fix. 4. Audit form friction: field count, required fields, error messages, input types on mobile, and trust cues next to the CTA. 5. Read funnel data with connector_read if enabled and locate the biggest drop-off. 6. Prioritize fixes with PIE (potential, importance, ease). Write each test as: because we saw X, we believe Y will cause Z, measured by M. In code_interpreter compute the sample size per variant for the baseline rate and a realistic minimum detectable effect, and say plainly when traffic is too low to A/B test, recommending sequential changes instead. 7. Build a mock-up of the top variant with web_page_generate and the review with document_generate. 8. State what could not be verified, for example behaviour behind logins or data without analytics access.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Capture the page",
+          "brief": "Fetch the page and describe desktop and mobile screenshots.",
+          "acceptance": "Above-the-fold content, CTA, form and trust elements described for both devices."
+        },
+        {
+          "activity": "mcp",
+          "title": "Read funnel data",
+          "brief": "Read conversion and drop-off by step from analytics, if enabled.",
+          "acceptance": "Baseline conversion rate and biggest drop-off stated, or marked unavailable."
+        },
+        {
+          "activity": "llm",
+          "title": "LIFT review",
+          "brief": "Score the six LIFT factors with evidence and fixes; audit form friction and message match.",
+          "acceptance": "Each factor has evidence and at least one concrete fix.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Prioritize and size tests",
+          "brief": "PIE-score fixes, write hypotheses and compute sample sizes.",
+          "acceptance": "Every hypothesis has a metric, MDE and sample size, or a low-traffic recommendation.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Report and mock-up",
+          "brief": "Render the review, the test backlog and a mock-up of the top variant.",
+          "acceptance": "Mock-up implements the top fix; review and backlog render.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "UX and accessibility check",
+          "brief": "A UX designer or accessibility specialist checks the recommendations for usability and WCAG issues.",
+          "acceptance": "First line is APPROVED or CHANGES; accessibility regressions are flagged.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every finding cites visible evidence from the page or data.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Sample sizes are computed, and low-traffic pages get a non-A/B recommendation.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Recommendations do not introduce dark patterns or fake urgency.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Mobile is reviewed separately from desktop.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Message match with traffic sources is checked.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "ab-test-design",
+        "heuristic-ux-review",
+        "funnel-analysis",
+        "wireframes",
+        "wcag-audit"
+      ],
+      "example_request": "Our free-trial page gets 3,000 visitors a month but only 40 sign up. Tear it apart and tell me what to test first.",
+      "typical_departments": [
+        "marketing-growth",
+        "design-creative",
+        "product"
+      ],
+      "version": 1
+    },
+    {
+      "id": "social-media-plan",
+      "name": "Social media plan & post batch",
+      "icon": "📱",
+      "category": "marketing",
+      "one_liner": "Platform strategy plus a ready-to-schedule batch of posts.",
+      "description": "A platform strategy (where the audience is, what formats win there, pillars and cadence, community reply rules) plus a ready-to-approve batch of platform-native posts with copy, alt text and generated visuals. Approved posts are scheduled through the connector one by one.",
+      "when": "the owner knows they should be on social but posts sporadically, or wants two to four weeks of posts prepared in one sitting",
+      "inputs": [
+        {
+          "id": "platforms",
+          "label": "Platforms in use or under consideration",
+          "required": true,
+          "source": "owner",
+          "example": "Instagram and LinkedIn"
+        },
+        {
+          "id": "audience",
+          "label": "Who the posts are for",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "brand_assets",
+          "label": "Photos, logo, colors and voice guide",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "account_data",
+          "label": "Past post performance",
+          "required": false,
+          "source": "connector",
+          "example": "Meta Business insights for the last 90 days"
+        },
+        {
+          "id": "capacity",
+          "label": "Time available for replies and community",
+          "required": false,
+          "source": "owner",
+          "example": "20 minutes a day"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Platform strategy",
+          "format": "md -> pdf",
+          "description": "Per platform: role, audience, pillars and mix, formats, cadence, reply SLAs and KPIs."
+        },
+        {
+          "artifact_type": "social_post",
+          "name": "Post batch",
+          "format": "md + png",
+          "description": "Posts with hook, copy, CTA, hashtags, alt text and visual, sized per platform."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Posting schedule",
+          "format": "csv",
+          "description": "Date, time, platform, post id and approval status."
+        }
+      ],
+      "tools": [
+        "x_search",
+        "web_search",
+        "connector_read",
+        "image_generate",
+        "document_generate",
+        "spreadsheet_generate",
+        "request_owner_decision",
+        "publish_external"
+      ],
+      "connectors_optional": [
+        "meta-business",
+        "linkedin",
+        "youtube",
+        "canva"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "connector_data",
+        "url"
+      ],
+      "instructions": "1. Read past performance with connector_read if enabled and find the top formats, topics and posting times from the owner's own data. 2. Scan the conversation with x_search and competitor or peer accounts with web_search to see which formats and topics get genuine engagement in this niche; cite examples. 3. Choose one job per platform and a pillar mix (for example educate, behind-the-scenes, community, offer), a cadence that fits capacity, and reply rules (response time, tone, when to take a thread private or escalate). 4. Write a batch of posts with a hook in the first line, platform-native length and formatting, one CTA, sparing hashtags and alt text for every image. 5. Generate visuals with image_generate at native ratios (4:5 feed, 9:16 stories and reels, 1.91:1 link posts) using brand colors; log prompts; never depict real people without their consent. 6. Render the strategy with document_generate and the schedule with spreadsheet_generate. 7. Ask for per-post approval with request_owner_decision. Only approved posts are scheduled with publish_external at the approved time, and each one gets a receipt. 8. State what could not be verified, such as audience demographics on platforms without connected insights.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Audience and format scan",
+          "brief": "Scan the owner's data, X conversation and peer accounts for winning formats and topics.",
+          "acceptance": "At least five cited examples of formats that work in the niche."
+        },
+        {
+          "activity": "llm",
+          "title": "Platform strategy",
+          "brief": "Define platform roles, pillars, cadence, reply rules and KPIs.",
+          "acceptance": "Each platform has a distinct job and a cadence within capacity.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Create the post batch",
+          "brief": "Write the posts and generate native-ratio visuals with alt text.",
+          "acceptance": "Every post has a hook, CTA, alt text and a correctly sized visual.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Brand and claims review",
+          "brief": "An editor checks voice, claims, disclosure and accessibility.",
+          "acceptance": "First line is APPROVED or CHANGES; any unsubstantiated claim or missing alt text is flagged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves posts",
+          "brief": "Decision card listing each post for approve, edit or drop.",
+          "acceptance": "Each post has an explicit decision.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Schedule approved posts",
+          "brief": "Schedule only approved posts through the connector, one receipt per post.",
+          "acceptance": "Receipt for every scheduled post; nothing unapproved is scheduled.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Nothing is published or scheduled without per-post owner approval.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every image has alt text and correct platform dimensions.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Paid partnerships or gifted products carry a clear disclosure.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Cadence fits the owner's stated capacity.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Post ideas are grounded in the owner's own performance data when available.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "content-calendar",
+        "social-graphics-set",
+        "short-video-script",
+        "voice-style-guide",
+        "ugc-ad-brief"
+      ],
+      "example_request": "I know we should be on Instagram and LinkedIn but I never know what to post. Give me a plan and two weeks of posts I can approve in one go.",
+      "typical_departments": [
+        "marketing-growth",
+        "design-creative"
+      ],
+      "version": 1
+    },
+    {
+      "id": "referral-review-engine",
+      "name": "Referral & review engine",
+      "icon": "🔁",
+      "category": "marketing",
+      "one_liner": "Referral offer, review requests and testimonial capture that run themselves.",
+      "description": "Designs and switches on a referral offer sized from unit economics, review requests sent at peak-satisfaction moments to every customer (never gated by sentiment), and a testimonial capture form with usage permission. The automations run once the owner approves them.",
+      "when": "most new business comes from word of mouth but nobody asks for it systematically, or review volume is low or stale",
+      "inputs": [
+        {
+          "id": "customer_journey",
+          "label": "Moments when customers are happiest",
+          "required": true,
+          "source": "owner",
+          "example": "Right after the first cleaning, when they see the before-and-after"
+        },
+        {
+          "id": "unit_economics",
+          "label": "Average customer value and margin",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "review_platforms",
+          "label": "Where reviews matter",
+          "required": true,
+          "source": "owner",
+          "example": "Google and Yelp"
+        },
+        {
+          "id": "customer_data",
+          "label": "Customer list and order or visit history",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "brand_voice",
+          "label": "Voice guide",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Referral and review program",
+          "format": "md -> pdf",
+          "description": "Offer, eligibility, trigger moments, cadence, rules and KPIs."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Request messages",
+          "format": "md -> html",
+          "description": "Review request, referral invite and reminder emails and SMS."
+        },
+        {
+          "artifact_type": "form",
+          "name": "Testimonial capture form",
+          "format": "html",
+          "description": "Guided prompts (before, after, specific result) with explicit permission checkboxes."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "document_generate",
+        "web_page_generate",
+        "request_owner_decision",
+        "schedule_automation",
+        "send_external"
+      ],
+      "connectors_optional": [
+        "google-business-profile",
+        "shopify",
+        "square",
+        "hubspot",
+        "klaviyo",
+        "mailchimp",
+        "twilio"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "web_page"
+      ],
+      "instructions": "1. Read customers, orders and existing reviews with connector_read if enabled; find review velocity, average rating and repeat and referral rates. 2. In code_interpreter size a double-sided referral incentive so that the cost per referred customer stays well under contribution margin, and show the break-even. 3. Pick trigger moments (after a milestone or a thank-you, not after a complaint) and a cadence: one request plus at most one reminder. 4. Write requests that go to every eligible customer. Never gate reviews by sentiment, never offer incentives for reviews where the platform or law forbids it, and never write or solicit fake reviews. 5. Build a testimonial capture form with web_page_generate using guided prompts and explicit permission for name, photo and quote use. 6. Render the program and messages with document_generate. 7. Ask for approval with request_owner_decision. On approval, set up the trigger with schedule_automation and send the first batch with send_external, keeping receipts and honoring opt-outs. 8. State what could not be verified, such as platform-specific incentive rules in the owner's region, which the owner should confirm.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read customers and reviews",
+          "brief": "Read customer history and current reviews from enabled connectors.",
+          "acceptance": "Baseline review velocity, rating, repeat and referral rates, or marked unavailable."
+        },
+        {
+          "activity": "analysis",
+          "title": "Size the referral incentive",
+          "brief": "Compute incentive options and break-even against contribution margin.",
+          "acceptance": "Chosen incentive keeps cost per referred customer under margin, with the arithmetic shown.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Design program and messages",
+          "brief": "Design triggers, cadence, rules and all request messages; build the testimonial form.",
+          "acceptance": "Messages go to all eligible customers; the form captures explicit permission.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Compliance review",
+          "brief": "Check for review gating, incentivized-review rules, consent for SMS and email, and fake-review risk.",
+          "acceptance": "First line is APPROVED or CHANGES; any gating or incentive problem is removed.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves launch",
+          "brief": "Decision card with the offer, the triggers and the first batch size.",
+          "acceptance": "Owner approves, edits or declines.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "schedule",
+          "title": "Switch on the trigger",
+          "brief": "Create the post-milestone trigger automation as approved.",
+          "acceptance": "Automation exists with a receipt and an off switch.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Send first batch",
+          "brief": "Send the first approved batch of requests with an idempotency key.",
+          "acceptance": "Receipt per send; opt-outs honored; nothing sent twice.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Review requests go to all eligible customers; no sentiment gating.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No incentives are offered for reviews where the platform or law forbids it, and no fake reviews.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Testimonials are used only with explicit recorded permission.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every send and automation has owner approval and a receipt.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Referral cost per acquired customer is below contribution margin.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "review-response",
+        "loyalty-program",
+        "email-flow-design",
+        "local-seo-gbp",
+        "csat-nps-analysis"
+      ],
+      "example_request": "Most of our new customers come from word of mouth but we've never asked for it. Set up something that asks happy customers for reviews and referrals without me having to remember.",
+      "typical_departments": [
+        "marketing-growth",
+        "customer-success-support"
+      ],
+      "version": 1
+    },
+    {
+      "id": "attribution-report",
+      "name": "Marketing performance report",
+      "icon": "📊",
+      "category": "marketing",
+      "one_liner": "Channel performance with honest attribution caveats and next moves.",
+      "description": "A channel performance report that reconciles platform-reported conversions with real revenue, compares attribution models honestly (last-click, first-click, linear, position-based), shows blended MER and CAC by cohort, and ends with next month's moves. Also delivered as a 90-second audio briefing.",
+      "when": "ad platforms each claim credit for the same sales, the owner is deciding where next month's budget goes, or at month-end marketing review",
+      "inputs": [
+        {
+          "id": "period",
+          "label": "Reporting period and comparison period",
+          "required": true,
+          "source": "owner",
+          "example": "September versus August"
+        },
+        {
+          "id": "revenue_source",
+          "label": "Source of truth for revenue and orders",
+          "required": true,
+          "source": "connector",
+          "example": "Shopify or Stripe"
+        },
+        {
+          "id": "channel_data",
+          "label": "Ad platform and analytics data",
+          "required": false,
+          "source": "connector",
+          "example": "GA4, Google Ads, Meta"
+        },
+        {
+          "id": "spend_outside_platforms",
+          "label": "Offline or agency spend",
+          "required": false,
+          "source": "owner",
+          "example": "$600 for the farmers' market stall"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Marketing performance report",
+          "format": "md -> pdf",
+          "description": "Answer first, then channel table, model comparison, caveats and next moves."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Channel charts",
+          "format": "svg",
+          "description": "Spend versus attributed revenue by model, and MER trend."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Reconciliation workbook",
+          "format": "xlsx",
+          "description": "Platform-claimed versus actual conversions, with formulas."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "90-second audio summary",
+          "format": "mp3",
+          "description": "The headline, three numbers and the recommended move, in the analyst's voice."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "chart_generate",
+        "spreadsheet_generate",
+        "document_generate",
+        "tts"
+      ],
+      "connectors_optional": [
+        "google-analytics",
+        "google-ads",
+        "meta-business",
+        "shopify",
+        "stripe",
+        "hubspot",
+        "klaviyo"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "audio",
+        "file"
+      ],
+      "instructions": "1. Pull spend, clicks and platform-reported conversions from each channel, and revenue and orders from the source of truth, with connector_read (or uploaded exports). 2. In code_interpreter reconcile: the sum of platform-claimed conversions against actual orders; show the over-claim ratio. 3. Compute blended MER (revenue / total marketing spend), CAC by channel and by acquisition cohort, and compare last-click, first-click, linear and position-based attribution from GA4 paths when available. 4. Check UTM hygiene: untagged and mis-tagged traffic share. 5. Write the report answer-first (Pyramid Principle): what worked, what did not, where the next dollar goes. Every recommendation names its evidence and its caveat, and says 'we don't know' where incrementality is unproven. 6. Render charts with chart_generate, the workbook with spreadsheet_generate and the report with document_generate. 7. Script and render a 90-second audio summary with tts. 8. State what could not be verified: view-through conversions, cross-device journeys, offline influence.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull channel and revenue data",
+          "brief": "Read spend and conversions per channel plus actual revenue for both periods.",
+          "acceptance": "Complete table for every active channel, or gaps listed."
+        },
+        {
+          "activity": "analysis",
+          "title": "Reconcile and model",
+          "brief": "Reconcile platform claims with actual orders; compute MER, CAC by cohort and model comparisons.",
+          "acceptance": "Over-claim ratio shown; every metric has its formula.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Write the narrative",
+          "brief": "Answer-first narrative with next moves and explicit caveats.",
+          "acceptance": "Every recommendation cites evidence and states uncertainty.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Numbers audit",
+          "brief": "A data analyst re-derives the headline numbers from the workbook.",
+          "acceptance": "First line is APPROVED or CHANGES; headline numbers match the workbook.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render report and charts",
+          "brief": "Render the report, charts and the reconciliation workbook.",
+          "acceptance": "Numbers are identical across the report, charts and workbook.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Record audio summary",
+          "brief": "Render the 90-second audio summary in the analyst's voice.",
+          "acceptance": "Audio is 60-120 seconds and states the same headline numbers.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Revenue comes from the source of truth, not from ad platforms.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Platform over-claiming is quantified and shown.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Recommendations state their uncertainty; incrementality is not asserted without evidence.",
+          "severity": "must"
+        },
+        {
+          "criterion": "At least two attribution models are compared side by side.",
+          "severity": "should"
+        },
+        {
+          "criterion": "UTM hygiene issues are listed with fixes.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "numbers-audit",
+        "dashboard-build",
+        "data-story",
+        "paid-ads-plan",
+        "kpi-tree"
+      ],
+      "example_request": "Every platform says it drove our sales, and together they add up to 300% of revenue. What's actually working, and where should next month's budget go?",
+      "typical_departments": [
+        "marketing-growth",
+        "data-analytics"
+      ],
+      "version": 1
+    },
+    {
+      "id": "local-seo-gbp",
+      "name": "Local SEO & Google Business Profile",
+      "icon": "📍",
+      "category": "marketing",
+      "one_liner": "Tune the local listing, citations, photos, posts and review responses.",
+      "description": "Tunes the Google Business Profile and local presence: categories, services, hours, NAP consistency across citations, photos, weekly posts and replies to every review. Local-pack relevance, distance and prominence guide the plan, and updates are published only after approval.",
+      "when": "a local business does not appear in map results nearby, reviews go unanswered, or listing details are inconsistent across directories",
+      "inputs": [
+        {
+          "id": "business_details",
+          "label": "Official name, address, phone, hours and service area",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "gbp_access",
+          "label": "Google Business Profile connection or screenshots",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "photos",
+          "label": "Real photos of premises, team and work",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "priority_services",
+          "label": "Services and neighborhoods that matter most",
+          "required": true,
+          "source": "owner",
+          "example": "Emergency plumbing, boiler repair; Headingley and Kirkstall"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "checklist",
+          "name": "Listing audit and fixes",
+          "format": "md",
+          "description": "Category, services, attributes, hours, photos, Q&A and NAP issues, each with a fix."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Citation consistency sheet",
+          "format": "xlsx",
+          "description": "Directory, listed NAP, match status and fix link."
+        },
+        {
+          "artifact_type": "social_post",
+          "name": "Profile posts and review replies",
+          "format": "md + png",
+          "description": "Four weeks of posts and a reply to every open review."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "web_search",
+        "web_fetch",
+        "vision_describe",
+        "image_edit",
+        "document_generate",
+        "spreadsheet_generate",
+        "request_owner_decision",
+        "publish_external"
+      ],
+      "connectors_optional": [
+        "google-business-profile",
+        "google-search-console",
+        "square",
+        "wordpress"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "image",
+        "url"
+      ],
+      "instructions": "1. Read the profile, reviews and insights with connector_read if enabled; otherwise work from screenshots read with vision_describe. 2. Audit against Google's guidelines: an accurate primary category plus relevant secondaries, services, attributes, hours including holidays, a business name without keyword stuffing, and a service area. 3. Check NAP consistency across major directories and the owner's site with web_search and web_fetch; log mismatches in a citation sheet built with spreadsheet_generate. 4. Review photos with vision_describe. Use image_edit only for honest light corrections (exposure, crop, straighten); never alter what the premises or work look like. 5. Write four weeks of profile posts tied to priority services and a reply to every open review: thank, be specific, take problems offline, never reveal customer details. 6. Render the audit with document_generate. 7. Ask for approval with request_owner_decision; publish approved profile edits, posts and replies with publish_external, one receipt each. 8. State what could not be verified, such as ranking changes (which take weeks) or directory listings behind logins.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read listing and reviews",
+          "brief": "Read the profile, reviews and insights, or ingest screenshots.",
+          "acceptance": "Current listing fields and open reviews captured."
+        },
+        {
+          "activity": "research",
+          "title": "NAP and citation audit",
+          "brief": "Check name, address and phone consistency across directories and the website.",
+          "acceptance": "Citation sheet with match status per directory, each with a source link.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Fixes, posts and replies",
+          "brief": "Write the listing fixes, four weeks of posts and replies to every open review.",
+          "acceptance": "Every open review has a reply; every fix follows the guidelines.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Prepare photos",
+          "brief": "Lightly correct real photos (exposure, crop) for the profile.",
+          "acceptance": "Edits are corrective only; originals kept.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Guidelines and privacy review",
+          "brief": "Check against the business profile guidelines and for customer privacy in replies.",
+          "acceptance": "First line is APPROVED or CHANGES; stuffing, fake content or privacy leaks are flagged.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves updates",
+          "brief": "Decision card listing each edit, post and reply.",
+          "acceptance": "Explicit approval per item.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Publish approved updates",
+          "brief": "Publish approved items through the connector with receipts.",
+          "acceptance": "Receipt per published item; nothing unapproved is published.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "No keyword stuffing, fake reviews, review gating or misleading photo edits.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Review replies never disclose customer personal or service details.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every published change has owner approval and a receipt.",
+          "severity": "must"
+        },
+        {
+          "criterion": "NAP is identical across the website and major directories.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Posts target priority services and neighborhoods.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "review-response",
+        "seo-audit",
+        "referral-review-engine",
+        "location-analysis",
+        "social-graphics-set"
+      ],
+      "example_request": "We're a plumber in Leeds and we don't show up in the map results even two streets away. Fix our Google listing and help me reply to the reviews I've been ignoring.",
+      "typical_departments": [
+        "marketing-growth"
+      ],
+      "version": 1
+    }
+  ]
+}

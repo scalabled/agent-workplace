@@ -1,0 +1,1737 @@
+{
+  "category": "meetings-facilitation",
+  "version": 1,
+  "skills": [
+    {
+      "id": "meeting-agenda",
+      "name": "Meeting agenda & pre-read",
+      "icon": "🗒️",
+      "category": "meetings-facilitation",
+      "one_liner": "Purpose, desired outcomes, timed agenda and a one-page pre-read.",
+      "description": "Turns 'we should meet' into a meeting that decides something. It checks whether the meeting is needed at all, then sets the purpose, desired outcomes, a timed agenda where each item is marked inform, discuss or decide with an owner, roles, and a one-page answer-first pre-read that pulls in open actions from last time.",
+      "when": "the owner is calling a meeting with staff, partners, a client or coworkers and wants it to end in decisions rather than another meeting",
+      "inputs": [
+        {
+          "id": "topic_and_goal",
+          "label": "What the meeting is about and what must be true at the end",
+          "required": true,
+          "source": "owner",
+          "example": "Decide whether to open a second location"
+        },
+        {
+          "id": "attendees",
+          "label": "Who is invited and why",
+          "required": true,
+          "source": "owner",
+          "example": "Two partners and the operations lead"
+        },
+        {
+          "id": "duration",
+          "label": "Time available",
+          "required": true,
+          "source": "owner",
+          "example": "60 minutes"
+        },
+        {
+          "id": "background",
+          "label": "Relevant documents, numbers and prior decisions",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Agenda",
+          "format": "md -> docx",
+          "description": "Purpose, outcomes, roles and timed items marked inform, discuss or decide."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Pre-read",
+          "format": "md -> pdf",
+          "description": "One page: the question, options, key numbers and what attendees must decide."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "connector_read",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "zoom",
+        "notion",
+        "asana"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Recall prior decisions and open actions with memory_recall and embeddings_search; read the calendar entry and attendees with connector_read if enabled. 2. Test whether a meeting is needed: if the goal is only to inform, recommend an async update instead. 3. Write the purpose (one sentence) and the desired outcomes (the decisions or outputs that must exist at the end). 4. Build a timed agenda: each item has an owner, a type (inform, discuss, decide), minutes, and the question it answers; decisions go early while energy is high, and 10 percent of the time is kept as buffer. 5. Assign roles: facilitator, timekeeper, decision-maker for each decision item, and scribe. 6. Write a one-page, answer-first pre-read: the question, the options, the key numbers with sources, and a recommendation if the owner wants one. 7. Render both with document_generate, and state what could not be verified, such as numbers in the pre-read that come from memory rather than a source.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read calendar and history",
+          "brief": "Read the meeting entry, attendees and open actions from last time.",
+          "acceptance": "Attendees and open actions listed, or taken from the owner."
+        },
+        {
+          "activity": "llm",
+          "title": "Agenda and pre-read",
+          "brief": "Write purpose, outcomes, timed agenda, roles and pre-read.",
+          "acceptance": "Every agenda item has an owner, type, minutes and question.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Facilitator review",
+          "brief": "A facilitator checks timing, sequencing and whether each decision item has a decider.",
+          "acceptance": "First line is APPROVED or CHANGES; overloaded agendas trimmed.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render",
+          "brief": "Render the agenda and pre-read.",
+          "acceptance": "Pre-read fits on one page.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every decision item names who decides.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The agenda fits the available time with a buffer.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The pre-read fits on one page and leads with the question.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Open actions from the previous meeting are included.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 15,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "meeting-minutes",
+        "decision-record",
+        "facilitated-session",
+        "executive-summary",
+        "structured-debate"
+      ],
+      "example_request": "I'm meeting my two partners Thursday to decide whether we open a second location. Make an agenda and a one-page pre-read so we actually decide something.",
+      "typical_departments": [
+        "core-crew",
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "facilitated-session",
+      "name": "Facilitated working session",
+      "icon": "🌀",
+      "category": "meetings-facilitation",
+      "one_liner": "A Liberating Structures session design that gets everyone's input.",
+      "description": "Designs and runs a working session with Liberating Structures so every voice counts. The session strings together structures such as 1-2-4-All, TRIZ, 15% Solutions, Troika Consulting and What / So What / Now What, with an invitation question, timings, a convergence rule and a synthesis at the end. It can also run as a voiced session with coworkers that the owner joins.",
+      "when": "a team keeps having the same circular conversation, a few voices dominate, or the owner needs real input on a messy problem",
+      "inputs": [
+        {
+          "id": "challenge",
+          "label": "The problem or question to work on",
+          "required": true,
+          "source": "owner",
+          "example": "Our returns process frustrates customers and staff"
+        },
+        {
+          "id": "participants",
+          "label": "Who takes part, how many, in person or remote",
+          "required": true,
+          "source": "owner",
+          "example": "Eight staff, in person"
+        },
+        {
+          "id": "duration",
+          "label": "Time available",
+          "required": true,
+          "source": "owner",
+          "example": "60 minutes"
+        },
+        {
+          "id": "decision_rights",
+          "label": "What the group can decide versus recommend",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Facilitation guide",
+          "format": "md -> docx",
+          "description": "Invitation, structure sequence, timings, instructions, materials and convergence rule."
+        },
+        {
+          "artifact_type": "deck",
+          "name": "Session slides",
+          "format": "pptx",
+          "description": "One slide per step with the prompt and timer."
+        },
+        {
+          "artifact_type": "minutes",
+          "name": "Session synthesis",
+          "format": "md",
+          "description": "Themes, agreed actions with owner and date, and open questions."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "document_generate",
+        "deck_generate",
+        "convene_meeting",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "zoom",
+        "microsoft-teams",
+        "google-workspace",
+        "slack"
+      ],
+      "modalities": [
+        "text",
+        "voice"
+      ],
+      "instructions": "1. Recall context with memory_recall and write a sharp invitation question (open, specific, and one the group can influence). 2. Choose and sequence structures to fit the purpose and time: 1-2-4-All to generate, TRIZ to surface what makes things worse, 15% Solutions for what people can do now, Troika Consulting for individual challenges, and What / So What / Now What to converge. 3. Set the convergence rule in advance (consent: 'can you live with it?', or fist-to-five) and confirm decision rights with the owner via request_owner_decision. 4. Write the facilitation guide with exact instructions and timings using document_generate, and slides with deck_generate. 5. If the session runs inside the workspace, convene it with convene_meeting in workshop format: coworkers take the participant perspectives the owner names (for example front-line staff or customers) and the owner joins or listens. 6. Synthesize themes and agreed actions with owners and dates. 7. State what could not be verified, such as perspectives that coworkers simulated rather than heard from real people.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Design the session",
+          "brief": "Write the invitation and sequence structures with timings and the convergence rule.",
+          "acceptance": "Every minute is allocated; the convergence rule is explicit."
+        },
+        {
+          "activity": "human",
+          "title": "Confirm decision rights",
+          "brief": "Decision card: what the group decides versus recommends.",
+          "acceptance": "Owner confirms.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Guide and slides",
+          "brief": "Render the facilitation guide and slides.",
+          "acceptance": "Guide includes exact instructions per structure.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Facilitator review",
+          "brief": "A facilitator checks flow, timing and inclusion.",
+          "acceptance": "First line is APPROVED or CHANGES; timing risks flagged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Run the session",
+          "brief": "Run the session as a voiced workshop when held in the workspace; the owner can join.",
+          "acceptance": "Every participant perspective contributes; the convergence rule is applied.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Synthesis",
+          "brief": "Write themes, actions and open questions.",
+          "acceptance": "Each action has an owner and a date.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The invitation question is open and within the group's influence.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Simulated perspectives are labelled as coworker perspectives, not real people's views.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Time is balanced between generating and converging.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The session ends with actions that have owners and dates.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "workshop-design",
+        "structured-brainstorm",
+        "meeting-minutes",
+        "retrospective",
+        "decision-record"
+      ],
+      "example_request": "My team of eight keeps having the same circular conversation about our returns process. Design a 60-minute session where everyone actually contributes and we leave with changes.",
+      "typical_departments": [
+        "core-crew"
+      ],
+      "version": 1
+    },
+    {
+      "id": "meeting-minutes",
+      "name": "Minutes, decisions & actions",
+      "icon": "🖋️",
+      "category": "meetings-facilitation",
+      "one_liner": "Decisions, actions with owner and date, and open questions.",
+      "description": "Turns a recording, transcript or rough notes into minutes people use: decisions with rationale, actions with owner, due date and done-criteria, open questions and parking-lot items, keeping what was decided separate from what was only discussed. Decisions are saved to memory with provenance.",
+      "when": "after any meeting, call or voiced coworker session that produced decisions or actions",
+      "inputs": [
+        {
+          "id": "recording_or_notes",
+          "label": "Recording, transcript or notes",
+          "required": true,
+          "source": "file",
+          "example": "Supplier call recording, 38 minutes"
+        },
+        {
+          "id": "attendees",
+          "label": "Who attended and their roles",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "agenda",
+          "label": "The agenda, if there was one",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "minutes",
+          "name": "Minutes",
+          "format": "md",
+          "description": "Decisions, actions (owner, date, done-criteria), open questions and parking lot."
+        },
+        {
+          "artifact_type": "transcript",
+          "name": "Transcript",
+          "format": "md",
+          "description": "Speaker-labelled transcript with timestamps when audio was provided."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Recap message",
+          "format": "md",
+          "description": "A short recap the owner can send to attendees."
+        }
+      ],
+      "tools": [
+        "stt",
+        "file_parse",
+        "connector_read",
+        "ask_coworker",
+        "document_generate",
+        "memory_write"
+      ],
+      "connectors_optional": [
+        "zoom",
+        "microsoft-teams",
+        "google-workspace",
+        "asana",
+        "notion"
+      ],
+      "modalities": [
+        "audio",
+        "file",
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Transcribe audio with stt, or read a transcript through connector_read from the meeting tool, or parse notes with file_parse; label speakers. 2. Extract decisions (what was decided, by whom, why), actions (verb-first, one owner, a due date and done-criteria), open questions and parking-lot items. 3. Separate decided from discussed: never record a discussion as a decision. Quote exact wording for commitments involving money, dates or customers, with the timestamp. 4. Where an owner or date is ambiguous, list it as a question, or use ask_coworker to check with the coworker who ran the meeting. 5. Render the minutes and a short recap message with document_generate; the owner sends the recap. 6. Propose memory entries for decisions with memory_write, including provenance (meeting, date, timestamp). 7. State what could not be verified, such as inaudible passages or unclear speaker attribution.",
+      "workflow": [
+        {
+          "activity": "stt",
+          "title": "Transcribe",
+          "brief": "Transcribe the recording or load the transcript and label speakers.",
+          "acceptance": "Transcript with speakers and timestamps, or notes loaded."
+        },
+        {
+          "activity": "llm",
+          "title": "Extract minutes",
+          "brief": "Extract decisions, actions, questions and parking lot.",
+          "acceptance": "Every action has one owner, a date and done-criteria, or is listed as a question.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Accuracy check",
+          "brief": "A QA verifier checks each decision and action against the transcript.",
+          "acceptance": "First line is APPROVED or CHANGES; misattributions corrected.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render minutes and recap",
+          "brief": "Render the minutes and recap message.",
+          "acceptance": "Minutes and recap agree.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "memory",
+          "title": "Save decisions",
+          "brief": "Propose decision memories with provenance.",
+          "acceptance": "Each decision saved with meeting, date and timestamp.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Nothing discussed is recorded as decided.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every action has exactly one owner and a due date, or is flagged.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Commitments about money, dates or customers are quoted with a timestamp.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Minutes are skimmable in under a minute.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Decisions are saved to memory with provenance.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 15,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "meeting-agenda",
+        "decision-record",
+        "decision-archive",
+        "standup-digest",
+        "status-report"
+      ],
+      "example_request": "Here's the recording of this morning's supplier call. Give me the decisions and who's doing what by when.",
+      "typical_departments": [
+        "core-crew"
+      ],
+      "version": 1
+    },
+    {
+      "id": "decision-record",
+      "name": "Decision record (DACI)",
+      "icon": "🧷",
+      "category": "meetings-facilitation",
+      "one_liner": "Driver, approver, contributors, options and the decision with its rationale.",
+      "description": "Documents a decision with DACI (driver, approver, contributors, informed): context, options including doing nothing, criteria and weights, trade-offs, the decision and its rationale, whether it can be easily reversed, and the conditions that would reopen it. The record is saved so the team stops relitigating.",
+      "when": "a decision is significant, contested or likely to be revisited, or the owner needs to choose between options with trade-offs",
+      "inputs": [
+        {
+          "id": "decision_question",
+          "label": "The decision to make or record",
+          "required": true,
+          "source": "owner",
+          "example": "Switch point-of-sale from Square to Toast?"
+        },
+        {
+          "id": "options",
+          "label": "Options under consideration",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "criteria",
+          "label": "What matters most",
+          "required": false,
+          "source": "owner",
+          "example": "Cost, kitchen workflow, reporting, migration risk"
+        },
+        {
+          "id": "evidence",
+          "label": "Analyses, quotes, notes",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "decision_record",
+          "name": "Decision record",
+          "format": "md + json",
+          "description": "DACI, context, options, criteria, trade-offs, decision, rationale, reversibility and review date."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "ask_coworker",
+        "request_owner_decision",
+        "document_generate",
+        "memory_write"
+      ],
+      "connectors_optional": [
+        "notion",
+        "confluence",
+        "google-workspace",
+        "slack"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Recall related past decisions and evidence with memory_recall and embeddings_search; if the same question was decided before, show that record first. 2. Assign DACI roles: one driver, one approver (usually the owner), contributors and informed. 3. Frame the question neutrally and list at least two real options plus doing nothing, each with costs, benefits and risks. 4. Agree criteria and weights, and gather contributor input with ask_coworker (for example finance on cost, operations on workflow). 5. Classify reversibility: a one-way door (hard to undo, go slow) or a two-way door (cheap to undo, decide fast). 6. Present the options to the approver with request_owner_decision and record the decision, rationale, dissent, review date and reversal conditions ('we revisit if X'). 7. Render with document_generate and save to memory with memory_write. 8. State what could not be verified, such as vendor claims not yet tested.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Frame and gather",
+          "brief": "Frame the question, assign DACI, list options and criteria.",
+          "acceptance": "At least two options plus doing nothing; criteria weighted."
+        },
+        {
+          "activity": "llm",
+          "title": "Contributor input",
+          "brief": "Collect bounded input from contributor coworkers.",
+          "acceptance": "Each contributor's input is recorded against the criteria.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic review",
+          "brief": "The sceptic checks for missing options, biased framing and unstated risks.",
+          "acceptance": "First line is APPROVED or CHANGES; framing bias removed.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Approver decides",
+          "brief": "Decision card with options, trade-offs and a recommendation.",
+          "acceptance": "Approver's decision recorded with rationale.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render record",
+          "brief": "Render the decision record.",
+          "acceptance": "Record includes reversibility, review date and reversal conditions.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "memory",
+          "title": "Save the decision",
+          "brief": "Save the decision to memory with provenance.",
+          "acceptance": "Memory entry links to the record.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "There is exactly one approver, and the decision is theirs.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Doing nothing is considered as an option.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The record states reversal conditions and a review date.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Dissenting views are recorded.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Prior related decisions are linked.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "decision-archive",
+        "compare-options",
+        "structured-debate",
+        "meeting-minutes",
+        "architecture-decision-record"
+      ],
+      "example_request": "We decided to switch from Square to Toast, but I can already feel us relitigating it in three months. Write it up properly so we remember why.",
+      "typical_departments": [
+        "core-crew",
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "workshop-design",
+      "name": "Workshop design",
+      "icon": "🧱",
+      "category": "meetings-facilitation",
+      "one_liner": "Multi-hour workshop agenda, exercises, materials and outputs.",
+      "description": "Designs a multi-hour workshop or offsite: objectives and outputs, participant pre-work, agenda blocks shaped by an energy curve (diverge, converge, decide), exercises such as affinity mapping, How Might We, dot voting and a Lightning Decision Jam, a facilitator script, a materials list, room or remote setup, and follow-through after the day.",
+      "when": "the owner is planning an offsite, strategy day, planning session or kickoff longer than about 90 minutes",
+      "inputs": [
+        {
+          "id": "purpose_and_outputs",
+          "label": "Why the workshop and what must exist afterwards",
+          "required": true,
+          "source": "owner",
+          "example": "Next year's priorities and owners"
+        },
+        {
+          "id": "participants",
+          "label": "Who, how many, in person or remote",
+          "required": true,
+          "source": "owner",
+          "example": "12 managers, in person"
+        },
+        {
+          "id": "duration_and_venue",
+          "label": "Length and venue constraints",
+          "required": true,
+          "source": "owner",
+          "example": "Half day, one room with a whiteboard"
+        },
+        {
+          "id": "inputs_available",
+          "label": "Data and documents to bring",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Workshop design",
+          "format": "md -> docx",
+          "description": "Objectives, agenda blocks, exercises, facilitator script and follow-through."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Run-of-show",
+          "format": "xlsx",
+          "description": "Minute-by-minute schedule with owner, materials and output per block."
+        },
+        {
+          "artifact_type": "deck",
+          "name": "Workshop slides",
+          "format": "pptx",
+          "description": "Prompts, timers and templates per exercise."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Materials and setup",
+          "format": "md",
+          "description": "Room, supplies, remote tools and pre-work reminders."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "document_generate",
+        "spreadsheet_generate",
+        "deck_generate",
+        "convene_meeting"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "zoom",
+        "figma",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "voice"
+      ],
+      "instructions": "1. Recall strategy, goals and past workshop outputs with memory_recall; define 2-4 concrete outputs. 2. Design pre-work (short reading or a two-question survey) so the day starts from shared facts. 3. Shape the day on an energy curve: an opener that gets everyone talking in the first 10 minutes, divergent work early, convergence after a break, decisions before fatigue, and a clear close with owners. 4. Choose exercises per block (affinity mapping, How Might We, dot voting, Lightning Decision Jam, a pre-mortem) with exact instructions and timings. 5. Write the facilitator script, the run-of-show with spreadsheet_generate, slides with deck_generate and the design with document_generate. 6. Optionally rehearse the hardest block as a short voiced dry run with coworkers using convene_meeting, and adjust timings. 7. Plan follow-through: who writes it up, when outputs are shared, and the first check-in. 8. State what could not be verified, such as room constraints or remote-tool access.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Objectives and structure",
+          "brief": "Define outputs, pre-work and agenda blocks on an energy curve.",
+          "acceptance": "Every block produces a named output."
+        },
+        {
+          "activity": "llm",
+          "title": "Exercises and script",
+          "brief": "Detail exercises and write the facilitator script.",
+          "acceptance": "Each exercise has instructions, timing and materials.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render the kit",
+          "brief": "Render the design, run-of-show, slides and checklist.",
+          "acceptance": "Run-of-show adds up to the available time with breaks.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Dry run",
+          "brief": "Voiced dry run of the hardest block with coworkers.",
+          "acceptance": "Timing adjustments recorded.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Facilitator review",
+          "brief": "A facilitator checks flow, inclusion and realism.",
+          "acceptance": "First line is APPROVED or CHANGES; risks named with fixes.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every block produces a named output.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The schedule includes breaks and fits the available time.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Quieter participants have structured ways to contribute.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Follow-through names who writes it up and when.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "facilitated-session",
+        "structured-brainstorm",
+        "okr-set",
+        "meeting-minutes",
+        "pre-mortem"
+      ],
+      "example_request": "We're doing a half-day offsite with our 12 managers to plan next year. Design the workshop so it's not just me talking at them.",
+      "typical_departments": [
+        "core-crew",
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "structured-brainstorm",
+      "name": "Structured brainstorm",
+      "icon": "💡",
+      "category": "meetings-facilitation",
+      "one_liner": "SCAMPER or Crazy 8s ideation that ends in a shortlist with criteria.",
+      "description": "Runs a structured ideation session: frames the problem as How Might We questions, diverges with SCAMPER, brainwriting and Crazy 8s among coworkers from different disciplines, then converges on agreed criteria to a shortlist with quick concept sketches, ready for the owner to pick.",
+      "when": "the owner needs fresh options for a problem (a slow period, a new offer, a name, a process fix) and wants a shortlist rather than a pile of ideas",
+      "inputs": [
+        {
+          "id": "problem",
+          "label": "The problem or opportunity",
+          "required": true,
+          "source": "owner",
+          "example": "The café is dead between 2 and 5pm"
+        },
+        {
+          "id": "constraints",
+          "label": "Budget, time and non-negotiables",
+          "required": false,
+          "source": "owner",
+          "example": "Under $500 to test; no extra staff"
+        },
+        {
+          "id": "criteria",
+          "label": "How ideas will be judged",
+          "required": false,
+          "source": "owner",
+          "example": "Impact, cost, fit with brand, speed to test"
+        },
+        {
+          "id": "context",
+          "label": "Customer and business context",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Idea bank and scoring",
+          "format": "xlsx",
+          "description": "All ideas with source technique, criteria scores and shortlist flag."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Concept sketches",
+          "format": "png",
+          "description": "A quick sketch for each shortlisted idea."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Shortlist",
+          "format": "md -> pdf",
+          "description": "Top 3-5 ideas with how to test each cheaply."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "convene_meeting",
+        "spreadsheet_generate",
+        "image_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "notion",
+        "figma"
+      ],
+      "modalities": [
+        "text",
+        "voice",
+        "image"
+      ],
+      "instructions": "1. Recall context with memory_recall and reframe the problem as 3-5 How Might We questions at the right altitude (not too broad, not too narrow). 2. Convene a voiced brainstorm with convene_meeting, drawing coworkers from different disciplines; the owner can listen or join. 3. Diverge without critique: brainwriting (6-3-5 style), SCAMPER prompts (substitute, combine, adapt, modify, put to other use, eliminate, reverse), and a Crazy 8s round; aim for quantity and build on others' ideas. 4. Cluster the ideas, then converge: score against the agreed criteria in spreadsheet_generate and shortlist 3-5, with the sceptic naming the riskiest assumption in each. 5. Sketch each shortlisted concept with image_generate so the owner can picture it. 6. Write the shortlist with a cheap test for each using document_generate, and ask the owner to pick with request_owner_decision. 7. State what could not be verified, such as customer appetite, which each test is designed to check.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Frame the problem",
+          "brief": "Write How Might We questions and criteria.",
+          "acceptance": "3-5 How Might We questions and explicit criteria."
+        },
+        {
+          "activity": "meeting",
+          "title": "Diverge",
+          "brief": "Voiced brainstorm using brainwriting, SCAMPER and Crazy 8s.",
+          "acceptance": "At least 30 distinct ideas captured with their technique.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Cluster and score",
+          "brief": "Cluster ideas and score them against the criteria.",
+          "acceptance": "Every idea scored; shortlist of 3-5.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic pass",
+          "brief": "The sceptic names the riskiest assumption per shortlisted idea.",
+          "acceptance": "First line is APPROVED or CHANGES; each idea has its riskiest assumption.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Concept sketches",
+          "brief": "Sketch each shortlisted idea.",
+          "acceptance": "One sketch per shortlisted idea.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner picks",
+          "brief": "Decision card with the shortlist, sketches and tests.",
+          "acceptance": "Owner picks ideas to test.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Divergence and convergence are separated; no critique during divergence.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Shortlisted ideas are scored against explicit criteria.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Coworkers come from at least three disciplines.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Each shortlisted idea has a cheap test and its riskiest assumption.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "facilitated-session",
+        "rice-prioritization",
+        "ab-test-design",
+        "pre-mortem",
+        "opportunity-solution-tree"
+      ],
+      "example_request": "Our coffee shop is dead between 2 and 5pm. Get a few of your people to brainstorm ideas and give me a shortlist I can try next month.",
+      "typical_departments": [
+        "core-crew",
+        "marketing-growth",
+        "product"
+      ],
+      "version": 1
+    },
+    {
+      "id": "retrospective",
+      "name": "Retrospective",
+      "icon": "🔄",
+      "category": "meetings-facilitation",
+      "one_liner": "Start/Stop/Continue or 4Ls retro with agreed changes.",
+      "description": "Runs a blameless retrospective on a project, season or incident. It builds a timeline from real artifacts, collects Start / Stop / Continue or 4Ls (liked, learned, lacked, longed for), digs into the top issues with 5 Whys, checks what happened to the last retro's actions, and ends with 1-3 agreed changes with owners and dates, saved as lessons.",
+      "when": "after a project, launch, busy season, incident or at a regular cadence",
+      "inputs": [
+        {
+          "id": "scope",
+          "label": "What period or project to reflect on",
+          "required": true,
+          "source": "owner",
+          "example": "The holiday rush, Nov 20 to Jan 2"
+        },
+        {
+          "id": "participants",
+          "label": "Who takes part (people and coworkers)",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "artifacts",
+          "label": "Plans, metrics, tickets and messages from the period",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "previous_actions",
+          "label": "Actions from the last retro",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "minutes",
+          "name": "Retro summary",
+          "format": "md",
+          "description": "Timeline, themes, root causes and agreed changes with owner and date."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Change actions",
+          "format": "md",
+          "description": "1-3 changes with owner, date and how we will know it worked."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "convene_meeting",
+        "document_generate",
+        "memory_write"
+      ],
+      "connectors_optional": [
+        "asana",
+        "trello",
+        "jira",
+        "linear",
+        "slack",
+        "zendesk"
+      ],
+      "modalities": [
+        "text",
+        "voice",
+        "file"
+      ],
+      "instructions": "1. Set a blameless frame: focus on systems and decisions, not people. 2. Build a factual timeline from artifacts found with embeddings_search and memory_recall (plans, metrics, tickets, messages), and check what happened to the last retro's actions. 3. Run the retro with convene_meeting (retro format) using Start / Stop / Continue or 4Ls; the owner can listen or join, and human staff input can be added. 4. Pick the top 2-3 issues by impact and dig with 5 Whys to a cause the team controls. 5. Agree 1-3 changes (not ten), each with an owner, a date and a signal that it worked. 6. Render the summary with document_generate and save lessons with memory_write so the next plan starts from them. 7. State what could not be verified, such as causes inferred without data.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Timeline and last actions",
+          "brief": "Build a factual timeline from artifacts and review last retro's actions.",
+          "acceptance": "Timeline cites artifacts; previous actions have a status."
+        },
+        {
+          "activity": "meeting",
+          "title": "Run the retro",
+          "brief": "Voiced retro using Start / Stop / Continue or 4Ls, then 5 Whys on top issues.",
+          "acceptance": "Top issues have root causes the team controls.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Agree changes",
+          "brief": "Choose 1-3 changes with owner, date and success signal.",
+          "acceptance": "No more than three changes; each has owner, date and signal.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render summary",
+          "brief": "Render the retro summary and change checklist.",
+          "acceptance": "Summary is blameless and skimmable.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "memory",
+          "title": "Save lessons",
+          "brief": "Save lessons and changes to memory with provenance.",
+          "acceptance": "Lessons saved and linked to the retro.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The retro is blameless: causes are systems and decisions, not individuals.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No more than three changes, each with an owner and date.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Last retro's actions are reviewed.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The timeline cites real artifacts.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "post-mortem",
+        "root-cause-analysis",
+        "meeting-minutes",
+        "weekly-review",
+        "engagement-survey"
+      ],
+      "example_request": "The holiday rush was chaos. Run a retro with the team on what went wrong and give me three things we change before next year.",
+      "typical_departments": [
+        "core-crew",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "standup-digest",
+      "name": "Stand-up digest",
+      "icon": "⏱️",
+      "category": "meetings-facilitation",
+      "one_liner": "What moved, what is blocked and what needs the owner, in one minute.",
+      "description": "A one-minute stand-up for the owner: what moved since yesterday, what is blocked and by whom, and exactly what needs the owner, drawn from project tools and coworker task states. It comes as a skimmable text digest, a 60-second audio version, and decision cards for anything waiting on the owner.",
+      "when": "the owner wants a quick status without a meeting, or a team is running several tasks in parallel",
+      "inputs": [
+        {
+          "id": "scope",
+          "label": "Which projects or teams",
+          "required": true,
+          "source": "owner",
+          "example": "Launch team and the kitchen refit"
+        },
+        {
+          "id": "project_tools",
+          "label": "Project and task tools",
+          "required": false,
+          "source": "connector",
+          "example": "Asana, Linear"
+        },
+        {
+          "id": "since",
+          "label": "Period to cover",
+          "required": false,
+          "source": "owner",
+          "example": "Since yesterday 9am"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "Stand-up digest",
+          "format": "md",
+          "description": "Moved, blocked, needs you: at most 10 lines with links."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "60-second audio",
+          "format": "mp3",
+          "description": "The same digest spoken by the lead or the project manager."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "memory_recall",
+        "ask_coworker",
+        "document_generate",
+        "tts",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "asana",
+        "trello",
+        "clickup",
+        "linear",
+        "jira",
+        "monday",
+        "slack",
+        "github"
+      ],
+      "modalities": [
+        "text",
+        "audio",
+        "connector_data"
+      ],
+      "instructions": "1. Read task changes since the last digest with connector_read and recall the workspace's own task states with memory_recall. 2. Use ask_coworker for one-line status from any coworker whose task changed or stalled. 3. Write three sections: moved (done or advanced, with the evidence link), blocked (what, by whom, since when), needs you (decisions or inputs, each with a deadline). 4. Keep it under 10 lines; if more than five items move, group them. 5. Render the digest with document_generate and a 60-second audio version with tts. 6. Raise each 'needs you' item as a decision card with request_owner_decision. 7. Recurring delivery (for example every weekday at 8am) is set up by the lead as a separately approved automation. State what could not be verified, such as tasks not updated in their tools.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read task changes",
+          "brief": "Read task changes from project tools and workspace task states.",
+          "acceptance": "Change list since the last digest."
+        },
+        {
+          "activity": "llm",
+          "title": "Collect coworker status",
+          "brief": "Ask coworkers with changed or stalled tasks for a one-line status.",
+          "acceptance": "Each changed task has a status line.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Write the digest",
+          "brief": "Write moved, blocked and needs-you sections.",
+          "acceptance": "At most 10 lines; every item links to evidence.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Audio version",
+          "brief": "Render the digest as 60 seconds of audio.",
+          "acceptance": "Audio 45-75 seconds.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Raise decisions",
+          "brief": "Raise each needs-you item as a decision card.",
+          "acceptance": "One card per item with a deadline.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every 'moved' item links to evidence; nothing is claimed done without a receipt.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every 'needs you' item has a deadline and a decision card.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The digest fits in 10 lines and 60 seconds of audio.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Blocked items name who or what is blocking.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 5,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "status-report",
+        "daily-brief",
+        "weekly-review",
+        "listen-in-briefing",
+        "meeting-minutes"
+      ],
+      "example_request": "I don't have time for a stand-up. Just tell me in one minute what moved, what's stuck and what you need from me.",
+      "typical_departments": [
+        "core-crew"
+      ],
+      "version": 1
+    },
+    {
+      "id": "structured-debate",
+      "name": "Structured debate",
+      "icon": "⚔️",
+      "category": "meetings-facilitation",
+      "one_liner": "For-and-against debate with the sceptic that ends in a recommendation.",
+      "description": "A voiced for-and-against debate on a decision. Proposition and opposition coworkers steelman each side with evidence, the sceptic speaks for stakeholders not in the room, and a facilitator runs openings, rebuttals, cross-examination and closings. It ends in a recommendation with a confidence level and what would change the team's mind. The owner can listen live.",
+      "when": "the owner faces a real either-or choice with strong arguments on both sides, or suspects the team is anchoring on one answer",
+      "inputs": [
+        {
+          "id": "motion",
+          "label": "The decision framed as a motion",
+          "required": true,
+          "source": "owner",
+          "example": "We should raise prices 12 percent rather than add a cheaper tier"
+        },
+        {
+          "id": "evidence",
+          "label": "Relevant data, research and constraints",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "stakeholders",
+          "label": "Who is affected but not in the room",
+          "required": false,
+          "source": "owner",
+          "example": "Long-time customers, front-line staff"
+        },
+        {
+          "id": "decision_deadline",
+          "label": "When the owner must decide",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "transcript",
+          "name": "Debate transcript",
+          "format": "md",
+          "description": "Speaker-labelled rounds with cited evidence."
+        },
+        {
+          "artifact_type": "decision_record",
+          "name": "Recommendation",
+          "format": "md",
+          "description": "Recommendation, confidence, strongest argument on each side, and what would change our mind."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Debate audio",
+          "format": "mp3",
+          "description": "The voiced debate, playable like an episode."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "web_search",
+        "convene_meeting",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "stripe",
+        "shopify",
+        "hubspot",
+        "google-analytics"
+      ],
+      "modalities": [
+        "text",
+        "voice",
+        "audio"
+      ],
+      "instructions": "1. Frame the motion neutrally and recall evidence with memory_recall; each side researches its case with web_search, and every factual claim is cited. 2. Staff the debate: proposition and opposition from different disciplines, the sceptic speaking for absent stakeholders, and a facilitator enforcing time and evidence rules. 3. Run it with convene_meeting (debate format): openings (2 minutes each), rebuttals, a cross-examination round, then closings. Each side must steelman the other before rebutting. 4. The facilitator scores arguments on evidence, relevance to the owner's goals and reversibility, not on rhetoric. 5. Write the recommendation: the choice, confidence (low, medium, high), the strongest argument on each side, and the signals that would change the recommendation. Render with document_generate. 6. Put the decision to the owner with request_owner_decision. 7. State what could not be verified, such as claims resting on assumptions rather than data.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Build both cases",
+          "brief": "Each side researches and cites evidence for its case.",
+          "acceptance": "Each side has at least three cited points."
+        },
+        {
+          "activity": "meeting",
+          "title": "Debate",
+          "brief": "Voiced debate with openings, rebuttals, cross-examination and closings.",
+          "acceptance": "Both sides steelman before rebutting; the sceptic speaks for absent stakeholders.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Adjudicate",
+          "brief": "Facilitator scores arguments and drafts the recommendation.",
+          "acceptance": "Recommendation states confidence and what would change the view.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Fairness check",
+          "brief": "A reviewer from another discipline checks that the recommendation follows the evidence.",
+          "acceptance": "First line is APPROVED or CHANGES; unsupported leaps flagged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner decides",
+          "brief": "Decision card with the recommendation and both strongest arguments.",
+          "acceptance": "Owner decides or asks for more evidence.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Both sides steelman the other before rebutting.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every factual claim is cited.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The recommendation states confidence and what would change it.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Absent stakeholders are represented by the sceptic.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "decision-record",
+        "red-team-critique",
+        "pricing-and-packaging",
+        "compare-options",
+        "listen-in-briefing"
+      ],
+      "example_request": "Should we raise prices 12% or add a cheaper tier? Have your team argue both sides properly and tell me what you'd do.",
+      "typical_departments": [
+        "core-crew",
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "disagreement-mediation",
+      "name": "Disagreement mediation",
+      "icon": "🕊️",
+      "category": "meetings-facilitation",
+      "one_liner": "Interest-based mediation between positions, ending in an agreed next step.",
+      "description": "Interest-based mediation (Fisher and Ury): separate caucuses to surface each side's interests behind their positions, then a joint session to agree the facts, generate options for mutual gain, choose objective criteria and agree a concrete next step and follow-up. Serious workplace matters are escalated to the owner and qualified HR or counsel instead.",
+      "when": "two teammates, partners or coworkers are stuck in opposing positions on a work issue and the owner wants them to find a way forward",
+      "inputs": [
+        {
+          "id": "dispute",
+          "label": "What the disagreement is about",
+          "required": true,
+          "source": "owner",
+          "example": "Kitchen close time: head chef wants 9pm, front of house wants 10pm"
+        },
+        {
+          "id": "parties",
+          "label": "Who is involved and their roles",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "constraints",
+          "label": "Non-negotiables and decision rights",
+          "required": false,
+          "source": "owner",
+          "example": "Labor budget fixed; owner decides if no agreement"
+        },
+        {
+          "id": "facts",
+          "label": "Relevant data",
+          "required": false,
+          "source": "memory",
+          "example": "Covers by hour, labor cost, reviews mentioning late service"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Mediation brief",
+          "format": "md -> docx",
+          "description": "Each side's interests, shared facts, options and criteria."
+        },
+        {
+          "artifact_type": "decision_record",
+          "name": "Agreement",
+          "format": "md",
+          "description": "The agreed next step, owners, trial period, and how success is judged."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "ask_coworker",
+        "convene_meeting",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "toast",
+        "square",
+        "google-workspace",
+        "slack"
+      ],
+      "modalities": [
+        "text",
+        "voice"
+      ],
+      "instructions": "1. Screen first: if the matter involves harassment, discrimination, safety, a health condition or accommodation, pay, or discipline, stop and escalate to the owner and a qualified HR professional or counsel. 2. Recall relevant facts with memory_recall. Hold separate caucuses (ask_coworker for coworker positions, or structured questions the owner relays to people) to surface interests: what each side needs and fears, not just what they demand. 3. Build shared facts: agree what the data says before debating what to do. 4. Run a joint session with convene_meeting: restate each side's interests to that side's satisfaction, then generate options for mutual gain (trials, splits by day, contingent agreements). 5. Choose objective criteria (customer data, cost, fairness) and pick a next step, often a time-boxed trial with a review date. 6. Record the agreement with document_generate; if there is no agreement, present the options to the owner with request_owner_decision. 7. State what could not be verified, such as each person's actual views when relayed rather than heard directly.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Screen and prepare",
+          "brief": "Screen for escalation triggers and gather facts.",
+          "acceptance": "Escalation screen recorded; shared facts listed."
+        },
+        {
+          "activity": "llm",
+          "title": "Caucuses",
+          "brief": "Surface each side's interests separately.",
+          "acceptance": "Each side's interests restated in their own terms.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Joint session",
+          "brief": "Voiced joint session: confirm interests, generate options, choose criteria.",
+          "acceptance": "At least three options; criteria agreed.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Neutrality check",
+          "brief": "A facilitator checks the brief and options for bias toward either side.",
+          "acceptance": "First line is APPROVED or CHANGES; biased framing corrected.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Agreement",
+          "brief": "Record the agreed next step with trial period and review date.",
+          "acceptance": "Agreement names owners, the trial period and success measures.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner decides if stuck",
+          "brief": "If there is no agreement, decision card with the options.",
+          "acceptance": "Owner decides, or confirms the agreement.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Harassment, discrimination, safety, accommodation, pay or discipline matters are escalated, not mediated.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each side's interests are restated accurately in their own terms.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The outcome is a concrete next step with a review date.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Options are judged on objective criteria.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "manager-feedback-guide",
+        "decision-record",
+        "facilitated-session",
+        "structured-debate",
+        "negotiation-prep"
+      ],
+      "example_request": "My head chef and front-of-house manager are at war over when the kitchen closes. Help them find something they can both live with.",
+      "typical_departments": [
+        "core-crew",
+        "people-culture"
+      ],
+      "version": 1
+    },
+    {
+      "id": "listen-in-briefing",
+      "name": "Listen-in briefing",
+      "icon": "📻",
+      "category": "meetings-facilitation",
+      "one_liner": "A voiced, podcast-style team briefing the owner can play like an episode.",
+      "description": "A voiced, podcast-style team briefing the owner can play like an episode. The lead hosts, and each coworker reports their own work in their own voice with lip-synced avatars. Chapters cover progress, risks and decisions needed, with a transcript and a summary card, so the owner can join live or skip straight to the decisions.",
+      "when": "the owner wants to catch up hands-free (driving, walking, between jobs) on a project or the whole workspace, or prefers listening to reading",
+      "inputs": [
+        {
+          "id": "scope",
+          "label": "Which team or projects to brief on",
+          "required": true,
+          "source": "owner",
+          "example": "The launch team"
+        },
+        {
+          "id": "length",
+          "label": "Target length",
+          "required": false,
+          "source": "owner",
+          "example": "8 minutes"
+        },
+        {
+          "id": "focus",
+          "label": "Anything the owner especially wants covered",
+          "required": false,
+          "source": "owner",
+          "example": "Whether we are still on track for the 14th"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Briefing episode",
+          "format": "mp3",
+          "description": "Voiced, chaptered briefing with each coworker in their own voice."
+        },
+        {
+          "artifact_type": "transcript",
+          "name": "Transcript",
+          "format": "md",
+          "description": "Speaker-labelled transcript with chapter timestamps."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Summary card",
+          "format": "md",
+          "description": "Three headlines, risks and the decisions needed, with links."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "ask_coworker",
+        "convene_meeting",
+        "tts",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "asana",
+        "linear",
+        "jira",
+        "slack",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "audio",
+        "voice"
+      ],
+      "instructions": "1. Gather the state of play with memory_recall and embeddings_search: plan status, artifacts, receipts, risks and pending decisions. 2. Use ask_coworker to have each contributing coworker prepare a 45-90 second segment on their own work: what is done (with evidence), what is next, and what worries them. 3. Write the run-of-show: cold open with the headline, chapters (progress, risks, decisions needed), and a close that restates the decisions. Keep numbers spoken naturally and avoid reading tables. 4. Convene it with convene_meeting in briefing format. The lead hosts, each coworker speaks in their own catalog voice through tts with lip sync, and voices stay unique within the episode. The owner can listen, join and ask questions, or skip to the summary. 5. Produce the transcript and summary card with document_generate. 6. Raise each decision as a card with request_owner_decision so the owner can act right after listening. 7. State what could not be verified, such as work reported without a receipt, which must be labelled as unconfirmed in the episode.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Gather state of play",
+          "brief": "Collect status, artifacts, risks and pending decisions.",
+          "acceptance": "Every claim of progress has a receipt or is marked unconfirmed."
+        },
+        {
+          "activity": "llm",
+          "title": "Coworker segments",
+          "brief": "Each coworker prepares a short segment on their own work.",
+          "acceptance": "Each segment is 45-90 seconds with done, next and worries.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Run-of-show",
+          "brief": "Write the cold open, chapters and close.",
+          "acceptance": "Episode fits the target length; decisions are restated at the end.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Record the briefing",
+          "brief": "Voiced briefing hosted by the lead; each coworker in their own voice with lip sync.",
+          "acceptance": "All segments voiced; voices unique within the episode.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Transcript and summary",
+          "brief": "Produce the transcript with chapters and the summary card.",
+          "acceptance": "Chapter timestamps line up with the audio.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Decision cards",
+          "brief": "Raise each decision needed as a card.",
+          "acceptance": "One card per decision with a deadline.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Progress is only claimed with a receipt; anything else is labelled unconfirmed.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each coworker speaks in their own assigned voice, unique within the episode.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Decisions needed are restated at the end and raised as cards.",
+          "severity": "must"
+        },
+        {
+          "criterion": "A transcript is available for accessibility.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The headline comes in the first 20 seconds.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "standup-digest",
+        "daily-brief",
+        "voiceover-briefing",
+        "podcast-episode",
+        "status-report"
+      ],
+      "example_request": "I'm driving for the next hour. Have the launch team brief me on where everything stands, like a podcast, and tell me what you need me to decide.",
+      "typical_departments": [
+        "core-crew",
+        "content-comms-pr"
+      ],
+      "version": 1
+    }
+  ]
+}

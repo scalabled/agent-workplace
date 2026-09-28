@@ -1,0 +1,2182 @@
+{
+  "category": "finance",
+  "version": 1,
+  "skills": [
+    {
+      "id": "three-statement-model",
+      "name": "Three-statement financial model",
+      "icon": "🧮",
+      "category": "finance",
+      "one_liner": "Linked P&L, balance sheet and cash flow with drivers, scenarios and checks.",
+      "description": "Builds a linked profit and loss, balance sheet and cash flow model from historical accounts and agreed drivers, following FAST modelling conventions: separate inputs, one formula per row, no hard-codes, scenario switch, and a checks sheet proving the balance sheet balances and cash ties every period.",
+      "when": "the owner needs projections for a loan, investor, partner or big decision, or wants to see how growth, pricing or hiring flows through to cash",
+      "inputs": [
+        {
+          "id": "historicals",
+          "label": "12-36 months of P&L and balance sheet",
+          "required": true,
+          "source": "connector",
+          "example": "Xero P&L and balance sheet by month, 2023-2025"
+        },
+        {
+          "id": "purpose_and_horizon",
+          "label": "Who the model is for and how far ahead",
+          "required": true,
+          "source": "owner",
+          "example": "Bank loan for a second van; 3 years monthly then annual"
+        },
+        {
+          "id": "drivers",
+          "label": "Growth, pricing, hiring, capex and financing assumptions",
+          "required": true,
+          "source": "owner",
+          "example": "Sales +15%/yr, one hire in Q2, van £38k on a 5-year loan"
+        },
+        {
+          "id": "payment_terms",
+          "label": "Customer and supplier payment days, stock days",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Three-statement model",
+          "format": "xlsx",
+          "description": "Tabs: Inputs, Historicals, P&L, Balance sheet, Cash flow, Scenarios, Checks, Summary."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Assumptions book",
+          "format": "md -> docx",
+          "description": "Every assumption with source, owner and date, plus scenario definitions."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Cash and profit charts",
+          "format": "svg",
+          "description": "Cash balance and profit by period across scenarios."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "stripe",
+        "gusto",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Pull historicals with connector_read or file_parse and map them to a clean chart of accounts. Check the historic balance sheets balance and note any adjustments. 2. Agree drivers with the owner: revenue as volume x price (or customers x ARPU), cost of sales as % or unit cost, headcount x salary for payroll, rent and overheads by line, capex and depreciation, debtor, creditor and stock days, financing and tax at the rate the owner's accountant supplies. 3. Build with spreadsheet_generate using FAST conventions: inputs on one sheet (blue font), calculations in black, one formula per row consistent across columns, no hard-coded numbers inside formulas, named ranges for key inputs, a scenario switch cell (base, upside, downside). 4. Link the statements: net income flows to retained earnings; the indirect cash flow starts from net income, adds back depreciation and adjusts for working-capital changes; closing cash on the cash flow equals cash on the balance sheet. 5. Add a Checks sheet: balance sheet balances (difference = 0) every period, cash ties, no negative stock, debt schedule reconciles. Verify with code_interpreter by recomputing key lines independently. 6. Chart cash and profit by scenario with chart_generate. Write the assumptions book with document_generate. 7. Ask the owner to confirm the three assumptions that move the answer most (from a sensitivity check) with request_owner_decision. 8. Projections are estimates, not promises. Tax lines use rates supplied by the owner's accountant; tax treatment questions go to the accountant. Do not advise on whether to borrow or invest. 9. State what could not be verified: assumptions without evidence, historic figures that needed adjustment, and any check that fails.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load historicals",
+          "brief": "Pull and map historic P&L and balance sheet.",
+          "acceptance": "Historic balance sheets balance; mapping table complete."
+        },
+        {
+          "activity": "llm",
+          "title": "Agree drivers",
+          "brief": "List drivers and assumptions with sources and owners.",
+          "acceptance": "Every driver has a value, source and owner.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Build the linked model",
+          "brief": "Build inputs, statements, scenarios and checks with FAST conventions.",
+          "acceptance": "Balance check = 0 and cash ties in every period and scenario.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Sensitivity",
+          "brief": "Rank assumptions by their effect on cash low point and profit.",
+          "acceptance": "Top three sensitivities with ranges.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Numbers audit",
+          "brief": "An independent reviewer checks formulas, links and checks.",
+          "acceptance": "First line APPROVED or CHANGES; hard-codes and broken links listed.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner confirms key assumptions",
+          "brief": "Owner confirms the top three assumptions.",
+          "acceptance": "Owner decisions recorded.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Balance sheet balances and cash ties in every period and scenario.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No hard-coded numbers inside formula rows; inputs are separate and labelled.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Historic periods tie to the accounts within rounding.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every assumption has a source, owner and date.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Scenarios switch from a single cell.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "cash-flow-13-week",
+        "annual-budget",
+        "business-plan",
+        "unit-economics",
+        "numbers-audit"
+      ],
+      "example_request": "The bank wants three years of projections for a loan to buy a second van. Can you build a proper model from our Xero data?",
+      "typical_departments": [
+        "finance-accounting",
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "cash-flow-13-week",
+      "name": "13-week cash flow forecast",
+      "icon": "⏳",
+      "category": "finance",
+      "one_liner": "Receipts and disbursements by week with a runway view and levers.",
+      "description": "Forecasts cash week by week for 13 weeks using the direct method: expected receipts from actual invoices and collection patterns, disbursements from bills, payroll and tax calendars, the week of lowest cash against a minimum buffer, and quantified levers. Rolls forward weekly with forecast-vs-actual variance, with an optional spoken 'cash minute'.",
+      "when": "cash feels tight, a big payment or seasonal dip is coming, or the owner needs to know whether they can make payroll and pay suppliers",
+      "inputs": [
+        {
+          "id": "opening_cash",
+          "label": "Bank balances on a stated date",
+          "required": true,
+          "source": "connector",
+          "example": "Business current account and savings, as of Monday"
+        },
+        {
+          "id": "receivables_and_payables",
+          "label": "Open invoices and bills with due dates",
+          "required": true,
+          "source": "connector",
+          "example": "Xero aged receivables and payables"
+        },
+        {
+          "id": "payroll_and_tax_calendar",
+          "label": "Payroll dates, amounts and tax payment dates",
+          "required": true,
+          "source": "connector",
+          "example": "Gusto payroll schedule; VAT quarter due 7 Nov"
+        },
+        {
+          "id": "known_one_offs",
+          "label": "Planned purchases, loan payments, owner drawings",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "minimum_buffer",
+          "label": "The lowest cash balance the owner is comfortable with",
+          "required": false,
+          "source": "owner",
+          "example": "£15,000"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "13-week cash forecast",
+          "format": "xlsx",
+          "description": "Receipts and disbursements by line and week, closing cash, buffer check, variance roll-forward."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Cash runway chart",
+          "format": "svg",
+          "description": "Weekly closing cash against the buffer, with the low point marked."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Levers memo",
+          "format": "md",
+          "description": "Low point, cause, and levers (collect, delay, cut, finance) with amounts, timing and owners."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Monday cash minute",
+          "format": "mp3",
+          "description": "A 60-second spoken update of this week's cash position."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate",
+        "tts"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "stripe",
+        "square",
+        "paypal",
+        "gusto",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file",
+        "audio"
+      ],
+      "instructions": "1. Tie opening cash to bank balances on a stated date, pulled with connector_read or from statements via file_parse. 2. Receipts: for each open invoice, forecast the week of payment from that customer's historic days-to-pay (not the due date); add expected new sales with a collection lag from history. Include card and platform payouts on their settlement schedule. 3. Disbursements: supplier bills by due date and the business's actual payment habit, payroll and payroll taxes by pay date, rent, loan payments, subscriptions, sales tax or VAT payments by due date, owner drawings and known one-offs. 4. Build the week-by-week grid with spreadsheet_generate: opening cash, receipts by line, disbursements by line, net flow, closing cash, buffer check. Every line cites its source (invoice, bill, schedule or labelled assumption). 5. Identify the week of lowest cash and whether it breaches the buffer. Quantify levers with code_interpreter: accelerate collections (which invoices), delay or stage payments (which suppliers and the relationship cost), cut or defer spend, and financing options explained factually. Give each an amount, week and owner. 6. Chart closing cash vs buffer with chart_generate and write the levers memo with document_generate. 7. Each week, roll forward: replace last week's forecast with actuals, record variance by line and learn from it. 8. Optionally voice a 60-second Monday cash minute with tts. Escalate immediately to the owner if payroll or a tax payment is at risk. 9. State what could not be verified: receipts that depend on customer behaviour, unconfirmed one-offs, and data older than the stated date.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load balances, invoices, bills and calendars",
+          "brief": "Pull bank balances, receivables, payables, payroll and tax dates.",
+          "acceptance": "Opening cash ties to bank on a stated date."
+        },
+        {
+          "activity": "analysis",
+          "title": "Build the 13-week grid",
+          "brief": "Forecast receipts from payment behaviour and disbursements from schedules.",
+          "acceptance": "Every line has a source; closing cash computed for 13 weeks.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Low point and levers",
+          "brief": "Find the low point and quantify levers with timing and owners.",
+          "acceptance": "Low-point week and buffer breach (if any) stated; each lever has amount and week.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Numbers review",
+          "brief": "Check ties, timing assumptions and arithmetic.",
+          "acceptance": "First line APPROVED or CHANGES; untied lines listed.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Forecast pack",
+          "brief": "Render the workbook, chart and memo.",
+          "acceptance": "Files open; chart shows buffer line and low point.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Cash minute",
+          "brief": "Voice a 60-second summary for the owner.",
+          "acceptance": "Audio under 75 seconds that matches the forecast.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Opening cash ties to bank balances on a stated date.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every receipt and disbursement line cites its source or is labelled an assumption.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The low-point week and any buffer breach are highlighted.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Receipts use actual customer payment behaviour, not just due dates.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Weekly roll-forward includes forecast-vs-actual variance by line.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "ar-collections",
+        "three-statement-model",
+        "budget-vs-actual",
+        "annual-budget",
+        "bank-reconciliation"
+      ],
+      "example_request": "Things feel tight. Will we be able to make payroll every week through the new year? You've got access to Xero and Gusto.",
+      "typical_departments": [
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "budget-vs-actual",
+      "name": "Budget vs actual review",
+      "icon": "±",
+      "category": "finance",
+      "one_liner": "Variance analysis with explanations and a management pack.",
+      "description": "Compares actuals to budget for the period, applies a materiality threshold, decomposes the big variances into price, volume and mix, and writes commentary that says what caused each one, whether it is one-off or recurring, and what it means for the rest of the year, packaged as a short management pack.",
+      "when": "a month or quarter has closed and the owner wants to know why results differ from plan and what to do about it",
+      "inputs": [
+        {
+          "id": "actuals",
+          "label": "Actuals for the period by account",
+          "required": true,
+          "source": "connector",
+          "example": "Xero P&L for September"
+        },
+        {
+          "id": "budget",
+          "label": "Budget for the same period and accounts",
+          "required": true,
+          "source": "file",
+          "example": "FY budget workbook"
+        },
+        {
+          "id": "drivers",
+          "label": "Volume and price data (units, covers, hours)",
+          "required": false,
+          "source": "connector",
+          "example": "Square covers and average spend"
+        },
+        {
+          "id": "materiality",
+          "label": "Threshold for what counts as material",
+          "required": false,
+          "source": "owner",
+          "example": "More than 10% and more than £500"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Variance table",
+          "format": "xlsx",
+          "description": "Budget, actual, variance and %, favourable or unfavourable, material flag, by line and year to date."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Variance bridge",
+          "format": "svg",
+          "description": "Waterfall from budgeted profit to actual profit by driver."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Management pack",
+          "format": "md -> pdf",
+          "description": "Headline, material variances with cause, one-off or recurring, action and forecast impact."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "square",
+        "shopify",
+        "gusto",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Pull actuals with connector_read and load the budget with file_parse. Confirm actuals tie to the trial balance and the period is closed (or label it provisional). 2. Compute variance by line, month and year to date with code_interpreter; mark favourable or unfavourable by line type (revenue up is good, cost up is bad). 3. Apply the materiality threshold and focus commentary on material lines only. 4. Decompose material revenue and cost variances into price, volume and mix (and rate vs efficiency for labour) using driver data where available. For costs, check for timing (accrual missed, invoice early) before calling it real. 5. Draft commentary per material variance: cause, one-off or recurring, action and impact on the full-year forecast. Where the cause is unknown, ask the owner with request_owner_decision rather than guessing. 6. Build the variance bridge (budget profit to actual profit) with chart_generate, the table with spreadsheet_generate and the pack with document_generate. Lead with the headline in one sentence. 7. Escalate to the lead if a variance suggests an accounting error, possible fraud or a covenant risk. 8. State what could not be verified: provisional numbers, unexplained variances and driver data gaps.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load actuals and budget",
+          "brief": "Pull actuals and budget and confirm ties to the trial balance.",
+          "acceptance": "Actuals tie to the trial balance or are labelled provisional."
+        },
+        {
+          "activity": "analysis",
+          "title": "Compute variances",
+          "brief": "Variance by line, month and YTD with materiality flags.",
+          "acceptance": "Every line has variance, % and material flag.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Decompose material variances",
+          "brief": "Split material variances into price, volume, mix or timing.",
+          "acceptance": "Decomposition sums to the total variance for each line.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner explains unknown causes",
+          "brief": "Owner supplies causes the data cannot explain.",
+          "acceptance": "Each unknown is answered or listed as open.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Commentary review",
+          "brief": "Check causes, classifications and forecast impacts.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Management pack",
+          "brief": "Render the table, bridge and pack.",
+          "acceptance": "Bridge reconciles budget profit to actual profit exactly.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Actuals tie to the trial balance for the period, or are labelled provisional.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each material variance has a cause, one-off or recurring classification, and an action.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Unknown causes are listed as open questions, not guessed.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The bridge chart reconciles budget to actual exactly.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Timing differences are separated from real variances.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "annual-budget",
+        "month-end-close",
+        "cash-flow-13-week",
+        "margin-analysis",
+        "data-story"
+      ],
+      "example_request": "Why were we £8k worse than budget in September? Give me the story behind the numbers, not just a table.",
+      "typical_departments": [
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "annual-budget",
+      "name": "Annual budget",
+      "icon": "📅",
+      "category": "finance",
+      "one_liner": "Driver-based annual budget by month with assumptions and owners.",
+      "description": "Builds next year's budget by month from drivers (volume x price, headcount x cost) with zero-based review of discretionary spend, seasonality from history, a named owner per line, explicit contingency, and a reconciliation between the owner's top-down target and the bottom-up build, including the cash impact.",
+      "when": "planning the next financial year, or when the current budget no longer reflects reality",
+      "inputs": [
+        {
+          "id": "prior_actuals",
+          "label": "Last 12-24 months of actuals by month",
+          "required": true,
+          "source": "connector",
+          "example": "QuickBooks P&L by month"
+        },
+        {
+          "id": "targets",
+          "label": "The owner's goals: revenue, profit, hires, investments",
+          "required": true,
+          "source": "owner",
+          "example": "Grow sales 20%, hire two people, keep 3 months of cash"
+        },
+        {
+          "id": "known_changes",
+          "label": "Price changes, contracts, rent reviews, new products",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "headcount_plan",
+          "label": "Current and planned roles with pay",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Annual budget",
+          "format": "xlsx",
+          "description": "Monthly budget by line with drivers, owners, contingency and cash view."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Assumptions and owners",
+          "format": "md -> docx",
+          "description": "Driver assumptions, ZBB decisions on discretionary lines, owners and the target-to-build gap."
+        },
+        {
+          "artifact_type": "minutes",
+          "name": "Budget challenge minutes",
+          "format": "md",
+          "description": "Challenges raised, decisions made and open items."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "convene_meeting",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "gusto",
+        "rippling",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file",
+        "voice"
+      ],
+      "instructions": "1. Pull prior actuals with connector_read (or an exported workbook with file_parse) and extract monthly seasonality with code_interpreter. 2. Write the drivers: revenue by stream as volume x price with seasonality; cost of sales as unit cost or %; payroll as roles x pay x start month plus employer costs; fixed costs by contract; discretionary spend (marketing, software, travel) through a zero-based review, where each line is justified from zero against the goals. 3. Build the budget by month with spreadsheet_generate: inputs, driver calculations, P&L by month, headcount schedule, contingency as a separate line (typically 5-10% of discretionary spend), and a simple cash view (timing of receipts and payments). 4. Reconcile top-down targets with the bottom-up build; name the gap and the options to close it (price, volume, cost, timing). 5. Convene a budget challenge session with convene_meeting including a sceptic: which assumptions are hopeful? The owner can listen or join. 6. Assign an owner to every line and put the final sign-off to the owner with request_owner_decision. 7. Write the assumptions document with document_generate. Tax and payroll-tax rates come from the owner's accountant or payroll provider. 8. State what could not be verified: assumptions without evidence and the lines most likely to be wrong.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load prior actuals",
+          "brief": "Pull 12-24 months of actuals and extract seasonality.",
+          "acceptance": "Monthly actuals loaded and seasonality indices computed."
+        },
+        {
+          "activity": "llm",
+          "title": "Drivers and ZBB review",
+          "brief": "Set drivers and justify discretionary lines from zero.",
+          "acceptance": "Every line has a driver or ZBB justification.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Build the monthly budget",
+          "brief": "Build the driver-based budget, contingency and cash view.",
+          "acceptance": "P&L by month, headcount schedule, contingency line and cash view present.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Budget challenge session",
+          "brief": "Voiced session where a sceptic challenges the hopeful assumptions.",
+          "acceptance": "Minutes list each challenge and its resolution.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner sign-off",
+          "brief": "Owner approves the budget and line owners.",
+          "acceptance": "Sign-off recorded with any changes.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Final budget pack",
+          "brief": "Render the workbook and assumptions document.",
+          "acceptance": "Top-down vs bottom-up gap stated; every line has an owner.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every line has a driver or zero-based justification and a named owner.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Monthly phasing reflects historic seasonality.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The gap between top-down targets and bottom-up build is stated with options.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Contingency is explicit, not hidden in lines.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The budget shows cash impact, not just profit.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "three-statement-model",
+        "budget-vs-actual",
+        "demand-forecast",
+        "resource-plan",
+        "okr-set"
+      ],
+      "example_request": "Help me set next year's budget. I want to grow sales 20% and hire two people, but I don't want to run out of cash doing it.",
+      "typical_departments": [
+        "finance-accounting",
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "month-end-close",
+      "name": "Month-end close checklist",
+      "icon": "☑",
+      "category": "finance",
+      "one_liner": "A dated close checklist: reconciliations, accruals, reviews and sign-offs.",
+      "description": "Runs a dated close checklist on double-entry principles: cut-off, bank and card reconciliations, subledger tie-outs, accruals and prepayments, deferred revenue, depreciation, payroll and sales-tax liability reconciliations, flux review, preparer and reviewer sign-offs, and period lock. Proposes journal entries with support; the qualified accountant decides tax balances and positions.",
+      "when": "each month or quarter end, or when the books need to be brought up to date before reporting, a loan review or year-end",
+      "inputs": [
+        {
+          "id": "period",
+          "label": "Period to close and target close day",
+          "required": true,
+          "source": "owner",
+          "example": "October, closed by working day 7"
+        },
+        {
+          "id": "ledger_access",
+          "label": "Accounting system with trial balance and subledgers",
+          "required": true,
+          "source": "connector",
+          "example": "Xero"
+        },
+        {
+          "id": "bank_and_card_statements",
+          "label": "Statements for every account",
+          "required": true,
+          "source": "connector",
+          "example": "Bank feeds plus the Amex statement PDF"
+        },
+        {
+          "id": "accrual_inputs",
+          "label": "Unbilled work, unreceived invoices, prepaid items, payroll data",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "accountant",
+          "label": "Who the external accountant is and what they review",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "checklist",
+          "name": "Close checklist",
+          "format": "xlsx",
+          "description": "Task, day, preparer, reviewer, status, evidence link and sign-off."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Proposed journal entries",
+          "format": "xlsx",
+          "description": "Balanced entries with support, reversal flag and approval status."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Flux review memo",
+          "format": "md",
+          "description": "Month-on-month and budget variances over threshold, with explanations."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Open items for the accountant",
+          "format": "md",
+          "description": "Tax balances, unusual items and judgements for the qualified accountant."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision",
+        "connector_write"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "stripe",
+        "square",
+        "paypal",
+        "gusto",
+        "shopify"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Guardrail (tax_accounting): Organize, reconcile and draft. Filings, elections and tax positions are for a qualified professional to decide and sign. Escalate to the owner's CPA, EA or chartered accountant (licensed professional) for tax balances, filings and judgement calls. 2. Build a dated close calendar with spreadsheet_generate: each task with working day, preparer and a different reviewer (segregation of duties), status and evidence link. 3. Pull the trial balance and subledgers with connector_read and statements with file_parse. Check cut-off: sales, purchases and payroll recorded in the right period. 4. Reconcile every bank, card and payment-platform account; tie AR and AP subledgers, payroll liabilities and sales-tax or VAT control accounts to the general ledger with code_interpreter. Every balance-sheet account gets a reconciliation with evidence. 5. Propose journal entries for accruals, prepayments, deferred revenue, depreciation and reclassifications; each balanced (debits equal credits), with support and a reversal flag. 6. Run a flux review: month-on-month and budget variances above threshold on the P&L and balance sheet, each explained or listed as open; write it up with document_generate. 7. Have a second coworker review; route tax balances, unusual items and judgements to the accountant as an open-items list. 8. Post only entries the owner approves, one approval per entry or batch via request_owner_decision, with connector_write; then recommend locking the period. 9. State what could not be verified: unreconciled differences, missing support and items awaiting the accountant.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Pull ledger and statements",
+          "brief": "Pull trial balance, subledgers and statements for the period.",
+          "acceptance": "All accounts on the trial balance have a data source."
+        },
+        {
+          "activity": "llm",
+          "title": "Dated close checklist",
+          "brief": "Build the checklist with days, preparers, different reviewers and evidence slots.",
+          "acceptance": "Every task has a day, preparer and a different reviewer.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Reconciliations and proposed entries",
+          "brief": "Reconcile balance-sheet accounts and propose balanced journal entries with support.",
+          "acceptance": "Every balance-sheet account reconciled or listed; every entry balances.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Flux review",
+          "brief": "Explain P&L and balance-sheet movements over threshold.",
+          "acceptance": "Every movement over threshold explained or listed as open.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Reviewer sign-off",
+          "brief": "A different coworker reviews reconciliations, entries and flux.",
+          "acceptance": "First line APPROVED or CHANGES; preparer and reviewer differ.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by the accountant",
+          "brief": "The owner's qualified accountant reviews tax balances, judgements and open items.",
+          "acceptance": "Accountant decisions recorded or items marked pending their review.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Post approved entries",
+          "brief": "Post owner-approved entries to the ledger and recommend locking the period.",
+          "acceptance": "Receipt per posted entry; only approved entries posted; totals match the approved list.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every balance-sheet account is reconciled with an evidence link.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every proposed journal entry balances and has support and a reversal flag.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Preparer and reviewer are different for every task.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Tax balances, filings and tax positions are left for licensed review by the qualified accountant, never decided by the coworker.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Nothing is posted to the ledger without explicit owner approval.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Flux review explains every movement above threshold.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "bank-reconciliation",
+        "budget-vs-actual",
+        "ar-collections",
+        "numbers-audit",
+        "tax-organizer"
+      ],
+      "example_request": "Our books are always a month behind. Can you run a proper month-end close for October in Xero and tell me what my accountant needs to look at?",
+      "regulated_domains": [
+        "tax_accounting"
+      ],
+      "typical_departments": [
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "bank-reconciliation",
+      "name": "Bank & card reconciliation",
+      "icon": "⇄",
+      "category": "finance",
+      "one_liner": "Match transactions to the ledger and list the exceptions to resolve.",
+      "description": "Matches bank, card and payment-platform transactions to the ledger with explicit matching rules, reads receipts from photos and PDFs, categorizes transactions in double entry, and produces a reconciliation where the adjusted bank balance equals the adjusted book balance, plus an exceptions list to resolve.",
+      "when": "transactions are piling up uncategorized, the bank balance and the books disagree, or a period needs reconciling before close",
+      "inputs": [
+        {
+          "id": "statements",
+          "label": "Bank, card and payment-platform statements or feeds",
+          "required": true,
+          "source": "connector",
+          "example": "Bank feed, Amex PDF statement, Stripe payouts"
+        },
+        {
+          "id": "ledger",
+          "label": "Accounting system or ledger export",
+          "required": true,
+          "source": "connector",
+          "example": "QuickBooks"
+        },
+        {
+          "id": "receipts",
+          "label": "Receipts and invoices (photos, PDFs, email)",
+          "required": false,
+          "source": "file",
+          "example": "Folder of 140 receipt photos"
+        },
+        {
+          "id": "category_rules",
+          "label": "Chart of accounts and known categorization rules",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Reconciliation workpaper",
+          "format": "xlsx",
+          "description": "Statement balance, book balance, deposits in transit, outstanding payments, adjusted balances and difference."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Exceptions list",
+          "format": "xlsx",
+          "description": "Unmatched, duplicate, mismatched and uncategorized items with proposed resolution."
+        },
+        {
+          "artifact_type": "dataset",
+          "name": "Categorized transactions",
+          "format": "csv",
+          "description": "Matched and categorized transactions with receipt links and rule used."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "request_owner_decision",
+        "connector_write"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "stripe",
+        "paypal",
+        "square",
+        "shopify",
+        "dropbox",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file",
+        "image"
+      ],
+      "instructions": "1. Guardrail (tax_accounting): Organize, reconcile and draft. Filings, elections and tax positions are for a qualified professional to decide and sign. Categorizations with tax consequences (capital vs expense, personal vs business, mixed-use, sales-tax treatment) are flagged for the owner's CPA, EA or chartered accountant (licensed professional). 2. Pull statement lines and ledger entries with connector_read or file_parse. Read receipt photos and PDFs with file_parse (date, supplier, amount, tax shown) and never copy full card numbers. 3. Match with code_interpreter in passes: exact amount and date within 3 days plus reference; then amount within a window; then many-to-one (payouts that bundle several sales net of fees). Each transaction is matched at most once. 4. Categorize unmatched items to the chart of accounts using known rules and receipt content; propose a rule for recurring suppliers. 5. Prepare the reconciliation with spreadsheet_generate: statement balance plus deposits in transit minus outstanding payments equals book balance plus unrecorded items; the difference must be zero or explained. 6. List exceptions by type (unrecorded, duplicate, timing, amount mismatch, missing receipt) with proposed resolutions; ask the owner about unknowns with request_owner_decision. 7. After review and owner approval, post matches and categorizations with connector_write in batches with receipts. 8. State what could not be verified: items without support, unresolved differences and categorizations awaiting the accountant.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load statements and ledger",
+          "brief": "Pull statement lines and ledger entries for the period.",
+          "acceptance": "Opening and closing balances captured for every account."
+        },
+        {
+          "activity": "ingest",
+          "title": "Read receipts",
+          "brief": "Extract date, supplier, amount and tax from receipt images and PDFs.",
+          "acceptance": "Each receipt has extracted fields or is marked unreadable.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Match and reconcile",
+          "brief": "Match transactions, categorize, and compute adjusted balances.",
+          "acceptance": "No transaction matched twice; adjusted difference is zero or itemized.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner answers exceptions",
+          "brief": "Owner resolves unknown transactions and missing receipts.",
+          "acceptance": "Every exception has an owner answer or remains listed.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Reconciliation review",
+          "brief": "A different coworker checks the workpaper and a sample of matches.",
+          "acceptance": "First line APPROVED or CHANGES; sample results reported.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review of tax-sensitive items",
+          "brief": "The owner's accountant reviews flagged tax-sensitive categorizations.",
+          "acceptance": "Accountant decision recorded or items marked pending.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Post approved matches",
+          "brief": "Post owner-approved matches and categorizations to the ledger.",
+          "acceptance": "Receipts per batch; posted count equals approved count.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Adjusted bank balance equals adjusted book balance to the cent, or the difference is itemized.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No transaction is matched twice; every exception has a type and proposed resolution.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Tax-sensitive categorizations go to licensed review by the qualified accountant; the coworker takes no tax positions.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Ledger changes are posted only after explicit owner approval.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Receipts are linked to transactions; full card numbers are never stored.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "month-end-close",
+        "data-cleanup",
+        "tax-organizer",
+        "cash-flow-13-week",
+        "ar-collections"
+      ],
+      "example_request": "I've got three months of uncategorized transactions in QuickBooks and a folder of receipt photos. Can you reconcile the bank and tell me what doesn't match?",
+      "regulated_domains": [
+        "tax_accounting"
+      ],
+      "typical_departments": [
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "ar-collections",
+      "name": "Receivables collections cadence",
+      "icon": "⏰",
+      "category": "finance",
+      "one_liner": "Aged receivables, prioritized follow-ups and polite dunning drafts.",
+      "description": "Ages receivables, computes DSO, prioritizes who to chase by amount, age and risk, and drafts polite, firm reminders on an escalation ladder (friendly nudge, firm reminder, final notice, payment plan). Disputes are separated from late payers. Reminders are sent, and the cadence scheduled, only with the owner's approval.",
+      "when": "invoices are overdue, DSO is creeping up, or cash is tight and the owner needs money in without damaging relationships",
+      "inputs": [
+        {
+          "id": "open_invoices",
+          "label": "Open invoices with customer, amount, due date and history",
+          "required": true,
+          "source": "connector",
+          "example": "Xero aged receivables"
+        },
+        {
+          "id": "relationship_notes",
+          "label": "Customers to handle gently or personally",
+          "required": false,
+          "source": "owner",
+          "example": "Don't chase the school directly; I'll call the bursar"
+        },
+        {
+          "id": "terms_and_policies",
+          "label": "Payment terms, late fees and payment-plan rules",
+          "required": false,
+          "source": "memory",
+          "example": "Net 30; payment plans up to 3 months"
+        },
+        {
+          "id": "payment_links",
+          "label": "How customers can pay",
+          "required": false,
+          "source": "connector",
+          "example": "Stripe payment links"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Aged receivables and chase list",
+          "format": "xlsx",
+          "description": "Aging buckets, DSO, priority score, stage and next action per invoice."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Reminder drafts by stage",
+          "format": "md",
+          "description": "Personalized reminders with invoice number, amount, due date and payment link."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Collections cadence",
+          "format": "md",
+          "description": "Stage timings, who handles which customers, and escalation rules."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision",
+        "send_external",
+        "schedule_automation"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "stripe",
+        "paypal",
+        "square",
+        "hubspot",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Pull open invoices and payment history with connector_read. With code_interpreter bucket by age (current, 1-30, 31-60, 61-90, 90+), compute DSO and the collection effectiveness index. 2. Score priority: amount x days overdue x risk (history of late payment, disputes, customer concentration). Separate disputed invoices: they need resolution, not reminders. 3. Assign each invoice a stage on the ladder: friendly nudge (1-7 days), firm reminder (8-30), final notice with the consequence stated factually (31-60), payment-plan offer within the owner's rules, then escalation to the owner. 4. Draft reminders with document_generate: correct invoice number, amount, due date and payment link; polite, specific and never threatening, shaming or misleading; one clear ask. 5. Build the chase list with spreadsheet_generate and present list and drafts with request_owner_decision, respecting the owner's relationship notes. 6. After approval, send each reminder with send_external individually and log it; optionally schedule the ongoing cadence with schedule_automation, also only with approval. 7. Escalate to the owner before any late fees, service suspension, collection agency, credit reporting or legal action; those decisions may need counsel. 8. State what could not be verified: payments in transit, customer-side disputes not in the ledger, and contact details that may be out of date.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull receivables",
+          "brief": "Read open invoices and payment history from the accounting connector.",
+          "acceptance": "All open invoices loaded with due dates and history."
+        },
+        {
+          "activity": "analysis",
+          "title": "Age, DSO and priority",
+          "brief": "Bucket, compute DSO and CEI, score priority and separate disputes.",
+          "acceptance": "Every invoice has bucket, priority and stage; disputes separated.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft reminders",
+          "brief": "Draft stage-appropriate reminders with exact invoice details.",
+          "acceptance": "Every draft's amount, number and date match the ledger.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Tone and accuracy review",
+          "brief": "Check tone, accuracy and relationship notes.",
+          "acceptance": "First line APPROVED or CHANGES; any threatening or inaccurate line quoted.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves list and drafts",
+          "brief": "Owner approves who is chased, how and when.",
+          "acceptance": "Approval recorded per customer or batch.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Send approved reminders",
+          "brief": "Send each approved reminder individually and log it.",
+          "acceptance": "One receipt per reminder; no duplicates.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "schedule",
+          "title": "Schedule the cadence (optional)",
+          "brief": "Create the approved follow-up cadence.",
+          "acceptance": "Automation recorded with an off-switch, only if approved.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every invoice number, amount and due date in a reminder matches the ledger.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Tone is firm and polite, never threatening, shaming or misleading.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Disputed invoices are separated from late payers.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Nothing is sent or scheduled without explicit owner approval.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Fees, suspensions, agencies and legal action are escalated to the owner.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 35,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "cash-flow-13-week",
+        "invoice-and-quote",
+        "bank-reconciliation",
+        "dispute-letter-draft",
+        "month-end-close"
+      ],
+      "example_request": "We've got about £23k outstanding and some of it's three months old. Can you chase it without making us sound desperate or rude?",
+      "typical_departments": [
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "unit-economics",
+      "name": "Unit economics",
+      "icon": "¢",
+      "category": "finance",
+      "one_liner": "CAC, LTV, contribution margin and payback by segment or cohort.",
+      "description": "Works out what a customer or order is really worth: CAC (paid and fully loaded), contribution margin after every variable cost, cohort-based LTV, CAC payback in months and LTV:CAC, by channel or segment, with definitions agreed first and totals reconciled to the P&L.",
+      "when": "the owner asks whether a channel, product or customer type is profitable, how much they can afford to spend to acquire a customer, or how fast spend pays back",
+      "inputs": [
+        {
+          "id": "revenue_and_orders",
+          "label": "Orders or subscriptions by customer and channel",
+          "required": true,
+          "source": "connector",
+          "example": "Shopify orders with UTM source"
+        },
+        {
+          "id": "variable_costs",
+          "label": "COGS, shipping, payment fees, returns, packaging",
+          "required": true,
+          "source": "connector",
+          "example": "Xero COGS lines; Stripe fees; returns log"
+        },
+        {
+          "id": "acquisition_spend",
+          "label": "Marketing and sales spend by channel and month",
+          "required": true,
+          "source": "connector",
+          "example": "Meta and Google Ads spend"
+        },
+        {
+          "id": "definitions",
+          "label": "What counts in CAC and margin",
+          "required": false,
+          "source": "owner",
+          "example": "Include agency fees in CAC"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Unit economics model",
+          "format": "xlsx",
+          "description": "CAC, contribution margin, LTV, payback and LTV:CAC by channel and segment with a definitions tab."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Payback curves",
+          "format": "svg",
+          "description": "Cumulative contribution per customer vs CAC by channel."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "What it means",
+          "format": "md",
+          "description": "Which channels and segments pay back, which do not, and what to change."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "stripe",
+        "quickbooks",
+        "xero",
+        "google-ads",
+        "meta-business",
+        "hubspot"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Agree definitions first: paid CAC (media only) vs fully loaded CAC (media, agency, tools, sales time); contribution margin = revenue minus COGS, shipping, payment fees, returns and variable service cost. Write them into a definitions tab. 2. Pull orders, costs and spend with connector_read or file_parse. Attribute customers to channels with the best available method and state its limits (last-click under-credits some channels). 3. Compute contribution margin per order and per customer with code_interpreter. 4. Compute LTV from observed cohort contribution (preferred) rather than the ARPU / churn formula; if extrapolating, show observed and projected parts separately. 5. Compute CAC payback in months (when cumulative contribution exceeds CAC) and LTV:CAC by channel and segment. Treat 3:1 as a rule of thumb, not a law. 6. Run sensitivity on the biggest assumptions (return rate, retention, attribution) and reconcile totals to the P&L. 7. Build the model with spreadsheet_generate, the payback chart with chart_generate and the brief with document_generate, naming what to scale, fix or stop. 8. State what could not be verified: attribution limits, cost allocations that are estimates, and cohorts too young to read.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Agree definitions",
+          "brief": "Define CAC variants, contribution margin and LTV method.",
+          "acceptance": "Definitions tab complete and confirmed or assumed explicitly."
+        },
+        {
+          "activity": "ingest",
+          "title": "Load orders, costs and spend",
+          "brief": "Pull orders, variable costs and spend by channel.",
+          "acceptance": "Row counts and date ranges per source; attribution method stated.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Compute unit economics",
+          "brief": "Compute margin, LTV, CAC, payback and LTV:CAC by channel and segment.",
+          "acceptance": "Totals reconcile to P&L revenue and COGS within 2%.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Sensitivity",
+          "brief": "Test return rate, retention and attribution assumptions.",
+          "acceptance": "Range for payback and LTV:CAC per channel.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Numbers audit",
+          "brief": "Independent check of definitions, maths and reconciliation.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Model and brief",
+          "brief": "Render the model, chart and brief.",
+          "acceptance": "Brief names channels to scale, fix and stop.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "CAC and margin definitions are explicit, including shipping, fees and returns.",
+          "severity": "must"
+        },
+        {
+          "criterion": "LTV separates observed from projected value.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Totals reconcile to the P&L.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Benchmarks like 3:1 are labelled rules of thumb.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Attribution limits are stated.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "cohort-analysis",
+        "margin-analysis",
+        "pricing-and-packaging",
+        "paid-ads-plan",
+        "three-statement-model"
+      ],
+      "example_request": "Is our Instagram advertising actually profitable once you count returns and shipping? And how long does it take to earn back what we spend to get a customer?",
+      "typical_departments": [
+        "finance-accounting",
+        "marketing-growth",
+        "data-analytics"
+      ],
+      "version": 1
+    },
+    {
+      "id": "margin-analysis",
+      "name": "Margin & break-even analysis",
+      "icon": "◐",
+      "category": "finance",
+      "one_liner": "Product and service margins, cost build-ups and break-even points.",
+      "description": "Builds up the true cost of each product or service (materials, labour time, variable overheads and allocated fixed costs using activity-based drivers), shows gross and contribution margins, break-even volumes, and a margin bridge, so the owner knows what to reprice, redesign or drop.",
+      "when": "the owner is not sure which products or services make money, costs have risen, or before pricing decisions",
+      "inputs": [
+        {
+          "id": "products_and_sales",
+          "label": "Products or services with volumes and prices",
+          "required": true,
+          "source": "connector",
+          "example": "Square item sales for the last 12 months"
+        },
+        {
+          "id": "cost_inputs",
+          "label": "Recipes, bills of materials, supplier prices, labour time",
+          "required": true,
+          "source": "file",
+          "example": "Recipe cards and supplier price list; decorating time per cake"
+        },
+        {
+          "id": "overheads",
+          "label": "Fixed and variable overheads",
+          "required": true,
+          "source": "connector",
+          "example": "Xero P&L"
+        },
+        {
+          "id": "labour_rates",
+          "label": "Loaded labour cost per hour by role",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Costed margin model",
+          "format": "xlsx",
+          "description": "Cost build-up, gross and contribution margin, allocation drivers and break-even per product."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Margin and break-even charts",
+          "format": "svg",
+          "description": "Margin by product (sorted), margin bridge and break-even chart."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Reprice, redesign or drop",
+          "format": "md",
+          "description": "Recommendations per product with volume and profit impact."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "square",
+        "shopify",
+        "toast"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Load sales, costs and overheads with connector_read and file_parse. Reconcile total COGS and overheads to the P&L before allocating. 2. Build the direct cost per unit: materials from recipes or bills of materials at current supplier prices (including waste and yield), direct labour as minutes x loaded rate, packaging and payment fees. 3. Allocate indirect costs with activity-based costing: pick drivers that reflect how products consume resources (oven hours, orders, set-up time) rather than a flat % of revenue. Agree drivers with the owner. 4. Compute gross margin, contribution margin (after variable costs) and fully loaded margin per product with code_interpreter. 5. Compute break-even units and revenue (fixed costs / contribution margin per unit) for the business and for any product with dedicated fixed costs; show sensitivity to price and cost changes. 6. Build a margin bridge vs last period (price, volume, mix, cost) and chart with chart_generate. 7. Recommend per product: reprice, redesign (recipe, time, packaging), bundle, keep as a traffic driver, or drop, with volume and profit impact; build the workbook with spreadsheet_generate and brief with document_generate. 8. State what could not be verified: labour times that are estimates, allocation drivers that are judgement, and supplier prices that may be out of date.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load and reconcile costs",
+          "brief": "Load sales, direct costs and overheads; reconcile to the P&L.",
+          "acceptance": "COGS and overhead totals tie to the P&L."
+        },
+        {
+          "activity": "llm",
+          "title": "Agree allocation drivers",
+          "brief": "Propose activity-based drivers for indirect costs.",
+          "acceptance": "Each indirect cost pool has a driver and rationale.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Cost build-up and margins",
+          "brief": "Compute direct cost, allocations and margins per product.",
+          "acceptance": "Every product has direct, allocated and total cost and three margin levels.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Break-even and bridge",
+          "brief": "Compute break-even and the margin bridge with sensitivity.",
+          "acceptance": "Break-even in units and revenue; bridge sums to total change.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Numbers review",
+          "brief": "Check cost inputs, allocations and maths.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Model and recommendations",
+          "brief": "Render the workbook, charts and brief.",
+          "acceptance": "Every product has a recommendation with impact.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Cost totals reconcile to the P&L before allocation.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Allocation drivers are explicit and reflect resource use.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Break-even is shown in units and revenue with sensitivity.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Estimated inputs (labour minutes, yields) are labelled.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Recommendations state volume and profit impact.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "unit-economics",
+        "pricing-and-packaging",
+        "menu-engineering",
+        "budget-vs-actual",
+        "prime-cost-labor"
+      ],
+      "example_request": "We sell 40 different cakes and I have no idea which ones actually make money once you count the decorating time. Can you work it out?",
+      "typical_departments": [
+        "finance-accounting",
+        "operations-supply-chain",
+        "industry-specialists"
+      ],
+      "version": 1
+    },
+    {
+      "id": "cap-table-scenarios",
+      "name": "Cap table & round mechanics",
+      "icon": "◕",
+      "category": "finance",
+      "one_liner": "Model dilution and round mechanics for the owner's own scenarios; no investment advice.",
+      "description": "Builds a fully diluted cap table and models the owner's own round scenarios: SAFE and convertible-note conversions (cap, discount, interest), priced rounds with option-pool top-ups, pro-rata and a liquidation-preference waterfall. Explains the mechanics; never advises whether to raise, accept terms or invest.",
+      "when": "the owner is considering a SAFE, note or priced round and wants to understand dilution and round mechanics for scenarios they choose",
+      "inputs": [
+        {
+          "id": "current_cap_table",
+          "label": "Shareholders, share classes, options and outstanding instruments",
+          "required": true,
+          "source": "file",
+          "example": "Cap table spreadsheet and two SAFE agreements"
+        },
+        {
+          "id": "scenarios",
+          "label": "The owner's own round scenarios",
+          "required": true,
+          "source": "owner",
+          "example": "£500k SAFE at £4m post-money cap, then £2m seed at £8m pre with a 10% pool"
+        },
+        {
+          "id": "instrument_terms",
+          "label": "Key terms of each instrument",
+          "required": false,
+          "source": "file",
+          "example": "Cap, discount, interest, MFN, pro-rata rights"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Cap table and round model",
+          "format": "xlsx",
+          "description": "Fully diluted table before and after each scenario, conversion calculations, waterfall."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Round mechanics explainer",
+          "format": "md -> docx",
+          "description": "Plain-language walk-through of each calculation, labelled illustrative."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Ownership chart",
+          "format": "svg",
+          "description": "Ownership by holder across scenarios."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Questions for the adviser and counsel",
+          "format": "md",
+          "description": "Points a licensed adviser and securities counsel should review."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "dropbox",
+        "box"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Guardrail (investment_financial_advice): No personalized investment advice or recommendations to buy, sell or hold. Explain mechanics and model the owner's own scenarios; say you are not a licensed adviser. Escalate to a licensed financial adviser and the owner's securities counsel (licensed professionals) before any terms are agreed. 2. Parse the cap table and instruments with file_parse. Build the fully diluted cap table: common, preferred by class, issued options, unallocated pool, warrants and outstanding convertibles shown separately. 3. Model conversions with code_interpreter: post-money SAFE (ownership = investment / post-money cap), pre-money SAFE, discount vs cap (whichever gives the lower price), convertible-note interest accrual, and MFN effects. 4. Model priced rounds exactly as the owner specifies: pre-money, new money, price per share, the option-pool top-up and whether it is in the pre-money (the 'pool shuffle'), pro-rata participation. 5. Model a liquidation waterfall at exit values the owner chooses: 1x non-participating vs participating preference, seniority and conversion decisions. 6. Check every scenario sums to 100.00% ownership and share counts reconcile. Build the model with spreadsheet_generate and the chart with chart_generate. 7. Write the explainer with document_generate. Label every scenario 'illustrative, based on the owner's inputs; not a recommendation'. Do not say whether a valuation or term is good or bad. 8. Record the owner's request for licensed review with request_owner_decision and list questions for the adviser and counsel. 9. State what could not be verified: instrument terms not in the documents supplied, and legal interpretations that need counsel.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load cap table and instruments",
+          "brief": "Parse the current cap table and instrument terms.",
+          "acceptance": "Every holder and instrument captured with source document."
+        },
+        {
+          "activity": "analysis",
+          "title": "Fully diluted table",
+          "brief": "Build the fully diluted table with convertibles separate.",
+          "acceptance": "Ownership sums to 100.00%; share counts reconcile to documents.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Model owner scenarios",
+          "brief": "Model conversions, priced rounds, pool top-ups and waterfall for the owner's scenarios.",
+          "acceptance": "Every scenario sums to 100.00%; each formula shown.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Numbers audit",
+          "brief": "Independent recomputation of conversions and waterfall.",
+          "acceptance": "First line APPROVED or CHANGES; differences quantified.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Explainer and questions",
+          "brief": "Write the illustrative explainer and questions for professionals.",
+          "acceptance": "Every page labelled illustrative and not a recommendation.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review before any terms",
+          "brief": "Owner takes the model to a licensed adviser and securities counsel before agreeing terms.",
+          "acceptance": "Owner confirms the review is planned or done.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Ownership sums to 100.00% in every scenario and share counts reconcile.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every conversion formula is shown and traceable to instrument terms.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No personalized investment advice: no recommendation to raise, accept terms, buy, sell or hold; says it is not a licensed adviser.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Recommends licensed review by an adviser and securities counsel before any terms are agreed.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Scenarios are the owner's own inputs and labelled illustrative.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "investor-update",
+        "three-statement-model",
+        "business-plan",
+        "contract-issue-list",
+        "numbers-audit"
+      ],
+      "example_request": "If we raise £500k on a SAFE with a £4m cap and then do a seed round next year, how much of the company will I still own? I want to see a few versions.",
+      "regulated_domains": [
+        "investment_financial_advice"
+      ],
+      "typical_departments": [
+        "finance-accounting",
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "tax-organizer",
+      "name": "Tax document organizer",
+      "icon": "🗂",
+      "category": "finance",
+      "one_liner": "Gather and organize documents and questions for a CPA or EA to prepare and file.",
+      "description": "Gathers, reads and indexes the year's tax documents and receipts, checks completeness and ties totals to the books, and packages everything with a clear list of questions for the owner's CPA, EA or chartered accountant, who decides positions, prepares and files. Deadlines are listed for the accountant to confirm.",
+      "when": "year-end or a filing deadline is approaching and the owner's accountant needs documents organized, or records are scattered across folders, email and photos",
+      "inputs": [
+        {
+          "id": "entity_and_jurisdiction",
+          "label": "Business type and where it files",
+          "required": true,
+          "source": "owner",
+          "example": "UK sole trader; self-assessment"
+        },
+        {
+          "id": "documents",
+          "label": "Statements, receipts, invoices, payroll and platform reports",
+          "required": true,
+          "source": "file",
+          "example": "Shoebox of receipt photos, bank PDFs, Stripe and PayPal annual reports"
+        },
+        {
+          "id": "books",
+          "label": "Accounting system or spreadsheet",
+          "required": false,
+          "source": "connector",
+          "example": "Xero"
+        },
+        {
+          "id": "accountant_request_list",
+          "label": "The accountant's own checklist or questions",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "prior_year",
+          "label": "Last year's return summary and notes",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "checklist",
+          "name": "Tax document checklist",
+          "format": "xlsx",
+          "description": "Required documents by category with status, source, period and who can supply missing items."
+        },
+        {
+          "artifact_type": "dataset",
+          "name": "Document index",
+          "format": "csv",
+          "description": "Every document with type, period, amount, file link and tie-out status."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Questions for the accountant",
+          "format": "md -> docx",
+          "description": "Open questions and judgement items framed for the qualified accountant to decide."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Deadline list for confirmation",
+          "format": "md",
+          "description": "Known deadlines marked 'to be confirmed by your accountant'."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "vision_describe",
+        "connector_read",
+        "embeddings_search",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "gusto",
+        "stripe",
+        "paypal",
+        "dropbox",
+        "google-workspace",
+        "box"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "image",
+        "camera",
+        "connector_data"
+      ],
+      "instructions": "1. Guardrail (tax_accounting): Organize, reconcile and draft. Filings, elections and tax positions are for a qualified professional to decide and sign. Everything produced is a package for the owner's CPA, EA or chartered accountant (licensed professional), who decides positions, prepares and files. 2. Confirm entity type and jurisdiction, then build a checklist of document categories the accountant will typically need (income records, platform and card-processor reports, expense receipts, asset purchases, vehicle and home-use logs, payroll and contractor filings, sales-tax or VAT returns, loans and interest). Merge in the accountant's own request list if supplied. 3. Read documents with file_parse and receipt photos with vision_describe; find scattered items with embeddings_search. Extract type, date, period, counterparty and amount. 4. Index everything with a link. Redact or omit full government ID and account numbers in the index and questions; keep originals only where they already live. 5. Pull recorded totals from the books with connector_read and tie them with code_interpreter: platform and processor reports vs recorded sales, payroll reports vs payroll expense, bank interest vs statements. Record differences, do not resolve them with a tax judgement. 6. List missing items and who can supply them. Frame judgement items (mixed-use expenses, asset vs expense, home office, vehicle use, contractor status) as questions for the accountant, never as conclusions. 7. List known deadlines as 'to be confirmed by your accountant'. Build the checklist and index with spreadsheet_generate and the questions document with document_generate. 8. Ask the owner to confirm the package is ready to share with request_owner_decision; the owner sends it or approves sending. 9. State what could not be verified: missing documents, totals that do not tie, and anything the accountant must decide.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Checklist for entity and jurisdiction",
+          "brief": "Build the document checklist, merging the accountant's list.",
+          "acceptance": "Checklist covers every category relevant to the stated entity type."
+        },
+        {
+          "activity": "ingest",
+          "title": "Read documents and receipts",
+          "brief": "Parse documents and read receipt photos; extract key fields.",
+          "acceptance": "Every file indexed or marked unreadable; IDs redacted.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Completeness and tie-outs",
+          "brief": "Check completeness and tie platform, payroll and bank totals to the books.",
+          "acceptance": "Each tie-out shows both totals and the difference.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Questions for the accountant",
+          "brief": "Frame judgement items and gaps as questions.",
+          "acceptance": "No tax positions stated as conclusions; each question cites documents.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Package review",
+          "brief": "Check the index, redaction and question framing.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by the accountant",
+          "brief": "The owner shares the package with their CPA, EA or chartered accountant, who decides positions and files.",
+          "acceptance": "Owner confirms hand-off to the accountant.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every document is indexed with type, period, amount and link.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No filings, elections or tax positions are decided; judgement items go to licensed review by the qualified accountant as questions.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Full government ID and account numbers are redacted from the index and questions.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Totals from platforms, payroll and bank tie to the books or differences are listed.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Deadlines are marked for the accountant to confirm.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "bank-reconciliation",
+        "month-end-close",
+        "triage-documents",
+        "compliance-calendar",
+        "summarise-documents"
+      ],
+      "example_request": "My accountant needs everything for year-end by the 15th and my receipts are a shoebox of photos and PDFs. Can you get it all organised for her?",
+      "regulated_domains": [
+        "tax_accounting"
+      ],
+      "typical_departments": [
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "invoice-and-quote",
+      "name": "Invoice & quote drafting",
+      "icon": "🧾",
+      "category": "finance",
+      "one_liner": "Accurate quotes and invoices from scope, rates and terms, ready to send on approval.",
+      "description": "Drafts accurate quotes and invoices from scope, rates and terms, including from a photo of a job sheet: clear scope and exclusions, arithmetic checked in code, tax from the owner's settings, validity and payment terms. Creates them in the accounting system and sends them only after the owner approves each one.",
+      "when": "the owner needs to quote a job or invoice completed work, and wants it right first time and consistent with their rates",
+      "inputs": [
+        {
+          "id": "customer_and_job",
+          "label": "Customer, job description or completed work",
+          "required": true,
+          "source": "owner",
+          "example": "The Hendersons, kitchen rewire, plus two extra double sockets"
+        },
+        {
+          "id": "rates_and_terms",
+          "label": "Rate card, materials markup, payment terms",
+          "required": true,
+          "source": "memory",
+          "example": "£55/hr, materials +15%, 50% deposit, Net 14"
+        },
+        {
+          "id": "job_evidence",
+          "label": "Photos of job sheets, site notes or timesheets",
+          "required": false,
+          "source": "file",
+          "example": "Photo of the handwritten job sheet"
+        },
+        {
+          "id": "tax_settings",
+          "label": "Tax registration and rates from the accounting system",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "previous_quotes",
+          "label": "Similar past quotes or invoices",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Quote",
+          "format": "pdf",
+          "description": "Scope, deliverables, exclusions, assumptions, line items, tax, total, validity and terms."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Invoice",
+          "format": "pdf",
+          "description": "Unique number, dates, parties, line items, tax lines, total, due date and payment instructions."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Cover email",
+          "format": "md",
+          "description": "Short, friendly cover note with the one next step."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "vision_describe",
+        "code_interpreter",
+        "document_generate",
+        "request_owner_decision",
+        "connector_write",
+        "send_external"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "stripe",
+        "square",
+        "paypal",
+        "hubspot",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "camera",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Recall rates, terms and templates with memory_recall; pull the customer record, tax settings and similar past jobs with connector_read. Read job sheets or site photos with vision_describe. 2. For a quote: write scope and deliverables, exclusions and assumptions, line items (labour, materials with markup, extras), optional good-better-best options where they help, tax, total, deposit or milestone schedule, validity period and change policy. 3. For an invoice: the next unique sequential number from the accounting system, issue and supply dates, business and customer details, line items matching the quote or actual work, tax lines, total, due date, payment instructions and link. 4. Check arithmetic with code_interpreter: line totals, subtotal, tax and grand total. Use tax rates from the owner's settings; flag unusual tax treatment (reverse charge, exempt items, cross-border) for the owner's accountant. 5. Render with document_generate and present to the owner with request_owner_decision, showing any differences from the quote. 6. Only after explicit approval, create the quote or invoice in the accounting system with connector_write (idempotency key so it is never created twice) and send it with send_external. 7. Escalate to the owner if the work differs materially from the quote (a change order is needed) or a customer disputes an amount. 8. State what could not be verified: quantities or hours taken from handwriting, and any rate not found in memory.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Gather scope, rates and evidence",
+          "brief": "Collect rates, terms, customer record and job evidence.",
+          "acceptance": "Every line item has a source (rate card, job sheet or owner)."
+        },
+        {
+          "activity": "document",
+          "title": "Draft the quote or invoice",
+          "brief": "Draft with scope, exclusions, line items, tax and terms.",
+          "acceptance": "All required fields present; arithmetic verified in code.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Accuracy and terms review",
+          "brief": "Check arithmetic, numbering, tax settings, scope and terms.",
+          "acceptance": "First line APPROVED or CHANGES; any mismatch listed.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves",
+          "brief": "Owner approves the document and the send.",
+          "acceptance": "Explicit approval recorded for this document.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Create and send",
+          "brief": "Create the document in the accounting system and send it.",
+          "acceptance": "Exactly one record created and one send receipt.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Arithmetic (line totals, tax, total) is verified in code.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Invoice numbers are unique and sequential from the accounting system.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Scope, exclusions, validity and payment terms are explicit on quotes.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Nothing is created or sent without explicit owner approval, and never twice.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Unusual tax treatment is flagged for the accountant.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 15,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "ar-collections",
+        "agency-sow-scope",
+        "proposal-writing",
+        "construction-estimate",
+        "bank-reconciliation"
+      ],
+      "example_request": "Can you quote the Hendersons for the kitchen rewire? Same rates as the last job, plus the extra sockets on the photo I just sent.",
+      "typical_departments": [
+        "finance-accounting",
+        "sales-partnerships",
+        "industry-specialists"
+      ],
+      "version": 1
+    }
+  ]
+}

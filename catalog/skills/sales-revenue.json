@@ -1,0 +1,2261 @@
+{
+  "category": "sales-revenue",
+  "version": 1,
+  "skills": [
+    {
+      "id": "icp-definition",
+      "name": "Ideal customer profile",
+      "icon": "🎯",
+      "category": "sales-revenue",
+      "one_liner": "Firmographic, technographic and trigger-based ICP with disqualifiers.",
+      "description": "Builds an ideal customer profile from the business's own best and worst customers plus market evidence: firmographics, technographics, buying triggers, the buying committee and hard disqualifiers, with a weighted fit-scoring sheet back-tested on real deals.",
+      "when": "the owner is about to prospect, launch outbound or paid campaigns, says 'we sell to anyone', or win rates and retention vary wildly by customer type",
+      "inputs": [
+        {
+          "id": "best_customers",
+          "label": "The 10–20 best customers and 5 worst or regretted ones",
+          "required": true,
+          "source": "owner",
+          "example": "Top 12 accounts by revenue in HubSpot, plus 4 we regret signing"
+        },
+        {
+          "id": "deal_history",
+          "label": "Closed-won and closed-lost deals with amount, cycle length and source",
+          "required": false,
+          "source": "connector",
+          "example": "HubSpot deals export, last 24 months"
+        },
+        {
+          "id": "revenue_by_customer",
+          "label": "Revenue, margin and tenure per customer",
+          "required": false,
+          "source": "connector",
+          "example": "QuickBooks customer sales report"
+        },
+        {
+          "id": "offer_summary",
+          "label": "What we sell, price range and how it is delivered",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "sales_constraints",
+          "label": "Territories, languages, sectors or sizes we cannot serve",
+          "required": false,
+          "source": "owner",
+          "example": "English and Spanish only; no government buyers"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "ICP one-pager",
+          "format": "md -> pdf",
+          "description": "ICP statement, fit criteria, triggers, buying committee, disqualifiers and three lookalike accounts."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "ICP scoring sheet",
+          "format": "xlsx",
+          "description": "Weighted fit criteria, A/B/C tiers, disqualifier flags and a back-test tab on existing customers."
+        },
+        {
+          "artifact_type": "decision_record",
+          "name": "ICP decision record",
+          "format": "md",
+          "description": "What the ICP is, the evidence behind it and when to revisit it."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "web_search",
+        "web_fetch",
+        "embeddings_search",
+        "spreadsheet_generate",
+        "document_generate",
+        "memory_write"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "stripe",
+        "quickbooks",
+        "xero",
+        "linkedin"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Pull closed-won and closed-lost deals with connector_read (or the owner's export) and revenue and tenure per customer from billing. If there are fewer than 10 won deals, say the ICP is a hypothesis to test, not a finding. 2. Profile the best customers on firmographics (industry by NAICS or SIC code, headcount band, revenue band, geography, business model), technographics (tools they already run that make adoption easy, from public job posts and site footers) and situation (what happened just before they bought). 3. Compare best with worst customers and won with lost deals in code_interpreter: win rate, sales cycle, gross margin, retention and support load by segment. Keep only attributes that actually discriminate, and show sample sizes. 4. Name 3–5 buying triggers (new location, funding, leadership hire, regulation change, tool migration) and where each is observable in public. 5. Write hard disqualifiers (too small to pay, needs capabilities we lack, procurement we cannot pass). An ICP without disqualifiers is a wish list. 6. Map the buying committee: economic buyer, champion, users, blockers, with what each cares about. 7. Build the scoring sheet with spreadsheet_generate: criteria scored 0–3, weights summing to 100, tiers A ≥ 75, B 50–74, C < 50, plus a back-test tab showing win rate and LTV by tier on existing customers. 8. Write the one-pager with document_generate and add three lookalike accounts per tier found with web_search, each cited. 9. Propose saving the approved ICP to memory with memory_write so prospecting, ads and content skills reuse it. 10. State what could not be verified: small-sample segments, attributes inferred from public data, and criteria resting on owner opinion rather than deal data.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load deal and customer data",
+          "brief": "Ingest the CRM or spreadsheet export of won and lost deals and revenue per customer; normalise industry, size and region fields.",
+          "acceptance": "Every deal has outcome, amount, industry and size band, or is listed as incomplete."
+        },
+        {
+          "activity": "analysis",
+          "title": "Find what separates winners",
+          "brief": "Compare best versus worst customers and won versus lost deals by segment on win rate, cycle length, margin and retention; show the working.",
+          "acceptance": "Each proposed criterion shows its win-rate or LTV lift with sample size; segments under n=5 are flagged.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "research",
+          "title": "Triggers and lookalikes",
+          "brief": "Research observable buying triggers and find three lookalike accounts per tier from public sources.",
+          "acceptance": "Each trigger names where it is observable; every lookalike has a cited source.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Write the ICP and scoring sheet",
+          "brief": "Write the one-pager and build the weighted scoring sheet with a back-test tab.",
+          "acceptance": "One-pager fits one page; weights sum to 100; back-test tab present with live formulas.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic check",
+          "brief": "Challenge whether each criterion reflects data or opinion and whether the disqualifiers are strict enough.",
+          "acceptance": "First line is APPROVED or CHANGES; each opinion-based criterion is labelled as a hypothesis.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "memory",
+          "title": "Save the ICP",
+          "brief": "Propose the approved ICP as a decision memory with provenance so other skills reuse it.",
+          "acceptance": "Memory proposal cites the ICP file and date; the owner can undo it.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every criterion is backed by deal data with its sample size, or labelled as a hypothesis",
+          "severity": "must"
+        },
+        {
+          "criterion": "At least three hard disqualifiers are listed",
+          "severity": "must"
+        },
+        {
+          "criterion": "The back-test shows whether tier A outperforms tier C, and says so plainly if it does not",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each buying trigger names a concrete, observable public source",
+          "severity": "should"
+        },
+        {
+          "criterion": "Buying committee roles are named with what each cares about",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "prospect-list-build",
+        "customer-segments",
+        "outbound-sequence",
+        "positioning-statement",
+        "battlecard"
+      ],
+      "example_request": "We do bookkeeping for small businesses but honestly we take anyone. Can you look at our clients in QuickBooks and tell me who we should actually be going after?",
+      "typical_departments": [
+        "sales-partnerships",
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "prospect-list-build",
+      "name": "Prospect list build",
+      "icon": "📇",
+      "category": "sales-revenue",
+      "one_liner": "A researched account list with fit scores and business-context signals.",
+      "description": "Builds a researched account list matched to the ICP: each account with a fit score, a dated 'why now' signal and its source, and the business roles to approach. Company-level research first; contacts limited to business roles. Deduplicated against the CRM and imported only after approval.",
+      "when": "the owner needs new accounts to approach, is starting outbound, or asks for 'a list of companies like our best customers'",
+      "inputs": [
+        {
+          "id": "icp",
+          "label": "Ideal customer profile and scoring sheet",
+          "required": true,
+          "source": "memory",
+          "example": "ICP saved from icp-definition"
+        },
+        {
+          "id": "target_count",
+          "label": "How many accounts and where",
+          "required": true,
+          "source": "owner",
+          "example": "50 dental groups in Texas with 3+ locations"
+        },
+        {
+          "id": "exclusions",
+          "label": "Existing customers, open deals and do-not-contact lists",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "signal_priorities",
+          "label": "Which 'why now' signals matter most",
+          "required": false,
+          "source": "owner",
+          "example": "New location or hiring front-desk staff"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "dataset",
+          "name": "Scored account list",
+          "format": "xlsx / csv",
+          "description": "Account, domain, firmographics, fit score, tier, dated signal with source URL, target roles, notes."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Method and column notes",
+          "format": "md",
+          "description": "Sources used, scoring method, freshness rules and known gaps."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "browser",
+        "connector_read",
+        "connector_write",
+        "code_interpreter",
+        "spreadsheet_generate"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "linkedin",
+        "airtable",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "connector_data",
+        "screen"
+      ],
+      "instructions": "1. Load the ICP from memory (run icp-definition first if there is none) and confirm the target count, geography and exclusions with the owner. 2. Pull existing customers, open deals and do-not-contact lists with connector_read to deduplicate against, keyed on company domain. 3. Source candidate accounts from public registries, industry directories, association member lists, marketplace or app-store listings and maps with web_search and web_fetch. Use the companion browser only for directories behind filters or pagination; never log in, submit forms or pass a CAPTCHA. 4. Capture firmographics per account and score fit against the ICP sheet (0–100) in code_interpreter. 5. Add one current, dated 'why now' signal per account (hiring post, new location, funding, tool change, review trend) with its source URL, using the 3x3 rule: three relevant facts in three minutes per account. 6. Record the business roles to approach (for example Operations Manager, Practice Owner) and the public company page where they are listed. Do not guess or scrape personal emails or phone numbers, and do not compile personal social profiles. 7. Rank by fit x signal freshness, drop C-tier accounts and mark signals older than 90 days as stale. 8. Deliver the list with spreadsheet_generate, including a column dictionary and method notes. 9. Offer CRM import as a separate step: only after the owner approves, create company records with connector_write keyed on domain and tagged with list name and date. 10. Note that the lawful basis for any later outreach (CAN-SPAM, CASL, GDPR legitimate interest) is the owner's decision. State what could not be verified: stale directory data, estimated firmographics and signals older than 90 days.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load ICP and exclusions",
+          "brief": "Load the ICP criteria and a dedupe list of existing customers and open deals keyed on domain.",
+          "acceptance": "ICP criteria and a domain dedupe list are loaded, or the gap is recorded."
+        },
+        {
+          "activity": "research",
+          "title": "Source candidate accounts",
+          "brief": "Search registries, directories and listings for accounts matching the ICP.",
+          "acceptance": "At least 1.5x the target count of candidates, each with a source URL."
+        },
+        {
+          "activity": "browser",
+          "title": "Extract from filtered directories",
+          "brief": "Where a directory needs filters or pagination, drive the companion browser, read the snapshot before acting and extract a table with page URLs; no logins, forms or CAPTCHAs.",
+          "acceptance": "Every extracted row records the page URL and filter state it came from.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Score, dedupe and rank",
+          "brief": "Score fit, attach dated signals, remove duplicates and existing customers, and rank.",
+          "acceptance": "No duplicate domains or existing customers; each row has a fit score, a dated signal and a source.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Spot-check accuracy",
+          "brief": "Verify a 10% sample (minimum 5 rows) against the cited sources.",
+          "acceptance": "First line is APPROVED or CHANGES; sample error rate reported; more than 10% errors means CHANGES.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Deliver the list",
+          "brief": "Render the scored list, column dictionary and method notes.",
+          "acceptance": "File opens; every column is defined; stale signals are marked.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "mcp",
+          "title": "Import to CRM (optional)",
+          "brief": "After owner approval, create company records through the CRM connector, keyed on domain and tagged with list name and date.",
+          "acceptance": "Receipt lists created and skipped counts; no duplicates were created.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "No personal emails or phone numbers are guessed or scraped; contacts are business roles only",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every account has a dated why-now signal with a source URL",
+          "severity": "must"
+        },
+        {
+          "criterion": "The list is deduplicated against existing customers, open deals and do-not-contact lists",
+          "severity": "must"
+        },
+        {
+          "criterion": "Signals are under 90 days old or flagged as stale",
+          "severity": "should"
+        },
+        {
+          "criterion": "Sample accuracy check is at least 90%",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "icp-definition",
+        "outbound-sequence",
+        "discovery-call-prep",
+        "crm-hygiene",
+        "browse-and-extract"
+      ],
+      "example_request": "Find me 50 dental groups in Texas with three or more locations that just opened a new office or are hiring front-desk staff. We sell scheduling software.",
+      "typical_departments": [
+        "sales-partnerships"
+      ],
+      "version": 1
+    },
+    {
+      "id": "outbound-sequence",
+      "name": "Outbound sequence",
+      "icon": "📤",
+      "category": "sales-revenue",
+      "one_liner": "Multi-touch, personalized sequence across email, phone and social.",
+      "description": "Writes a multi-touch outbound sequence across email, phone and social, personalised by segment and trigger: short plain-text emails with subject-line variants, call and voicemail talk tracks with a spoken rehearsal, a cadence plan and a reply-rate test plan. Drafts only; nothing is sent.",
+      "when": "the owner has a target list and wants to start conversations with prospects without sounding spammy",
+      "inputs": [
+        {
+          "id": "target_segment",
+          "label": "Who the sequence is for (segment, roles, list)",
+          "required": true,
+          "source": "coworker",
+          "example": "40 property managers from the prospect list"
+        },
+        {
+          "id": "proof_points",
+          "label": "Customer results with numbers, case studies and testimonials we may use",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "sender_profile",
+          "label": "Who sends, their signature, booking link and business address",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "offer_cta",
+          "label": "The low-friction ask",
+          "required": false,
+          "source": "owner",
+          "example": "A 15-minute call or a free site survey"
+        },
+        {
+          "id": "channel_constraints",
+          "label": "Channels or markets to avoid",
+          "required": false,
+          "source": "owner",
+          "example": "No cold calls into Quebec"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "email_draft",
+          "name": "Sequence emails with subject variants",
+          "format": "md",
+          "description": "Each touch with day, subject A/B, body, merge fields and fallbacks."
+        },
+        {
+          "artifact_type": "script",
+          "name": "Call and voicemail talk tracks",
+          "format": "md",
+          "description": "Permission opener, reason for the call, two discovery questions and a 25-second voicemail."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Voicemail rehearsal",
+          "format": "mp3",
+          "description": "The opener and voicemail read aloud for pacing."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Cadence and test plan",
+          "format": "xlsx",
+          "description": "Day, channel, template, variant, success metric and stop rule."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_fetch",
+        "document_generate",
+        "spreadsheet_generate",
+        "tts"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "google-workspace",
+        "microsoft-365",
+        "linkedin"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "audio",
+        "connector_data"
+      ],
+      "instructions": "1. Recall the ICP, segment pains and proof points with memory_recall and embeddings_search. If proof is thin, ask the owner for one customer result with a number before writing. 2. Choose the sequence architecture per segment: 8–10 touches over 18–21 business days mixing email (4–5), phone (2–3) and one or two social touches, adjusted to the owner's constraints. 3. Write each email for one reader: a first line drawn from the prospect's own trigger, one problem, one proof, one low-friction ask. Keep it under 120 words, plain text, no attachments or images in touch 1, no fake 'Re:' or 'Fwd:' and no false urgency. 4. Write two subject-line variants per email (3–6 words, no clickbait) and one opening-line variant for an A/B test. 5. Write phone talk tracks: a permission-based opener, a 20-second reason for the call tied to the trigger, two open discovery questions and a 25-second voicemail that references the email. 6. Render the opener and voicemail with tts so the owner can hear the pacing before calling. 7. Add merge fields with safe fallbacks and a personalisation guide: what to research per account in three minutes. 8. Add an unsubscribe line and the sender's business address to every email (CAN-SPAM) and flag consent or legitimate-interest questions for Canada (CASL) and the UK or EU (PECR, GDPR) for the owner to decide. 9. Write the test plan with spreadsheet_generate: primary metric positive reply rate, at least 100 sends per variant before judging, and stop rules. 10. State what could not be verified: proof points without a source and the deliverability of the owner's sending domain.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Map segments, pains and proof",
+          "brief": "For each segment, pick one pain, one sourced proof point and one call to action.",
+          "acceptance": "Each segment has a pain, a proof point with its source and a CTA."
+        },
+        {
+          "activity": "document",
+          "title": "Draft the email sequence",
+          "brief": "Write every email touch with two subject variants, merge fields and fallbacks.",
+          "acceptance": "Every email is under 120 words with a trigger-based first line, one ask and an unsubscribe line.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Call and voicemail tracks",
+          "brief": "Write the opener, reason for calling, discovery questions and voicemail per segment.",
+          "acceptance": "Each segment has an opener, a reason, two questions and a voicemail of 25 seconds or less.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Voicemail rehearsal",
+          "brief": "Render the opener and voicemail in the coworker's voice.",
+          "acceptance": "Audio under 30 seconds per voicemail; the transcript matches the script.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Deliverability and tone review",
+          "brief": "Check for spam-trigger phrasing, false urgency, fake reply prefixes, weak fallbacks and missing compliance lines.",
+          "acceptance": "First line is APPROVED or CHANGES; every issue references a touch number.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Cadence and test plan",
+          "brief": "Render the cadence calendar and A/B test plan.",
+          "acceptance": "Workbook lists day, channel, template, variant, metric and stop rule for every touch.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "No deceptive tactics: no fake 'Re:' or 'Fwd:', false urgency or invented familiarity",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every email carries an opt-out line and the sender's business address",
+          "severity": "must"
+        },
+        {
+          "criterion": "Personalisation references a real, sourced trigger and has a safe fallback",
+          "severity": "must"
+        },
+        {
+          "criterion": "Emails are under 120 words with a single call to action",
+          "severity": "should"
+        },
+        {
+          "criterion": "The test plan sets a minimum sample before declaring a winner",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 50,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "prospect-list-build",
+        "icp-definition",
+        "objection-handling-guide",
+        "discovery-call-prep",
+        "email-copy"
+      ],
+      "example_request": "Write me a cold outreach sequence for the 40 property managers on this list: emails plus what to say when I call. I hate sounding salesy.",
+      "typical_departments": [
+        "sales-partnerships",
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "discovery-call-prep",
+      "name": "Discovery call prep (SPIN)",
+      "icon": "🔎",
+      "category": "sales-revenue",
+      "one_liner": "Account research, hypotheses and SPIN questions for a first call.",
+      "description": "Prepares a first sales call: account research with dated sources, three problem hypotheses, a SPIN question ladder, the MEDDICC gaps to probe, an upfront-contract agenda and one mutual next step, plus a two-minute spoken brief to listen to on the way in.",
+      "when": "a first or early call with a prospect is booked and the owner or a rep wants to walk in prepared",
+      "inputs": [
+        {
+          "id": "account",
+          "label": "Company name and website",
+          "required": true,
+          "source": "owner",
+          "example": "A regional hospital laundry, laundryco.example"
+        },
+        {
+          "id": "attendees",
+          "label": "Who will attend and their roles",
+          "required": true,
+          "source": "owner",
+          "example": "Operations director and procurement lead"
+        },
+        {
+          "id": "deal_record",
+          "label": "CRM record, prior emails and notes",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "offer",
+          "label": "What we sell and the outcomes it changes",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "meeting_goal",
+          "label": "What a good outcome of the call looks like",
+          "required": false,
+          "source": "owner",
+          "example": "Agree a site visit"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "Call plan one-pager",
+          "format": "md -> pdf",
+          "description": "Account facts, hypotheses, SPIN ladder, MEDDICC gaps, agenda and proposed next step."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Two-minute pre-call brief",
+          "format": "mp3",
+          "description": "The three hypotheses, the key questions and the next step, spoken."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "connector_read",
+        "memory_recall",
+        "document_generate",
+        "tts"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "google-workspace",
+        "microsoft-365",
+        "zoom",
+        "linkedin"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "connector_data",
+        "audio"
+      ],
+      "instructions": "1. Pull the deal record, prior emails and meeting notes with connector_read; confirm the call length and attendees. 2. Research the account from primary sources with web_search and web_fetch: website, recent news, job posts, filings or annual reports where public, and reviews. Note three dated facts that matter to the sale (3x3). 3. For each attendee, capture professional role and public work posts only; no personal details. 4. Write three problem hypotheses that link the account's situation to outcomes our offer changes, each with the evidence it rests on. 5. Build the SPIN ladder: at most three Situation questions (never ask what research already answered), four or five Problem questions, three or four Implication questions that quantify the cost of inaction, and two or three Need-payoff questions that let the buyer state the value. 6. List the MEDDICC elements still unknown (Metrics, Economic buyer, Decision criteria, Decision process, Identify pain, Champion, Competition) and the question that probes each. 7. Plan the agenda as an upfront contract (time, purpose, outcome), the two likeliest objections and one mutual next step with a date to propose. 8. Write the one-pager with document_generate and render a two-minute audio brief with tts. 9. State what could not be verified: private company figures, attendee roles not confirmed publicly and news older than six months.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull deal history",
+          "brief": "Read the CRM record, emails and notes if a CRM connector is enabled; otherwise ask the owner for notes.",
+          "acceptance": "Stage, notes and prior touches are summarised, or the step records that no CRM is connected."
+        },
+        {
+          "activity": "research",
+          "title": "Account and stakeholder research",
+          "brief": "Research the account and attendees' professional roles from primary sources.",
+          "acceptance": "At least three dated, cited facts; attendee information is limited to professional role."
+        },
+        {
+          "activity": "llm",
+          "title": "Hypotheses and SPIN ladder",
+          "brief": "Write three evidence-backed hypotheses, the SPIN ladder and the MEDDICC gap questions.",
+          "acceptance": "Three hypotheses each tied to evidence; at most three Situation and at least three Implication questions.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Call plan one-pager",
+          "brief": "Assemble agenda, questions, MEDDICC gaps, objections and the next step on one page.",
+          "acceptance": "Fits one page and includes an upfront contract and a dated next step.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Coach review",
+          "brief": "A sales coach checks for leading, closed or redundant questions.",
+          "acceptance": "First line is APPROVED or CHANGES; no leading or yes/no questions remain in the Problem and Implication sections.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Pre-call audio brief",
+          "brief": "Render the spoken brief.",
+          "acceptance": "Under 2.5 minutes; covers the three hypotheses and the one next step.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Situation questions do not ask what public research already answers",
+          "severity": "must"
+        },
+        {
+          "criterion": "Attendee research is professional only",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every hypothesis cites the evidence it rests on",
+          "severity": "must"
+        },
+        {
+          "criterion": "At least three Implication questions quantify the cost of inaction",
+          "severity": "should"
+        },
+        {
+          "criterion": "Proposes one concrete mutual next step with a date",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "meddicc-qualification",
+        "objection-handling-guide",
+        "battlecard",
+        "account-plan",
+        "proposal-writing"
+      ],
+      "example_request": "I've got a first call Thursday with the ops director at a regional hospital laundry. Prep me: what should I ask, and what do they probably care about?",
+      "typical_departments": [
+        "sales-partnerships"
+      ],
+      "version": 1
+    },
+    {
+      "id": "meddicc-qualification",
+      "name": "Deal qualification (MEDDICC)",
+      "icon": "🚦",
+      "category": "sales-revenue",
+      "one_liner": "Score a deal on MEDDICC and list the gaps to close.",
+      "description": "Scores a deal element by element on MEDDICC, plus Paper process from MEDDPICC, using evidence from CRM notes, emails and transcribed calls. Each element gets a 0–2 score and a RAG rating, and the output lists the gaps to close with the exact question or action, so forecasts rest on buyer evidence rather than optimism.",
+      "when": "a deal is being forecast, stalls, or the owner asks 'is this deal real?'",
+      "inputs": [
+        {
+          "id": "deal_record",
+          "label": "CRM deal with stage, amount, close date and contacts",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "call_evidence",
+          "label": "Call recordings, transcripts or meeting notes",
+          "required": false,
+          "source": "file",
+          "example": "Tuesday's call recording and my notes"
+        },
+        {
+          "id": "email_threads",
+          "label": "Email threads with the buyer",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "seller_view",
+          "label": "What the seller believes and why",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "MEDDICC scorecard",
+          "format": "xlsx",
+          "description": "Element, evidence quote, source, date, score 0–2, RAG and gap question."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Deal gaps and next actions",
+          "format": "md",
+          "description": "Top three gaps, who closes them, by when, and the suggested forecast category."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "connector_write",
+        "file_parse",
+        "stt",
+        "embeddings_search",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "zoom",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "audio",
+        "connector_data"
+      ],
+      "instructions": "1. Gather evidence: CRM fields, emails and notes with connector_read and file_parse; transcribe call recordings with stt. 2. For each element, record the strongest evidence quote with source and date: Metrics (a quantified outcome the buyer agreed), Economic buyer (named, met or not), Decision criteria (technical, financial, relational), Decision process (steps, dates, approvers), Paper process (legal, security review, procurement, signature path), Identify pain (compelling event, cost of inaction), Champion (has power and influence, has a personal win, proven by an action taken) and Competition (including do-nothing and build in-house). 3. Score each element 0 (unknown), 1 (claimed or partial) or 2 (verified by a buyer quote or buyer action). Never score 2 on seller belief alone. 4. Compute the total and a RAG rating, and suggest a forecast category. Commit requires the economic buyer met, the paper process known and a dated compelling event. 5. List the top three gaps with the exact question or action to close each and who should ask it. 6. Flag champion risk: a friendly contact who cannot reach the economic buyer is a coach, not a champion. 7. Build the scorecard with spreadsheet_generate and the gap brief with document_generate. 8. Only with owner approval, write the scores to CRM fields with connector_write and keep the receipt. 9. State what could not be verified: claims that appear only in seller notes and evidence older than 30 days.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Collect deal evidence",
+          "brief": "Read the deal, contacts, emails and notes from the CRM.",
+          "acceptance": "Every MEDDICC element has candidate evidence or is marked unknown."
+        },
+        {
+          "activity": "stt",
+          "title": "Transcribe call recordings",
+          "brief": "Transcribe any call recordings with speaker labels and timestamps.",
+          "acceptance": "Transcripts exist for every recording provided, with timestamps."
+        },
+        {
+          "activity": "llm",
+          "title": "Score each element",
+          "brief": "Score each element 0–2 with the quote, source and date that justify it.",
+          "acceptance": "Every score of 2 cites a buyer quote or buyer action.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptical forecast check",
+          "brief": "Challenge every 2 without buyer evidence and every commit call.",
+          "acceptance": "First line is APPROVED or CHANGES; commit deals meet the stated commit rule.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Scorecard and gap plan",
+          "brief": "Render the scorecard and the gap brief.",
+          "acceptance": "Top three gaps each have a question or action, an owner and a date.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "mcp",
+          "title": "Update CRM fields (optional)",
+          "brief": "After owner approval, write scores and the next step to CRM fields.",
+          "acceptance": "Receipt shows fields written; runs only after approval.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "No element is scored 2 without a buyer quote or observable buyer action",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each gap has a specific question or action and an owner",
+          "severity": "must"
+        },
+        {
+          "criterion": "Competition includes the do-nothing option",
+          "severity": "must"
+        },
+        {
+          "criterion": "Evidence older than 30 days is flagged",
+          "severity": "should"
+        },
+        {
+          "criterion": "The forecast category follows the stated commit rule",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 25,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "discovery-call-prep",
+        "pipeline-review",
+        "negotiation-prep",
+        "account-plan"
+      ],
+      "example_request": "Is the Hendricks deal real or am I kidding myself? Here are my notes and the recording from Tuesday's call.",
+      "typical_departments": [
+        "sales-partnerships"
+      ],
+      "version": 1
+    },
+    {
+      "id": "proposal-writing",
+      "name": "Proposal & SOW draft",
+      "icon": "📄",
+      "category": "sales-revenue",
+      "one_liner": "Win-themed proposal or statement of work with scope, pricing and terms to review.",
+      "description": "Drafts a win-themed proposal or statement of work in the Shipley style. It covers a compliance matrix for RFPs, an executive summary that answers 'why us', and scope as deliverables with acceptance criteria and explicit exclusions. It adds a timeline, good-better-best pricing at approved rates, proof, and terms flagged for review.",
+      "when": "a prospect asked for a proposal, quote with scope, statement of work or RFP response",
+      "inputs": [
+        {
+          "id": "discovery_notes",
+          "label": "Discovery notes, call transcripts or the RFP",
+          "required": true,
+          "source": "file",
+          "example": "The city's landscape maintenance RFP PDF"
+        },
+        {
+          "id": "rate_card",
+          "label": "Approved rates, price floors and discount authority",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "proof_library",
+          "label": "Case studies, references and results we may cite",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "standard_terms",
+          "label": "Our standard terms and conditions",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "deadline_format",
+          "label": "Due date, page limits and submission format",
+          "required": false,
+          "source": "owner",
+          "example": "Due in 9 days, PDF, 20 pages max"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Proposal or SOW draft",
+          "format": "md -> docx",
+          "description": "Executive summary, approach, scope, deliverables with acceptance, timeline, pricing, proof and terms."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Compliance matrix and price options",
+          "format": "xlsx",
+          "description": "Every requirement mapped to a section; pricing options with margin at approved rates."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Delivery timeline",
+          "format": "mermaid -> svg",
+          "description": "Milestones as a Gantt chart."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "embeddings_search",
+        "memory_recall",
+        "web_fetch",
+        "code_interpreter",
+        "document_generate",
+        "spreadsheet_generate",
+        "diagram_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "notion",
+        "dropbox"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Parse the RFP or discovery notes with file_parse and build a compliance matrix: every 'shall', 'must' and submission rule with an id and the section that answers it. 2. Define two or three win themes, each combining a customer hot button, our discriminator and proof. 3. Write the executive summary in the customer's language: their goal, our approach, the outcome with a metric, why us and the ask. It should read in two minutes. 4. Write scope as deliverables with acceptance criteria, an explicit out-of-scope list, assumptions and customer responsibilities. The out-of-scope list is what prevents scope creep. 5. Draw the delivery timeline with diagram_generate. 6. Price two or three options (good-better-best) tied to scope, with payment milestones and margins computed in code_interpreter, using only owner-approved rates. Any discount or rate below the floor is raised with request_owner_decision. 7. Add proof only from the approved proof library or sources the owner confirms; never invent references or results. 8. Pull standard terms from memory and flag liability caps, IP ownership, indemnities, payment and termination for owner and attorney review. Do not invent legal terms. 9. Run a pink-team review against the compliance matrix and win themes, then finalise with document_generate. 10. State what could not be verified: requirement interpretations, assumptions about the customer's environment and any proof without a source.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Parse the RFP and notes",
+          "brief": "Extract requirements, evaluation criteria and submission rules into a compliance matrix.",
+          "acceptance": "The compliance matrix lists every requirement with an id and source page."
+        },
+        {
+          "activity": "llm",
+          "title": "Win themes and solution outline",
+          "brief": "Define win themes and the section outline mapped to the matrix.",
+          "acceptance": "Each win theme has a hot button, a discriminator and proof.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Draft the proposal",
+          "brief": "Write the executive summary, approach, scope, timeline, proof and terms sections.",
+          "acceptance": "Every section in the outline exists; out-of-scope and assumptions are explicit.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Price the options",
+          "brief": "Build good-better-best options at approved rates with margins and payment milestones.",
+          "acceptance": "Workbook recalculates; every rate matches the rate card or is flagged for approval.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Pink-team review",
+          "brief": "Score the draft against the compliance matrix and win themes, and check every claim of proof.",
+          "acceptance": "First line is APPROVED or CHANGES; every requirement maps to a section and no claim is unsupported.",
+          "dependsOn": [
+            2,
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves pricing and terms",
+          "brief": "The owner decides on the price options, any discounts and the flagged terms.",
+          "acceptance": "Owner decision recorded for pricing, discounts and each flagged term.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every RFP requirement appears in the compliance matrix and maps to a section",
+          "severity": "must"
+        },
+        {
+          "criterion": "Out-of-scope items and assumptions are explicit",
+          "severity": "must"
+        },
+        {
+          "criterion": "Pricing uses only owner-approved rates; discounts are flagged for approval",
+          "severity": "must"
+        },
+        {
+          "criterion": "Legal terms are flagged for owner and attorney review, never invented",
+          "severity": "must"
+        },
+        {
+          "criterion": "The executive summary leads with the customer's outcome, not our history",
+          "severity": "should"
+        },
+        {
+          "criterion": "Each win theme carries proof",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "discovery-call-prep",
+        "negotiation-prep",
+        "contract-issue-list",
+        "agency-sow-scope",
+        "editorial-review",
+        "invoice-and-quote"
+      ],
+      "example_request": "The city parks department sent an RFP for landscape maintenance, due in 9 days. Can you draft our response? Our rates and two past projects are in the shared drive.",
+      "typical_departments": [
+        "sales-partnerships"
+      ],
+      "version": 1
+    },
+    {
+      "id": "objection-handling-guide",
+      "name": "Objection handling guide",
+      "icon": "🛡️",
+      "category": "sales-revenue",
+      "one_liner": "Top objections with LAER responses, proof and talk tracks.",
+      "description": "Builds the team's objection guide from real call transcripts, lost-deal reasons and reviews. The top objections are ranked by frequency and revenue lost, each with a LAER response (Listen, Acknowledge, Explore, Respond), sourced proof, a 30-second talk track, and recorded model answers. Reps can also role-play live against a coworker playing the buyer.",
+      "when": "reps stall on the same objections, win rates drop at a known stage, or a new rep needs to ramp",
+      "inputs": [
+        {
+          "id": "lost_reasons",
+          "label": "Closed-lost reasons and notes",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "call_recordings",
+          "label": "Recordings or transcripts where objections came up",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "proof_library",
+          "label": "Case results, guarantees and pilot options we can offer",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "pricing",
+          "label": "Pricing, packaging and discount authority",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Objection handling guide",
+          "format": "md -> docx",
+          "description": "Objection, frequency, LAER response, proof, talk track, what not to say."
+        },
+        {
+          "artifact_type": "script",
+          "name": "Talk tracks",
+          "format": "md",
+          "description": "30-second responses per objection."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Model responses",
+          "format": "mp3",
+          "description": "Each talk track spoken for practice."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "stt",
+        "file_parse",
+        "embeddings_search",
+        "code_interpreter",
+        "document_generate",
+        "tts",
+        "realtime_voice"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "zoom",
+        "google-workspace",
+        "zendesk"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "audio",
+        "voice",
+        "connector_data"
+      ],
+      "instructions": "1. Collect objections from lost-deal reasons (connector_read), call transcripts (transcribe recordings with stt), support tickets and reviews. 2. Cluster them in code_interpreter into price or budget, timing, status quo, competitor, trust or risk, authority, and need or fit. Rank by frequency x deal value lost and keep the top 8–12. 3. For each objection write the LAER response: Listen (let them finish), Acknowledge (without agreeing), Explore (two clarifying questions that find the real concern, for example 'compared to what?' for price), Respond (reframe with value, proof or a lower-risk path). 4. Attach proof from the approved library only: a result, a guarantee or a pilot structure, each sourced. 5. Write a 30-second talk track and a 'what not to say' line for each. 6. Mark objections that signal a genuine poor fit, where the right move is to walk away rather than handle. 7. Record model answers with tts, and offer live practice with realtime_voice: the coworker plays the buyer and scores the rep on each LAER step. 8. State what could not be verified: objection frequencies from small samples and proof points without a source.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Collect objection evidence",
+          "brief": "Gather lost reasons, tickets, reviews and transcripts.",
+          "acceptance": "Each source is listed with its count of objection mentions."
+        },
+        {
+          "activity": "stt",
+          "title": "Transcribe recordings",
+          "brief": "Transcribe provided call recordings and tag objection moments with timestamps.",
+          "acceptance": "Every recording is transcribed with objection timestamps.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Cluster and rank",
+          "brief": "Cluster objections and rank them by frequency and revenue lost.",
+          "acceptance": "Top 8–12 objections with counts and value lost.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Write the LAER guide",
+          "brief": "Write LAER responses, proof, talk tracks and walk-away signals.",
+          "acceptance": "Every objection has Explore questions before the Respond step.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Enablement review",
+          "brief": "Check for manipulative tactics, unsourced proof and missing walk-away cases.",
+          "acceptance": "First line is APPROVED or CHANGES; no pressure tactics; every proof is sourced.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Record model answers",
+          "brief": "Render each talk track in the coworker's voice.",
+          "acceptance": "One clip per objection, under 40 seconds each.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Objections come from real evidence with counts, not guesses",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every response includes Explore questions before responding",
+          "severity": "must"
+        },
+        {
+          "criterion": "No pressure or manipulative tactics such as false scarcity or guilt",
+          "severity": "must"
+        },
+        {
+          "criterion": "Objections that signal a poor fit are identified",
+          "severity": "should"
+        },
+        {
+          "criterion": "Every proof point is sourced",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "battlecard",
+        "discovery-call-prep",
+        "outbound-sequence",
+        "review-mining",
+        "negotiation-prep"
+      ],
+      "example_request": "Everyone keeps telling us 'we're happy with our current supplier' and my two new reps freeze. Build them something to practise with.",
+      "typical_departments": [
+        "sales-partnerships"
+      ],
+      "version": 1
+    },
+    {
+      "id": "battlecard",
+      "name": "Competitive battlecard",
+      "icon": "⚔️",
+      "category": "sales-revenue",
+      "one_liner": "One-page battlecard: where we win, where we lose, landmines and proof.",
+      "description": "Builds a one-page competitive battlecard per competitor with every fact sourced and dated. It covers why we win, where we honestly lose, landmine questions, their traps and our responses, quick dismisses and pricing notes, backed by a head-to-head matrix and real win/loss notes.",
+      "when": "reps keep meeting the same competitor, deals are lost on comparison, or a competitor changes pricing or launches",
+      "inputs": [
+        {
+          "id": "competitors",
+          "label": "Competitors to cover (up to three per run)",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "win_loss_notes",
+          "label": "Deals won and lost against them",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "positioning",
+          "label": "Our positioning and proof",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "deal_context",
+          "label": "Where the card will be used (segment, stage)",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "Battlecard",
+          "format": "md -> pdf",
+          "description": "One page: why we win, where we lose, landmines, traps, quick dismisses and pricing notes, all dated."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Head-to-head matrix",
+          "format": "xlsx",
+          "description": "Capabilities, pricing, packaging, customer praise and complaints with sources."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "x_search",
+        "connector_read",
+        "embeddings_search",
+        "document_generate",
+        "spreadsheet_generate"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "notion",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Confirm the competitors (at most three per run) and where the card will be used. 2. Research each competitor from primary sources with web_search and web_fetch: pricing page, product docs, changelog, job posts, public case studies and third-party reviews. Use x_search for recent public sentiment. Date every fact. 3. Pull win and loss notes against each competitor with connector_read. 4. Build the head-to-head matrix: capabilities, pricing and packaging, ideal customer, go-to-market, what customers praise and what they complain about, with review counts. 5. Write the card: 'Why we win' (three points with proof), 'Where we lose' (honest and specific), 'Landmines' (neutral discovery questions that surface our strengths), 'Their traps and our response', 'Quick dismisses' and pricing notes. 6. Stick to sourced facts. Never disparage the competitor or state what cannot be verified; route contentious comparative claims to claims-substantiation-check. 7. Offer watch-a-page on their pricing and changelog pages so the card flags itself when it goes stale. 8. State what could not be verified: private pricing, roadmap rumours and review samples under 20.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Competitor research",
+          "brief": "Research each competitor's offer, pricing, messaging and reviews from primary sources.",
+          "acceptance": "Every fact is dated and linked; pricing captured from the live page."
+        },
+        {
+          "activity": "mcp",
+          "title": "Win/loss notes",
+          "brief": "Read deals won and lost against each competitor from the CRM.",
+          "acceptance": "Win/loss count and top reasons per competitor, or the gap is recorded."
+        },
+        {
+          "activity": "llm",
+          "title": "Head-to-head matrix",
+          "brief": "Compare capabilities, pricing and review themes side by side.",
+          "acceptance": "Every cell has a source or is marked unknown.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Write the battlecard",
+          "brief": "Write the one-page card per competitor.",
+          "acceptance": "One page per competitor with all six sections.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Fairness and accuracy review",
+          "brief": "Check every claim against its source and remove disparagement.",
+          "acceptance": "First line is APPROVED or CHANGES; no unsourced or disparaging claim remains.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every competitor fact is sourced and dated",
+          "severity": "must"
+        },
+        {
+          "criterion": "'Where we lose' is honest and specific",
+          "severity": "must"
+        },
+        {
+          "criterion": "No disparaging or unverifiable claims about competitors",
+          "severity": "must"
+        },
+        {
+          "criterion": "Landmine questions are neutral discovery questions, not attacks",
+          "severity": "should"
+        },
+        {
+          "criterion": "Each card fits on one page",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "competitor-teardown",
+        "objection-handling-guide",
+        "claims-substantiation-check",
+        "watch-a-page",
+        "discovery-call-prep"
+      ],
+      "example_request": "We keep losing to the same two bigger competitors on price. Make my reps a battlecard for each so they stop getting blindsided.",
+      "typical_departments": [
+        "sales-partnerships",
+        "research-insights",
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "pipeline-review",
+      "name": "Pipeline review & forecast",
+      "icon": "📈",
+      "category": "sales-revenue",
+      "one_liner": "Stage-by-stage pipeline inspection with a commit/best-case forecast.",
+      "description": "Inspects open pipeline stage by stage. It flags stale, past-dated and mis-staged deals and checks coverage against target. It then forecasts three ways (rep-called categories, stage-weighted with the business's own conversion rates, and an aging check), shown as a range. It names the five deals where one action this week matters most and ends with a three-minute spoken brief.",
+      "when": "before a weekly sales meeting, month or quarter end, a board meeting, or when the owner asks what will really close",
+      "inputs": [
+        {
+          "id": "pipeline",
+          "label": "Open and recently closed deals with stage, amount, dates, owner, last activity and next step",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "stage_definitions",
+          "label": "Stage names and exit criteria",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "target",
+          "label": "Target or quota for the period",
+          "required": true,
+          "source": "owner",
+          "example": "$420k new bookings this quarter"
+        },
+        {
+          "id": "last_review",
+          "label": "Last review's snapshot to compare against",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "dashboard",
+          "name": "Pipeline review workbook",
+          "format": "xlsx",
+          "description": "Hygiene flags, stage checks, coverage, conversion, three forecasts and the movement waterfall."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Forecast and actions memo",
+          "format": "md",
+          "description": "Forecast range, risks and the five deals to act on this week."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Pipeline movement waterfall",
+          "format": "svg",
+          "description": "New, advanced, slipped, won and lost since the last review."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Three-minute pipeline brief",
+          "format": "mp3",
+          "description": "The forecast range and the five actions, spoken."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate",
+        "tts"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "google-workspace",
+        "microsoft-365",
+        "slack"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file",
+        "audio"
+      ],
+      "instructions": "1. Pull open and recently closed deals with amount, stage, close date, owner, created date, last activity and next step using connector_read. 2. Check hygiene first: missing amounts, close dates or next steps; close dates in the past; no activity in 14+ days. List each. 3. Check stage-exit criteria: deals sitting in a stage without its required evidence (for example 'Proposal' with no economic buyer met). 4. Compute in code_interpreter: coverage (open pipeline ÷ remaining target, judged against the business's own win rate rather than a generic 3x), historical stage-to-close conversion, average cycle length and slippage (close-date pushes per deal). 5. Forecast three ways: rep-called categories (commit, best case, pipeline); stage-weighted using the business's own historical conversion rather than default CRM probabilities; and an aging check of deals older than 1.5x the average cycle. Show the range. 6. Chart the pipeline movement since the last review as a waterfall with chart_generate. 7. Pick the five deals where one action this week moves the forecast most, and name the action, the owner and the date. 8. Render the workbook and memo, then a three-minute spoken brief with tts. 9. State what could not be verified: deals with incomplete data, and forecasts resting on fewer than 20 historical closed deals.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull pipeline",
+          "brief": "Read open and recently closed deals with their fields from the CRM.",
+          "acceptance": "All open deals are loaded with the required fields, or gaps are counted."
+        },
+        {
+          "activity": "analysis",
+          "title": "Hygiene and stage-criteria check",
+          "brief": "Flag stale, past-dated, incomplete and mis-staged deals.",
+          "acceptance": "Every flagged deal lists the rule it breaks.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Coverage, conversion and forecast",
+          "brief": "Compute coverage, conversion, cycle, slippage and the three forecasts.",
+          "acceptance": "The forecast range states the historical sample size behind it.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Review workbook and memo",
+          "brief": "Render the workbook, waterfall and memo with the five actions.",
+          "acceptance": "Workbook recalculates; memo names five deals, each with an action, owner and date.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Forecast challenge",
+          "brief": "A sceptical reviewer tests each commit deal against the commit rule.",
+          "acceptance": "First line is APPROVED or CHANGES; every commit deal passes the commit rule or is moved.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Spoken pipeline brief",
+          "brief": "Render the three-minute brief.",
+          "acceptance": "Audio under 3.5 minutes covering the range and the five actions.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The forecast uses the business's own historical conversion and states the sample size",
+          "severity": "must"
+        },
+        {
+          "criterion": "Commit deals meet the stated commit criteria",
+          "severity": "must"
+        },
+        {
+          "criterion": "Stale and past-dated deals are listed",
+          "severity": "must"
+        },
+        {
+          "criterion": "The forecast is shown as a range, not a single number",
+          "severity": "should"
+        },
+        {
+          "criterion": "Each of the top five actions names an owner and a date",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "meddicc-qualification",
+        "crm-hygiene",
+        "dashboard-build",
+        "weekly-review",
+        "kpi-tree"
+      ],
+      "example_request": "Board meeting Monday. Go through the pipeline in HubSpot and tell me what we're really going to close this quarter, and which deals I should personally chase.",
+      "typical_departments": [
+        "sales-partnerships",
+        "data-analytics"
+      ],
+      "version": 1
+    },
+    {
+      "id": "crm-hygiene",
+      "name": "CRM hygiene sweep",
+      "icon": "🧹",
+      "category": "sales-revenue",
+      "one_liner": "Find stale, duplicate and incomplete records and propose fixes.",
+      "description": "Sweeps the CRM for duplicates, stale and incomplete records, and lifecycle stages that contradict deal data. It builds a reviewable change list (update, merge, archive, reassign) with confidence and reasons, snapshots a rollback export first, and applies only owner-approved batches, with receipts and a before-and-after score.",
+      "when": "the CRM is cluttered, reports can't be trusted, before a pipeline review or a CRM migration",
+      "inputs": [
+        {
+          "id": "crm_objects",
+          "label": "Contacts, companies and deals with key fields and last-modified dates",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "required_fields",
+          "label": "Which fields must be filled at which stage",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "merge_rules",
+          "label": "What counts as a duplicate and which record wins",
+          "required": false,
+          "source": "owner",
+          "example": "Same domain; keep the record with the most activity"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Change list",
+          "format": "xlsx",
+          "description": "Record id, issue, proposed action, confidence, reason and approval status."
+        },
+        {
+          "artifact_type": "dataset",
+          "name": "Rollback snapshot",
+          "format": "csv",
+          "description": "Export of every record touched, taken before any change."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Hygiene report",
+          "format": "md",
+          "description": "Before-and-after completeness, what changed and three prevention rules."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "connector_write",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "airtable",
+        "google-workspace"
+      ],
+      "modalities": [
+        "connector_data",
+        "text",
+        "file"
+      ],
+      "instructions": "1. Export contacts, companies and deals with connector_read and save a rollback snapshot of every field before any change. 2. Profile completeness per required field, per object and per record owner in code_interpreter. 3. Find duplicates with fuzzy matching (normalised domain, name similarity, email) and score confidence. Only high-confidence pairs are proposed for merge; the rest go to a human-review list. 4. Flag stale records: open deals with past close dates or no activity in 30+ days, bounced or unsubscribed contacts, and lifecycle stages that contradict deal data. 5. Check stage definitions: deals whose stage lacks its exit-criteria evidence. 6. Build the change list with spreadsheet_generate: record id, issue, proposed action (update, merge, archive, reassign), confidence and reason, grouped by action type. Archive rather than delete. 7. Raise an owner decision card with request_owner_decision; apply only approved batches with connector_write, in small idempotent batches, keeping every receipt. 8. Re-run the profile and report before-and-after scores, and recommend three prevention rules (required fields at stage change, dedupe on create, validation rules). 9. State what could not be verified: fields the connector cannot read and merges that need human context.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Export and snapshot",
+          "brief": "Export CRM objects and save the rollback snapshot.",
+          "acceptance": "Snapshot file exists and covers every record in scope."
+        },
+        {
+          "activity": "analysis",
+          "title": "Profile and detect issues",
+          "brief": "Profile completeness and detect duplicates, stale records and stage violations.",
+          "acceptance": "Each issue has a record id, rule and confidence.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Change list",
+          "brief": "Render the grouped change list for review.",
+          "acceptance": "Every proposed change has an action, reason and confidence; no deletes proposed.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves changes",
+          "brief": "The owner approves or rejects batches of changes.",
+          "acceptance": "Approval recorded per batch.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Apply approved changes",
+          "brief": "Apply only approved batches through the CRM connector with idempotency keys.",
+          "acceptance": "A receipt per batch; only approved ids changed.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Before-and-after report",
+          "brief": "Re-profile and compare with the baseline.",
+          "acceptance": "Before-and-after completeness and duplicate counts reported.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "A rollback export exists before any write",
+          "severity": "must"
+        },
+        {
+          "criterion": "No change is applied without explicit owner approval, and every change has a receipt",
+          "severity": "must"
+        },
+        {
+          "criterion": "Merges below high confidence are left for human review",
+          "severity": "must"
+        },
+        {
+          "criterion": "Before-and-after completeness is reported",
+          "severity": "should"
+        },
+        {
+          "criterion": "Prevention rules are proposed",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "pipeline-review",
+        "data-cleanup",
+        "prospect-list-build",
+        "meddicc-qualification"
+      ],
+      "example_request": "Our HubSpot is a mess: duplicate companies, deals from 2023 still 'open'. Clean it up, but don't delete anything without showing me first.",
+      "typical_departments": [
+        "sales-partnerships"
+      ],
+      "version": 1
+    },
+    {
+      "id": "negotiation-prep",
+      "name": "Negotiation prep (BATNA/ZOPA)",
+      "icon": "🤝",
+      "category": "sales-revenue",
+      "one_liner": "Interests, BATNA, ZOPA, anchors and a concession plan.",
+      "description": "Prepares a negotiation with principled negotiation (Fisher and Ury). It maps interests behind positions, both sides' BATNAs, the likely ZOPA, an anchored opening and a margin-modelled plan of conditional concessions. The walk-away point is confirmed by the owner, and the owner can rehearse live against a coworker playing the counterpart.",
+      "when": "a renewal, discount request, supplier price rise, partnership term or big deal is about to be negotiated",
+      "inputs": [
+        {
+          "id": "situation",
+          "label": "What is being negotiated, with whom, and the deadline",
+          "required": true,
+          "source": "owner",
+          "example": "Biggest customer wants 15% off to renew for two years"
+        },
+        {
+          "id": "margins",
+          "label": "Costs, margins and discount authority",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "counterpart",
+          "label": "What we know about the other side, their options and pressures",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "deal_history",
+          "label": "Account history, usage and past concessions",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Negotiation plan",
+          "format": "md -> docx",
+          "description": "Interests, BATNAs, ZOPA, anchor, concessions, objective criteria, tactics and script."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Concession and margin model",
+          "format": "xlsx",
+          "description": "Each tradeable with cost to us, value to them and margin impact."
+        },
+        {
+          "artifact_type": "minutes",
+          "name": "Rehearsal notes",
+          "format": "md",
+          "description": "What worked in the role-play and what to change."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "convene_meeting",
+        "realtime_voice",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "quickbooks",
+        "xero",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "voice",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Clarify what is on the table (price, term, scope, payment terms, service levels, exclusivity) and the deadline. 2. Map interests versus positions for both sides: three to five interests each, and the interests we share. 3. Estimate both BATNAs with evidence: ours (other pipeline, freed capacity) and theirs (competitor, status quo, doing it in-house). Strengthen ours before the meeting where possible. 4. Set the reservation price (walk-away) from the margin model and the target, and estimate the ZOPA in code_interpreter. 5. Choose the anchor: an ambitious but defensible first offer with its rationale, and plan the response to an extreme anchor from them (reframe rather than counter). 6. Build the concession plan with spreadsheet_generate: tradeables ranked by cost to us versus value to them. Every concession is conditional ('if you…, then we…'), shrinks in size, and has its margin impact modelled. 7. Prepare objective criteria (market rates, published benchmarks, past terms) for each major term, and responses to common tactics (deadline pressure, nibbling, good cop/bad cop). 8. Ask the owner to confirm the walk-away point and their authority limits with request_owner_decision. 9. Rehearse: convene a voiced role-play in which a coworker plays the counterpart over realtime_voice, then record what to change. 10. Flag any legal terms in play for attorney review. State what could not be verified: estimates of the counterpart's BATNA and market-rate figures older than 12 months.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Interests and BATNA map",
+          "brief": "Map interests, positions and both BATNAs with evidence.",
+          "acceptance": "Both sides have interests listed and a BATNA with evidence or marked as an estimate."
+        },
+        {
+          "activity": "analysis",
+          "title": "Margin and concession model",
+          "brief": "Model the reservation price, ZOPA and each concession's margin impact.",
+          "acceptance": "The model recalculates; every concession shows its margin impact.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Negotiation plan",
+          "brief": "Write the plan: anchor, concessions, objective criteria, tactic responses and script.",
+          "acceptance": "Every concession is written as a conditional trade.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic stress-test",
+          "brief": "Test the plan against the counterpart's strongest moves.",
+          "acceptance": "First line is APPROVED or CHANGES; the three likeliest counter-moves each have a planned response.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner sets walk-away and authority",
+          "brief": "The owner confirms the walk-away point and what can be conceded without asking.",
+          "acceptance": "Walk-away and authority limits recorded.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Rehearsal role-play",
+          "brief": "A voiced role-play with a coworker playing the counterpart; the owner can join or listen.",
+          "acceptance": "Rehearsal notes list what worked and what to change.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The walk-away point is confirmed by the owner before the negotiation",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every concession is conditional and has a modelled margin impact",
+          "severity": "must"
+        },
+        {
+          "criterion": "Both BATNAs are estimated with evidence or labelled as estimates",
+          "severity": "must"
+        },
+        {
+          "criterion": "Objective criteria are prepared for each major term",
+          "severity": "should"
+        },
+        {
+          "criterion": "Legal terms are flagged for attorney review",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "meddicc-qualification",
+        "proposal-writing",
+        "contract-issue-list",
+        "pricing-and-packaging",
+        "vendor-rfq"
+      ],
+      "example_request": "Our biggest customer wants 15% off to renew for two years. Help me figure out what I can give, what I should ask for back, and let me practise the conversation.",
+      "typical_departments": [
+        "sales-partnerships",
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "account-plan",
+      "name": "Key account plan",
+      "icon": "🗺️",
+      "category": "sales-revenue",
+      "one_liner": "Stakeholder map, whitespace, risks and a 90-day expansion plan.",
+      "description": "Builds a key account plan: an account snapshot, the account's own strategy from public sources, a stakeholder power map that flags single-threaded risk, a whitespace grid of units against offerings, RAG-rated risks, and a 90-day plan of named plays with owners, dates and success measures.",
+      "when": "a customer is big enough that losing it would hurt, a renewal is approaching, or there is room to expand into other teams or locations",
+      "inputs": [
+        {
+          "id": "account_data",
+          "label": "Revenue history, products used, contract dates and contacts",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "usage_support",
+          "label": "Usage trend, support tickets and satisfaction scores",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "stakeholders",
+          "label": "People we know there and how we get on with them",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "goals",
+          "label": "What we want from this account in 90 days",
+          "required": false,
+          "source": "owner",
+          "example": "Keep the renewal and get into 8 more locations"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Key account plan",
+          "format": "md -> docx",
+          "description": "Snapshot, account strategy, risks, objectives and 90-day plays."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Stakeholder power map",
+          "format": "mermaid -> svg",
+          "description": "Contacts by influence and attitude, with relationship lines."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Whitespace grid",
+          "format": "xlsx",
+          "description": "Business units or locations against offerings: owned, in progress, opportunity, not a fit, with sizing."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "web_search",
+        "web_fetch",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "diagram_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "stripe",
+        "zendesk",
+        "intercom",
+        "linkedin"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "url",
+        "file"
+      ],
+      "instructions": "1. Build the account snapshot with connector_read: revenue history, products used, contract and renewal dates, usage trend, support tickets and satisfaction scores. 2. Research the account's own strategy with web_search and web_fetch: stated goals, news, leadership changes, expansions or closures, all cited. 3. Draw the stakeholder power map with diagram_generate: role, influence (high, medium, low), attitude to us (champion, supporter, neutral, detractor), last contact and what each person cares about. Flag single-threaded risk, where only one strong relationship holds the account. 4. Build the whitespace grid: business units or locations against our offerings, marked owned, in progress, opportunity or not a fit, with each opportunity sized and its assumptions stated. 5. Rate risks with RAG: renewal date, detractors, usage decline, competitor presence and budget changes. 6. Set 90-day objectives for retention, expansion value and relationship breadth, and three to five plays (executive sponsor meeting, QBR, pilot in a new unit, joint success story), each with an owner, date and success measure. 7. Render the plan with document_generate. 8. State what could not be verified: guesses about their org structure and the assumptions behind whitespace sizing.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Account snapshot",
+          "brief": "Read revenue, products, contract dates, usage and support history.",
+          "acceptance": "Snapshot covers revenue, renewal date, usage trend and support history, or marks gaps."
+        },
+        {
+          "activity": "research",
+          "title": "Account strategy research",
+          "brief": "Research the account's goals, news and leadership changes.",
+          "acceptance": "At least three cited, dated facts about the account's direction."
+        },
+        {
+          "activity": "analysis",
+          "title": "Stakeholder map and whitespace",
+          "brief": "Build the power map and whitespace grid with sizing.",
+          "acceptance": "Every stakeholder has influence and attitude; every opportunity has a size and assumptions.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "90-day account plan",
+          "brief": "Write objectives, risks and plays.",
+          "acceptance": "Each play has an owner, a date and a success measure.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Account team review",
+          "brief": "Challenge the plan for single-thread risk and realism.",
+          "acceptance": "First line is APPROVED or CHANGES; single-thread risk is addressed by at least one play.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The stakeholder map flags single-threaded risk",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every play has an owner, a date and a success measure",
+          "severity": "must"
+        },
+        {
+          "criterion": "Whitespace sizes state their assumptions",
+          "severity": "must"
+        },
+        {
+          "criterion": "The renewal date and risks are RAG-rated",
+          "severity": "should"
+        },
+        {
+          "criterion": "The plan ties to the account's own stated goals, with sources",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "qbr-deck",
+        "churn-risk-review",
+        "meddicc-qualification",
+        "negotiation-prep",
+        "customer-onboarding-plan"
+      ],
+      "example_request": "The restaurant group is our biggest client and 6 of their 14 locations use us. Build me a plan to get the other 8 without risking the relationship.",
+      "typical_departments": [
+        "sales-partnerships",
+        "customer-success-support"
+      ],
+      "version": 1
+    },
+    {
+      "id": "partner-program-design",
+      "name": "Partner program design",
+      "icon": "🔗",
+      "category": "sales-revenue",
+      "one_liner": "Partner types, tiers, benefits, enablement and a scorecard.",
+      "description": "Designs a partner program: ecosystem map, partner types (referral, reseller, integration, agency, affiliate), tiers with entry criteria and benefits, deal-registration and channel-conflict rules, an enablement outline and a partner scorecard. Partner economics are modelled against gross margin so payouts don't eat the business.",
+      "when": "partners already send business informally, the owner wants a channel beyond direct sales, or partner deals are causing conflict or confusion",
+      "inputs": [
+        {
+          "id": "goals",
+          "label": "What the program should achieve and by when",
+          "required": true,
+          "source": "owner",
+          "example": "20% of new clients via partners within a year"
+        },
+        {
+          "id": "unit_economics",
+          "label": "Gross margin, CAC and customer lifetime value",
+          "required": true,
+          "source": "coworker"
+        },
+        {
+          "id": "existing_partners",
+          "label": "Who already refers or resells, and on what terms",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "icp",
+          "label": "Ideal customer profile",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Partner program blueprint",
+          "format": "md -> docx",
+          "description": "Types, tiers, benefits, rules, enablement and launch steps."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Partner economics model",
+          "format": "xlsx",
+          "description": "Payout versus margin, partner CAC versus direct, payback and break-even volume."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Partner scorecard",
+          "format": "xlsx",
+          "description": "Sourced and influenced pipeline, win rate, time to first deal, certification and satisfaction."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Ecosystem map",
+          "format": "mermaid -> svg",
+          "description": "Who serves the ICP before, during and after purchase."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "diagram_generate",
+        "ask_coworker"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "stripe",
+        "google-workspace",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "file"
+      ],
+      "instructions": "1. Define the goal and which motions fit: referral, reseller, co-sell, integration or technology, agency or services, affiliate or creator. 2. Map the ecosystem with diagram_generate: who already serves the ICP before, during and after purchase. List 15–30 candidate partner types or companies with a fit rationale. 3. Benchmark three to five comparable public partner programs (tiers, commission ranges, requirements) with web_search and web_fetch, cited. 4. Model the economics per motion in code_interpreter: commission or discount against gross margin, partner CAC versus direct, payback and break-even volume. Keep payouts within a margin guardrail the owner sets; ask_coworker a finance coworker to check the model. 5. Design tiers (for example Registered, Silver, Gold) with entry criteria and benefits (margin, leads, co-marketing funds, support), plus deal-registration and channel-conflict rules covering who owns a deal when a partner and our team both touch it. 6. Outline enablement: onboarding path, light certification, sales kit and co-branded assets. 7. Build the partner scorecard and a quarterly partner review cadence. 8. Flag the partner agreement, affiliate disclosure duties (FTC endorsement guides and similar) and any data sharing for attorney review. 9. State what could not be verified: benchmark commissions from partial public data and partner-volume assumptions.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Ecosystem and benchmark research",
+          "brief": "Map the ecosystem and benchmark comparable programs.",
+          "acceptance": "Candidate list with fit rationale; at least three cited benchmarks."
+        },
+        {
+          "activity": "analysis",
+          "title": "Partner economics model",
+          "brief": "Model payouts against margin, partner CAC and break-even volume.",
+          "acceptance": "Payouts stay within the owner's margin guardrail, or the breach is flagged.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Tiers, rules and enablement",
+          "brief": "Design tiers, deal registration, conflict rules and enablement.",
+          "acceptance": "Every tier has entry criteria and benefits; conflict rules cover direct versus partner deals.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Blueprint and scorecard",
+          "brief": "Render the blueprint, economics model, scorecard and ecosystem map.",
+          "acceptance": "All four files open; the scorecard metrics are measurable from available systems.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Finance and channel-conflict review",
+          "brief": "A finance coworker and a sales coworker review the economics and rules.",
+          "acceptance": "First line is APPROVED or CHANGES; payouts are within the guardrail and conflict rules are unambiguous.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner decides launch scope",
+          "brief": "The owner picks which motions and tiers to launch first.",
+          "acceptance": "Decision recorded with the first motions and launch date.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Partner payouts are modelled against gross margin with a stated guardrail",
+          "severity": "must"
+        },
+        {
+          "criterion": "Deal-registration and channel-conflict rules are explicit",
+          "severity": "must"
+        },
+        {
+          "criterion": "Partner and affiliate agreements and disclosures are flagged for attorney review",
+          "severity": "must"
+        },
+        {
+          "criterion": "Benchmarks are cited",
+          "severity": "should"
+        },
+        {
+          "criterion": "Scorecard metrics are measurable from the systems the business already has",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "icp-definition",
+        "unit-economics",
+        "account-plan",
+        "referral-review-engine",
+        "campaign-plan"
+      ],
+      "example_request": "Accountants keep sending us clients informally. Should we have a real partner program? What would we pay them, and how do we keep it from getting messy?",
+      "typical_departments": [
+        "sales-partnerships",
+        "strategy-leadership"
+      ],
+      "version": 1
+    }
+  ]
+}

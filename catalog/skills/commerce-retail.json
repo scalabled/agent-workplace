@@ -1,0 +1,1947 @@
+{
+  "category": "commerce-retail",
+  "version": 1,
+  "skills": [
+    {
+      "id": "product-listing",
+      "name": "Product listing & PDP copy",
+      "icon": "🏷️",
+      "category": "commerce-retail",
+      "one_liner": "Product page copy, specs, SEO title and alt text that convert.",
+      "description": "Writes product pages that convert and inform, from product data, photos, reviews and support questions. It covers a benefit-led title and description, a consistent specs table, size-and-fit or compatibility guidance, SEO title and meta, descriptive alt text for every image and an FAQ. Unsubstantiated claims are flagged, and pages are published to the store only after approval, with rollback.",
+      "when": "new products are arriving, product pages are thin or inconsistent, or listings get views but few sales",
+      "inputs": [
+        {
+          "id": "product_data",
+          "label": "Specs, materials, dimensions, variants, care and compliance labels",
+          "required": true,
+          "source": "connector",
+          "example": "12 new linen shirts in Shopify"
+        },
+        {
+          "id": "photos",
+          "label": "Product photos",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "customer_language",
+          "label": "Reviews and support questions about similar products",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "brand_voice",
+          "label": "Voice guide and product naming rules",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "PDP copy pack",
+          "format": "md",
+          "description": "Title, description, benefit bullets, specs table, size or fit guidance, FAQ, SEO title, meta and alt text per product."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Bulk import sheet",
+          "format": "csv",
+          "description": "Store import format with the previous values kept for rollback."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "vision_describe",
+        "embeddings_search",
+        "web_search",
+        "document_generate",
+        "spreadsheet_generate",
+        "request_owner_decision",
+        "publish_external"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "woocommerce",
+        "etsy",
+        "amazon-seller-central",
+        "square",
+        "webflow"
+      ],
+      "modalities": [
+        "connector_data",
+        "image",
+        "text"
+      ],
+      "instructions": "1. Gather product data (specs, materials, dimensions, variants, care, compliance labels) with connector_read, describe the photos with vision_describe, and pull reviews and support questions with embeddings_search. 2. Do keyword research with web_search: the words shoppers use (search suggestions, competitor titles, review language). Pick a primary term per product. 3. Title: product type, key differentiator and variant; readable first, with the keyword included naturally. 4. Description: lead with the outcome or use, then three to five benefit bullets each backed by a feature, specific sensory detail, and who it is and isn't for. 5. Specs table with consistent units (metric and imperial where relevant): materials, dimensions, weight, what's in the box, care and warranty. Mark unknowns; never invent a spec. 6. Size and fit or compatibility guidance from measurements and review patterns (for example 'runs small'). 7. SEO: a title tag of 60 characters or fewer, a meta description of 155 or fewer, and the structured-data fields to fill. Write alt text for every image: what it shows, useful to a screen-reader user, not keyword-stuffed. 8. Write an FAQ from real questions. Flag claims such as 'organic', 'hypoallergenic' or any health claim for claims-substantiation-check instead of publishing them. 9. Build the import sheet with the previous values kept for rollback. Publish to the store with publish_external only after owner approval via request_owner_decision, with a receipt per product. 10. State what could not be verified: specs missing from product data and claims without evidence.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull product data, photos and reviews",
+          "brief": "Read product records, photos and related reviews and questions.",
+          "acceptance": "Every product has data, photos and a list of gaps."
+        },
+        {
+          "activity": "research",
+          "title": "Keyword and language research",
+          "brief": "Find shopper terms and review language per product.",
+          "acceptance": "Each product has a primary term and customer phrases.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Write PDP copy, specs and alt text",
+          "brief": "Write the title, description, specs, fit guidance, FAQ, SEO fields and alt text.",
+          "acceptance": "Every image has alt text; SEO fields are within length limits.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Accuracy and claims check",
+          "brief": "Check specs against data and flag claims.",
+          "acceptance": "First line is APPROVED or CHANGES; every spec matches the product data; claims needing substantiation are flagged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves",
+          "brief": "The owner approves copy per product.",
+          "acceptance": "Approval recorded per product.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Publish to the store",
+          "brief": "Publish approved pages through the store connector.",
+          "acceptance": "A receipt per product updated; previous version saved for rollback.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every spec matches the product data; unknowns are marked, never invented",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every image has descriptive alt text",
+          "severity": "must"
+        },
+        {
+          "criterion": "Claims needing substantiation are flagged, not published",
+          "severity": "must"
+        },
+        {
+          "criterion": "Published only after approval, with the previous version saved",
+          "severity": "must"
+        },
+        {
+          "criterion": "The title leads with product type and differentiator",
+          "severity": "should"
+        },
+        {
+          "criterion": "SEO title and meta are within length limits",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "marketplace-listing-optimization",
+        "product-photo-brief",
+        "claims-substantiation-check",
+        "seo-audit",
+        "review-mining"
+      ],
+      "example_request": "We just got 12 new linen shirts in. Write the product pages (descriptions, sizing help, alt text) and put them in Shopify once I've approved them.",
+      "typical_departments": [
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "marketplace-listing-optimization",
+      "name": "Marketplace listing optimization",
+      "icon": "🛒",
+      "category": "commerce-retail",
+      "one_liner": "Optimize Amazon or Etsy listings: titles, bullets, images and backend terms.",
+      "description": "Optimises Amazon or Etsy listings from search-term and conversion data, within each marketplace's current style rules (cited and dated). It covers intent-mapped keywords, title and bullets or tags, backend terms free of competitor brands, and a truthful image stack with a compliant main image. It adds an A+ content outline and a before-and-after tracking plan, publishing only after approval.",
+      "when": "marketplace listings get impressions but few clicks or sales, a listing was suppressed, or new products are going onto Amazon or Etsy",
+      "inputs": [
+        {
+          "id": "listing_data",
+          "label": "Current listings with sessions, conversion and search-term reports",
+          "required": true,
+          "source": "connector",
+          "example": "Etsy stats for the ceramic mugs"
+        },
+        {
+          "id": "product_facts",
+          "label": "Specs, materials and what's in the box",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "photos",
+          "label": "Current and available product photos",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "brand_registry",
+          "label": "Whether the brand is registered for enhanced content",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Optimised listing copy",
+          "format": "md",
+          "description": "Title, bullets or description, tags or backend terms and A+ outline per listing."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Edited image stack",
+          "format": "png / jpg",
+          "description": "Compliant main image plus infographic, scale, lifestyle and detail images."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Keyword map and tracking plan",
+          "format": "xlsx",
+          "description": "Keywords by intent and placement, baseline metrics, change date and read date."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "web_search",
+        "web_fetch",
+        "vision_describe",
+        "image_edit",
+        "document_generate",
+        "spreadsheet_generate",
+        "request_owner_decision",
+        "publish_external"
+      ],
+      "connectors_optional": [
+        "amazon-seller-central",
+        "etsy",
+        "shopify",
+        "google-workspace"
+      ],
+      "modalities": [
+        "connector_data",
+        "image",
+        "text",
+        "url"
+      ],
+      "instructions": "1. Pull listing data and performance with connector_read: sessions, unit session percentage or conversion, the search-terms report and ad search terms. 2. Check the marketplace's current style guide and restrictions for the category (title length, prohibited words, image requirements) with web_search and web_fetch. Cite the help page and date; the rules change. 3. Keyword research from search-term reports, marketplace autocomplete and competitor listings. Group by intent and map to title, bullets and backend terms: no repetition, no competitor brand names, no subjective claims. 4. Title: brand, product and key attributes following the category formula, and still readable. 5. Amazon bullets, or Etsy description, 13 tags and attributes: benefit first, specific and scannable. 6. Image stack: a compliant main image (for Amazon, a pure white background with the product filling about 85% of the frame), then infographic, scale, lifestyle, detail and comparison images. Edit the owner's photos with image_edit where helpful, never misrepresenting the product. 7. Outline A+ or enhanced content if the brand is registered. 8. Tracking plan: baseline metrics, change date and a two-to-four-week read, changing one major element at a time where possible. 9. Publish changes with publish_external only after owner approval via request_owner_decision. 10. State what could not be verified: marketplace ranking behaviour and category rules that aren't published.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull listing and search-term data",
+          "brief": "Read listing performance and search terms.",
+          "acceptance": "Baseline sessions and conversion recorded per listing."
+        },
+        {
+          "activity": "research",
+          "title": "Style rules and keywords",
+          "brief": "Check current rules and build the keyword map.",
+          "acceptance": "Rules cited with date; keywords grouped by intent.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Rewrite title, bullets and backend terms",
+          "brief": "Rewrite copy and terms per listing.",
+          "acceptance": "Copy follows the cited rules; no competitor brands in terms.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Image stack plan and edits",
+          "brief": "Plan and edit the image stack.",
+          "acceptance": "Main image meets the cited requirements; images are truthful.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Policy compliance check",
+          "brief": "Check copy and images against the cited rules.",
+          "acceptance": "First line is APPROVED or CHANGES; complies with the cited current rules; no competitor brands in terms; images truthful.",
+          "dependsOn": [
+            2,
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves",
+          "brief": "The owner approves the changes per listing.",
+          "acceptance": "Approval recorded per listing.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Publish listing changes",
+          "brief": "Publish approved changes through the marketplace connector.",
+          "acceptance": "A receipt per listing; change date recorded for the tracking plan.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Complies with the marketplace's current style and image rules, cited with a date",
+          "severity": "must"
+        },
+        {
+          "criterion": "No competitor brand names or prohibited claims in copy or backend terms",
+          "severity": "must"
+        },
+        {
+          "criterion": "Images represent the product truthfully",
+          "severity": "must"
+        },
+        {
+          "criterion": "Changes are published only after approval",
+          "severity": "must"
+        },
+        {
+          "criterion": "Baseline metrics are recorded for before-and-after comparison",
+          "severity": "should"
+        },
+        {
+          "criterion": "Keywords are mapped by intent",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "product-listing",
+        "product-photo-brief",
+        "price-test",
+        "review-mining",
+        "image-edit-retouch"
+      ],
+      "example_request": "Our Etsy shop gets views but hardly any sales on the ceramic mugs. Fix the titles, tags and photos so they actually get found and bought.",
+      "typical_departments": [
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "merchandising-plan",
+      "name": "Merchandising & assortment plan",
+      "icon": "🧺",
+      "category": "commerce-retail",
+      "one_liner": "Assortment, open-to-buy and markdown cadence by category.",
+      "description": "Plans assortment and buying by category from sales, margin and stock history: GMROI, sell-through and weeks of supply; keep, cut and add decisions with good-better-best price architecture; open-to-buy by month at retail and cost; and a markdown cadence triggered by sell-through, all within the owner's cash limit.",
+      "when": "planning a season's or quarter's buy, after ending a season with too much of the wrong stock, or when cash is tied up in inventory",
+      "inputs": [
+        {
+          "id": "sales_history",
+          "label": "12–24 months of sales, margin, receipts and inventory by SKU and category",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "cash_limit",
+          "label": "How much can be committed to inventory, by month",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "space_channels",
+          "label": "Store space, channels and any constraints",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "trend_inputs",
+          "label": "Customer requests, search terms and trend notes",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "OTB and assortment plan",
+          "format": "xlsx",
+          "description": "Category productivity, keep/cut/add, OTB by month at retail and cost, and markdown cadence."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Keep, cut and add decisions",
+          "format": "md",
+          "description": "Decisions per category with the metrics behind them."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "GMROI by category",
+          "format": "png",
+          "description": "Which categories earn their space and cash."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "web_search",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "square",
+        "woocommerce",
+        "quickbooks",
+        "xero",
+        "airtable"
+      ],
+      "modalities": [
+        "connector_data",
+        "file",
+        "text"
+      ],
+      "instructions": "1. Pull 12–24 months of sales, margin, inventory and receipts by SKU, category, season and channel with connector_read. 2. Measure category performance in code_interpreter: sales, gross margin, GMROI (gross margin ÷ average inventory at cost), sell-through %, weeks of supply and contribution. 3. Decide per category: keep (strong productivity), cut (low GMROI or dead stock) and add (gaps from customer requests, search terms and trend research with web_search), with good-better-best price architecture. 4. Balance breadth (number of options) against depth (units per option) given space and cash. 5. Open-to-buy by month: planned sales + planned end-of-month inventory + planned markdowns − beginning-of-month inventory − on order. Compute at retail and at cost. 6. Markdown cadence: first markdown triggered by sell-through against weeks in store, depth steps (for example 25%, 40%, 60%), an end-of-season exit and a clearance channel. 7. Write the buy plan (what, how much, when to receive) and have the owner confirm it fits the cash limit via request_owner_decision. 8. State what could not be verified: demand for new items and trend signals.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull sales, margin and stock",
+          "brief": "Read sales, margin, receipts and inventory history.",
+          "acceptance": "Every category has 12+ months of data or a gap noted."
+        },
+        {
+          "activity": "analysis",
+          "title": "Category productivity",
+          "brief": "Compute GMROI, sell-through, weeks of supply and contribution.",
+          "acceptance": "Metrics per category with formulas shown.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Keep, cut, add",
+          "brief": "Decide per category with price architecture.",
+          "acceptance": "Every decision cites its metrics.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Open-to-buy and markdown plan",
+          "brief": "Compute OTB by month and set the markdown cadence.",
+          "acceptance": "OTB ties out at retail and cost.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Cash and margin review",
+          "brief": "Check the plan against the cash limit and margin goals.",
+          "acceptance": "First line is APPROVED or CHANGES; the OTB formula ties out; the plan is within the owner's cash limit.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Merchandising plan",
+          "brief": "Render the plan, decisions and chart.",
+          "acceptance": "Owner confirmation of the cash fit recorded.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "OTB is calculated with the standard formula at retail and at cost",
+          "severity": "must"
+        },
+        {
+          "criterion": "Keep, cut and add decisions cite productivity metrics",
+          "severity": "must"
+        },
+        {
+          "criterion": "The plan stays within the owner's stated cash limit",
+          "severity": "must"
+        },
+        {
+          "criterion": "Markdown triggers are based on sell-through",
+          "severity": "should"
+        },
+        {
+          "criterion": "Price architecture is considered",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "inventory-reorder-plan",
+        "promo-calendar",
+        "price-test",
+        "demand-forecast",
+        "shrink-review"
+      ],
+      "example_request": "Planning our fall buy for the boutique. Last year we got stuck with too many sweaters and sold out of boots in October. Tell me what to buy and how much I can spend each month.",
+      "typical_departments": [
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "promo-calendar",
+      "name": "Promotions calendar",
+      "icon": "📆",
+      "category": "commerce-retail",
+      "one_liner": "A promo calendar with margin guardrails and stacking rules.",
+      "description": "Builds a 6–12 month promotions calendar from what past promotions really did: incremental lift, pull-forward, margin dollars and code leakage. Promotions are tied to demand moments, with margin guardrails (maximum discount by category, margin floor, frequency cap), explicit stacking and exclusion rules, discount-abuse checks and a post-promo readout template.",
+      "when": "the business is 'always on sale', planning the year's promotions, or margins are falling while revenue holds",
+      "inputs": [
+        {
+          "id": "past_promos",
+          "label": "Past promotions with dates, mechanics, sales, margin and codes",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "margin_structure",
+          "label": "Margins by category and cost of goods",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "inventory_position",
+          "label": "Stock to clear and new arrivals planned",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "markets",
+          "label": "Markets, holidays and cultural moments that matter to customers",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Promotions calendar",
+          "format": "xlsx",
+          "description": "Promo, dates, mechanic, audience, channels, expected lift and margin, owner and inventory check."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Guardrails and stacking rules",
+          "format": "md",
+          "description": "Maximum discounts, margin floors, frequency caps, stacking, exclusions and abuse controls."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Post-promo readout template",
+          "format": "xlsx",
+          "description": "Baseline, lift, pull-forward, margin dollars, new customers and leakage."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "web_search",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "woocommerce",
+        "square",
+        "klaviyo",
+        "mailchimp",
+        "google-analytics"
+      ],
+      "modalities": [
+        "connector_data",
+        "text"
+      ],
+      "instructions": "1. Pull past promotions (dates, mechanics, sales, margin, units, new versus returning customers, codes used) and baseline sales with connector_read. 2. Measure what past promotions really did in code_interpreter: incremental lift against baseline, pull-forward (the post-promo dip), margin dollars rather than revenue, new-customer acquisition and discount-code leakage. 3. Map demand moments with web_search: seasonal peaks, holidays and cultural events in the owner's markets, launches, slow periods and inventory to clear. 4. Set guardrails: maximum discount per category from the margin structure, a margin floor per promotion, a frequency cap so customers aren't trained to wait, and no discounts on items with a price rise pending. 5. Stacking and exclusion rules: which codes combine with sales, loyalty and free shipping; exclusions (new arrivals, low-margin items); one code per order by default. 6. Build the calendar: promotion, dates, mechanic (percentage off, BOGO, gift with purchase, free-shipping threshold, bundle), audience, channels, expected lift and margin, owner and inventory check. 7. Abuse checks: single-use codes for big discounts, monitoring of code-sharing sites, and returns after a promotion. 8. Provide the post-promo readout template, and chart past promotions with chart_generate. 9. State what could not be verified: lift for mechanics not tried before and competitors' promotions.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull past promos and baseline",
+          "brief": "Read past promotions and baseline sales.",
+          "acceptance": "Every past promotion has dates, mechanic, sales and margin, or is flagged."
+        },
+        {
+          "activity": "analysis",
+          "title": "Past promo effectiveness",
+          "brief": "Measure lift, pull-forward, margin dollars and leakage.",
+          "acceptance": "Each past promotion has incremental margin dollars.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Guardrails and stacking rules",
+          "brief": "Set guardrails, stacking and exclusions.",
+          "acceptance": "Max discount and margin floor set per category.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Promo calendar",
+          "brief": "Build the calendar and readout template.",
+          "acceptance": "Every promotion shows expected margin dollars.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Margin and conflict check",
+          "brief": "Check guardrails, overlaps and stacking conflicts.",
+          "acceptance": "First line is APPROVED or CHANGES; no promotion breaks a guardrail; no stacking conflicts.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every promotion shows expected margin dollars, not only revenue",
+          "severity": "must"
+        },
+        {
+          "criterion": "A margin floor and a maximum discount are set per category",
+          "severity": "must"
+        },
+        {
+          "criterion": "Stacking and exclusion rules are explicit",
+          "severity": "must"
+        },
+        {
+          "criterion": "Past promotions are measured for incremental lift and pull-forward",
+          "severity": "should"
+        },
+        {
+          "criterion": "A frequency cap is stated",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "price-test",
+        "campaign-plan",
+        "merchandising-plan",
+        "demand-supply-plan",
+        "email-flow-design"
+      ],
+      "example_request": "I feel like we're always running a sale and margins are awful. Plan next year's promotions so we still hit the big moments without giving away the store.",
+      "typical_departments": [
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "price-test",
+      "name": "Price test",
+      "icon": "💲",
+      "category": "commerce-retail",
+      "one_liner": "Design and read a price test with elasticity and margin impact.",
+      "description": "Designs and reads a fair, lawful price test: hypothesis and decision rule; a time-based, geo, new-customer or survey method (Van Westendorp, Gabor-Granger); sample size and stop rules fixed before launch; and gross profit per visitor as the primary metric, read with elasticity and a profit range. Prices change only after approval, with rollback.",
+      "when": "the owner suspects prices are too low or too high, costs have risen, or a new product needs a price",
+      "inputs": [
+        {
+          "id": "products",
+          "label": "Products and the price points to test",
+          "required": true,
+          "source": "owner",
+          "example": "Hot sauce gift set: $28 now, test $34"
+        },
+        {
+          "id": "store_data",
+          "label": "Traffic, conversion, units and margin history",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "costs",
+          "label": "Unit costs and fees",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "markets",
+          "label": "Where customers are",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Test plan",
+          "format": "md",
+          "description": "Hypothesis, decision rule, method, cells, sample size, duration, stop rules and guardrails."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Power and readout model",
+          "format": "xlsx",
+          "description": "Power calculation, results by cell with intervals, elasticity and profit impact."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Readout and recommendation",
+          "format": "md",
+          "description": "What happened, the recommendation and the annual gross-profit range."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Gross profit per visitor by cell",
+          "format": "png",
+          "description": "With confidence intervals."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "connector_write",
+        "code_interpreter",
+        "web_search",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "woocommerce",
+        "stripe",
+        "square",
+        "google-analytics",
+        "typeform"
+      ],
+      "modalities": [
+        "connector_data",
+        "text"
+      ],
+      "instructions": "1. Frame the question: which products, which price points, and the decision rule (for example 'raise to $34 if gross profit per visitor rises and conversion falls less than 15%'). 2. Establish a baseline with connector_read: conversion, units, margin and seasonality. 3. Choose a fair, lawful method: a sequential (time-based) test with a holdout comparison, a geo split, a new-customers-only test, or price cells where fair and lawful. For pre-launch or low traffic, use Van Westendorp price-sensitivity and Gabor-Granger surveys. Avoid showing different prices to comparable customers at the same time where that would be unfair, misleading or restricted in the owner's markets (check with web_search), and always honour the price shown at checkout. 4. Power the test in code_interpreter: minimum detectable effect, sample per cell and a duration covering full weekly cycles. Fix the stop rules in advance: no peeking-based decisions. 5. Set guardrails: margin floor, refund and complaint rate, cart abandonment. 6. The owner approves the test via request_owner_decision; only then change store prices with connector_write, with receipts and saved rollback values. 7. Read the results: conversion and units per cell with confidence intervals, arc elasticity, and gross profit per visitor as the primary metric, plus segment checks. 8. Recommend with the expected annual gross-profit impact as a range. 9. State what could not be verified: long-term effects (churn, brand perception), competitor responses and seasonal confounds.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Baseline data",
+          "brief": "Read traffic, conversion, units and margin history.",
+          "acceptance": "Baseline metrics with at least four weeks of data, or the shortfall noted."
+        },
+        {
+          "activity": "analysis",
+          "title": "Design and power",
+          "brief": "Choose the method, cells, sample size, duration and stop rules.",
+          "acceptance": "Sample size and stop rules fixed before launch.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Fairness and design review",
+          "brief": "Check fairness, legality in the owner's markets and design validity.",
+          "acceptance": "First line is APPROVED or CHANGES; the method is fair and lawful in the owner's markets; sample and stop rules are set.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves the test",
+          "brief": "The owner approves prices, cells and duration.",
+          "acceptance": "Approval recorded.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Set test prices",
+          "brief": "Change prices in the store for the approved cells.",
+          "acceptance": "A receipt for each price change; rollback values saved.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Read results and elasticity",
+          "brief": "Analyse results after the planned duration.",
+          "acceptance": "Results with intervals; gross profit per visitor per cell.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Readout and recommendation",
+          "brief": "Write the readout and recommendation.",
+          "acceptance": "Recommendation states the profit impact as a range.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The primary metric is gross profit per visitor or per customer, not conversion alone",
+          "severity": "must"
+        },
+        {
+          "criterion": "Sample size, duration and stop rules are set before launch",
+          "severity": "must"
+        },
+        {
+          "criterion": "The method is fair and lawful in the owner's markets and prices shown are honoured",
+          "severity": "must"
+        },
+        {
+          "criterion": "Price changes are applied only after approval, with rollback",
+          "severity": "must"
+        },
+        {
+          "criterion": "Results are reported with confidence intervals",
+          "severity": "should"
+        },
+        {
+          "criterion": "The elasticity estimate is stated with its range",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "pricing-and-packaging",
+        "ab-test-design",
+        "promo-calendar",
+        "margin-analysis",
+        "survey-design"
+      ],
+      "example_request": "I think we're underpriced on our hot sauce gift sets. Can we test $34 against our current $28 without annoying anyone, and tell me what it does to profit?",
+      "typical_departments": [
+        "ecommerce-retail",
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "returns-policy",
+      "name": "Returns & exchange policy",
+      "icon": "↩️",
+      "category": "commerce-retail",
+      "one_liner": "Customer-friendly returns policy and reverse-logistics flow.",
+      "description": "Designs a customer-friendly returns and exchange policy from returns data and cited benchmarks. It covers windows, clear exclusions, exchange-first options, refund timing and fair fraud controls, plus the reverse-logistics flow (receive, grade, restock or liquidate), a cost model, an SOP and macros. Consumer-law minimums are flagged per market for counsel.",
+      "when": "returns are rising or costly, the policy is unclear or inconsistently applied, or the business is expanding to new markets",
+      "inputs": [
+        {
+          "id": "returns_data",
+          "label": "Returns by product with reasons, cost and refund time",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "current_policy",
+          "label": "The current returns policy",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "markets",
+          "label": "Where customers are",
+          "required": true,
+          "source": "owner",
+          "example": "US, Canada and the UK"
+        },
+        {
+          "id": "costs",
+          "label": "Shipping, handling and write-off costs per return",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "policy_draft",
+          "name": "Returns and exchange policy",
+          "format": "md -> docx",
+          "description": "Plain-language customer-facing policy, for counsel to confirm against legal minimums."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Reverse-logistics flow",
+          "format": "mermaid -> svg",
+          "description": "Initiation, label, receiving, grading, restock, refund and disposition."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Returns cost model",
+          "format": "xlsx",
+          "description": "Cost of current and proposed policies."
+        },
+        {
+          "artifact_type": "sop",
+          "name": "Returns handling SOP",
+          "format": "md",
+          "description": "Receiving, grading and refund steps for staff."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "web_search",
+        "web_fetch",
+        "diagram_generate",
+        "document_generate",
+        "spreadsheet_generate"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "woocommerce",
+        "gorgias",
+        "zendesk",
+        "amazon-seller-central",
+        "stripe"
+      ],
+      "modalities": [
+        "connector_data",
+        "text"
+      ],
+      "instructions": "1. Pull returns data with connector_read: rate by product, reason codes, cost per return (shipping, handling, write-offs), time to refund and repeat returners. 2. Benchmark five comparable retailers' public policies (window, fees, exchanges, final sale) with web_search and web_fetch, cited. 3. Research consumer-law minimums for the markets served (for example the EU 14-day withdrawal right for distance sales, UK consumer rights, US state disclosure rules) as flags for the owner and counsel to confirm. 4. Design the policy: window (with a holiday extension), condition, exclusions (hygiene, custom, final sale, clearly marked before purchase), exchange-first and store-credit bonus options, refund method and timing, who pays return shipping, and the damaged or wrong-item process. 5. Design the reverse logistics with diagram_generate: return initiation (portal), label, receiving, inspection and grading (A resell, B refurbish or outlet, C liquidate, donate or recycle), restock timing and refund trigger. 6. Fraud and abuse controls (serial-returner thresholds, wardrobing checks, matching to the order) that don't punish good customers. 7. Model the cost of the policy options in code_interpreter. 8. Write the customer-facing policy in plain language, plus the internal SOP and support macros. 9. State what could not be verified: legal minimums per jurisdiction until counsel confirms, and how customers will respond to changes.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Returns data",
+          "brief": "Read returns, reasons, costs and refund times.",
+          "acceptance": "Return rate and cost per return by product computed or gaps noted."
+        },
+        {
+          "activity": "research",
+          "title": "Benchmarks and legal flags",
+          "brief": "Benchmark policies and flag consumer-law minimums per market.",
+          "acceptance": "Five cited benchmarks; each legal flag cites a primary source."
+        },
+        {
+          "activity": "analysis",
+          "title": "Cost model of options",
+          "brief": "Model the cost of policy options.",
+          "acceptance": "Each option shows annual cost and expected return-rate effect.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Policy and reverse-logistics flow",
+          "brief": "Draft the policy, flow and controls.",
+          "acceptance": "Exclusions are clear; refund timing stated.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Customer and compliance review",
+          "brief": "Review for clarity, fairness and the flagged legal minimums.",
+          "acceptance": "First line is APPROVED or CHANGES; the policy meets the flagged legal minimums pending counsel; plain language.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Policy, flow and SOP",
+          "brief": "Render the policy, flow diagram, cost model and SOP.",
+          "acceptance": "All files open; legal flags listed for counsel.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Consumer-law minimums are flagged per market for counsel to confirm",
+          "severity": "must"
+        },
+        {
+          "criterion": "Exclusions are clear and shown before purchase",
+          "severity": "must"
+        },
+        {
+          "criterion": "Refund timing and method are stated",
+          "severity": "must"
+        },
+        {
+          "criterion": "Exchange-first options are included",
+          "severity": "should"
+        },
+        {
+          "criterion": "The cost impact is modelled",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "website-terms-draft",
+        "wismo-deflection",
+        "macro-library",
+        "shipping-cost-review",
+        "sop-writing"
+      ],
+      "example_request": "Returns are 22% on our dresses and every one costs us $14. I want a policy that's still generous but stops the bleeding, and a process for what happens when boxes come back.",
+      "typical_departments": [
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "abandoned-cart-recovery",
+      "name": "Abandoned cart recovery",
+      "icon": "🧲",
+      "category": "commerce-retail",
+      "one_liner": "Cart and browse abandonment flows with timing, copy and incentives.",
+      "description": "Builds browse, cart and checkout abandonment flows after first listing the upstream checkout leaks worth fixing. It covers timing, suppression, honest copy that answers the likely objection, conditional single-use incentives, SMS only with documented consent, and a holdout group to measure true lift. Flows are built in the email or SMS tool and activated only after owner approval.",
+      "when": "many shoppers add to cart but don't buy, reminder emails are missing or weak, or every reminder just throws a discount",
+      "inputs": [
+        {
+          "id": "funnel_data",
+          "label": "Checkout funnel by step and device, and current flow performance",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "brand_voice",
+          "label": "Voice guide",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "incentive_rules",
+          "label": "Incentives the owner allows",
+          "required": false,
+          "source": "owner",
+          "example": "Free shipping for new customers over $60, nothing else"
+        },
+        {
+          "id": "sms_consent",
+          "label": "Whether SMS consent is collected and how",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "email_draft",
+          "name": "Flow emails and SMS",
+          "format": "md",
+          "description": "Each touch with timing, subject, copy, product block and suppression."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Flow map with timing and rules",
+          "format": "md",
+          "description": "Triggers, delays, branches, suppression and incentive rules."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Flow diagram",
+          "format": "mermaid -> svg",
+          "description": "Browse, cart and checkout flows."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Holdout measurement plan",
+          "format": "xlsx",
+          "description": "Holdout size, metric, read date and decision rule."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "document_generate",
+        "diagram_generate",
+        "spreadsheet_generate",
+        "request_owner_decision",
+        "connector_write",
+        "schedule_automation"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "woocommerce",
+        "klaviyo",
+        "mailchimp",
+        "twilio",
+        "google-analytics"
+      ],
+      "modalities": [
+        "connector_data",
+        "text"
+      ],
+      "instructions": "1. Pull checkout funnel data with connector_read: abandonment by step and device, reasons from exit surveys or support, and current flow performance. 2. Fix leaks upstream first: surprise shipping costs, forced account creation, missing payment options and page speed. List the quick wins (pair with landing-page-cro). 3. Design flows with diagram_generate: browse abandonment (viewed, no cart), cart abandonment and checkout abandonment. Set timing (for example 1 hour, 24 hours, 72 hours), two or three touches, and suppression (purchased, unsubscribed, recently emailed). 4. Write the copy: a reminder with product image and price, reassurance (returns, shipping, reviews), an answer to the likely objection, and urgency only when true. Never fake scarcity. 5. Incentive rules: none on the first touch; a conditional incentive on the last touch only for new customers or above a cart value; single-use codes; repeat abandoners excluded. 6. SMS only with express written consent (TCPA and CTIA practice in the US; PECR and GDPR in the UK and EU), with quiet hours and an opt-out keyword. 7. Set a holdout group (for example 10%) and plan the incremental-revenue read in code_interpreter. 8. Build flows as drafts in the email or SMS tool with connector_write. Activate them with schedule_automation only after owner approval via request_owner_decision, each automation approved separately. 9. State what could not be verified: lift before the holdout reads, and consent status of older SMS lists.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Funnel and flow data",
+          "brief": "Read funnel steps and current flow performance.",
+          "acceptance": "Abandonment by step and device recorded."
+        },
+        {
+          "activity": "analysis",
+          "title": "Leak analysis",
+          "brief": "Find upstream checkout leaks.",
+          "acceptance": "Leaks listed with estimated impact.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Flow design and copy",
+          "brief": "Design flows, write copy and set incentive and suppression rules.",
+          "acceptance": "Every touch has timing, copy and suppression; incentives conditional.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Consent and honesty review",
+          "brief": "Check consent, urgency claims, suppression and incentive rules.",
+          "acceptance": "First line is APPROVED or CHANGES; no fake urgency; SMS only to consented contacts; suppression rules set.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves flows",
+          "brief": "The owner approves flows, incentives and activation.",
+          "acceptance": "Approval recorded per flow.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "schedule",
+          "title": "Build and activate flows",
+          "brief": "Build flows with a holdout and activate the approved ones.",
+          "acceptance": "Flows created with a holdout; activation receipt; each automation approved.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "SMS goes only to contacts with documented consent; opt-out and quiet hours are respected",
+          "severity": "must"
+        },
+        {
+          "criterion": "No fake urgency or scarcity",
+          "severity": "must"
+        },
+        {
+          "criterion": "A holdout group measures incremental lift",
+          "severity": "must"
+        },
+        {
+          "criterion": "Flows are activated only after owner approval",
+          "severity": "must"
+        },
+        {
+          "criterion": "Incentives are conditional, single-use and never on the first touch",
+          "severity": "should"
+        },
+        {
+          "criterion": "Upstream checkout leaks are listed",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "email-flow-design",
+        "landing-page-cro",
+        "loyalty-program",
+        "promo-calendar",
+        "funnel-analysis"
+      ],
+      "example_request": "70% of people who add to cart on our site never buy. Set up reminder emails that bring them back, without just throwing 20% off at everyone.",
+      "typical_departments": [
+        "ecommerce-retail",
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "store-opening-checklist",
+      "name": "Store opening & pop-up checklist",
+      "icon": "🏪",
+      "category": "commerce-retail",
+      "one_liner": "Everything to open a store or pop-up on time, by owner and date.",
+      "description": "Works back from opening day across every workstream (lease, permits confirmed locally, build-out, systems, inventory, hiring and training, marketing, opening day). Each task gets an owner, date, dependency, lead time and done-criteria. It adds the critical path, a budget tracker and an opening-week run of show, and pushes tasks to the project tool after approval.",
+      "when": "a new store, pop-up, market stall, shop-in-shop or location is planned with a fixed opening date",
+      "inputs": [
+        {
+          "id": "format_date",
+          "label": "Format, location and opening date",
+          "required": true,
+          "source": "owner",
+          "example": "Holiday pop-up in the mall, opening November 15"
+        },
+        {
+          "id": "budget",
+          "label": "Budget and team",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "status",
+          "label": "What is already done",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "systems",
+          "label": "POS, payments and inventory systems in use",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "checklist",
+          "name": "Master opening checklist",
+          "format": "xlsx",
+          "description": "Workstream, task, owner, due date, dependency, lead time, done-criteria and status."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Critical path Gantt",
+          "format": "mermaid -> svg",
+          "description": "Long-lead items and zero-slack tasks highlighted."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Opening-week run of show",
+          "format": "md",
+          "description": "Soft opening, dress rehearsal and day-by-day checklist."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Budget tracker",
+          "format": "xlsx",
+          "description": "Budget by workstream with committed and actual."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "web_search",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "diagram_generate",
+        "document_generate",
+        "ask_coworker",
+        "connector_write"
+      ],
+      "connectors_optional": [
+        "asana",
+        "monday",
+        "trello",
+        "clickup",
+        "google-workspace",
+        "square",
+        "shopify",
+        "google-business-profile"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Capture the basics: format (permanent, pop-up, shop-in-shop, market stall), location, opening date, budget, team and what is already done. 2. Work back from opening day to build the workstreams: site and lease; permits and licences (business licence, occupancy, signage, health, fire, sales-tax registration; confirm locally with regulatory-research via ask_coworker); build-out and fixtures (planogram, visual merchandising); systems (POS, payments, Wi-Fi, security, inventory sync); inventory (buy, receive, tag, stock); people (hire, schedule, train on POS, service, safety and cash handling); marketing (Google Business Profile, signage, launch event, neighbour outreach); and opening day (cash float, run of show, contingencies). 3. Give each task an owner, due date, dependency, lead time (permits and fixtures are often the longest) and done-criteria. 4. Compute the critical path in code_interpreter and flag tasks with no slack; draw the Gantt with diagram_generate. 5. Write the opening-week plan: soft opening, dress rehearsal, a day-by-day checklist and staffing matched to expected traffic. 6. Build the budget tracker by workstream. 7. Push tasks to the project tool with connector_write only after owner approval. 8. State what could not be verified: local permit timelines and contractor dates.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Scope and workstreams",
+          "brief": "Capture basics and list workstreams and tasks.",
+          "acceptance": "Every workstream has tasks with done-criteria."
+        },
+        {
+          "activity": "research",
+          "title": "Permits and lead times",
+          "brief": "Research local permits and typical lead times.",
+          "acceptance": "Each permit cites its source or is marked to confirm locally.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Dates, dependencies and critical path",
+          "brief": "Assign dates and dependencies and compute the critical path.",
+          "acceptance": "Critical path identified; zero-slack tasks flagged.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Master checklist and opening-week plan",
+          "brief": "Render the checklist, Gantt, run of show and budget tracker.",
+          "acceptance": "Every task has owner, date, dependency and done-criteria.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Completeness review",
+          "brief": "Check for missing workstreams and unrealistic dates.",
+          "acceptance": "First line is APPROVED or CHANGES; long-lead items start early enough to meet the date.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "mcp",
+          "title": "Push tasks to the project tool (approved)",
+          "brief": "After owner approval, create tasks in the project tool.",
+          "acceptance": "Receipt lists tasks created; runs only after approval.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every task has an owner, date, dependency and done-criteria",
+          "severity": "must"
+        },
+        {
+          "criterion": "The critical path is identified, with long-lead items first",
+          "severity": "must"
+        },
+        {
+          "criterion": "Permits and licences are listed as to be confirmed locally",
+          "severity": "must"
+        },
+        {
+          "criterion": "The opening-week plan includes a dress rehearsal",
+          "severity": "should"
+        },
+        {
+          "criterion": "Budget is tracked by workstream",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "regulatory-research",
+        "capacity-plan",
+        "print-collateral",
+        "plan-a-project",
+        "local-seo-gbp",
+        "timeline-gantt"
+      ],
+      "example_request": "We're opening a holiday pop-up in the mall on November 15th, six weeks away. Give me the full checklist of what has to happen by when.",
+      "typical_departments": [
+        "ecommerce-retail",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "shrink-review",
+      "name": "Shrink & inventory accuracy review",
+      "icon": "🔐",
+      "category": "commerce-retail",
+      "one_liner": "Cycle-count results, shrink drivers and controls to add.",
+      "description": "Quantifies shrink from cycle counts, receiving records, adjustments and POS exceptions, and splits it by driver (paperwork error, vendor error, damage, theft) with evidence. Hotspots are found by SKU, location and time, and photo walkthroughs reveal control gaps. Proportionate, privacy-respecting controls and an ABC count cadence are recommended. No individual is ever accused.",
+      "when": "a stock count comes up short, margins leak without explanation, or inventory records can't be trusted",
+      "inputs": [
+        {
+          "id": "counts",
+          "label": "Book inventory and cycle-count or full-count results",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "transactions",
+          "label": "Receiving records, adjustments, transfers, voids, refunds and discounts",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "walkthrough_photos",
+          "label": "Photos of the stockroom, sales floor and receiving area",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "damage_log",
+          "label": "Damage and expiry logs",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Shrink review report",
+          "format": "md -> pdf",
+          "description": "Shrink by driver and hotspot, control gaps, recommended controls and savings."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Shrink analysis and count cadence",
+          "format": "xlsx",
+          "description": "Shrink by category, location and period; ABC cycle-count schedule."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Shrink by category and driver",
+          "format": "png",
+          "description": "Where loss comes from."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "vision_describe",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "square",
+        "shopify",
+        "toast",
+        "quickbooks",
+        "xero",
+        "airtable"
+      ],
+      "modalities": [
+        "connector_data",
+        "file",
+        "image",
+        "camera"
+      ],
+      "instructions": "1. Pull book inventory, count results, receiving records, adjustments, transfers, damage logs, and POS voids, refunds and discounts with connector_read and file_parse. 2. Compute shrink as % of sales by category, location and period, and inventory accuracy (% of SKUs within tolerance), in code_interpreter. 3. Split the drivers with evidence: receiving discrepancies against POs (vendor error); unrecorded transfers or unit-of-measure mistakes (paperwork error); damage and expiry logs; and patterns consistent with theft (small high-value items, particular times). These are patterns, not accusations. 4. Analyse POS exceptions in aggregate: refunds without receipt, voids after tender, excessive discounts. Any concern about an individual goes to the owner and a qualified HR professional or counsel, and is never presented as proof of wrongdoing. 5. Use vision_describe on walkthrough photos to spot control gaps: blind spots, an unlocked stockroom, high-risk items displayed near exits. 6. Recommend controls by driver: receiving checks, ABC cycle counting (A monthly, B quarterly, C twice a year), adjustment approval, POS exception alerts, display changes and training. Keep them proportionate and privacy-respecting; cameras or monitoring follow local law and notice rules. 7. Estimate the savings against the cost of the controls. 8. State what could not be verified: whether unexplained loss is theft or error, and data gaps.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull counts, adjustments and POS exceptions",
+          "brief": "Read counts, receiving, adjustments and POS exceptions.",
+          "acceptance": "Every location and period in scope has data or a gap noted."
+        },
+        {
+          "activity": "analysis",
+          "title": "Shrink by driver and hotspot",
+          "brief": "Compute shrink and split by driver with evidence.",
+          "acceptance": "Each driver has evidence; unexplained loss is labelled as such.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Walkthrough photo review",
+          "brief": "Review photos for control gaps.",
+          "acceptance": "Each gap is tied to a photo and location."
+        },
+        {
+          "activity": "llm",
+          "title": "Controls and cadence",
+          "brief": "Recommend controls and the count cadence.",
+          "acceptance": "Every control is tied to a driver and has an estimated cost.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Fairness and privacy review",
+          "brief": "Check that no individual is accused and monitoring respects the law.",
+          "acceptance": "First line is APPROVED or CHANGES; no individual accused; monitoring recommendations flagged for legal notice requirements.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Shrink report",
+          "brief": "Render the report, analysis and chart.",
+          "acceptance": "Savings compared with control costs.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Shrink is split by driver with evidence, and unexplained loss is labelled as such",
+          "severity": "must"
+        },
+        {
+          "criterion": "No individual is accused; concerns go to the owner and a qualified HR professional or counsel",
+          "severity": "must"
+        },
+        {
+          "criterion": "Controls are proportionate to the loss and respect privacy",
+          "severity": "must"
+        },
+        {
+          "criterion": "An ABC cycle-count cadence is proposed",
+          "severity": "should"
+        },
+        {
+          "criterion": "Savings are estimated against the cost of controls",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "inventory-reorder-plan",
+        "root-cause-analysis",
+        "sop-writing",
+        "quality-control-plan",
+        "merchandising-plan"
+      ],
+      "example_request": "Our year-end count came up $11k short at the downtown store. Is someone stealing, or is it our receiving? Help me figure out where it's going.",
+      "typical_departments": [
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "loyalty-program",
+      "name": "Loyalty & subscription program",
+      "icon": "💎",
+      "category": "commerce-retail",
+      "one_liner": "Tiers, rewards and subscription offers with member economics.",
+      "description": "Designs a loyalty or subscription programme around the behaviour worth rewarding: value proposition, structure (points, tiers, paid, subscribe-and-save), low-cost experiential benefits and cited benchmarks. Member economics cover reward cost, breakage and break-even lift. Terms are flagged for the attorney and points liability for the accountant, with a launch plan and control-group KPIs.",
+      "when": "the owner wants more repeat visits or orders, is considering a loyalty app or subscription, or an existing programme costs more than it earns",
+      "inputs": [
+        {
+          "id": "purchase_data",
+          "label": "Customer purchases: frequency, AOV, repeat rate and time between orders",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "goal",
+          "label": "The behaviour to change",
+          "required": true,
+          "source": "owner",
+          "example": "Get regulars in once more a week"
+        },
+        {
+          "id": "margins",
+          "label": "Gross margin by product or category",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "platform",
+          "label": "POS or store platform and loyalty options available",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Programme design",
+          "format": "md -> docx",
+          "description": "Value proposition, structure, rules, benefits, terms flags and KPIs."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Member economics model",
+          "format": "xlsx",
+          "description": "Reward cost, breakage, incremental margin, subsidy and break-even lift, with scenarios."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Launch plan",
+          "format": "md",
+          "description": "Soft launch, enrolment moments, communications and measurement."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "web_search",
+        "web_fetch",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "square",
+        "stripe",
+        "klaviyo",
+        "toast",
+        "mindbody",
+        "woocommerce"
+      ],
+      "modalities": [
+        "connector_data",
+        "text"
+      ],
+      "instructions": "1. Pull purchase data with connector_read (frequency, AOV, repeat rate, time between orders) and build RFM segments in code_interpreter. 2. Define the goal (frequency, retention, AOV, data capture or referral) and the exact behaviour to reward. 3. Benchmark five comparable programmes (points, paid membership, tiers, subscribe-and-save) with web_search and web_fetch, cited. 4. Choose the structure: points (earn rate, redemption thresholds, expiry), tiers (spend thresholds and benefits), paid membership, subscription (discount, cadence, skip, pause, cancel anytime) or a hybrid, plus low-cost experiential benefits (early access, events). 5. Model economics: reward cost as % of sales (commonly 1–5%), a conservative breakage assumption, incremental margin from the behaviour change against the subsidy to customers who would have bought anyway, and the break-even lift. Chart scenarios with chart_generate. 6. Rules and terms: expiry, fraud and changes, drafted for attorney review; subscription auto-renewal disclosures flagged; accounting for points liability flagged for the accountant. 7. Launch plan: a soft launch to the best customers, enrolment moments and communications. 8. KPIs: enrolment, active rate, redemption rate, and member against control-group frequency and incremental margin. 9. State what could not be verified: behavioural-lift assumptions and breakage.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Customer purchase data",
+          "brief": "Read purchase history and build RFM segments.",
+          "acceptance": "Frequency, AOV and repeat rate by segment computed."
+        },
+        {
+          "activity": "research",
+          "title": "Programme benchmarks",
+          "brief": "Benchmark comparable programmes.",
+          "acceptance": "Five cited benchmarks."
+        },
+        {
+          "activity": "llm",
+          "title": "Structure and rules",
+          "brief": "Choose the structure, benefits and rules.",
+          "acceptance": "Every rule has a rationale tied to the goal.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Member economics",
+          "brief": "Model reward cost, breakage, incremental margin and break-even lift.",
+          "acceptance": "Break-even lift stated with scenarios.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Economics and fairness review",
+          "brief": "Check economics, fairness and flagged terms.",
+          "acceptance": "First line is APPROVED or CHANGES; break-even lift stated; terms flagged for review.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Programme design and launch plan",
+          "brief": "Render the design, model and launch plan.",
+          "acceptance": "KPIs include a control-group comparison.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Economics show reward cost, the breakage assumption and break-even lift",
+          "severity": "must"
+        },
+        {
+          "criterion": "Programme terms and auto-renewal disclosures are flagged for attorney review",
+          "severity": "must"
+        },
+        {
+          "criterion": "Points liability is flagged for accountant review",
+          "severity": "must"
+        },
+        {
+          "criterion": "Benefits include low-cost experiential options",
+          "severity": "should"
+        },
+        {
+          "criterion": "KPIs compare members with a control group",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "rfm-segmentation",
+        "cancellation-flow",
+        "promo-calendar",
+        "referral-review-engine",
+        "unit-economics"
+      ],
+      "example_request": "Should our coffee shop have a loyalty app or a monthly coffee subscription? What would it cost us, and would people actually come more often?",
+      "typical_departments": [
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "wismo-deflection",
+      "name": "Order-status (WISMO) deflection",
+      "icon": "📍",
+      "category": "commerce-retail",
+      "one_liner": "Proactive shipping updates and self-serve tracking to cut 'where is my order' contacts.",
+      "description": "Cuts 'where is my order' contacts with accurate delivery estimates at checkout, proactive notifications at each carrier milestone and exception, a branded self-serve tracking page, playbooks for delays and missing parcels, and help-desk auto-replies with live status. Each automation is activated only after approval and tested with a test order.",
+      "when": "'where is my order' is a top contact reason, delivery estimates are vague, or carrier delays spike",
+      "inputs": [
+        {
+          "id": "ticket_data",
+          "label": "WISMO tickets with timing relative to order date",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "order_shipping_data",
+          "label": "Orders, carriers, services, tracking events and delivery times",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "current_notifications",
+          "label": "Notifications customers receive today",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "sms_consent",
+          "label": "Whether SMS consent is collected",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Notification map",
+          "format": "md",
+          "description": "Milestone, channel, timing, copy and next-question answered."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Shipping notification templates",
+          "format": "md",
+          "description": "Confirmed, shipped, out for delivery, delivered and exception messages."
+        },
+        {
+          "artifact_type": "web_page",
+          "name": "Tracking page",
+          "format": "html",
+          "description": "On-brand status page with plain-language carrier events, estimated date and FAQ."
+        },
+        {
+          "artifact_type": "sop",
+          "name": "Exception playbooks",
+          "format": "md",
+          "description": "Stuck in transit, delivered-not-received and address issues, with claim windows and reship or refund rules."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "document_generate",
+        "web_page_generate",
+        "request_owner_decision",
+        "connector_write",
+        "schedule_automation"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "woocommerce",
+        "gorgias",
+        "zendesk",
+        "klaviyo",
+        "twilio",
+        "amazon-seller-central"
+      ],
+      "modalities": [
+        "connector_data",
+        "text",
+        "web_page"
+      ],
+      "instructions": "1. Measure with connector_read and code_interpreter: WISMO share of tickets, when customers ask (days after ordering), which carriers and services generate contacts, and which milestones precede them. 2. Set expectations upstream: accurate delivery estimates on product and checkout pages by region and service, cut-off times, and an order confirmation with the timeline. 3. Map proactive notifications: order confirmed, shipped (with tracking), out for delivery, delivered, and exceptions (delay, failed delivery, lost). Set channel (email, or SMS with consent), timing, and copy that answers the customer's next question. 4. Build a self-serve tracking page with web_page_generate: order status, carrier events in plain language, estimated date, what to do if late, and an FAQ. Link it from every notification. 5. Write exception playbooks: stuck in transit beyond N days; delivered but not received (checklist, claim window, reship or refund rules); address issues. 6. Help-desk automation: detect WISMO intent, auto-reply with live status, and escalate exceptions to a person. 7. Build notifications and auto-replies with connector_write and activate them with schedule_automation only after owner approval via request_owner_decision, each automation approved separately, and tested with a test order through every milestone. 8. Track KPIs: WISMO tickets per 100 orders, time to first response, and CSAT on delivery issues. 9. State what could not be verified: reliability of carrier events and accuracy of delivery estimates.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Measure WISMO contacts",
+          "brief": "Read WISMO tickets and shipping events.",
+          "acceptance": "WISMO rate per 100 orders computed."
+        },
+        {
+          "activity": "analysis",
+          "title": "Contact drivers by milestone",
+          "brief": "Find when and why customers ask.",
+          "acceptance": "Top drivers by carrier, service and milestone.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Notification map and copy",
+          "brief": "Map notifications and write copy and playbooks.",
+          "acceptance": "Every milestone and exception has a message and a next-question answer.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Build the tracking page",
+          "brief": "Build the self-serve tracking page.",
+          "acceptance": "Page shows status, plain-language events, estimated date and FAQ.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Customer clarity review",
+          "brief": "Read messages and page as a customer would.",
+          "acceptance": "First line is APPROVED or CHANGES; no promised dates the carrier doesn't support; SMS only with consent.",
+          "dependsOn": [
+            2,
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves automations",
+          "brief": "The owner approves each notification and auto-reply automation.",
+          "acceptance": "Approval recorded per automation.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "schedule",
+          "title": "Activate notifications and auto-replies",
+          "brief": "Create and activate the approved automations, then run a test order.",
+          "acceptance": "Each automation approved; receipts; the test order passes every milestone.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Delivery estimates and notifications are accurate and never promise dates the carrier doesn't support",
+          "severity": "must"
+        },
+        {
+          "criterion": "SMS goes only to contacts with consent",
+          "severity": "must"
+        },
+        {
+          "criterion": "Automations are activated only after owner approval and tested with a test order",
+          "severity": "must"
+        },
+        {
+          "criterion": "Exceptions have playbooks with claim windows",
+          "severity": "should"
+        },
+        {
+          "criterion": "WISMO rate per 100 orders is tracked",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "ticket-triage",
+        "macro-library",
+        "shipping-cost-review",
+        "returns-policy",
+        "email-flow-design"
+      ],
+      "example_request": "Half our support inbox is 'where is my order?'. Set things up so customers know where their package is before they have to ask.",
+      "typical_departments": [
+        "ecommerce-retail",
+        "customer-success-support"
+      ],
+      "version": 1
+    }
+  ]
+}

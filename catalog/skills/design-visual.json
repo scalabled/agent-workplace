@@ -1,0 +1,1792 @@
+{
+  "category": "design-visual",
+  "version": 1,
+  "skills": [
+    {
+      "id": "brand-identity-kit",
+      "name": "Brand identity kit",
+      "icon": "🔷",
+      "category": "design-visual",
+      "one_liner": "Logo concepts, palette with contrast checks, type pairing and usage rules.",
+      "description": "Creates a brand identity starter kit: three distinct logo directions generated as concept images and refined, a colour system with WCAG 2.2 contrast pairs, an open-licence type pairing with a scale, usage rules and mock-ups. It is assembled as a guideline page. Concepts are flagged for vector redraw and a trademark check before adoption.",
+      "when": "a new business, rebrand or new product line needs a look, or the current identity is inconsistent or homemade",
+      "inputs": [
+        {
+          "id": "brand_platform",
+          "label": "Positioning, personality, audience and name",
+          "required": true,
+          "source": "memory",
+          "example": "Calm, expert, a little playful; plant shop for first-time plant owners"
+        },
+        {
+          "id": "existing_assets",
+          "label": "Current logo, colours, photos or signage",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "likes_dislikes",
+          "label": "Brands or styles the owner likes and dislikes",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "applications",
+          "label": "Where the identity will live first",
+          "required": false,
+          "source": "owner",
+          "example": "Shop sign, Instagram, website, paper bags"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "image",
+          "name": "Logo concepts and mock-ups",
+          "format": "png / svg",
+          "description": "Three directions on light and dark, and the chosen one on sign, avatar, card and site header."
+        },
+        {
+          "artifact_type": "web_page",
+          "name": "Identity guidelines",
+          "format": "html",
+          "description": "Logo usage, clear space, minimum sizes, colours with approved pairs, type scale and don'ts."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Brand guideline one-pager",
+          "format": "md -> pdf",
+          "description": "The essentials on one page."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "vision_describe",
+        "image_generate",
+        "image_edit",
+        "code_interpreter",
+        "web_page_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "canva",
+        "figma",
+        "google-workspace",
+        "dropbox"
+      ],
+      "modalities": [
+        "image",
+        "text",
+        "file"
+      ],
+      "instructions": "1. Start from the brand platform in memory. If it is missing, run a 20-minute brief with the owner (personality in three words, audience, competitors, feeling to avoid) or pair with positioning work. 2. Audit existing assets and competitors' visual codes with vision_describe, so the identity neither blends in nor clashes. 3. Develop three genuinely distinct concept directions (for example wordmark, symbol plus wordmark, monogram), each with a rationale tied to the brand personality. Generate logo concepts with image_generate (clean and flat, on white and on dark) and iterate with image_edit. Keep a prompt log. 4. Build the colour system: primary, secondary, neutrals and semantic colours. Compute contrast ratios in code_interpreter against WCAG 2.2 (4.5:1 body text, 3:1 large text and UI components) and list approved text and background pairs. 5. Pair a display face and a text face from open-licence libraries, with a type scale and fallback stacks. 6. Write usage rules: clear space, minimum sizes, favicon and avatar crops, logo on photos, and don'ts. 7. After the owner picks a direction, mock it up on a sign, social avatar, business card and website header. 8. Assemble the guideline page with web_page_generate and the one-pager with document_generate. Flag that AI-generated concepts should be redrawn as vector by a designer and checked with trademark-search-prep before adoption. 9. State what could not be verified: font licences beyond the open library, and similarity to existing marks until a trademark search is run.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Brand brief and audit",
+          "brief": "Confirm the brief and audit existing and competitor visuals.",
+          "acceptance": "Personality, audience and visual codes to avoid are written down."
+        },
+        {
+          "activity": "image",
+          "title": "Logo concept directions",
+          "brief": "Generate three distinct directions with rationale.",
+          "acceptance": "Three directions, each with rationale and prompt log, clean on light and dark.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Palette and contrast checks",
+          "brief": "Build the palette and compute contrast ratios.",
+          "acceptance": "Every approved pair meets its WCAG 2.2 ratio.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner picks a direction",
+          "brief": "The owner chooses a direction and palette.",
+          "acceptance": "Choice recorded with any change requests.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Refine and mock up",
+          "brief": "Refine the chosen direction and create mock-ups.",
+          "acceptance": "Mock-ups on at least four applications; legible at favicon size.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Identity guideline",
+          "brief": "Assemble the guideline page and one-pager.",
+          "acceptance": "Guideline covers logo, colour, type, usage and don'ts.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Brand and accessibility review",
+          "brief": "Check consistency, legibility and contrast.",
+          "acceptance": "First line is APPROVED or CHANGES; every approved colour pair meets its ratio; the logo is legible at minimum size.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every approved text and background pair meets WCAG 2.2 contrast",
+          "severity": "must"
+        },
+        {
+          "criterion": "Concept directions are genuinely distinct, each with a rationale",
+          "severity": "must"
+        },
+        {
+          "criterion": "A prompt log is kept and concepts are flagged for vector redraw and a trademark check",
+          "severity": "must"
+        },
+        {
+          "criterion": "Fonts are open-licensed, or their licence is noted",
+          "severity": "should"
+        },
+        {
+          "criterion": "The logo is tested at favicon size",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "moodboard",
+        "trademark-search-prep",
+        "design-system-starter",
+        "positioning-statement",
+        "brand-consistency-check"
+      ],
+      "example_request": "I'm opening a small plant shop and all I have is a name. Can you come up with a logo, colours and fonts that feel calm but not boring?",
+      "typical_departments": [
+        "design-creative"
+      ],
+      "version": 1
+    },
+    {
+      "id": "moodboard",
+      "name": "Moodboard & creative direction",
+      "icon": "🖼️",
+      "category": "design-visual",
+      "one_liner": "A moodboard and art direction notes that align everyone before production.",
+      "description": "Aligns everyone on a look before production: mood words, a hex palette, type, and photography and illustration style in two or three directions of original generated images. It adds art-direction notes (light, lens, grading, casting, styling, props) and do/don't pairs, with the owner's own references read for what they like.",
+      "when": "before a photoshoot, rebrand, website, campaign, packaging or video, or when people disagree about 'the look'",
+      "inputs": [
+        {
+          "id": "project",
+          "label": "What is being made and for whom",
+          "required": true,
+          "source": "owner",
+          "example": "Menu photos and website refresh this summer"
+        },
+        {
+          "id": "feeling",
+          "label": "The feeling in three to five words, and what to avoid",
+          "required": true,
+          "source": "owner",
+          "example": "Warm, generous, unfussy; not trendy"
+        },
+        {
+          "id": "references",
+          "label": "Photos, screenshots or links the owner likes",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "brand_guidelines",
+          "label": "Existing brand guidelines",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "web_page",
+          "name": "Moodboard",
+          "format": "html",
+          "description": "Boards per direction with images, palette swatches, type and mood words."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Direction images",
+          "format": "png",
+          "description": "Original generated images per direction, with a prompt log."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Art-direction notes",
+          "format": "md -> pdf",
+          "description": "Lighting, lens and crop, colour grading, casting and styling, props, graphics and do/don'ts."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "vision_describe",
+        "web_search",
+        "image_generate",
+        "image_edit",
+        "web_page_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "canva",
+        "figma",
+        "dropbox",
+        "google-workspace"
+      ],
+      "modalities": [
+        "image",
+        "text",
+        "url"
+      ],
+      "instructions": "1. Capture the brief: project, audience, the feeling in three to five words, must-haves, and what it must not feel like. 2. Gather inputs: brand guidelines, the owner's own photos and screenshots (vision_describe says what they like about each), and a few public references by link for internal inspiration only. References are never copied or used in production. 3. Generate 12–20 original images in two or three directions with image_generate, varying lighting, palette, composition and subject styling, and keep a prompt log; add one or two type specimens. 4. Arrange a board per direction with web_page_generate: mood words, hex palette swatches, type and texture. 5. Write art-direction notes: lighting (for example soft window light, high key), lens and crop, colour grading, casting and styling (inclusive representation, no stereotypes), props, graphic elements and motion cues. 6. Add do/don't pairs, using image_edit to show the same shot done right and wrong. 7. The owner picks a direction; refine the board and notes. 8. State what could not be verified: licences for referenced external images, which must not be used in production.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Brief and references",
+          "brief": "Capture the brief and read the owner's references.",
+          "acceptance": "Mood words, must-haves and avoid-list written; each reference has a 'what we like' note."
+        },
+        {
+          "activity": "image",
+          "title": "Generate direction images",
+          "brief": "Generate original images for two or three directions.",
+          "acceptance": "12–20 images across directions with a prompt log.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Assemble boards",
+          "brief": "Build a board per direction.",
+          "acceptance": "Each board has mood words, hex palette and type.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner picks a direction",
+          "brief": "The owner chooses and comments.",
+          "acceptance": "Choice recorded.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Art-direction notes",
+          "brief": "Write the notes and do/don't pairs for the chosen direction.",
+          "acceptance": "Notes cover light, lens, grading, casting, props and graphics.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Consistency and representation review",
+          "brief": "Check coherence and inclusive, non-stereotyped representation.",
+          "acceptance": "First line is APPROVED or CHANGES; external references marked internal-only.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "External references are marked internal-only; production uses original or licensed assets",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each direction has mood words, a hex palette and type",
+          "severity": "must"
+        },
+        {
+          "criterion": "A prompt log is kept for generated images",
+          "severity": "must"
+        },
+        {
+          "criterion": "Do/don't examples are included",
+          "severity": "should"
+        },
+        {
+          "criterion": "People imagery is inclusive and avoids stereotypes",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "brand-identity-kit",
+        "ai-image-set",
+        "product-photo-brief",
+        "social-graphics-set",
+        "packaging-concept"
+      ],
+      "example_request": "We're reshooting our menu photos and redoing the website this summer. Before we hire anyone, help me figure out the look. I know I want warm, not trendy.",
+      "typical_departments": [
+        "design-creative"
+      ],
+      "version": 1
+    },
+    {
+      "id": "wireframes",
+      "name": "Wireframes & user flows",
+      "icon": "🔲",
+      "category": "design-visual",
+      "one_liner": "Low-fidelity screens and flows that make the interaction testable.",
+      "description": "Makes low-fidelity wireframes and user flows for the top tasks, content first and mobile first. Every state is included (empty, loading, error, success), with accessibility basics built in. They are built as a clickable canvas prototype with annotations and a five-user hallway test plan, so the interaction is tested before visual design or code.",
+      "when": "a new feature, booking flow, checkout, app or page is being planned and people need to see and try it before building",
+      "inputs": [
+        {
+          "id": "users_tasks",
+          "label": "Who the users are and the top three tasks",
+          "required": true,
+          "source": "owner",
+          "example": "Customers booking a table for a group"
+        },
+        {
+          "id": "constraints",
+          "label": "Platform, existing system and must-keep elements",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "current_screens",
+          "label": "Screenshots of what exists today",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "success_criteria",
+          "label": "How we'll know the flow works",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "app",
+          "name": "Clickable wireframe prototype",
+          "format": "canvas",
+          "description": "Greyscale, every top task completable, all states included."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "User flows",
+          "format": "mermaid -> svg",
+          "description": "Entry points, steps, decisions, errors and exits."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Annotations and test plan",
+          "format": "md",
+          "description": "Behaviours, validation rules, open questions and a five-user test script."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "vision_describe",
+        "diagram_generate",
+        "app_build",
+        "web_page_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "figma",
+        "notion",
+        "jira",
+        "linear"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "screen",
+        "app"
+      ],
+      "instructions": "1. Define the users, the top three tasks and the success criteria for each; list constraints. Read current screens with vision_describe. 2. Write a user flow per task with diagram_generate: entry points, steps, decisions, errors and exits. 3. Go content first: list the content and actions for each screen in priority order before any layout. 4. Wireframe in greyscale (no brand colours, placeholder imagery), mobile first at the stated breakpoints, including empty, loading, error and success states. 5. Apply usability heuristics as you go (visibility of status, recognition over recall, error prevention) and accessibility basics (focus order, visible labels, targets of at least 24 x 24 CSS px, aiming for 44). 6. Build a clickable low-fi prototype with app_build so every top task can be tried end to end. 7. Annotate behaviours, validation rules and open questions. 8. Write a five-user hallway test plan: tasks, success measures and what to observe. 9. State what could not be verified: assumptions about user behaviour and technical feasibility.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Users, tasks and flows",
+          "brief": "Define tasks and draw user flows.",
+          "acceptance": "Each top task has a flow with errors and exits."
+        },
+        {
+          "activity": "llm",
+          "title": "Content priorities per screen",
+          "brief": "List content and actions per screen in priority order.",
+          "acceptance": "Every screen in the flows has a prioritised content list.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "app",
+          "title": "Clickable low-fi prototype",
+          "brief": "Build the greyscale clickable prototype.",
+          "acceptance": "Every top task can be completed in the prototype; empty, loading, error and success states included.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Heuristic and accessibility check",
+          "brief": "Check the prototype against heuristics and accessibility basics.",
+          "acceptance": "First line is APPROVED or CHANGES; focus order, labels and target sizes pass.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Annotated wireframe pack and test plan",
+          "brief": "Write annotations and the hallway test plan.",
+          "acceptance": "Test plan has tasks and success measures.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every top task can be completed end to end in the prototype",
+          "severity": "must"
+        },
+        {
+          "criterion": "Empty, loading, error and success states are shown",
+          "severity": "must"
+        },
+        {
+          "criterion": "Greyscale only; no visual design decisions mixed in",
+          "severity": "must"
+        },
+        {
+          "criterion": "Mobile first with stated breakpoints",
+          "severity": "should"
+        },
+        {
+          "criterion": "A test plan with tasks and success measures is included",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "heuristic-ux-review",
+        "design-system-starter",
+        "prd",
+        "usability-test",
+        "app-canvas-build"
+      ],
+      "example_request": "Customers keep calling to book instead of using our website. Sketch me a simpler booking flow I can click through before we pay a developer.",
+      "typical_departments": [
+        "design-creative",
+        "product"
+      ],
+      "version": 1
+    },
+    {
+      "id": "heuristic-ux-review",
+      "name": "Heuristic UX review",
+      "icon": "🧐",
+      "category": "design-visual",
+      "one_liner": "Evaluate a product against Nielsen's 10 heuristics with severity ratings.",
+      "description": "Walks the real key journeys on mobile and desktop in the companion browser, stopping before payment or personal data, and evaluates each screen against Nielsen's 10 usability heuristics. Issues are logged with annotated screenshots and 0–4 severity ratings calibrated by a second reviewer, and fixes are ranked by severity and effort.",
+      "when": "a website or app converts poorly, users get lost, support gets 'how do I' questions, or before a redesign",
+      "inputs": [
+        {
+          "id": "product_url",
+          "label": "The site or app to review",
+          "required": true,
+          "source": "web"
+        },
+        {
+          "id": "journeys",
+          "label": "The key journeys to walk",
+          "required": true,
+          "source": "owner",
+          "example": "Find a class and book it; buy a gift card"
+        },
+        {
+          "id": "analytics",
+          "label": "Drop-off data by step, if available",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "known_complaints",
+          "label": "What customers complain about",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Issue log with severities",
+          "format": "xlsx",
+          "description": "Journey, step, heuristic, issue, screenshot, severity 0–4, fix and effort."
+        },
+        {
+          "artifact_type": "document",
+          "name": "UX review report",
+          "format": "md -> pdf",
+          "description": "Top issues with annotated screenshots, quick wins and positives worth keeping."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Annotated screenshots",
+          "format": "png",
+          "description": "Each issue marked on the screen where it occurs."
+        }
+      ],
+      "tools": [
+        "browser",
+        "web_fetch",
+        "vision_describe",
+        "image_edit",
+        "connector_read",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-analytics",
+        "figma",
+        "jira",
+        "linear"
+      ],
+      "modalities": [
+        "url",
+        "screen",
+        "image",
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Agree the key journeys and devices, and pull step drop-off data with connector_read if analytics is connected. 2. Walk each journey in the companion browser at mobile and desktop widths, screenshotting every step. Stop before payment or entering personal data, and never create accounts. 3. Evaluate each screen with vision_describe against Nielsen's 10 heuristics: visibility of system status; match with the real world; user control and freedom; consistency and standards; error prevention; recognition rather than recall; flexibility and efficiency; aesthetic and minimalist design; helping users recognise, diagnose and recover from errors; help and documentation. 4. Log each issue: journey, step, heuristic, description, evidence screenshot, severity 0–4 (frequency x impact x persistence) and suggested fix. 5. Annotate the screenshots with image_edit to show each problem. 6. Prioritise on a severity-by-effort matrix, quick wins first, and record positives worth keeping. 7. Have a second evaluator calibrate severities. 8. A heuristic review finds likely problems; recommend a usability test to confirm the top ones. 9. State what could not be verified: logged-in areas not reviewed and real user behaviour.",
+      "workflow": [
+        {
+          "activity": "browser",
+          "title": "Walk the key journeys",
+          "brief": "Walk each journey at two widths and screenshot every step.",
+          "acceptance": "Screenshots of every step at two widths; the walk stopped before payment or personal data."
+        },
+        {
+          "activity": "llm",
+          "title": "Heuristic evaluation",
+          "brief": "Evaluate each screen against the ten heuristics.",
+          "acceptance": "Every issue cites a heuristic, step and screenshot.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Annotate evidence",
+          "brief": "Mark each issue on its screenshot.",
+          "acceptance": "Every logged issue has an annotated image.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Findings report",
+          "brief": "Render the issue log and report.",
+          "acceptance": "Issues ranked by severity and effort; positives listed.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Second-evaluator calibration",
+          "brief": "A second reviewer re-rates severities on a sample.",
+          "acceptance": "First line is APPROVED or CHANGES; severity disagreements resolved with reasons.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every issue cites a heuristic, a step and a screenshot",
+          "severity": "must"
+        },
+        {
+          "criterion": "Severity uses the 0–4 scale with reasons",
+          "severity": "must"
+        },
+        {
+          "criterion": "The browser walk stops before payment or personal data",
+          "severity": "must"
+        },
+        {
+          "criterion": "Fixes are prioritised by severity and effort",
+          "severity": "should"
+        },
+        {
+          "criterion": "Positives are recorded",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "wcag-audit",
+        "landing-page-cro",
+        "wireframes",
+        "usability-test",
+        "web-performance-audit"
+      ],
+      "example_request": "Our online booking page has a 70% drop-off. Go through it like a customer would and tell me what's confusing.",
+      "typical_departments": [
+        "design-creative",
+        "product"
+      ],
+      "version": 1
+    },
+    {
+      "id": "wcag-audit",
+      "name": "Accessibility audit (WCAG 2.2 AA)",
+      "icon": "♿",
+      "category": "design-visual",
+      "one_liner": "Audit pages or documents against WCAG 2.2 AA with fixes by priority.",
+      "description": "Audits a WCAG-EM sample of pages or documents against WCAG 2.2 AA: automated scans plus manual keyboard, focus, reflow, target-size, form and contrast checks. Every failure is mapped to its success criterion with evidence, impact and fix, and a draft accessibility statement is included. Legal compliance calls are left to counsel.",
+      "when": "a customer can't use the site, before a launch or redesign, when a buyer asks for accessibility evidence, or on a regular cycle",
+      "inputs": [
+        {
+          "id": "scope",
+          "label": "Site, key journeys or documents to audit",
+          "required": true,
+          "source": "owner",
+          "example": "Home, product, cart and checkout; the menu PDF"
+        },
+        {
+          "id": "site_url",
+          "label": "The site",
+          "required": true,
+          "source": "web"
+        },
+        {
+          "id": "known_issues",
+          "label": "Complaints or known problems",
+          "required": false,
+          "source": "owner",
+          "example": "A screen-reader user can't check out"
+        },
+        {
+          "id": "codebase",
+          "label": "Repository access for fixes",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Accessibility issue log",
+          "format": "xlsx",
+          "description": "Page, element, success criterion (number and name), level, evidence, user impact, fix and priority."
+        },
+        {
+          "artifact_type": "document",
+          "name": "WCAG 2.2 AA audit report",
+          "format": "md -> pdf",
+          "description": "Method and sample, summary by POUR principle, top fixes and retest plan."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Accessibility statement draft",
+          "format": "md",
+          "description": "Draft statement for the owner and counsel to review."
+        }
+      ],
+      "tools": [
+        "browser",
+        "shell",
+        "web_fetch",
+        "vision_describe",
+        "code_interpreter",
+        "file_parse",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "github",
+        "jira",
+        "linear",
+        "wordpress",
+        "webflow",
+        "shopify"
+      ],
+      "modalities": [
+        "url",
+        "screen",
+        "image",
+        "file",
+        "text"
+      ],
+      "instructions": "1. Define the scope with a representative sample chosen per WCAG-EM (templates plus complete key journeys) and the target: WCAG 2.2 Level AA. 2. Run automated checks (axe-core or pa11y in the companion shell sandbox) on each sample page and save the output with tool versions. Automated tools catch only part of the issues. 3. Manual checks in the companion browser: keyboard-only navigation (visible focus, logical order, no traps, 2.4.11 focus not obscured), skip links, headings and landmarks, form labels and error handling (3.3.1, 3.3.3), 2.5.8 target size (at least 24 x 24 CSS px), 2.5.7 dragging alternatives, 3.3.8 accessible authentication, 3.2.6 consistent help, 3.3.7 redundant entry, reflow at 320 px, text spacing and 200% zoom. 4. Visual checks: contrast for text and UI components computed in code_interpreter, use of colour alone, and alt-text quality (vision_describe compares the image with its alt text). 5. Media: captions, transcripts and audio-description needs. Documents: check PDF tags, reading order, alt text and language with file_parse. 6. Log each failure: page, element or selector, success criterion number and name, level, evidence (screenshot or snippet), user impact, fix and priority. 7. Report by POUR principle with the top fixes and a retest plan, plus a draft accessibility statement. 8. Legal compliance determinations (for example under the ADA or the European Accessibility Act) are for the owner and counsel. The audit reports findings only and claims no conformance. 9. State what could not be verified: pages outside the sample and testing with real assistive-technology users.",
+      "workflow": [
+        {
+          "activity": "command",
+          "title": "Automated scans",
+          "brief": "Run automated accessibility scans on each sample page in the sandbox.",
+          "acceptance": "Scan output saved per page with tool name and version."
+        },
+        {
+          "activity": "browser",
+          "title": "Manual keyboard and visual checks",
+          "brief": "Test keyboard, focus, reflow, target size, forms and authentication on each sample page.",
+          "acceptance": "Each sample page has a completed manual checklist with evidence."
+        },
+        {
+          "activity": "analysis",
+          "title": "Contrast and alt-text checks",
+          "brief": "Compute contrast ratios and review alt text and documents.",
+          "acceptance": "Every text and UI colour pair on sample pages has a computed ratio."
+        },
+        {
+          "activity": "document",
+          "title": "Findings log and report",
+          "brief": "Merge automated and manual findings into the log and report.",
+          "acceptance": "Every failure has criterion, evidence, impact, fix and priority.",
+          "dependsOn": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Criterion mapping check",
+          "brief": "Check each failure maps to the correct success criterion.",
+          "acceptance": "First line is APPROVED or CHANGES; every failure mapped to the correct WCAG 2.2 criterion with evidence.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every failure cites the WCAG 2.2 success criterion number, evidence and fix",
+          "severity": "must"
+        },
+        {
+          "criterion": "Manual keyboard testing is done, not only automated scans",
+          "severity": "must"
+        },
+        {
+          "criterion": "No claim of legal compliance; conformance claims are left to the owner and counsel",
+          "severity": "must"
+        },
+        {
+          "criterion": "The WCAG 2.2 additions (2.4.11, 2.5.7, 2.5.8, 3.2.6, 3.3.7, 3.3.8) are explicitly checked",
+          "severity": "should"
+        },
+        {
+          "criterion": "The sample is chosen per WCAG-EM with a rationale",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "heuristic-ux-review",
+        "design-system-starter",
+        "web-performance-audit",
+        "inclusive-language-review",
+        "code-change-with-tests"
+      ],
+      "example_request": "A customer who uses a screen reader said she can't check out on our site. Audit us properly and tell me what to fix first.",
+      "typical_departments": [
+        "design-creative",
+        "engineering"
+      ],
+      "version": 1
+    },
+    {
+      "id": "design-system-starter",
+      "name": "Design system starter",
+      "icon": "🧱",
+      "category": "design-visual",
+      "one_liner": "Tokens, core components and usage guidelines for consistent UI.",
+      "description": "Sets up a starter design system from an inventory of the existing UI. It defines tiered design tokens (primitive to semantic, light and dark) exported as JSON and CSS variables, and 10–15 core components with anatomy, variants, states, keyboard behaviour and ARIA notes. It adds usage guidelines, a live HTML reference page and simple governance.",
+      "when": "the product or site has drifted into many button styles and colours, a developer or agency needs a standard, or before a redesign",
+      "inputs": [
+        {
+          "id": "current_ui",
+          "label": "Screenshots or URLs of the current product or site",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "brand_guidelines",
+          "label": "Brand colours, type and logo",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "tech_stack",
+          "label": "Framework and where the tokens will be used",
+          "required": false,
+          "source": "owner",
+          "example": "Next.js with Tailwind"
+        },
+        {
+          "id": "priority_components",
+          "label": "Components used most",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "code",
+          "name": "Design tokens (JSON and CSS variables)",
+          "format": "zip",
+          "description": "Primitive, semantic and component tokens with light and dark modes."
+        },
+        {
+          "artifact_type": "web_page",
+          "name": "Component reference",
+          "format": "html",
+          "description": "Every component and state rendered, with usage notes."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Usage guidelines",
+          "format": "md",
+          "description": "When to use what, content rules, do/don'ts, governance and versioning."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "vision_describe",
+        "web_fetch",
+        "code_interpreter",
+        "web_page_generate",
+        "document_generate",
+        "workspace_files"
+      ],
+      "connectors_optional": [
+        "figma",
+        "github",
+        "notion"
+      ],
+      "modalities": [
+        "image",
+        "screen",
+        "text",
+        "web_page"
+      ],
+      "instructions": "1. Inventory the existing UI from screenshots and live pages with vision_describe and web_fetch, and count the inconsistencies: colours, font sizes, button styles and spacing values. 2. Define tokens in tiers in code_interpreter: primitives (palette, type scale, spacing on a 4 or 8 px grid, radii, shadows, durations) to semantic tokens (text-primary, surface, border, accent, success, warning, danger) to component tokens, with dark mode. 3. Verify accessibility of the semantic pairs: WCAG 2.2 contrast in both modes, focus-indicator contrast and minimum target size. 4. Specify the core components (button, link, input, select, checkbox and radio, textarea, form field with label, help and error, card, alert, dialog, tabs, table, badge, navigation), each with anatomy, variants, states (default, hover, focus, active, disabled, error, loading), keyboard behaviour and ARIA notes. 5. Write usage guidelines: when to use which component, content rules and do/don'ts. 6. Export tokens as Design Tokens Community Group-style JSON and CSS custom properties to workspace_files, and build a live HTML reference page with web_page_generate showing every component and state. 7. Describe governance: how to propose changes, and versioning. 8. State what could not be verified: framework-specific implementation and component behaviour inside the owner's codebase.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "UI inventory",
+          "brief": "Inventory current colours, type, spacing and components.",
+          "acceptance": "Counts of distinct values per property are reported."
+        },
+        {
+          "activity": "analysis",
+          "title": "Token scales and contrast",
+          "brief": "Define tiered tokens and compute contrast in both modes.",
+          "acceptance": "Every semantic pair meets WCAG 2.2 in light and dark.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Component specs",
+          "brief": "Specify components with states, keyboard and ARIA notes.",
+          "acceptance": "Every component documents all states and keyboard behaviour.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Token files and reference page",
+          "brief": "Export tokens and build the reference page and guidelines.",
+          "acceptance": "Token files parse; the reference page renders every component and state.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Accessibility and consistency review",
+          "brief": "Check tokens and components for consistency and accessibility.",
+          "acceptance": "First line is APPROVED or CHANGES; no component lacks focus styles or ARIA notes.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Semantic colour pairs meet WCAG 2.2 contrast in light and dark modes",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every component documents its states, keyboard behaviour and ARIA notes",
+          "severity": "must"
+        },
+        {
+          "criterion": "Tokens are tiered from primitive to semantic",
+          "severity": "must"
+        },
+        {
+          "criterion": "Spacing and type scales are systematic",
+          "severity": "should"
+        },
+        {
+          "criterion": "Governance and versioning are described",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 150,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "brand-identity-kit",
+        "wireframes",
+        "wcag-audit",
+        "build-a-web-page",
+        "app-canvas-build"
+      ],
+      "example_request": "Our app has 11 different button styles and three shades of blue. Can you set up a proper design system our freelance developer can follow?",
+      "typical_departments": [
+        "design-creative",
+        "engineering"
+      ],
+      "version": 1
+    },
+    {
+      "id": "social-graphics-set",
+      "name": "Social graphics set",
+      "icon": "📱",
+      "category": "design-visual",
+      "one_liner": "On-brand templates and a batch of platform-sized graphics.",
+      "description": "Designs a batch of on-brand social graphics: four to six reusable templates (quote, tip, announcement, product, event) and ready-to-post images sized for each platform's safe zones. The owner's photos are edited without distorting products or faces. Each graphic comes with captions and alt text, checked for legibility and contrast at phone size.",
+      "when": "a launch, sale, event or content push needs graphics, or social posts look inconsistent",
+      "inputs": [
+        {
+          "id": "content",
+          "label": "What to feature: messages, offers, dates, quotes",
+          "required": true,
+          "source": "owner",
+          "example": "Spring sale plus three workshops"
+        },
+        {
+          "id": "platforms",
+          "label": "Which platforms and formats",
+          "required": true,
+          "source": "owner",
+          "example": "Instagram feed and stories, LinkedIn"
+        },
+        {
+          "id": "brand_guidelines",
+          "label": "Colours, type, logo and voice",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "photos",
+          "label": "Product or team photos to use",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "social_post",
+          "name": "Social graphics batch",
+          "format": "png",
+          "description": "Ready-to-post images per platform with file names."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Reusable templates",
+          "format": "png",
+          "description": "Four to six layouts with grid and hierarchy."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Captions, alt text and contact sheet",
+          "format": "md",
+          "description": "Caption, hashtags and alt text per graphic, and a preview grid."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "image_generate",
+        "image_edit",
+        "vision_describe",
+        "code_interpreter",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "canva",
+        "meta-business",
+        "linkedin",
+        "dropbox",
+        "google-workspace"
+      ],
+      "modalities": [
+        "image",
+        "text"
+      ],
+      "instructions": "1. Load the brand guidelines (colours, type, logo rules, voice) and the content to feature. 2. Confirm platforms and sizes, and check them against each platform's current help pages. Typical sizes: 1080 x 1350 feed portrait; 1080 x 1920 stories and reels covers, with text kept clear of roughly the top 250 px and bottom 340 px; 1200 x 627 LinkedIn link; 1080 x 1080 square. 3. Design four to six reusable templates with a clear hierarchy (hook headline of eight words or fewer, one supporting line, brand mark) on a grid. 4. Generate imagery with image_generate, or edit the owner's photos with image_edit while preserving products and faces. Avoid stock-style clichés. 5. Produce the batch. Check legibility at phone size with vision_describe, check contrast in code_interpreter (4.5:1 for small text), and keep text out of platform UI zones. 6. Write captions, a few relevant hashtags and alt text for every image. 7. Export per platform with clear file names and a contact sheet. 8. Posting is the owner's or social manager's step. Disclose AI-generated imagery where platform rules require it. 9. State what could not be verified: platform size changes after the run date and the rights to owner-supplied photos.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Brief, sizes and templates",
+          "brief": "Confirm content, platforms and sizes and design the templates.",
+          "acceptance": "Templates defined per format with hierarchy and grid."
+        },
+        {
+          "activity": "image",
+          "title": "Generate and edit imagery",
+          "brief": "Create or edit the images each post needs.",
+          "acceptance": "Products and faces are undistorted; prompt log kept.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Compose the graphics batch",
+          "brief": "Compose every graphic from templates and imagery.",
+          "acceptance": "One file per post per platform.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Brand, legibility and safe-zone check",
+          "brief": "Check brand rules, contrast, phone-size legibility and safe zones.",
+          "acceptance": "First line is APPROVED or CHANGES; every graphic passes contrast, safe zones and brand rules.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Captions, alt text and contact sheet",
+          "brief": "Write captions and alt text and build the contact sheet.",
+          "acceptance": "Every graphic has a caption and alt text.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every graphic has alt text",
+          "severity": "must"
+        },
+        {
+          "criterion": "Text stays out of platform safe zones and meets contrast",
+          "severity": "must"
+        },
+        {
+          "criterion": "Brand colours, type and logo rules are followed",
+          "severity": "must"
+        },
+        {
+          "criterion": "Hook headlines are eight words or fewer",
+          "severity": "should"
+        },
+        {
+          "criterion": "AI-generated imagery is disclosed where platform rules require",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "social-media-plan",
+        "content-calendar",
+        "brand-consistency-check",
+        "ai-image-set",
+        "moodboard"
+      ],
+      "example_request": "We have a spring sale and three workshops coming up. Make me a batch of Instagram and LinkedIn graphics that actually look like our brand.",
+      "typical_departments": [
+        "design-creative",
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "infographic",
+      "name": "Infographic & explainer visual",
+      "icon": "📊",
+      "category": "design-visual",
+      "one_liner": "Turn a process or data set into one clear, accessible visual.",
+      "description": "Turns a process, comparison or dataset into one clear visual. It states the takeaway first, verifies the numbers, picks the chart form by the question, and annotates on the chart rather than in a legend. It uses a colour-blind-safe palette with no misleading scales, provides alt text and a data-table equivalent, and exports for web, social and print.",
+      "when": "numbers or a process need to be understood at a glance: an impact report, a pitch, a social post, a training aid or a sign",
+      "inputs": [
+        {
+          "id": "message",
+          "label": "What the audience should take away",
+          "required": true,
+          "source": "owner",
+          "example": "Every $1 donated feeds three people"
+        },
+        {
+          "id": "data",
+          "label": "The data or process description, with sources",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "audience_use",
+          "label": "Who will see it and where",
+          "required": true,
+          "source": "owner",
+          "example": "Donor event, printed and on Instagram"
+        },
+        {
+          "id": "brand_guidelines",
+          "label": "Colours and type",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "image",
+          "name": "Infographic",
+          "format": "svg / png",
+          "description": "Web, social (1080 x 1350) and print-ready vector versions."
+        },
+        {
+          "artifact_type": "web_page",
+          "name": "Accessible web version with data table",
+          "format": "html",
+          "description": "The visual plus a text and table equivalent."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Standalone charts",
+          "format": "svg",
+          "description": "Individual charts for reuse in decks and reports."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "code_interpreter",
+        "chart_generate",
+        "diagram_generate",
+        "image_generate",
+        "vision_describe",
+        "web_page_generate"
+      ],
+      "connectors_optional": [
+        "canva",
+        "figma",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "image"
+      ],
+      "instructions": "1. Write the one-sentence takeaway and audience. If the data doesn't support the takeaway, say so before designing anything. 2. Check the data with file_parse and code_interpreter: source, date, units and denominators; compute any derived numbers and show the working. 3. Choose the form by the question: comparison (bar), change over time (line), part-to-whole (stacked bar, rarely pie), process (flow with diagram_generate), distribution (histogram or dot plot), geography (a map only if location matters). 4. Sketch the hierarchy: the headline is the takeaway; three to five supporting points; annotations on the chart instead of legends; a source line. 5. Build with chart_generate in brand colours with a colour-blind-safe palette, direct labels and zero-based bars, avoiding 3D and dual axes. Use image_generate only for simple illustrative elements, never to represent data. 6. Accessibility: sufficient contrast, text no smaller than about 12 pt in print, alt text that states the takeaway, and a text or table equivalent on the web version built with web_page_generate. 7. Export web (SVG or HTML), social (1080 x 1350) and print (vector) versions, and check legibility of each with vision_describe. 8. Review every number against its source. 9. State what could not be verified: numbers whose original source could not be traced.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Takeaway and data check",
+          "brief": "Write the takeaway and check the data's source, units and denominators.",
+          "acceptance": "Takeaway written; every data point has a source and date."
+        },
+        {
+          "activity": "analysis",
+          "title": "Compute figures",
+          "brief": "Compute derived figures and show the working.",
+          "acceptance": "Derived numbers reproduce from inputs.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Design the visual",
+          "brief": "Build charts and layout in brand style.",
+          "acceptance": "Headline states the takeaway; direct labels; zero-based bars.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Accuracy and honesty check",
+          "brief": "Check every number and look for misleading scales.",
+          "acceptance": "First line is APPROVED or CHANGES; every number matches its source; no misleading scales.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Exports, alt text and text equivalent",
+          "brief": "Export sizes and build the accessible web version.",
+          "acceptance": "Alt text and a table equivalent exist for every version.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every number traces to a cited source",
+          "severity": "must"
+        },
+        {
+          "criterion": "Alt text and a text or table equivalent are provided",
+          "severity": "must"
+        },
+        {
+          "criterion": "No misleading scales (truncated bars, 3D, dual axes)",
+          "severity": "must"
+        },
+        {
+          "criterion": "The headline states the takeaway",
+          "severity": "should"
+        },
+        {
+          "criterion": "A colour-blind-safe palette with direct labels is used",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "data-story",
+        "social-graphics-set",
+        "build-a-slide-deck",
+        "fact-check",
+        "blog-article"
+      ],
+      "example_request": "Turn our annual impact numbers (meals served, volunteers, cost per meal) into one graphic we can share and print for the donor event.",
+      "typical_departments": [
+        "design-creative",
+        "data-analytics"
+      ],
+      "version": 1
+    },
+    {
+      "id": "build-a-slide-deck",
+      "name": "Build a slide deck",
+      "icon": "▭",
+      "category": "design-visual",
+      "one_liner": "A presentation with one idea per slide, a storyline and speaker notes.",
+      "description": "Produces a slide deck (PPTX or PDF, or a self-contained HTML deck as a fallback) from an outline: a storyline told by action titles, one idea per slide, evidence shown visually with sourced charts, and speaker notes on every slide, plus optional rehearsal audio of the notes.",
+      "when": "the deliverable is a presentation",
+      "inputs": [
+        {
+          "id": "purpose",
+          "label": "Audience and the decision or belief the deck should produce",
+          "required": true,
+          "source": "owner",
+          "example": "Hotel group procurement; agree to a catering trial"
+        },
+        {
+          "id": "content",
+          "label": "Outline, notes, data or documents to draw on",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "constraints",
+          "label": "Slide count, time slot, template or brand",
+          "required": false,
+          "source": "owner",
+          "example": "10 slides max, 15-minute slot"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "deck",
+          "name": "Slide deck",
+          "format": "pptx / pdf",
+          "description": "Action titles, one idea per slide, sourced charts and speaker notes."
+        },
+        {
+          "artifact_type": "web_page",
+          "name": "HTML fallback deck",
+          "format": "html",
+          "description": "Self-contained with keyboard navigation."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Rehearsal audio",
+          "format": "mp3",
+          "description": "Speaker notes read aloud with slide cues."
+        }
+      ],
+      "tools": [
+        "deck_generate",
+        "web_page_generate",
+        "chart_generate",
+        "image_generate",
+        "workspace_files",
+        "file_parse",
+        "tts"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "canva"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "image",
+        "audio"
+      ],
+      "instructions": "1. Outline first: the audience, the one decision or belief the deck should produce, and a storyline, either situation, complication, resolution (Minto) or Duarte's what-is against what-could-be. 2. Write 6–12 slide headlines as full-sentence takeaways (action titles) and read them in order; they must tell the story on their own. 3. Keep one idea per slide; keep slide text short and put detail in the speaker notes. 4. Show evidence visually: charts from data with chart_generate (takeaway in the title, source on the slide), diagrams for processes, and generated images with image_generate only where they aid understanding, never as decoration. 5. Build with deck_generate as PPTX (or PDF). If that is unavailable, write one self-contained HTML deck with keyboard navigation using web_page_generate. 6. Apply the brand template or a clean default: body text 24 pt or larger, contrast of at least 4.5:1, alt text on images and a logical reading order. 7. Write speaker notes for every slide: what to say and roughly how long. 8. Optionally render the notes with tts so the owner can hear a rehearsal. 9. Report the file paths, naming every file produced on its own line as 'Artifact: <path relative to the workspace>' via workspace_files. 10. State what could not be verified: numbers in the deck without a traceable source.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Storyline and action titles",
+          "brief": "Write the storyline and 6–12 action titles.",
+          "acceptance": "Read in order, the headlines tell the full story."
+        },
+        {
+          "activity": "document",
+          "title": "Build the deck",
+          "brief": "Build slides, charts and speaker notes.",
+          "acceptance": "PPTX or PDF with speaker notes on every slide; charts cite sources.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Deck review",
+          "brief": "Check story, one idea per slide, legibility and accessibility.",
+          "acceptance": "First line is APPROVED or CHANGES; one idea per slide; text legible; alt text present.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Rehearsal audio (optional)",
+          "brief": "Render the speaker notes as rehearsal audio.",
+          "acceptance": "Audio follows slide order with cues.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The action titles alone tell the story",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every slide has speaker notes",
+          "severity": "must"
+        },
+        {
+          "criterion": "Charts and numbers cite their sources",
+          "severity": "must"
+        },
+        {
+          "criterion": "Body text is 24 pt or larger with sufficient contrast",
+          "severity": "should"
+        },
+        {
+          "criterion": "6–12 slides unless the owner asked otherwise",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "data-story",
+        "executive-summary",
+        "qbr-deck",
+        "infographic",
+        "editorial-review"
+      ],
+      "example_request": "I'm pitching our catering service to a hotel group next Tuesday. Make me a short deck, 10 slides max, with notes so I don't ramble.",
+      "typical_departments": [
+        "design-creative"
+      ],
+      "biz_bot_name": "build-a-slide-deck",
+      "version": 1
+    },
+    {
+      "id": "packaging-concept",
+      "name": "Packaging concept",
+      "icon": "🎁",
+      "category": "design-visual",
+      "one_liner": "Packaging directions with dieline notes, hierarchy and shelf-impact checks.",
+      "description": "Develops two or three packaging directions from a brief and a shelf audit of the category, with an information hierarchy and a three-second read. Concepts are rendered on the pack and placed in a simulated shelf for squint and distance tests. Dieline and print notes, a mandatory-label checklist for a qualified reviewer, and honest sustainability options are included.",
+      "when": "a product is moving into retail, being relaunched, or looks homemade next to competitors",
+      "inputs": [
+        {
+          "id": "product",
+          "label": "Product, price point, format and channel",
+          "required": true,
+          "source": "owner",
+          "example": "Granola, 350 g bag, grocery shelves"
+        },
+        {
+          "id": "brand_assets",
+          "label": "Logo, colours, type and guidelines",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "shelf_photos",
+          "label": "Photos of the category shelf or competitor packs",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "constraints",
+          "label": "Budget, run size, printer and material limits",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "image",
+          "name": "Concept renders and shelf simulation",
+          "format": "png",
+          "description": "Front and side panels per direction, placed among competitors."
+        },
+        {
+          "artifact_type": "deck",
+          "name": "Packaging concept presentation",
+          "format": "pdf",
+          "description": "Brief, shelf audit, directions, tests and recommendation."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Dieline and label checklist",
+          "format": "md",
+          "description": "Structure, dimensions to confirm, bleed, safe zone, barcode quiet zone, finishes and mandatory label items to confirm."
+        }
+      ],
+      "tools": [
+        "vision_describe",
+        "web_search",
+        "image_generate",
+        "image_edit",
+        "deck_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "canva",
+        "figma",
+        "dropbox"
+      ],
+      "modalities": [
+        "image",
+        "camera",
+        "text"
+      ],
+      "instructions": "1. Brief: product, price point, channel (shelf, e-commerce unboxing, marketplace), competitors on shelf, brand assets, format constraints, budget and run size. 2. Shelf audit: gather photos of the category shelf (owner's phone or web) and describe the category codes with vision_describe: what everyone does, and where there is room to stand out. 3. Set the information hierarchy: brand, product name, key benefit or variant, proof and claims, then mandatory information. Define the three-second read. 4. Generate two or three distinct directions as renders on the actual pack format (front and side panels) with image_generate, and use image_edit to place them on the owner's real pack photo where available. 5. Shelf-impact test: place each concept in a simulated shelf image and run squint, three-second and distance legibility checks, plus a colour-blind check on variant colour-coding. 6. Dieline notes: structure (box, pouch, label), dimensions to confirm with the printer, panels, bleed (typically 3 mm or 0.125 in), safe zone, glue flaps, barcode quiet zone, and cost flags for finishes such as foil or embossing. 7. Mandatory label checklist for the relevant rules (for example ingredients, allergens, net quantity, cosmetics INCI list, recycling marks), to be confirmed by a qualified regulatory person. Health and environmental claims ('eco-friendly', 'organic') are flagged for substantiation. 8. Sustainability options: material reduction, mono-material, recycled content, and honest claims only. Present everything with deck_generate. 9. State what could not be verified: printer specifications, material costs and regulatory requirements by market.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Brief and shelf audit",
+          "brief": "Capture the brief and audit the shelf.",
+          "acceptance": "Category codes and white space documented with photo evidence."
+        },
+        {
+          "activity": "image",
+          "title": "Concept renders",
+          "brief": "Render two or three directions on the pack format.",
+          "acceptance": "Each direction has front and side panels and a rationale.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Shelf-impact simulation",
+          "brief": "Place concepts among competitors and test legibility.",
+          "acceptance": "Squint, three-second and distance results recorded per concept.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Hierarchy, claims and legibility review",
+          "brief": "Check hierarchy, claims and mandatory-information space.",
+          "acceptance": "First line is APPROVED or CHANGES; the three-second read passes; every claim is flagged for substantiation.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Concept deck and dieline notes",
+          "brief": "Render the presentation and the checklist.",
+          "acceptance": "Checklist includes bleed, safe zone, barcode quiet zone and label items to confirm.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Mandatory label elements are flagged for confirmation by a qualified regulatory person",
+          "severity": "must"
+        },
+        {
+          "criterion": "Environmental or health claims are flagged for substantiation",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every concept is put through the shelf-impact test",
+          "severity": "must"
+        },
+        {
+          "criterion": "Dieline notes include bleed, safe zone and barcode quiet zone",
+          "severity": "should"
+        },
+        {
+          "criterion": "Concepts are genuinely distinct",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "moodboard",
+        "brand-identity-kit",
+        "claims-substantiation-check",
+        "print-collateral",
+        "product-photo-brief"
+      ],
+      "example_request": "We're taking our granola into grocery stores for the first time. Our bag looks homemade next to the big brands. Show me some packaging directions.",
+      "typical_departments": [
+        "design-creative"
+      ],
+      "version": 1
+    },
+    {
+      "id": "print-collateral",
+      "name": "Print collateral",
+      "icon": "🖨️",
+      "category": "design-visual",
+      "one_liner": "Flyers, menus, signage and brochures with print-ready specs.",
+      "description": "Produces print-ready flyers, menus, signs, brochures and cards: one clear call to action, a grid layout, and correct print specs (bleed, CMYK, 300 dpi, embedded fonts, PDF/X). A preflight proof checks typos, overflow, resolution and QR codes, and a printer spec sheet is included. The owner signs off the proof before anything is ordered.",
+      "when": "the business needs something printed: a menu, flyer, poster, sign, brochure, card or event material",
+      "inputs": [
+        {
+          "id": "piece",
+          "label": "What it is, its purpose and the one action wanted",
+          "required": true,
+          "source": "owner",
+          "example": "Takeaway menu and a window poster for the reopening"
+        },
+        {
+          "id": "content",
+          "label": "Copy, prices, dates and contact details",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "specs",
+          "label": "Size, paper, quantity, printer and deadline",
+          "required": false,
+          "source": "owner",
+          "example": "A4 and A2; printer wants PDFs by Thursday"
+        },
+        {
+          "id": "brand_guidelines",
+          "label": "Logo, colours and type",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Print-ready PDF",
+          "format": "pdf",
+          "description": "Trim, bleed, CMYK, embedded fonts and 300 dpi images."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Preview mock-ups",
+          "format": "png",
+          "description": "The piece in context for sign-off."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Printer spec sheet and preflight checklist",
+          "format": "md",
+          "description": "Size, stock, finish, quantity, colours, bleed, delivery and preflight results."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "image_generate",
+        "image_edit",
+        "vision_describe",
+        "web_search",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "canva",
+        "dropbox",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "file"
+      ],
+      "instructions": "1. Brief: the piece, its purpose and the one action wanted, audience, distribution (hand-out, mail, wall, table), quantity, size and paper, budget and deadline. 2. Write the copy to a hierarchy (headline, benefit, details, call to action, contact or QR) and cut ruthlessly. For menus, apply menu-engineering placement if item data exists. 3. Lay out on a grid with brand assets, using three or four type sizes at most; generate or edit imagery at print resolution with image_generate and image_edit. 4. Apply print specs: final trim size, 3 mm or 0.125 in bleed, safe margin, CMYK colour (rich black for large areas, pure black for small text), images at 300 dpi at final size, fonts embedded or outlined, PDF/X export, and spot colours if used. Check the printer's own requirements with web_search. 5. Accessibility for print: body text 12 pt or larger, high contrast, no text over busy images, and QR codes with a short URL fallback. 6. Preflight the exported PDF with vision_describe for typos, overflow, low-resolution images and QR scannability. 7. The owner signs off the proof via request_owner_decision before anything goes to print. Ordering from a printer spends money and is the owner's step. 8. Write the printer spec sheet. 9. State what could not be verified: colour match on press and printer-specific requirements not published.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Brief and copy",
+          "brief": "Capture the brief and write hierarchy-led copy.",
+          "acceptance": "One call to action; every fact and price confirmed by the owner."
+        },
+        {
+          "activity": "image",
+          "title": "Layout and imagery",
+          "brief": "Lay out the piece and create or edit imagery.",
+          "acceptance": "Grid layout with images at print resolution.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Print-ready export",
+          "brief": "Export the print-ready PDF with correct specs.",
+          "acceptance": "PDF with bleed, CMYK, embedded fonts and 300 dpi images.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Preflight proof",
+          "brief": "Check typos, overflow, resolution and QR codes.",
+          "acceptance": "First line is APPROVED or CHANGES; no low-res images, overflow or typos; every QR scans.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner signs off the proof",
+          "brief": "The owner approves the final proof before printing.",
+          "acceptance": "Sign-off recorded with the file version.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Bleed, safe margin, CMYK and 300 dpi at final size",
+          "severity": "must"
+        },
+        {
+          "criterion": "The owner signs off a proof before printing",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every QR code scans and has a text URL fallback",
+          "severity": "must"
+        },
+        {
+          "criterion": "Body text is 12 pt or larger with strong contrast",
+          "severity": "should"
+        },
+        {
+          "criterion": "One clear call to action",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "brand-identity-kit",
+        "menu-engineering",
+        "packaging-concept",
+        "store-opening-checklist",
+        "copyedit-pass"
+      ],
+      "example_request": "We need a new takeaway menu and a window poster for our grand reopening. Make them print-ready; the printer wants PDFs by Thursday.",
+      "typical_departments": [
+        "design-creative"
+      ],
+      "version": 1
+    }
+  ]
+}

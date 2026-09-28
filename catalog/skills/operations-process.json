@@ -1,0 +1,2124 @@
+{
+  "category": "operations-process",
+  "version": 1,
+  "skills": [
+    {
+      "id": "sop-writing",
+      "name": "Standard operating procedure",
+      "icon": "📘",
+      "category": "operations-process",
+      "one_liner": "Step-by-step SOP with roles, inputs, quality checks and a revision log.",
+      "description": "Writes a standard operating procedure from observing the work, not from memory. It captures a screen recording, photos or a spoken walkthrough, then writes numbered one-action steps with decision points, quality checks, annotated visuals, roles, and a revision log. It is tested cold by someone who didn't write it, and comes with a listen-along version for staff whose hands are busy.",
+      "when": "only one person knows how something is done, mistakes repeat, a new hire is starting, or a task must be delegated",
+      "inputs": [
+        {
+          "id": "process_name",
+          "label": "The task and who does it today",
+          "required": true,
+          "source": "owner",
+          "example": "Month-end inventory count, done by Maria"
+        },
+        {
+          "id": "walkthrough",
+          "label": "Screen recording, photos or a voice walkthrough of the task being done",
+          "required": true,
+          "source": "file",
+          "example": "Maria's phone video of the count"
+        },
+        {
+          "id": "systems",
+          "label": "Tools and systems used",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "quality_standard",
+          "label": "What 'done right' looks like",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "sop",
+          "name": "Standard operating procedure",
+          "format": "md -> docx / pdf",
+          "description": "Purpose, scope, roles (RACI), inputs, numbered steps, checks, warnings, version and revision log."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Process flowchart",
+          "format": "mermaid -> svg",
+          "description": "Branching steps and decision points."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Annotated screenshots or photos",
+          "format": "png",
+          "description": "Where to click or what to look at, marked up."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Listen-along version",
+          "format": "mp3",
+          "description": "The SOP read step by step for hands-busy work."
+        }
+      ],
+      "tools": [
+        "stt",
+        "vision_describe",
+        "file_parse",
+        "embeddings_search",
+        "document_generate",
+        "diagram_generate",
+        "image_edit",
+        "tts"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "notion",
+        "confluence",
+        "trello",
+        "asana"
+      ],
+      "modalities": [
+        "screen",
+        "image",
+        "audio",
+        "video",
+        "text",
+        "file"
+      ],
+      "instructions": "1. Capture the work as it is actually done: ask the doer for a screen recording, photos or a spoken walkthrough. Transcribe with stt and read screenshots and photos with vision_describe. 2. Define purpose, scope (the start trigger and the end state), roles (RACI), inputs, tools and definitions. 3. Write numbered steps: one action per step, starting with a verb, with the expected result. Write decision points as if/then, and put each warning before the step it applies to. 4. Add quality checks (what 'done right' looks like, with tolerances) and the common mistakes. 5. Add annotated screenshots or photos with image_edit (highlight the click, the part or the reading), and a flowchart with diagram_generate for branching processes. 6. Write for the least-experienced person who will use it: short sentences, UI labels exactly as they appear, and about one page per ten steps. 7. Test it: a coworker follows the SOP cold and logs every point where they would get stuck; revise until they don't. 8. Add version, owner, review date and revision log, and render with document_generate. Optionally render a listen-along version with tts. 9. State what could not be verified: steps described but not observed, and safety-critical steps that need sign-off by a qualified person.",
+      "workflow": [
+        {
+          "activity": "stt",
+          "title": "Capture the walkthrough",
+          "brief": "Transcribe the recorded walkthrough and extract frames or photos per step.",
+          "acceptance": "The transcript and images cover the process from start trigger to end state."
+        },
+        {
+          "activity": "llm",
+          "title": "Draft steps and checks",
+          "brief": "Draft the SOP structure, numbered steps, decisions, checks and warnings.",
+          "acceptance": "Every step is one action starting with a verb, with its expected result.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Annotate visuals",
+          "brief": "Mark up screenshots or photos for steps where location or appearance matters.",
+          "acceptance": "Each annotated image is linked to its step number.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Cold walkthrough test",
+          "brief": "A coworker follows the SOP cold and logs where they would get stuck.",
+          "acceptance": "First line is APPROVED or CHANGES; each confusion point is logged with its step number.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Final SOP",
+          "brief": "Revise from the test and render the SOP and flowchart.",
+          "acceptance": "Version, owner, review date and revision log present.",
+          "dependsOn": [
+            2,
+            3
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Listen-along version",
+          "brief": "Render the SOP as step-by-step audio.",
+          "acceptance": "Audio follows step numbering; each step is announced.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every step is one action starting with a verb, with the expected result",
+          "severity": "must"
+        },
+        {
+          "criterion": "Start trigger, end state, roles and quality checks are defined",
+          "severity": "must"
+        },
+        {
+          "criterion": "Tested cold by someone who did not write it",
+          "severity": "must"
+        },
+        {
+          "criterion": "Version, owner and review date are present",
+          "severity": "should"
+        },
+        {
+          "criterion": "Visuals are included for steps where location or appearance matters",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "process-map",
+        "quality-control-plan",
+        "training-module",
+        "kb-article",
+        "value-stream-map"
+      ],
+      "example_request": "Only Maria knows how to do our month-end inventory count and she's leaving in June. I'll have her record herself doing it. Turn it into an SOP anyone can follow.",
+      "typical_departments": [
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "process-map",
+      "name": "Process map (SIPOC + swimlane)",
+      "icon": "🧭",
+      "category": "operations-process",
+      "one_liner": "SIPOC and swimlane map of how work really flows, with pain points.",
+      "description": "Frames a process with SIPOC, then maps how the work really flows as a swimlane: handoffs, waits, rework loops and systems. It measures touch time against lead time, quantifies pain points and names the top improvement opportunities using ECRS (eliminate, combine, rearrange, simplify), validated by the people who do the work.",
+      "when": "work takes too long, drops between people, or nobody can explain where the time goes",
+      "inputs": [
+        {
+          "id": "process_scope",
+          "label": "The process and its start and end points",
+          "required": true,
+          "source": "owner",
+          "example": "From customer quote request to crew arriving on site"
+        },
+        {
+          "id": "participants",
+          "label": "Who touches the process",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "accounts",
+          "label": "Voice notes, whiteboard photos or interviews from the people who do it",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "system_data",
+          "label": "Timestamps from tickets, jobs or orders",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "diagram",
+          "name": "SIPOC and swimlane map",
+          "format": "mermaid -> svg",
+          "description": "As-is flow with lanes per role or system, pain points marked."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Step timing and pain log",
+          "format": "xlsx",
+          "description": "Touch time, wait time, rework rate, volume and source per step."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Top opportunities",
+          "format": "md",
+          "description": "Three to five improvements with expected impact and effort."
+        }
+      ],
+      "tools": [
+        "stt",
+        "vision_describe",
+        "file_parse",
+        "connector_read",
+        "code_interpreter",
+        "diagram_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "asana",
+        "monday",
+        "trello",
+        "jira"
+      ],
+      "modalities": [
+        "text",
+        "audio",
+        "image",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Frame the process with SIPOC: suppliers, inputs, five to seven high-level process steps, outputs and customers. Agree the start and end points. 2. Gather the as-is from the people who do the work: interviews and voice notes (stt), photos of whiteboards or sticky notes (vision_describe), and system timestamps (connector_read). Map what happens, not what the policy says. 3. Draw the swimlane with diagram_generate: one lane per role or system, with steps, decisions, handoffs, wait states and rework loops. 4. Measure in code_interpreter: touch time, wait time, error or rework rate and volume per step, from data where possible and labelled estimates otherwise. Compute process cycle efficiency (touch time ÷ total lead time). 5. Mark the pain points, count the handoffs, and highlight the three to five biggest by cost or delay. 6. Propose improvements with ECRS (eliminate, combine, rearrange, simplify) and automation, each with expected impact and effort. 7. Sketch a to-be map for the top opportunity if it helps the decision. 8. State what could not be verified: estimated times and process variants that weren't observed.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "SIPOC framing",
+          "brief": "Draft SIPOC and agree start and end points.",
+          "acceptance": "SIPOC complete with agreed start and end points."
+        },
+        {
+          "activity": "stt",
+          "title": "Gather as-is accounts",
+          "brief": "Transcribe voice notes and read whiteboard photos from the people who do the work.",
+          "acceptance": "Every role in the process has contributed an account."
+        },
+        {
+          "activity": "analysis",
+          "title": "Measure times and rework",
+          "brief": "Compute touch time, wait time, rework and process cycle efficiency.",
+          "acceptance": "Every step has timings marked measured or estimated.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Swimlane and pain points",
+          "brief": "Draw the swimlane and mark pain points.",
+          "acceptance": "Every handoff and wait state appears on the map.",
+          "dependsOn": [
+            0,
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Doer validation",
+          "brief": "The people who do the work check the map.",
+          "acceptance": "First line is APPROVED or CHANGES; the doers confirm the map reflects practice.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Map pack and opportunities",
+          "brief": "Render the map, timing log and opportunities brief.",
+          "acceptance": "Each opportunity has impact, effort and an ECRS type.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Start and end points are agreed and shown",
+          "severity": "must"
+        },
+        {
+          "criterion": "The map reflects observed practice and is validated by the people who do the work",
+          "severity": "must"
+        },
+        {
+          "criterion": "Estimated times are labelled as estimates",
+          "severity": "must"
+        },
+        {
+          "criterion": "Process cycle efficiency is computed",
+          "severity": "should"
+        },
+        {
+          "criterion": "Improvements use ECRS with impact and effort",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "sop-writing",
+        "value-stream-map",
+        "root-cause-analysis",
+        "automation-opportunity-scan",
+        "raci-matrix"
+      ],
+      "example_request": "From the moment a customer calls for a quote to when our crew shows up takes three weeks and nobody knows why. Map it and show me where the time goes.",
+      "typical_departments": [
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "value-stream-map",
+      "name": "Value stream map & 5S walk",
+      "icon": "🏭",
+      "category": "operations-process",
+      "one_liner": "Lean waste walk, value stream map and a 5S plan with quick wins.",
+      "description": "Runs a Lean waste walk from the owner's phone camera, logging photos and voice notes against TIMWOODS. It builds a current-state value stream map with takt time, lead time and value-added ratio, designs a future state with flow and pull, and adds a 5S plan with annotated photos and quick wins.",
+      "when": "a shop, kitchen, warehouse or studio feels busy but output is late, or space and stock are out of control",
+      "inputs": [
+        {
+          "id": "product_family",
+          "label": "The product or service line to map",
+          "required": true,
+          "source": "owner",
+          "example": "Custom printed banners"
+        },
+        {
+          "id": "demand",
+          "label": "Customer demand per day or week",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "walk_capture",
+          "label": "Photos, short videos and voice notes from a walk of the floor",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "process_data",
+          "label": "Cycle times, changeovers, batch sizes and stock levels if known",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "diagram",
+          "name": "Current and future-state VSM",
+          "format": "svg",
+          "description": "Process boxes, inventory triangles, information flow and timeline."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "VSM data and takt calculator",
+          "format": "xlsx",
+          "description": "Takt, cycle times, lead time and value-added ratio with named inputs."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "5S plan and audit sheet",
+          "format": "xlsx",
+          "description": "Sort, set in order, shine, standardise and sustain actions with owners, plus a weekly audit."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Annotated 5S photos",
+          "format": "png",
+          "description": "Proposed layout, labels and shadow boards marked on real photos."
+        }
+      ],
+      "tools": [
+        "vision_describe",
+        "stt",
+        "code_interpreter",
+        "diagram_generate",
+        "image_edit",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "airtable"
+      ],
+      "modalities": [
+        "image",
+        "camera",
+        "audio",
+        "video",
+        "text"
+      ],
+      "instructions": "1. Pick one product family or service line and its customer demand, and compute takt time (available time ÷ demand). 2. Run the waste walk with the owner or a staff member using the phone camera: photos and short voice notes at each step (transcribed with stt, described with vision_describe). Log wastes with TIMWOODS: transport, inventory, motion, waiting, overproduction, over-processing, defects and skills unused. 3. Build the current-state VSM: process boxes with cycle time, changeover, uptime, batch size and people; inventory triangles with days of stock; information flows; and the timeline of value-added against non-value-added time. Compute total lead time and the value-added ratio in code_interpreter. 4. Identify kaizen bursts: steps slower than takt, batch-and-queue, and push where pull would work. 5. Design the future state: continuous flow or supermarket pull, a pacemaker step and right-sized batches; estimate the lead-time reduction. 6. Write a 5S plan for the target area (red-tag list, labels and shadow boards, cleaning schedule, standard and weekly audit sheet) and show the proposed layout on real photos with image_edit. 7. Rank quick wins (under a week, low cost) and bigger projects. 8. Flag any change to machinery, electrical, gas or load-bearing layout for a qualified person. 9. State what could not be verified: times estimated from a single observation and seasonal demand swings.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Waste walk capture",
+          "brief": "Load photos, videos and voice notes from the walk and tag wastes by TIMWOODS.",
+          "acceptance": "Every process step has at least one photo or note; wastes tagged."
+        },
+        {
+          "activity": "analysis",
+          "title": "Current-state VSM metrics",
+          "brief": "Compute takt, cycle times, lead time and the value-added ratio.",
+          "acceptance": "Takt, lead time and value-added ratio computed with inputs shown.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Future state and 5S plan",
+          "brief": "Design the future state and write the 5S plan.",
+          "acceptance": "Future state states the expected lead-time reduction; 5S has owners.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Annotated layout proposals",
+          "brief": "Mark proposed 5S changes on real photos.",
+          "acceptance": "Each proposal image is linked to a 5S action.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Floor-staff and safety review",
+          "brief": "Staff check the times; a safety pass flags changes needing a qualified person.",
+          "acceptance": "First line is APPROVED or CHANGES; staff validate times; safety-relevant changes flagged.",
+          "dependsOn": [
+            2,
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "VSM pack",
+          "brief": "Render the maps, workbook, 5S plan and photos.",
+          "acceptance": "All files open and cross-reference each other.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Takt time, lead time and value-added ratio are computed with inputs shown",
+          "severity": "must"
+        },
+        {
+          "criterion": "Wastes are tagged by TIMWOODS with photo evidence",
+          "severity": "must"
+        },
+        {
+          "criterion": "Safety-relevant layout changes are flagged for a qualified person",
+          "severity": "must"
+        },
+        {
+          "criterion": "The future state states the expected lead-time reduction",
+          "severity": "should"
+        },
+        {
+          "criterion": "5S includes a sustain audit",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "process-map",
+        "oee-improvement",
+        "sop-writing",
+        "capacity-plan",
+        "root-cause-analysis"
+      ],
+      "example_request": "Our print shop always feels busy but orders still ship late. I can walk you through the floor with my phone camera. Find the waste.",
+      "typical_departments": [
+        "operations-supply-chain",
+        "industry-specialists"
+      ],
+      "version": 1
+    },
+    {
+      "id": "root-cause-analysis",
+      "name": "Root cause analysis",
+      "icon": "🐟",
+      "category": "operations-process",
+      "one_liner": "5 Whys and an Ishikawa diagram leading to corrective and preventive actions.",
+      "description": "Finds why a problem keeps happening: an is/is-not problem statement, containment first, a Pareto of occurrences, and a voiced fishbone session across the 6Ms. Evidence-backed 5 Whys and verified causes lead to corrective and preventive actions ranked by the hierarchy of controls, each with an owner and an effectiveness check. The analysis looks at systems, never blames individuals.",
+      "when": "the same mistake, defect, complaint or outage has happened more than once",
+      "inputs": [
+        {
+          "id": "problem",
+          "label": "What went wrong, where, when and how often",
+          "required": true,
+          "source": "owner",
+          "example": "Wrong cake sent to a wedding, three times this month"
+        },
+        {
+          "id": "incident_records",
+          "label": "Tickets, logs, orders or incident notes",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "evidence",
+          "label": "Photos, screenshots or documents",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "people_involved",
+          "label": "Roles involved (not blame)",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "RCA report",
+          "format": "md -> pdf",
+          "description": "Problem statement, containment, data, causes, verification and actions."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Ishikawa (fishbone) diagram",
+          "format": "svg",
+          "description": "Causes across the 6Ms."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "CAPA log",
+          "format": "xlsx",
+          "description": "Action, type (corrective or preventive), control level, owner, due date and effectiveness check."
+        },
+        {
+          "artifact_type": "minutes",
+          "name": "Fishbone session minutes",
+          "format": "md",
+          "description": "Causes raised and decisions made."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "vision_describe",
+        "connector_read",
+        "code_interpreter",
+        "convene_meeting",
+        "diagram_generate",
+        "document_generate",
+        "spreadsheet_generate"
+      ],
+      "connectors_optional": [
+        "jira",
+        "zendesk",
+        "google-workspace",
+        "microsoft-365",
+        "asana"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "image",
+        "audio"
+      ],
+      "instructions": "1. Contain first: list any immediate containment the owner should apply to protect customers now, without waiting for the analysis. 2. Write the problem statement as is and is-not (what, where, when, how much), without embedded causes or blame. 3. Gather data: incident logs (connector_read), photos of defects (vision_describe) and timelines; build a Pareto of occurrences in code_interpreter. 4. Convene a short voiced session with relevant coworkers to brainstorm causes on an Ishikawa diagram across the 6Ms: methods, machines, materials, people, measurement and environment. Focus on systems and conditions, not individuals. 5. Run 5 Whys on the top candidate causes. Each 'why' must be supported by evidence, and branching is allowed. 6. Verify root causes: can the problem be switched on and off? Does the data line up in time? Label anything unverified as a hypothesis. 7. Define corrective actions (fix this occurrence) and preventive actions (stop recurrence), ranked by the hierarchy of controls: eliminate, error-proof (poka-yoke), standardise, train, inspect. 'Retrain' alone is never enough. 8. Set an owner, due date and effectiveness-check metric per action, and log them in the CAPA log with spreadsheet_generate. 9. State what could not be verified: causes supported only by testimony, and data gaps.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Problem statement and containment",
+          "brief": "Write the is/is-not statement and immediate containment.",
+          "acceptance": "Statement is specific and blame-free; containment listed."
+        },
+        {
+          "activity": "analysis",
+          "title": "Data and Pareto",
+          "brief": "Assemble incident data and build the Pareto.",
+          "acceptance": "Pareto shows the top categories with counts.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Fishbone session",
+          "brief": "Voiced cause brainstorm across the 6Ms with relevant coworkers.",
+          "acceptance": "Minutes list causes across all six categories.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "5 Whys and verification",
+          "brief": "Run 5 Whys on top causes and verify each against data.",
+          "acceptance": "Each root cause is verified by data or labelled a hypothesis.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Evidence challenge",
+          "brief": "Challenge causes and actions for evidence and blame.",
+          "acceptance": "First line is APPROVED or CHANGES; every root cause is verified or labelled; no blame on individuals.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "RCA report and CAPA plan",
+          "brief": "Render the report, fishbone and CAPA log.",
+          "acceptance": "Each action has owner, date and effectiveness check.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The problem statement is specific and free of embedded causes or blame",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each 'why' is supported by evidence or labelled a hypothesis",
+          "severity": "must"
+        },
+        {
+          "criterion": "Actions follow the hierarchy of controls, not only 'retrain'",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each action has an owner, a date and an effectiveness check",
+          "severity": "must"
+        },
+        {
+          "criterion": "Containment is addressed first",
+          "severity": "should"
+        },
+        {
+          "criterion": "A Pareto is used to prioritise",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "quality-control-plan",
+        "post-mortem",
+        "process-map",
+        "sop-writing",
+        "pre-mortem"
+      ],
+      "example_request": "Third time this month the wrong cake went out for a wedding order. I don't want to just yell at people. Figure out what's actually broken.",
+      "typical_departments": [
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "inventory-reorder-plan",
+      "name": "Inventory reorder plan",
+      "icon": "📦",
+      "category": "operations-process",
+      "one_liner": "Reorder points, safety stock and EOQ by SKU with an ABC classification.",
+      "description": "Sets a reorder plan by SKU: ABC and XYZ classification, safety stock at owner-chosen service levels (including lead-time variability), reorder points, and EOQ adjusted for MOQs and case packs. Overstock and dead stock are flagged in cash terms. Output is a live workbook with a weekly 'order now' list.",
+      "when": "the business keeps running out of best-sellers while slow stock piles up, or buying is done by gut feel",
+      "inputs": [
+        {
+          "id": "sales_history",
+          "label": "12–24 months of sales by SKU by week",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "stock_position",
+          "label": "On hand and open purchase orders",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "supplier_terms",
+          "label": "Lead times, MOQs, case packs and price breaks",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "costs",
+          "label": "Unit cost, order cost and holding-cost rate",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Reorder planner",
+          "format": "xlsx",
+          "description": "ABC/XYZ class, service level, safety stock, reorder point, EOQ, weeks of cover and an 'order now' tab."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Inventory health summary",
+          "format": "md",
+          "description": "Stockout risks, overstock and dead stock with cash value, and the three biggest levers."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Cash in inventory by class",
+          "format": "png",
+          "description": "Where the money is tied up."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "square",
+        "woocommerce",
+        "amazon-seller-central",
+        "quickbooks",
+        "xero",
+        "airtable"
+      ],
+      "modalities": [
+        "connector_data",
+        "file",
+        "text"
+      ],
+      "instructions": "1. Pull 12–24 months of weekly sales by SKU, on-hand stock, open POs, supplier lead times (and their variability), unit cost, order cost and holding-cost rate with connector_read. 2. Clean demand in code_interpreter: remove stockout periods (censored demand), one-off bulk orders and discontinued SKUs. 3. Classify ABC by revenue or margin contribution (A about 80%, B about 15%, C about 5%) and XYZ by demand variability (coefficient of variation). 4. Ask the owner to set target service levels by class (for example A 97–98%, B 95%, C 90%) with request_owner_decision, showing the cash each option ties up. 5. Safety stock = z x √(LT x σd² + d̄² x σLT²); reorder point = d̄ x LT + safety stock. 6. EOQ = √(2DS/H), adjusted to supplier MOQs, case packs and price breaks. 7. Flag overstock (weeks of cover above target), dead stock (no sales in 90+ days) and upcoming stockouts, with cash values. 8. Build the workbook with spreadsheet_generate using live formulas and named inputs so the owner can change service levels, plus a weekly 'order now' list. 9. State what could not be verified: lead-time variability from few POs, demand for new SKUs, and seasonality with less than two years of history.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull sales, stock and lead times",
+          "brief": "Read sales, stock, POs and supplier data.",
+          "acceptance": "Every active SKU has sales history, stock and a lead time, or is flagged."
+        },
+        {
+          "activity": "analysis",
+          "title": "Clean and classify",
+          "brief": "Clean demand and classify ABC and XYZ.",
+          "acceptance": "Cleaning rules stated; every SKU has a class.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner sets service levels",
+          "brief": "The owner chooses service levels by class, seeing the cash impact.",
+          "acceptance": "Service levels recorded per class.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Safety stock, ROP and EOQ",
+          "brief": "Compute safety stock, reorder points and order quantities.",
+          "acceptance": "Formulas match the stated method; MOQs and case packs applied.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Reorder workbook",
+          "brief": "Render the workbook, summary and chart.",
+          "acceptance": "Workbook uses live formulas with named inputs.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Numbers audit",
+          "brief": "Recalculate five SKUs by hand and check formulas.",
+          "acceptance": "First line is APPROVED or CHANGES; spot-checked SKUs match; no hard-coded outputs.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Formulas are live with named inputs, not pasted values",
+          "severity": "must"
+        },
+        {
+          "criterion": "Demand is cleaned for stockouts and one-off orders",
+          "severity": "must"
+        },
+        {
+          "criterion": "Service levels are set by the owner",
+          "severity": "must"
+        },
+        {
+          "criterion": "Supplier MOQs and case packs are respected",
+          "severity": "should"
+        },
+        {
+          "criterion": "Dead stock and overstock are flagged with cash value",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "demand-forecast",
+        "demand-supply-plan",
+        "supplier-scorecard",
+        "shrink-review",
+        "merchandising-plan"
+      ],
+      "example_request": "We keep running out of our best-selling candles while the back room is full of scents nobody buys. Tell me when and how much to reorder for each.",
+      "typical_departments": [
+        "operations-supply-chain",
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "demand-supply-plan",
+      "name": "S&OP-lite demand & supply plan",
+      "icon": "🔄",
+      "category": "operations-process",
+      "one_liner": "Monthly demand-supply balance with gaps, actions and owners.",
+      "description": "Sets up a monthly S&OP-lite cycle. Demand review measures forecast accuracy and bias and adds explicit overlays for promotions and launches. Supply review checks capacity and lead times. Each gap gets costed options, a short voiced decision meeting settles them, and the result is one agreed plan with owners and dates.",
+      "when": "sales and production or purchasing keep surprising each other, seasonal peaks go wrong, or stock swings between shortage and excess",
+      "inputs": [
+        {
+          "id": "actuals",
+          "label": "Sales, forecasts, inventory and open orders by product family",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "capacity",
+          "label": "Labour hours, machine hours, supplier allocations",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "events",
+          "label": "Planned promotions, launches, big orders and holidays",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "horizon",
+          "label": "Planning horizon and product families",
+          "required": false,
+          "source": "owner",
+          "example": "Six months rolling, five product families"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "S&OP workbook",
+          "format": "xlsx",
+          "description": "Demand, supply, inventory projection, gaps and KPIs by family and month."
+        },
+        {
+          "artifact_type": "minutes",
+          "name": "Decision meeting minutes",
+          "format": "md",
+          "description": "Decisions, assumptions and owners."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Action plan with owners",
+          "format": "md",
+          "description": "Gap actions with owner and date."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Demand versus capacity",
+          "format": "png",
+          "description": "Monthly balance by family."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "convene_meeting",
+        "document_generate",
+        "ask_coworker"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "square",
+        "quickbooks",
+        "xero",
+        "airtable",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "connector_data",
+        "file",
+        "text",
+        "audio"
+      ],
+      "instructions": "1. Set the horizon (3–6 months rolling in monthly buckets, or 12–18 months for strongly seasonal businesses) and plan by product family, not SKU. 2. Gather data with connector_read: actual sales against the last forecast, inventory, open orders and capacity. Compute forecast accuracy (MAPE) and bias in code_interpreter. 3. Demand review: take a statistical baseline (ask_coworker the data scientist, or use demand-forecast) and add known events (promotions, launches, big customer orders) as explicit overlays, each with an owner. 4. Supply review: capacity against demand by family and month; identify constraints and lead-time limits. 5. For each imbalance, cost the options: build ahead, overtime or temporary labour, expedite, alternate supplier, shape demand (promotion timing or pricing), or accept backorders. Note the risk of each. 6. Pre-S&OP: balance and recommend. Then convene a short voiced decision meeting where the owner decides each gap; record the decisions and assumptions. 7. Publish one plan (demand, supply, inventory projection, actions with owners and dates) and track KPIs: forecast accuracy, service level and inventory turns. 8. State what could not be verified: capacity figures that were not measured and promotions not yet confirmed.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Gather actuals, stock and capacity",
+          "brief": "Read sales, forecasts, inventory and open orders.",
+          "acceptance": "Every family has actuals, last forecast and stock for the period."
+        },
+        {
+          "activity": "analysis",
+          "title": "Demand review and accuracy",
+          "brief": "Compute accuracy and bias and build demand with overlays.",
+          "acceptance": "MAPE and bias reported; every overlay has an owner.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Supply and capacity check",
+          "brief": "Compare capacity with demand by family and month.",
+          "acceptance": "Every month with a gap is identified and sized.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Gap options",
+          "brief": "Cost the options for each gap.",
+          "acceptance": "Each gap has at least two costed options with risks.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Executive S&OP decision",
+          "brief": "Voiced decision meeting; the owner decides each gap.",
+          "acceptance": "Minutes record each decision, assumption and owner.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Consensus plan",
+          "brief": "Render the workbook, action plan and chart.",
+          "acceptance": "Every gap action has an owner and a date.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "One agreed plan with owners and dates for every gap action",
+          "severity": "must"
+        },
+        {
+          "criterion": "Forecast accuracy and bias are reported",
+          "severity": "must"
+        },
+        {
+          "criterion": "Overlays for promotions and launches are explicit, with owners",
+          "severity": "must"
+        },
+        {
+          "criterion": "Gap options are costed",
+          "severity": "should"
+        },
+        {
+          "criterion": "The horizon covers at least the longest supplier lead time",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "demand-forecast",
+        "inventory-reorder-plan",
+        "capacity-plan",
+        "promo-calendar",
+        "facilitated-session"
+      ],
+      "example_request": "Every holiday season we either run out or get stuck with pallets of extra stock. Can we set up a monthly planning rhythm so sales and production stop surprising each other?",
+      "typical_departments": [
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "vendor-rfq",
+      "name": "Vendor RFQ & selection",
+      "icon": "📬",
+      "category": "operations-process",
+      "one_liner": "RFQ pack, comparison matrix and total-cost-of-ownership recommendation.",
+      "description": "Runs a request for quotation end to end. It classifies the purchase with the Kraljic matrix and builds the supplier long-list and an RFQ pack with a common response format. Quotes are normalised (freight, duties under stated Incoterms, MOQs, payment terms), then a three-year TCO and a weighted recommendation follow. RFQs and award emails are sent only after owner approval.",
+      "when": "a supplier raised prices, quality or service slipped, the business needs a new supplier, or a large purchase is coming",
+      "inputs": [
+        {
+          "id": "need",
+          "label": "What is being bought: specs, volumes, service levels, contract length",
+          "required": true,
+          "source": "owner",
+          "example": "Printed mailer boxes, 20k a year"
+        },
+        {
+          "id": "current_supplier",
+          "label": "Current supplier, price and issues",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "requirements",
+          "label": "Must-haves: certifications, sustainability, location, lead time",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "spend_data",
+          "label": "Past purchases and invoices",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "RFQ pack",
+          "format": "md -> docx",
+          "description": "Scope, specs, quantities, response template, terms, evaluation criteria and timeline."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Quote comparison and TCO model",
+          "format": "xlsx",
+          "description": "Normalised unit costs, TCO over three years, weighted scores and sensitivity."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Recommendation",
+          "format": "md",
+          "description": "Pick, runner-up, clarification questions and negotiation levers."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "RFQ, award and regret emails",
+          "format": "md",
+          "description": "Sent only after approval."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "document_generate",
+        "spreadsheet_generate",
+        "send_external",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "quickbooks",
+        "xero",
+        "airtable"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url",
+        "connector_data"
+      ],
+      "instructions": "1. Define the need (specs, volumes, service levels, delivery, quality standards, sustainability and ethics requirements, contract length) and classify it with the Kraljic matrix (strategic, leverage, bottleneck, non-critical) to set the sourcing approach. 2. Build a long-list of six to ten suppliers from directories, trade associations and marketplaces with web_search and web_fetch, then screen to three to five with pass/fail must-haves. 3. Write the RFQ pack: a short company intro, scope and specs, quantities and forecast, a required price-sheet template, terms to accept or comment on, evaluation criteria and weights, timeline and one contact point. Every supplier gets identical information. 4. The owner approves the pack and each recipient via request_owner_decision. Send each RFQ with send_external only after that approval, exactly once, with a receipt. 5. Parse the responses with file_parse and normalise them in code_interpreter to a comparable landed unit cost, including freight and duties (Incoterms 2020 term stated), MOQs and payment terms. 6. Build a three-year TCO: acquisition, logistics, quality cost, inventory carrying, switching cost and risk. 7. Score against the weighted criteria, run a sensitivity check, and recommend with a runner-up, clarification questions and negotiation levers. 8. Draft award and regret emails; send them only after owner approval. 9. State what could not be verified: supplier claims (certifications, capacity) without evidence and references not checked.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Requirements and Kraljic",
+          "brief": "Define the need and classify it with the Kraljic matrix.",
+          "acceptance": "Specs, volumes, must-haves and a Kraljic quadrant recorded."
+        },
+        {
+          "activity": "research",
+          "title": "Supplier long-list",
+          "brief": "Find and screen suppliers.",
+          "acceptance": "Six to ten candidates screened to three to five with reasons.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "RFQ pack",
+          "brief": "Write the RFQ pack and response template.",
+          "acceptance": "Identical pack for every supplier; evaluation criteria and weights stated.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves the pack and recipients",
+          "brief": "The owner approves the RFQ pack and each recipient.",
+          "acceptance": "Approval recorded for the pack and every recipient.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Send RFQs",
+          "brief": "Send each approved RFQ once through the email connector.",
+          "acceptance": "One receipt per approved recipient; nothing else sent.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Normalise quotes and TCO",
+          "brief": "Normalise quotes and build the three-year TCO.",
+          "acceptance": "Every quote is normalised to landed unit cost with Incoterms stated.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Evaluation fairness check",
+          "brief": "Check scoring consistency and hidden costs.",
+          "acceptance": "First line is APPROVED or CHANGES; every supplier was scored on the same criteria and inputs.",
+          "dependsOn": [
+            5
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Recommendation",
+          "brief": "Write the recommendation and draft award and regret emails.",
+          "acceptance": "Recommendation names the runner-up and negotiation levers.",
+          "dependsOn": [
+            6
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every supplier receives the same requirements and response format",
+          "severity": "must"
+        },
+        {
+          "criterion": "Quotes are normalised including freight, duties (Incoterms stated) and payment terms",
+          "severity": "must"
+        },
+        {
+          "criterion": "Nothing is sent without explicit owner approval, and every send has a receipt",
+          "severity": "must"
+        },
+        {
+          "criterion": "TCO covers at least three years",
+          "severity": "should"
+        },
+        {
+          "criterion": "Supplier claims are marked verified or unverified",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "compare-options",
+        "supplier-scorecard",
+        "negotiation-prep",
+        "contract-issue-list",
+        "shipping-cost-review"
+      ],
+      "example_request": "Our packaging supplier raised prices 18%. Get quotes from four or five others for our mailer boxes and tell me who's really cheapest once you count shipping.",
+      "typical_departments": [
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "supplier-scorecard",
+      "name": "Supplier scorecard",
+      "icon": "🏅",
+      "category": "operations-process",
+      "one_liner": "On-time, quality, cost and responsiveness scores with review cadence.",
+      "description": "Scores suppliers each quarter from real transactions: OTIF, lead-time variance, defect rate, price variance against contract, invoice accuracy and responsiveness. Cited risk signals are added, weights are agreed with the owner, and suppliers are tiered with trends and a review agenda for each key supplier.",
+      "when": "the owner suspects a supplier is slipping, before renegotiating, or to set up a regular supplier review",
+      "inputs": [
+        {
+          "id": "transactions",
+          "label": "POs, receipts, invoices and returns for the period",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "issues",
+          "label": "Quality complaints and supplier tickets",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "contract_terms",
+          "label": "Agreed prices, lead times and quality levels",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "scope",
+          "label": "Which suppliers and which period",
+          "required": false,
+          "source": "owner",
+          "example": "Top three fabric suppliers, last four quarters"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Supplier scorecard",
+          "format": "xlsx",
+          "description": "KPI definitions and formulas, scores, weights, tier and trend per supplier."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "OTIF and defect trend",
+          "format": "png",
+          "description": "Per supplier across periods."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Supplier review agendas",
+          "format": "md",
+          "description": "Wins, issues with evidence, improvement asks and forecast sharing, per key supplier."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "web_search",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "shopify",
+        "airtable",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "connector_data",
+        "file",
+        "text"
+      ],
+      "instructions": "1. Pick the suppliers in scope (those making up the top 80% of spend, plus any critical single source) and the period. 2. Pull POs, receipts (dates and quantities), invoices, returns and defects, and issue tickets with connector_read and file_parse. 3. Compute in code_interpreter: OTIF (lines on time and in full ÷ total lines), lead-time variance, defect rate (% or ppm), purchase price variance against contract, invoice accuracy and responsiveness (days to resolve issues). Write each KPI's definition next to its formula. 4. Add risk signals from public sources with web_search (financial-health signals, recent news, geographic risk) and note single-source dependence. Cite every signal. 5. Agree weights with the owner (for example delivery 35, quality 35, cost 20, service 10), score 0–100 and tier suppliers as preferred, approved or on watch. 6. Trend against previous periods and chart with chart_generate. 7. Draft a review agenda per key supplier: wins, issues with evidence, improvement asks and forecast sharing. 8. State what could not be verified: missing receipt dates and quality data that comes only from complaints.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull POs, receipts and issues",
+          "brief": "Read transactions and issue logs for the period.",
+          "acceptance": "Every supplier in scope has transaction data or a gap noted."
+        },
+        {
+          "activity": "analysis",
+          "title": "Compute KPIs",
+          "brief": "Compute OTIF, lead-time variance, defects, price variance and responsiveness.",
+          "acceptance": "Each KPI has a stated definition and formula.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "research",
+          "title": "Supplier risk signals",
+          "brief": "Research public risk signals per supplier.",
+          "acceptance": "Every signal is cited and dated."
+        },
+        {
+          "activity": "document",
+          "title": "Scorecards and review agendas",
+          "brief": "Render scorecards, trend charts and agendas.",
+          "acceptance": "Scores trace to transactions; weights recorded.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Data accuracy check",
+          "brief": "Spot-check scores against source transactions.",
+          "acceptance": "First line is APPROVED or CHANGES; sampled scores reproduce from the data.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "KPI definitions (OTIF, defect rate, price variance) are stated with formulas",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every score traces to transaction data",
+          "severity": "must"
+        },
+        {
+          "criterion": "Weights are agreed with the owner",
+          "severity": "must"
+        },
+        {
+          "criterion": "Risk signals are cited",
+          "severity": "should"
+        },
+        {
+          "criterion": "Trends span at least two periods where data allows",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "vendor-rfq",
+        "quality-control-plan",
+        "business-continuity-plan",
+        "inventory-reorder-plan"
+      ],
+      "example_request": "I have a feeling our fabric supplier is getting worse: late deliveries, more flaws. Can you actually measure it and compare them to the other two?",
+      "typical_departments": [
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "shipping-cost-review",
+      "name": "Shipping & fulfillment cost review",
+      "icon": "🚚",
+      "category": "operations-process",
+      "one_liner": "Carrier, packaging and 3PL cost review with savings options.",
+      "description": "Reviews shipping and fulfilment spend from invoices and orders: cost per order by carrier, service and zone, dimensional-weight waste, box-mix optimisation, surcharges and refund-eligible late deliveries, and 3PL fees against contract. It ranks savings options by annual value, effort and customer impact.",
+      "when": "shipping is a growing share of revenue, carrier rates rise, or the owner is considering a 3PL or new carrier",
+      "inputs": [
+        {
+          "id": "shipments",
+          "label": "3–6 months of shipments with weight, dimensions, zone, service and cost",
+          "required": true,
+          "source": "file",
+          "example": "Carrier invoice CSVs"
+        },
+        {
+          "id": "orders",
+          "label": "Order data with value, destination and delivery promise",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "tpl_contract",
+          "label": "3PL contract and invoices, if any",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "packaging",
+          "label": "Box and mailer sizes in use",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Shipping cost model",
+          "format": "xlsx",
+          "description": "Baseline, DIM analysis, surcharge audit, 3PL fee check and savings options."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Savings options ranked",
+          "format": "md",
+          "description": "Annual saving, effort, customer impact and what needs negotiation."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Cost per order by zone and carrier",
+          "format": "png",
+          "description": "Where shipping money goes."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "web_search",
+        "web_fetch",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "woocommerce",
+        "amazon-seller-central",
+        "etsy",
+        "quickbooks",
+        "xero"
+      ],
+      "modalities": [
+        "connector_data",
+        "file",
+        "text"
+      ],
+      "instructions": "1. Load three to six months of shipments (weight, dimensions, zone, service, cost, surcharges) from carrier invoices or shipping-app exports with file_parse, and order data with connector_read. 2. Build the baseline in code_interpreter: cost per order, per unit, per kg or lb, and as a % of order value, by carrier, service, zone and package. 3. Dimensional-weight analysis: find packages where a smaller box would lower billable weight, and optimise the box mix (the fewest sizes covering most orders). 4. Audit surcharges (residential, delivery area, address correction, fuel), and list late deliveries eligible for a refund where the carrier offers a guarantee. 5. Compare rates and service mix: published rates and regional carriers with web_search and web_fetch; zone-skipping or split inventory if volume justifies it; Incoterms for international shipments. 6. Check 3PL fees (pick and pack, storage, receiving, minimums) against the contract. 7. Check the delivery promise: speed against conversion, and the free-shipping threshold against AOV. 8. Rank options by annual saving, effort and customer impact, and say which need carrier negotiation. 9. State what could not be verified: negotiated rates not visible in the data and future rate changes.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load shipment and invoice data",
+          "brief": "Parse invoices and shipment exports and join to orders.",
+          "acceptance": "Every shipment has weight, zone, service and cost, or is flagged."
+        },
+        {
+          "activity": "analysis",
+          "title": "Baseline and DIM and surcharge audit",
+          "brief": "Compute the baseline, DIM waste and surcharge totals.",
+          "acceptance": "Baseline cost per order reported by carrier, service and zone.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "research",
+          "title": "Rate and carrier benchmarks",
+          "brief": "Gather published rates and alternative carriers.",
+          "acceptance": "Every benchmark rate is cited and dated."
+        },
+        {
+          "activity": "analysis",
+          "title": "Savings options model",
+          "brief": "Model each saving option.",
+          "acceptance": "Each option has annual saving, effort and customer-impact rating.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Savings report",
+          "brief": "Render the model, chart and ranked brief.",
+          "acceptance": "Top options state what needs carrier negotiation.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Customer-impact review",
+          "brief": "Check that savings don't break delivery promises or experience.",
+          "acceptance": "First line is APPROVED or CHANGES; each option's effect on delivery time is stated.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Baseline cost per order is computed from actual invoices",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every saving states its assumptions and its effect on delivery time",
+          "severity": "must"
+        },
+        {
+          "criterion": "Benchmark rates are cited and dated",
+          "severity": "must"
+        },
+        {
+          "criterion": "DIM-weight and box-mix opportunities are quantified",
+          "severity": "should"
+        },
+        {
+          "criterion": "Refund-eligible late deliveries are listed",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "vendor-rfq",
+        "wismo-deflection",
+        "returns-policy",
+        "margin-analysis",
+        "negotiation-prep"
+      ],
+      "example_request": "Shipping is eating 14% of revenue. Here are six months of carrier invoices and our Shopify orders. Where's the money going, and what can I cut without annoying customers?",
+      "typical_departments": [
+        "operations-supply-chain",
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "capacity-plan",
+      "name": "Capacity & staffing plan",
+      "icon": "👷",
+      "category": "operations-process",
+      "one_liner": "Demand-driven staffing and capacity plan with bottlenecks named.",
+      "description": "Plans capacity and staffing from demand. It forecasts workload by interval and measures real capacity after shrinkage and productivity. It names the bottleneck (Theory of Constraints) and applies Little's Law and Erlang C where arrivals are random. Scenarios cost each option (shifts, cross-training, part-time, outsourcing, automation, hiring), and scheduling rules are flagged for HR review.",
+      "when": "queues build at some times while staff are idle at others, growth is coming, or the owner is deciding whether to hire",
+      "inputs": [
+        {
+          "id": "workload_history",
+          "label": "Bookings, tickets, orders or jobs with timestamps",
+          "required": true,
+          "source": "connector"
+        },
+        {
+          "id": "service_target",
+          "label": "The standard to hit",
+          "required": true,
+          "source": "owner",
+          "example": "Answer 80% of calls within 60 seconds"
+        },
+        {
+          "id": "resources",
+          "label": "Roles, headcount, hours, machines, rooms or vehicles",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "planned_events",
+          "label": "Launches, seasons, promotions",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Capacity model",
+          "format": "xlsx",
+          "description": "Workload forecast, capacity after shrinkage, requirement by interval, scenarios and costs."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Staffing recommendation",
+          "format": "md",
+          "description": "The bottleneck, the recommended scenario, cost and lead time."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Demand versus capacity heatmap",
+          "format": "png",
+          "description": "By hour and day."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate",
+        "ask_coworker",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "square",
+        "toast",
+        "gusto",
+        "zendesk",
+        "calendly",
+        "mindbody",
+        "rippling",
+        "google-workspace"
+      ],
+      "modalities": [
+        "connector_data",
+        "file",
+        "text"
+      ],
+      "instructions": "1. Define the unit of work, the resources (roles, machines, rooms, vehicles) and the service target. 2. Forecast workload by interval from history with connector_read and code_interpreter, including seasonality and planned events. 3. Measure capacity: available hours after shrinkage (leave, training, breaks, meetings, often 25–35%) and productivity per hour from data. 4. Compute required against available capacity. For queues, apply Little's Law (work in progress = throughput x cycle time) and Erlang C where arrivals are random. 5. Identify the bottleneck, the step with the highest utilisation (Theory of Constraints), and exploit it before adding capacity elsewhere. 6. Build scenarios (base, peak, growth) and options (shift patterns, cross-training, part-time, outsourcing, automation, hiring), each with cost and lead time; ask_coworker finance to check the costs. 7. Keep utilisation targets realistic (about 75–85% for knowledge work) and flag burnout risk. 8. Flag local scheduling rules (predictive scheduling, overtime, breaks) for the owner to confirm with a qualified HR professional. Make no individual employment decisions; the owner chooses a scenario via request_owner_decision. 9. State what could not be verified: productivity assumptions and demand for new services.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Workload and time data",
+          "brief": "Read timestamped workload and staffing data.",
+          "acceptance": "At least 12 weeks of interval data, or the shortfall noted."
+        },
+        {
+          "activity": "analysis",
+          "title": "Workload forecast",
+          "brief": "Forecast workload by interval with seasonality.",
+          "acceptance": "Forecast method and error stated.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Capacity, bottleneck and staffing math",
+          "brief": "Compute capacity after shrinkage, utilisation, the bottleneck and required staffing.",
+          "acceptance": "Shrinkage and productivity assumptions explicit; bottleneck named with utilisation.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Capacity plan and scenarios",
+          "brief": "Render the model, heatmap and recommendation.",
+          "acceptance": "Each scenario shows cost and lead time.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Assumption review",
+          "brief": "Challenge productivity, shrinkage and demand assumptions.",
+          "acceptance": "First line is APPROVED or CHANGES; each key assumption has a source or label.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner chooses a scenario",
+          "brief": "The owner picks the scenario to act on.",
+          "acceptance": "Decision recorded with the chosen scenario.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Shrinkage and productivity assumptions are explicit",
+          "severity": "must"
+        },
+        {
+          "criterion": "The bottleneck is named with utilisation evidence",
+          "severity": "must"
+        },
+        {
+          "criterion": "Scenarios show the cost and lead time of each option",
+          "severity": "must"
+        },
+        {
+          "criterion": "Queueing maths is used where arrivals are random",
+          "severity": "should"
+        },
+        {
+          "criterion": "Scheduling-law items are flagged for HR review",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "demand-supply-plan",
+        "resource-plan",
+        "prime-cost-labor",
+        "process-map",
+        "org-design"
+      ],
+      "example_request": "Our phones go unanswered every Monday morning but the team is bored on Thursdays. How many people do we actually need, and when?",
+      "typical_departments": [
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "quality-control-plan",
+      "name": "Quality control plan & CAPA",
+      "icon": "🧪",
+      "category": "operations-process",
+      "one_liner": "Inspection points, acceptance criteria and a CAPA log.",
+      "description": "Builds a quality control plan from complaints, returns and specs: critical-to-quality characteristics, inspection points (incoming, first-article, in-process, final), acceptance criteria and reaction plans. Sampling is 100% for safety items, AQL-style for lots, or control charts. It adds photo-based defect standards usable on a phone and a CAPA log with effectiveness checks.",
+      "when": "defects or quality returns are rising, a new product or supplier starts, or a customer demands a quality standard",
+      "inputs": [
+        {
+          "id": "product_specs",
+          "label": "Specs, tolerances and customer requirements",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "complaints_returns",
+          "label": "Complaints and returns with reasons",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "sample_photos",
+          "label": "Photos of good units and of defects",
+          "required": false,
+          "source": "file",
+          "example": "Photos of good and faulty stitching"
+        },
+        {
+          "id": "process_steps",
+          "label": "How the product is made or the service delivered",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Quality control plan",
+          "format": "md -> pdf",
+          "description": "CTQs, inspection points, methods, specs, sampling, reaction plans and KPIs."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Inspection checklists",
+          "format": "xlsx",
+          "description": "Per inspection point, phone-friendly."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Visual defect standards",
+          "format": "png",
+          "description": "Good versus defect examples, annotated."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "CAPA log",
+          "format": "xlsx",
+          "description": "Nonconformance, containment, root cause link, action, owner, due date and effectiveness check."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "connector_read",
+        "vision_describe",
+        "image_edit",
+        "code_interpreter",
+        "diagram_generate",
+        "document_generate",
+        "spreadsheet_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "airtable",
+        "shopify",
+        "zendesk"
+      ],
+      "modalities": [
+        "image",
+        "camera",
+        "file",
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Identify critical-to-quality (CTQ) characteristics from complaints, returns, specs and regulations with a voice-of-customer to CTQ tree; run a Pareto of defect types in code_interpreter. 2. Map the process with diagram_generate and choose inspection points: incoming materials, first article, in-process at the steps where defects originate, and final. 3. For each CTQ define the method, gauge or tool, specification and tolerance, acceptance criterion, and the reaction plan when out of spec (control-plan format). 4. Choose sampling: 100% for safety-critical characteristics, AQL sampling plans in the style of ANSI/ASQ Z1.4 or ISO 2859-1 for lots, or control charts for continuous processes. Say why. 5. Build photo-based standards from the owner's photos with vision_describe and image_edit: good against defect examples, annotated, and checklists usable on a phone. 6. Set up the CAPA log: nonconformance, containment, root cause (link to root-cause-analysis), action, owner, due date and effectiveness check. 7. Define quality KPIs (first-pass yield, defect rate, quality-related returns, cost of poor quality) and a review cadence. 8. Flag product-safety, food-safety or other regulated standards for a qualified person. 9. State what could not be verified: tolerances not specified by customers and gauge accuracy.",
+      "workflow": [
+        {
+          "activity": "analysis",
+          "title": "CTQs from complaints and returns",
+          "brief": "Pareto of defects and CTQ tree.",
+          "acceptance": "Each CTQ traces to complaints, returns, specs or regulation."
+        },
+        {
+          "activity": "llm",
+          "title": "Inspection points and control plan",
+          "brief": "Choose inspection points and write the control plan with sampling.",
+          "acceptance": "Every CTQ has method, spec, acceptance criterion and reaction plan.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Visual defect standards",
+          "brief": "Annotate good and defect photos per CTQ.",
+          "acceptance": "Each visual standard shows good and defect side by side.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "QC plan, checklists and CAPA log",
+          "brief": "Render the plan, checklists and CAPA log.",
+          "acceptance": "Checklists are usable on a phone; CAPA log has effectiveness checks.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Practicality and safety review",
+          "brief": "Check inspection effort is realistic and safety items are covered.",
+          "acceptance": "First line is APPROVED or CHANGES; safety-critical items are 100% inspected; regulated standards flagged.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every CTQ has a method, specification, acceptance criterion and reaction plan",
+          "severity": "must"
+        },
+        {
+          "criterion": "The sampling approach is justified and safety-critical items are 100% inspected",
+          "severity": "must"
+        },
+        {
+          "criterion": "Regulated safety standards are flagged for a qualified person",
+          "severity": "must"
+        },
+        {
+          "criterion": "Visual standards show good against defect",
+          "severity": "should"
+        },
+        {
+          "criterion": "CAPA entries have effectiveness checks",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "root-cause-analysis",
+        "sop-writing",
+        "supplier-scorecard",
+        "oee-improvement",
+        "returns-policy"
+      ],
+      "example_request": "We make leather bags in a small workshop and returns for stitching faults doubled this year. Set up a proper quality check. I can send photos of good and bad ones.",
+      "typical_departments": [
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "business-continuity-plan",
+      "name": "Business continuity plan",
+      "icon": "🛟",
+      "category": "operations-process",
+      "one_liner": "Business impact analysis, critical functions, recovery steps and a tabletop exercise.",
+      "description": "Builds a business continuity plan on ISO 22301 principles (without claiming certification). It covers a business impact analysis (critical functions, maximum tolerable downtime, RTO and RPO, dependencies), rated risk scenarios, recovery strategies and first-hour runbooks, and a contact tree by role. A voiced tabletop exercise tests the plan and its gaps feed back in.",
+      "when": "the business depends on one site, system, supplier or person, has had a near miss, or a customer or insurer asks for a continuity plan",
+      "inputs": [
+        {
+          "id": "scope",
+          "label": "Sites, functions, systems and key suppliers",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "business_profile",
+          "label": "What the business does and when it earns money",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "systems",
+          "label": "Key systems and where data is backed up",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "insurance",
+          "label": "Current insurance cover",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "BIA and risk register",
+          "format": "xlsx",
+          "description": "Functions with impact over time, MTPD, RTO, RPO and dependencies; scenarios rated likelihood x impact."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Business continuity plan",
+          "format": "md -> docx / pdf",
+          "description": "Strategies, activation criteria, roles, communications and return to normal."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "First-hour runbooks",
+          "format": "md",
+          "description": "One per scenario, step by step."
+        },
+        {
+          "artifact_type": "minutes",
+          "name": "Tabletop exercise report",
+          "format": "md",
+          "description": "Injects, decisions, gaps and actions."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "file_parse",
+        "spreadsheet_generate",
+        "document_generate",
+        "diagram_generate",
+        "convene_meeting",
+        "tts"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "slack",
+        "microsoft-teams",
+        "notion",
+        "dropbox"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "audio",
+        "connector_data"
+      ],
+      "instructions": "1. Scope the plan: sites, functions, systems, suppliers and the plan owner. 2. Business impact analysis: for each function, the impact of disruption over time (financial, customer, legal, reputational), the maximum tolerable period of disruption, the RTO, the RPO for its data, minimum resources and dependencies (people, systems, suppliers, facilities). 3. Risk assessment: rate likely scenarios (loss of site, key person unavailable, IT or cyber outage, key supplier failure, utility outage, severe weather) by likelihood x impact. 4. Strategies per critical function: workarounds, alternate site or remote working, backup suppliers, cross-training, 3-2-1 data backup with a tested restore, and an insurance review. 5. Runbooks per scenario: activation criteria, a first-hour checklist, roles, communication templates (staff, customers, suppliers), recovery steps and return to normal. The contact tree lists roles only; personal numbers stay in a secure location, not in the shared document. 6. Tabletop exercise: convene a voiced session with coworkers playing roles; read scenario injects aloud with tts; record decisions and gaps. 7. Update the plan from the exercise and set a review cadence. The plan follows ISO 22301 principles but claims no certification. 8. State what could not be verified: backups not restore-tested and suppliers' recovery claims.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Business impact analysis",
+          "brief": "Assess each function's impact over time, MTPD, RTO, RPO and dependencies.",
+          "acceptance": "Every critical function has RTO, RPO and dependencies."
+        },
+        {
+          "activity": "llm",
+          "title": "Risk scenarios",
+          "brief": "Rate scenarios by likelihood and impact.",
+          "acceptance": "Each scenario has a rating and the functions it hits.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Strategies and runbooks",
+          "brief": "Write strategies, runbooks and the role-based contact tree.",
+          "acceptance": "Every runbook has activation criteria and first-hour steps.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Tabletop exercise",
+          "brief": "Voiced tabletop with injects read aloud; the owner can join or listen.",
+          "acceptance": "Minutes list each inject, decision and gap found.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Updated plan and gap actions",
+          "brief": "Revise the plan and log gap actions with owners.",
+          "acceptance": "Every gap has an action, owner and date.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Plan test review",
+          "brief": "Check the updated plan closes the exercise gaps.",
+          "acceptance": "First line is APPROVED or CHANGES; every exercise gap is closed or has a dated action.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every critical function has an RTO, an RPO and its dependencies",
+          "severity": "must"
+        },
+        {
+          "criterion": "Runbooks have activation criteria and first-hour steps",
+          "severity": "must"
+        },
+        {
+          "criterion": "The plan is tested with a tabletop exercise and gaps are logged",
+          "severity": "must"
+        },
+        {
+          "criterion": "Personal contact details are kept out of the shared document",
+          "severity": "should"
+        },
+        {
+          "criterion": "Backups are restore-tested or flagged as untested",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 180,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "backup-dr-plan",
+        "risk-register",
+        "incident-runbook",
+        "supplier-scorecard",
+        "crisis-holding-statement"
+      ],
+      "example_request": "If our kitchen floods or the POS goes down on a Saturday, we're toast. Build us a plan for what to do, and let's run a practice drill.",
+      "typical_departments": [
+        "operations-supply-chain",
+        "it-security-automation"
+      ],
+      "version": 1
+    }
+  ]
+}

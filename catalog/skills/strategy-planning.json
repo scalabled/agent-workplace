@@ -1,0 +1,1930 @@
+{
+  "category": "strategy-planning",
+  "version": 1,
+  "skills": [
+    {
+      "id": "five-forces-analysis",
+      "name": "Industry analysis (Porter's Five Forces)",
+      "icon": "⚔",
+      "category": "strategy-planning",
+      "one_liner": "Rate the five forces with evidence and name the strategic implications.",
+      "description": "Rates Porter's five competitive forces (rivalry, threat of new entrants, buyer power, supplier power, substitutes) for a clearly bounded industry, each with cited evidence, and names the two or three implications that should change what the owner does about entry, pricing or defence of margins.",
+      "when": "the owner is deciding whether an industry or segment is attractive, entering a new market, or wondering why margins are being squeezed",
+      "inputs": [
+        {
+          "id": "business_profile",
+          "label": "The business, its offer and where it competes",
+          "required": true,
+          "source": "memory",
+          "example": "Meal-prep delivery, one city, subscription and one-off orders"
+        },
+        {
+          "id": "industry_boundary",
+          "label": "Product and geographic scope to analyse",
+          "required": false,
+          "source": "owner",
+          "example": "Chilled meal-prep delivery within 30 miles of the city centre"
+        },
+        {
+          "id": "known_competitors",
+          "label": "Competitors and substitutes the owner knows",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "supplier_and_customer_facts",
+          "label": "Supplier concentration, contracts, customer mix",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "Five forces brief",
+          "format": "md -> pdf",
+          "description": "Boundary, rating per force with evidence, overall attractiveness, and implications tied to decisions."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Five forces diagram",
+          "format": "mermaid -> svg",
+          "description": "The five forces with ratings and the key driver of each."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_search",
+        "web_fetch",
+        "diagram_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "file"
+      ],
+      "instructions": "1. Recall the business profile with memory_recall and past analyses with embeddings_search. Define the industry boundary (product scope and geography) explicitly; a fuzzy boundary makes every rating meaningless. 2. Research each force with web_search and web_fetch from primary and credible secondary sources: rivalry (number and size of competitors, growth, differentiation, exit barriers); threat of entry (capital needed, scale economies, regulation, brand, access to channels); buyer power (concentration, switching costs, price sensitivity); supplier power (concentration, switching costs, input importance); substitutes (price-performance of alternatives, including 'do it yourself'). 3. Rate each force low, medium or high with at least two pieces of cited evidence, and note the direction of change over the next two to three years. 4. Optionally note complementors (products that make this one more valuable) where they matter. 5. Link the forces to profitability: which force caps prices or margins most, and why. 6. Name two or three implications that change a decision (enter or not, where to position, which supplier dependency to reduce, how to raise switching costs). 7. Draw the diagram with diagram_generate and write the brief with document_generate. Ask a sceptic coworker to challenge the ratings from the outside view. 8. State what could not be verified: ratings that rest on thin evidence and market data that is estimated.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Define the boundary",
+          "brief": "Define product and geographic scope for the industry.",
+          "acceptance": "Boundary stated in one sentence with inclusions and exclusions."
+        },
+        {
+          "activity": "research",
+          "title": "Gather evidence per force",
+          "brief": "Research each of the five forces with cited sources.",
+          "acceptance": "Each force has at least two cited sources.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Rate and conclude",
+          "brief": "Rate each force with direction of change and write implications.",
+          "acceptance": "Ratings are justified and implications tie to decisions.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic review",
+          "brief": "Challenge the ratings from the outside view.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Brief and diagram",
+          "brief": "Render the brief and diagram.",
+          "acceptance": "Brief leads with overall attractiveness and the top implication.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The industry boundary is stated explicitly.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every rating cites at least two pieces of evidence.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Implications are tied to a specific decision.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Direction of change is noted for each force.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Substitutes include non-obvious alternatives such as doing it yourself.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "swot-tows",
+        "market-sizing",
+        "competitor-teardown",
+        "strategy-choice-cascade",
+        "scenario-plan"
+      ],
+      "example_request": "Is the meal-prep delivery space in our city still worth entering, or are margins going to get crushed?",
+      "typical_departments": [
+        "strategy-leadership",
+        "research-insights"
+      ],
+      "version": 1
+    },
+    {
+      "id": "swot-tows",
+      "name": "SWOT to TOWS options",
+      "icon": "⊞",
+      "category": "strategy-planning",
+      "one_liner": "SWOT that goes somewhere: a TOWS matrix of concrete strategic options.",
+      "description": "Builds an evidence-backed SWOT (strengths relative to competitors, not self-praise) and then turns it into a TOWS matrix of concrete strategic options: strengths to seize opportunities, fixes for weaknesses, defences against threats. The top options are scored and each gets a first step and an owner.",
+      "when": "the owner wants a strategic check-up that ends in actions, before annual planning, a new offer or a big change",
+      "inputs": [
+        {
+          "id": "business_context",
+          "label": "Business profile, results and recent changes",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "performance_data",
+          "label": "Sales, margins, reviews and other evidence",
+          "required": false,
+          "source": "file",
+          "example": "Square sales export, Google reviews export"
+        },
+        {
+          "id": "market_signals",
+          "label": "Known market changes, competitors, regulation",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "team_views",
+          "label": "What the team thinks is working and not",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "SWOT and TOWS matrix",
+          "format": "md -> docx",
+          "description": "Evidence-backed SWOT and a TOWS matrix with SO, WO, ST and WT options."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Top options",
+          "format": "md",
+          "description": "The top three options scored on impact and feasibility, each with first step and owner."
+        },
+        {
+          "artifact_type": "minutes",
+          "name": "Options workshop minutes",
+          "format": "md",
+          "description": "Challenges raised and options changed or dropped."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "file_parse",
+        "ask_coworker",
+        "web_search",
+        "convene_meeting",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "square",
+        "shopify",
+        "google-business-profile",
+        "google-analytics",
+        "quickbooks"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url",
+        "voice"
+      ],
+      "instructions": "1. Gather internal evidence with memory_recall, embeddings_search and file_parse on exports the owner shares (sales, margins, reviews, repeat rates), asking a data coworker with ask_coworker for trends and comparisons, and external evidence with web_search (market, competitors, regulation, technology). 2. Write the SWOT with every item specific and evidenced. Strengths and weaknesses are internal and relative to competitors ('two-day turnaround vs the market's five'), not generic ('great team'). Opportunities and threats are external and dated. 3. Build the TOWS matrix (Weihrich): SO options use strengths to capture opportunities; WO options fix weaknesses to capture opportunities; ST options use strengths to blunt threats; WT options minimize weaknesses and avoid threats. Aim for at least eight concrete options, each naming the SWOT items it pairs. 4. Convene an options workshop with convene_meeting including a sceptic to stress-test the options; the owner can listen or join. 5. Score options on impact and feasibility (1-5 each, with a line of reasoning) and pick the top three. 6. For each top option write a first concrete step, an owner and a date. Render with document_generate. 7. Escalate to the lead if the evidence points to a threat that needs urgent action now. 8. State what could not be verified: SWOT items based on opinion rather than data.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "External scan",
+          "brief": "Research opportunities and threats with cited, dated sources.",
+          "acceptance": "Each O and T has a source and date."
+        },
+        {
+          "activity": "ingest",
+          "title": "Internal evidence",
+          "brief": "Read performance data to evidence strengths and weaknesses.",
+          "acceptance": "Each S and W is backed by data or marked opinion.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "SWOT and TOWS options",
+          "brief": "Write the SWOT and generate TOWS options.",
+          "acceptance": "At least eight options, each naming the SWOT items it pairs.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Options workshop",
+          "brief": "Voiced workshop where a sceptic stress-tests the options.",
+          "acceptance": "Minutes record changes and dropped options.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Scoring review",
+          "brief": "Check scoring logic and that top options are actionable.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render",
+          "brief": "Render the matrix and top-options brief.",
+          "acceptance": "Top three options each have a first step, owner and date.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every SWOT item is specific and evidenced, or marked as opinion.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The TOWS matrix yields at least eight concrete options that pair SWOT items.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Top options each have a first step, owner and date.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Strengths are relative to competitors, not generic.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Opportunities and threats are dated.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "five-forces-analysis",
+        "strategy-choice-cascade",
+        "okr-set",
+        "competitor-teardown",
+        "structured-brainstorm"
+      ],
+      "example_request": "Everyone does a SWOT and then nothing happens. Can you do one for our dog-grooming business that actually ends in things we should do?",
+      "typical_departments": [
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "wardley-map",
+      "name": "Wardley map",
+      "icon": "⌖",
+      "category": "strategy-planning",
+      "one_liner": "Map the value chain against evolution to spot where to build, buy or outsource.",
+      "description": "Maps the business's value chain from a user need down through the components that serve it, places each component on the evolution axis (genesis, custom-built, product, commodity) with evidence, and uses the map to decide what to build, buy, outsource or automate, and where inertia is holding the business back.",
+      "when": "the owner is deciding what to build in-house versus buy or outsource, where to invest in technology, or how the market is shifting underneath them",
+      "inputs": [
+        {
+          "id": "user_and_need",
+          "label": "The key user and the need the business meets",
+          "required": true,
+          "source": "owner",
+          "example": "Small-business clients need accurate, stress-free annual accounts"
+        },
+        {
+          "id": "how_it_works",
+          "label": "How the business delivers today: people, tools, suppliers",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "options_on_table",
+          "label": "Build, buy or outsource options being considered",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "competitor_practices",
+          "label": "How others deliver the same need",
+          "required": false,
+          "source": "web"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "diagram",
+          "name": "Wardley map",
+          "format": "mermaid -> svg",
+          "description": "Components on evolution and visibility axes, the dependency chain, and movement and inertia notes."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Map narrative and moves",
+          "format": "md -> docx",
+          "description": "What the map shows, build/buy/outsource call per component, and strategic moves."
+        },
+        {
+          "artifact_type": "minutes",
+          "name": "Map critique minutes",
+          "format": "md",
+          "description": "Challenges to placement and agreed changes."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "web_search",
+        "web_fetch",
+        "diagram_generate",
+        "convene_meeting",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "notion",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "image",
+        "voice"
+      ],
+      "instructions": "1. Anchor the map on a user and their need, recalled with memory_recall and confirmed with the owner. 2. List the value chain: components the need depends on, from visible (client portal, adviser time) to invisible (bookkeeping software, bank feeds, cloud hosting), with dependencies. 3. Place each component on the evolution axis with evidence from web_search and web_fetch: genesis (novel, uncertain), custom-built (bespoke, understood by few), product (competing offerings, feature differentiation), commodity or utility (standardized, priced by volume). Use characteristics such as ubiquity, market maturity and how it is talked about. 4. Render the map with diagram_generate: a Mermaid quadrant chart with evolution on the x-axis and visibility on the y-axis for component positions, plus a flowchart of dependencies; note movement (components evolving) and inertia (past investment, habits, contracts) beside each. 5. Apply doctrine and gameplay: use commodities rather than rebuilding them, build where the business differentiates, outsource custom work that is not differentiating, and watch for components about to commoditize. 6. Convene a map critique with convene_meeting; the owner can listen. Placement is argued with evidence, not rank. 7. Write the narrative and moves with document_generate: a build/buy/outsource call per component and two or three strategic moves. 8. State what could not be verified: placements based on judgement rather than evidence, and market signals that may be early.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Anchor and value chain",
+          "brief": "Name the user, need and value-chain components with dependencies.",
+          "acceptance": "Every component traces up to the user need."
+        },
+        {
+          "activity": "research",
+          "title": "Evidence for evolution",
+          "brief": "Gather evidence of each component's evolution stage.",
+          "acceptance": "Each placement has at least one cited characteristic.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render the map",
+          "brief": "Render component positions and the dependency chain with movement and inertia notes.",
+          "acceptance": "Every component plotted; dependencies drawn; movement and inertia noted.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Map critique",
+          "brief": "Voiced critique of placements and moves.",
+          "acceptance": "Minutes record contested placements and resolutions.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Consistency review",
+          "brief": "Check calls are consistent with evolution (no building commodities).",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Narrative and moves",
+          "brief": "Write the narrative, calls per component and moves.",
+          "acceptance": "Every component has a build, buy, outsource or automate call.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The map is anchored on a named user need.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every component's evolution placement has evidence or is marked judgement.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Build, buy and outsource calls are consistent with evolution stage.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Movement and inertia are shown.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Moves are specific and sequenced.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "strategy-choice-cascade",
+        "architecture-decision-record",
+        "compare-options",
+        "scenario-plan",
+        "saas-stack-audit"
+      ],
+      "example_request": "We're a small accounting practice and I keep wondering which bits of what we do we should automate, outsource or double down on. Can you map it?",
+      "typical_departments": [
+        "strategy-leadership",
+        "it-security-automation",
+        "engineering"
+      ],
+      "version": 1
+    },
+    {
+      "id": "business-model-canvas",
+      "name": "Business model canvas",
+      "icon": "⊟",
+      "category": "strategy-planning",
+      "one_liner": "A filled canvas with the riskiest assumptions flagged and tests to run.",
+      "description": "Fills the nine-block Business Model Canvas (with a Value Proposition Canvas for the key segment), quantifies revenue and cost blocks, maps assumptions by importance and evidence, and writes test cards for the three riskiest so the owner can learn cheaply before investing.",
+      "when": "the owner is designing a new business, offer or revenue stream, or wants to understand how the current model really works and where it is fragile",
+      "inputs": [
+        {
+          "id": "idea_or_business",
+          "label": "The business or new offer",
+          "required": true,
+          "source": "owner",
+          "example": "A monthly tea subscription box alongside the shop"
+        },
+        {
+          "id": "customer_knowledge",
+          "label": "What the owner knows about target customers",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "costs_and_prices",
+          "label": "Known costs, suppliers and price ideas",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "evidence",
+          "label": "Surveys, interviews, sales data",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Business model canvas",
+          "format": "md -> pdf",
+          "description": "Nine blocks with specifics, plus a value proposition canvas for the key segment."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Assumption map and test cards",
+          "format": "xlsx",
+          "description": "Assumptions ranked by importance and evidence; test cards for the riskiest."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Canvas visual",
+          "format": "svg",
+          "description": "One-page visual of the canvas."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_search",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "diagram_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "stripe",
+        "typeform",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url"
+      ],
+      "instructions": "1. Recall what is known with memory_recall and embeddings_search. Fill the nine blocks (Osterwalder): customer segments, value propositions, channels, customer relationships, revenue streams, key resources, key activities, key partnerships, cost structure. Be specific: name the segment, never 'everyone'. 2. For the key segment, fill a Value Proposition Canvas: customer jobs, pains and gains vs products, pain relievers and gain creators. Check fit. 3. Quantify revenue and cost blocks with code_interpreter: price points, expected volumes, gross margin, fixed costs and a rough break-even. Research reference prices and supplier costs with web_search. 4. List assumptions across desirability, viability and feasibility. Map each by importance (if wrong, does the model fail?) and evidence (do we have data?). The top-right (important, little evidence) are the riskiest. 5. Write a test card for each of the three riskiest assumptions: hypothesis, test (landing page, pre-order, concierge MVP, interview), metric and success criterion, cost and time. 6. Build the assumption map with spreadsheet_generate, the visual with diagram_generate and the canvas document with document_generate. Ask a sceptic to challenge it. 7. Escalate to the lead if the model depends on regulatory approval, licences or claims that need professional review. 8. State what could not be verified: blocks filled from assumption rather than evidence.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Fill the canvas",
+          "brief": "Fill nine blocks and the value proposition canvas for the key segment.",
+          "acceptance": "Every block specific; segment named."
+        },
+        {
+          "activity": "research",
+          "title": "Market and cost evidence",
+          "brief": "Research reference prices, supplier costs and customer evidence.",
+          "acceptance": "Price and cost inputs cited.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Quantify and map assumptions",
+          "brief": "Quantify revenue and costs and map assumptions by importance and evidence.",
+          "acceptance": "Break-even estimate and ranked assumption list.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Test cards",
+          "brief": "Write test cards for the three riskiest assumptions.",
+          "acceptance": "Each card has hypothesis, test, metric, success criterion, cost and time.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic review",
+          "brief": "Challenge the canvas and the riskiest assumptions.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render",
+          "brief": "Render the canvas, assumption map and visual.",
+          "acceptance": "Files open; top assumptions highlighted.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Each block is specific (named segment, priced revenue stream, costed activities).",
+          "severity": "must"
+        },
+        {
+          "criterion": "Assumptions are ranked by importance and evidence.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each of the three riskiest assumptions has a test with a pass/fail criterion.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Revenue and cost blocks are quantified with a rough break-even.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Value proposition fit is checked for the key segment.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 50,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "pricing-and-packaging",
+        "unit-economics",
+        "customer-segments",
+        "business-plan",
+        "jtbd-interview-guide"
+      ],
+      "example_request": "I want to add a subscription box to my tea shop. Can you lay out how that business would actually work and what could sink it?",
+      "typical_departments": [
+        "strategy-leadership",
+        "product"
+      ],
+      "version": 1
+    },
+    {
+      "id": "strategy-choice-cascade",
+      "name": "Strategy choice cascade (Playing to Win)",
+      "icon": "♛",
+      "category": "strategy-planning",
+      "one_liner": "Winning aspiration, where to play, how to win, capabilities and systems on one page.",
+      "description": "Frames strategy as a set of integrated choices (Playing to Win): winning aspiration, where to play, how to win, must-have capabilities and management systems. Develops two or three real possibilities, tests each with 'what would have to be true', and records the owner's choice on one page.",
+      "when": "the business is trying to serve everyone, growth has stalled, or the owner must choose a direction and say no to some things",
+      "inputs": [
+        {
+          "id": "current_situation",
+          "label": "Customers served, offers, results and frustrations",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "ambition",
+          "label": "What winning would look like for the owner",
+          "required": true,
+          "source": "owner",
+          "example": "Be the go-to caterer for corporate events in the county within three years"
+        },
+        {
+          "id": "constraints",
+          "label": "Money, people, time and non-negotiables",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "prior_analysis",
+          "label": "Five forces, SWOT or customer research already done",
+          "required": false,
+          "source": "coworker"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "One-page strategy cascade",
+          "format": "md -> pdf",
+          "description": "Aspiration, where to play, how to win, capabilities, management systems."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Possibilities and what would have to be true",
+          "format": "md -> docx",
+          "description": "Two or three possibilities with WWHTBT conditions and tests."
+        },
+        {
+          "artifact_type": "decision_record",
+          "name": "Strategy decision",
+          "format": "md",
+          "description": "The choice, what was ruled out, rationale and reversal conditions."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_search",
+        "convene_meeting",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "voice",
+        "file"
+      ],
+      "instructions": "1. Gather the situation and prior analyses with memory_recall and embeddings_search; fill market gaps with web_search. 2. Develop two or three genuinely different strategic possibilities, each as a complete cascade (Lafley and Martin's Playing to Win): winning aspiration; where to play (segments, geographies, channels, offers, and what is explicitly out); how to win (cost or differentiation advantage and why customers choose us); must-have capabilities; management systems that sustain them. 3. For each possibility, list 'what would have to be true' across industry, customers, capabilities and competition. Mark which conditions are already known true and which need a test. 4. Design the cheapest test for the conditions that matter most and are least known. 5. Convene a structured debate with convene_meeting, including a sceptic who argues against the favourite; the owner can listen or join. 6. Put the choice to the owner with request_owner_decision. Record what was chosen, what was ruled out and the conditions that would make us revisit it. 7. Write the one-page cascade and possibilities document with document_generate. 8. State what could not be verified: 'would have to be true' conditions still untested.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Gather the situation",
+          "brief": "Collect current results, prior analyses and constraints.",
+          "acceptance": "Situation summary with sources."
+        },
+        {
+          "activity": "llm",
+          "title": "Develop possibilities",
+          "brief": "Write two or three complete cascades that make different choices.",
+          "acceptance": "Each possibility states what is explicitly out of scope.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "What would have to be true",
+          "brief": "List WWHTBT conditions and tests per possibility.",
+          "acceptance": "Conditions marked known or untested; tests for the critical untested ones.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Strategy debate",
+          "brief": "Voiced debate with a sceptic arguing against the favourite.",
+          "acceptance": "Minutes capture the strongest argument against each possibility.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner chooses",
+          "brief": "Owner chooses a possibility or asks for a test first.",
+          "acceptance": "Decision recorded with ruled-out options.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "One-page cascade",
+          "brief": "Render the one-page cascade and decision record.",
+          "acceptance": "One page; reversal conditions stated.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Where-to-play choices explicitly exclude some segments, channels or offers.",
+          "severity": "must"
+        },
+        {
+          "criterion": "How-to-win explains why target customers would choose this business over alternatives.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each possibility has testable 'what would have to be true' conditions.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Capabilities and management systems are concrete.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The decision records what was ruled out and reversal conditions.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "five-forces-analysis",
+        "swot-tows",
+        "okr-set",
+        "positioning-statement",
+        "decision-record"
+      ],
+      "example_request": "We've been trying to serve everyone: weddings, corporate, walk-ins. I think we need to pick. Help me think it through properly.",
+      "typical_departments": [
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "okr-set",
+      "name": "OKR set",
+      "icon": "🎯",
+      "category": "strategy-planning",
+      "one_liner": "Quarterly objectives and measurable key results with owners and a check-in rhythm.",
+      "description": "Writes a focused quarterly OKR set: up to three inspiring objectives, each with two to four measurable key results (outcomes, not tasks) that have a baseline, target, owner and data source, labelled committed or aspirational, with a weekly check-in rhythm and 0-1.0 scoring guide.",
+      "when": "planning a quarter, when goals keep being forgotten, or when the team needs focus on a few outcomes",
+      "inputs": [
+        {
+          "id": "strategy",
+          "label": "The strategy or priorities the OKRs serve",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "candidate_goals",
+          "label": "What the owner wants to achieve this quarter",
+          "required": true,
+          "source": "owner",
+          "example": "More repeat clients, less time on admin, launch the retainer package"
+        },
+        {
+          "id": "metrics_and_baselines",
+          "label": "Current values for likely metrics",
+          "required": false,
+          "source": "connector",
+          "example": "HubSpot deals; Harvest hours"
+        },
+        {
+          "id": "team",
+          "label": "Who could own which results",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "OKR set",
+          "format": "md",
+          "description": "Objectives, key results with baseline, target, owner, data source and type."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "OKR tracker",
+          "format": "xlsx",
+          "description": "KRs with baseline, target, weekly confidence columns and end-of-quarter score."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Weekly check-in template",
+          "format": "md",
+          "description": "Confidence score per KR, blockers and next actions."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Scoring guide",
+          "format": "md",
+          "description": "How to score 0-1.0 at quarter end, and what 0.7 means for aspirational KRs."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "connector_read",
+        "spreadsheet_generate",
+        "request_owner_decision",
+        "document_generate",
+        "memory_write"
+      ],
+      "connectors_optional": [
+        "asana",
+        "monday",
+        "clickup",
+        "notion",
+        "hubspot",
+        "google-analytics",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Recall strategy and priorities with memory_recall and embeddings_search. Pick up to three objectives: qualitative, inspiring, time-bound to the quarter, and tied to the strategy. 2. For each objective write two to four key results following Doerr and Grove: measurable outcomes ('repeat clients from 12 to 20'), not tasks ('launch a newsletter'). Include a leading indicator where the lagging result is slow. 3. Pull baselines with connector_read and sanity-check targets against history in a tracking sheet built with spreadsheet_generate. Label each KR committed (expect 1.0) or aspirational (0.7 is success). 4. Give every KR one owner, a data source and how often it updates. Move tasks into an initiatives list under the KR they serve. 5. Check alignment: no KR conflicts with another, and a counter-metric guards any KR that could be gamed. 6. Ask a reviewer to challenge vague, task-like or unmeasurable KRs. Then ask the owner to commit with request_owner_decision. 7. Write the OKR set, weekly check-in template (confidence 1-10 per KR, blockers, next actions) and scoring guide with document_generate; save the OKRs with memory_write so weekly reviews track them. 8. State what could not be verified: KRs without a baseline and data sources not yet connected.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Draft objectives",
+          "brief": "Draft up to three objectives tied to strategy.",
+          "acceptance": "Three or fewer objectives, each linked to a strategic priority."
+        },
+        {
+          "activity": "llm",
+          "title": "Key results and baselines",
+          "brief": "Write KRs and pull baselines to set targets.",
+          "acceptance": "Every KR has baseline, target, owner, source and type.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "KR quality review",
+          "brief": "Challenge KRs that are tasks, vague or unmeasurable.",
+          "acceptance": "First line APPROVED or CHANGES; offending KRs quoted.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner commits",
+          "brief": "Owner commits to the OKR set.",
+          "acceptance": "Commitment recorded with any changes.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "memory",
+          "title": "Save OKRs",
+          "brief": "Save the OKRs to memory for weekly reviews.",
+          "acceptance": "Memory entry exists with the quarter and KR list.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "No more than three objectives, each with two to four key results.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every KR is a measurable outcome with baseline, target, owner and data source.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No KR is a task; tasks sit under initiatives.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each KR is labelled committed or aspirational.",
+          "severity": "should"
+        },
+        {
+          "criterion": "A weekly check-in rhythm is defined.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "kpi-tree",
+        "strategy-choice-cascade",
+        "weekly-review",
+        "plan-a-project",
+        "status-report"
+      ],
+      "example_request": "Help me set goals for Q1 that the team will actually remember. We're a 9-person agency and last year's goals were forgotten by February.",
+      "typical_departments": [
+        "strategy-leadership",
+        "people-culture"
+      ],
+      "version": 1
+    },
+    {
+      "id": "scenario-plan",
+      "name": "Scenario plan",
+      "icon": "🔮",
+      "category": "strategy-planning",
+      "one_liner": "Two-axis scenarios with signposts, implications and no-regret moves.",
+      "description": "Runs intuitive-logics scenario planning: a focal question, STEEP driving forces ranked by impact and uncertainty, a 2x2 of the two critical uncertainties, four named and plausible futures, signposts with thresholds, and no-regret moves that work in most of them. Optionally narrates each future as a short audio brief.",
+      "when": "the future is genuinely uncertain (costs, demand, regulation, technology, a big competitor) and the owner needs a plan that holds up in more than one version of it",
+      "inputs": [
+        {
+          "id": "focal_question",
+          "label": "The decision or question the scenarios inform",
+          "required": true,
+          "source": "owner",
+          "example": "Should we sign a 10-year lease and expand, given energy costs and a new supermarket nearby?"
+        },
+        {
+          "id": "horizon",
+          "label": "How far ahead",
+          "required": true,
+          "source": "owner",
+          "example": "Three years"
+        },
+        {
+          "id": "known_drivers",
+          "label": "Forces the owner already worries about",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "business_context",
+          "label": "Business profile and sensitivities",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Scenario pack",
+          "format": "md -> docx",
+          "description": "Drivers, the 2x2, four narratives, implications, no-regret moves and contingent options."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Scenario matrix",
+          "format": "mermaid -> svg",
+          "description": "The two critical uncertainties and four named scenarios."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Signpost watch-list",
+          "format": "md",
+          "description": "Signposts with thresholds, sources and what to do when each trips."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Narrated futures",
+          "format": "mp3",
+          "description": "Four 60-second spoken scenario narratives."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "web_search",
+        "x_search",
+        "spreadsheet_generate",
+        "diagram_generate",
+        "ask_coworker",
+        "document_generate",
+        "tts"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "audio"
+      ],
+      "instructions": "1. Agree the focal question and horizon; recall the business's sensitivities with memory_recall. 2. Scan driving forces across STEEP (social, technological, economic, environmental, political) with web_search, and current discussion with x_search. Keep predetermined elements (things that will happen anyway) separate from uncertainties. 3. Rank uncertainties by impact on the focal question and degree of uncertainty in a scored table built with spreadsheet_generate. Pick the two most critical that are independent of each other as the axes. 4. Build the 2x2 with diagram_generate and write four scenarios: a memorable name, a plausible and internally consistent narrative of how we got there, and what it means for customers, costs and competitors. Scenarios are not forecasts and none is labelled 'most likely'. 5. Gather implications from two or three relevant coworkers with ask_coworker (in each scenario, what works and what fails?), and offer the lead a voiced implications workshop the owner can listen to or join. 6. Identify no-regret moves (sensible in at least three of four scenarios), contingent options to prepare, and the signposts (measurable, with thresholds and sources) that tell us which future is unfolding. 7. Write the pack with document_generate, and narrate each scenario in about 60 seconds with tts so the owner can listen. 8. State what could not be verified: driver assessments based on judgement and data that is forecast by others.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Focal question and horizon",
+          "brief": "Agree the question, horizon and business sensitivities.",
+          "acceptance": "Focal question tied to a specific decision."
+        },
+        {
+          "activity": "research",
+          "title": "STEEP driver scan",
+          "brief": "Scan and cite driving forces across STEEP.",
+          "acceptance": "At least 12 drivers, each with a source.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Rank uncertainties",
+          "brief": "Score drivers on impact and uncertainty; pick two independent axes.",
+          "acceptance": "Scored table and a rationale for the axes.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Four scenarios",
+          "brief": "Write four named, plausible, consistent narratives.",
+          "acceptance": "Each scenario has a name, narrative and implications.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Implications from coworkers",
+          "brief": "Collect what works and what fails in each scenario from relevant coworkers.",
+          "acceptance": "Implications listed per scenario from at least two disciplines.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Scenario pack and signposts",
+          "brief": "Write no-regret moves, options and signposts; render the pack.",
+          "acceptance": "No-regret moves hold in three or more scenarios; signposts have thresholds.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Narrate the futures",
+          "brief": "Voice each scenario narrative.",
+          "acceptance": "Four audio files of about 60 seconds each.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The two axes are critical, uncertain and independent of each other.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each scenario is plausible and internally consistent; none is presented as a forecast.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Signposts are measurable with thresholds and sources.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No-regret moves work in at least three of four scenarios.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Predetermined elements are separated from uncertainties.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "trend-scan",
+        "business-continuity-plan",
+        "strategy-choice-cascade",
+        "wardley-map",
+        "pre-mortem"
+      ],
+      "example_request": "Between energy prices, a possible new supermarket nearby and interest rates, I have no idea what next year looks like. Can we plan for a few different futures?",
+      "typical_departments": [
+        "strategy-leadership",
+        "research-insights"
+      ],
+      "version": 1
+    },
+    {
+      "id": "pricing-and-packaging",
+      "name": "Pricing & packaging",
+      "icon": "🏷",
+      "category": "strategy-planning",
+      "one_liner": "Value-based price points and good-better-best tiers from willingness-to-pay evidence.",
+      "description": "Sets prices from value, not just cost: finds the value metric, bounds the price between a cost-plus floor and willingness-to-pay evidence (Van Westendorp, Gabor-Granger or sales data), designs good-better-best tiers with clear fences, models revenue and margin scenarios, and plans how to communicate the change.",
+      "when": "prices have not moved in a while, costs have risen, a new offer needs a price, or the owner suspects they are leaving money on the table",
+      "inputs": [
+        {
+          "id": "offers_and_current_prices",
+          "label": "What is sold and at what price",
+          "required": true,
+          "source": "memory",
+          "example": "Three service packages at £90, £150 and £240"
+        },
+        {
+          "id": "costs",
+          "label": "Unit costs and margins",
+          "required": true,
+          "source": "coworker",
+          "example": "Margin analysis from the finance team"
+        },
+        {
+          "id": "sales_data",
+          "label": "Volumes, discounts, win/loss and churn",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "competitor_prices",
+          "label": "Competitor price points",
+          "required": false,
+          "source": "web"
+        },
+        {
+          "id": "customer_evidence",
+          "label": "Survey or interview data on value and willingness to pay",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Price and tier model",
+          "format": "xlsx",
+          "description": "Floor, value evidence, tier matrix, and revenue and margin scenarios with volume response."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Pricing recommendation",
+          "format": "md -> docx",
+          "description": "Price points, tiers and fences, rationale, risks, rollout and communication plan."
+        },
+        {
+          "artifact_type": "form",
+          "name": "Willingness-to-pay survey",
+          "format": "json",
+          "description": "Van Westendorp and Gabor-Granger questionnaire ready to field, if evidence is missing."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "web_search",
+        "web_fetch",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "stripe",
+        "shopify",
+        "square",
+        "hubspot",
+        "typeform"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "url",
+        "file"
+      ],
+      "instructions": "1. Recall offers and costs with memory_recall; pull volumes, discounts and churn with connector_read. Compute the floor: unit cost plus target margin. 2. Find the value metric that grows with customer value (per project, per seat, per location, per kilo) and the economic value to the customer (what the next-best alternative costs them plus the value of differentiation). 3. Gather reference prices with web_search and web_fetch. For willingness to pay, use existing sales evidence or design a Van Westendorp (too cheap, cheap, expensive, too expensive) and Gabor-Granger survey to field. 4. Design good-better-best tiers: each with a clear buyer, a fence that stops downgrading (features, limits, service level), and a middle tier designed to be the default. Use anchoring honestly; no fake decoys. 5. Model revenue and margin with code_interpreter for each option, including volume response and churn assumptions, and sensitivity. Build the model with spreadsheet_generate. 6. Plan rollout with document_generate: grandfathering, notice period, the message to customers and the script for objections. 7. Ask a sceptic to challenge the volume assumptions, then put the decision to the owner with request_owner_decision. Price changes happen in the owner's systems separately. 8. Flag legal pricing issues (consumer price-display rules, price discrimination, resale price rules, subscription auto-renewal rules) for professional review. 9. State what could not be verified: willingness-to-pay estimates without direct evidence and assumed volume response.",
+      "workflow": [
+        {
+          "activity": "analysis",
+          "title": "Floor and value metric",
+          "brief": "Compute the cost floor and identify the value metric.",
+          "acceptance": "Floor per offer and a chosen value metric with rationale."
+        },
+        {
+          "activity": "research",
+          "title": "Reference prices and WTP evidence",
+          "brief": "Collect competitor prices and willingness-to-pay evidence.",
+          "acceptance": "Reference prices cited; WTP evidence or a survey ready to field.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Tiers and scenarios",
+          "brief": "Design tiers and model revenue and margin scenarios.",
+          "acceptance": "Each tier has a buyer and a fence; scenarios include volume response.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic review",
+          "brief": "Challenge volume, churn and tier assumptions.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner decides",
+          "brief": "Owner chooses prices and tiers.",
+          "acceptance": "Decision recorded.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Recommendation and rollout",
+          "brief": "Write the recommendation and communication plan.",
+          "acceptance": "Includes grandfathering and customer message.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Both the cost floor and value or willingness-to-pay ceiling are evidenced.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each tier has a named buyer and a fence.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Revenue and margin scenarios include volume and churn response.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Rollout includes notice, grandfathering and a customer message.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Legal pricing issues are flagged for professional review.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 75,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "unit-economics",
+        "margin-analysis",
+        "price-test",
+        "competitor-teardown",
+        "survey-design"
+      ],
+      "example_request": "We haven't raised prices in three years and costs are up 18%. How much can we raise them, and should we have packages instead of one price?",
+      "typical_departments": [
+        "strategy-leadership",
+        "finance-accounting",
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "investor-update",
+      "name": "Investor & board update",
+      "icon": "📨",
+      "category": "strategy-planning",
+      "one_liner": "Monthly update: numbers, highlights, lowlights, asks. Mechanics only, never investment advice.",
+      "description": "Writes the monthly investor or board update: TL;DR, the same KPI set as last month against plan, cash and runway, highlights, lowlights given equal prominence, and specific asks. Reports the business's own facts; never recommends investing, never projects returns. Sent individually and only on the owner's approval.",
+      "when": "the monthly or quarterly update to investors, lenders or a board is due",
+      "inputs": [
+        {
+          "id": "period",
+          "label": "Month or quarter covered",
+          "required": true,
+          "source": "owner",
+          "example": "September"
+        },
+        {
+          "id": "financials_and_kpis",
+          "label": "Financials and the agreed KPI set",
+          "required": true,
+          "source": "connector",
+          "example": "Xero P&L and cash; Stripe MRR; HubSpot pipeline"
+        },
+        {
+          "id": "last_update",
+          "label": "The previous update, for consistency",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "highlights_lowlights",
+          "label": "What went well and badly, in the owner's words",
+          "required": true,
+          "source": "owner",
+          "example": "Sales up 12%, lost our biggest wholesale account"
+        },
+        {
+          "id": "asks",
+          "label": "What the owner needs from readers",
+          "required": false,
+          "source": "owner",
+          "example": "Intros to buyers at garden centres"
+        },
+        {
+          "id": "recipients",
+          "label": "Who receives it",
+          "required": true,
+          "source": "memory",
+          "example": "Six angel investors"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "email_draft",
+          "name": "Investor update",
+          "format": "html",
+          "description": "TL;DR, KPIs vs plan, cash and runway, highlights, lowlights, asks, thanks."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "KPI charts",
+          "format": "png",
+          "description": "Three or four trend charts using consistent definitions."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "KPI table",
+          "format": "xlsx",
+          "description": "This period, last period, plan and variance for each KPI."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "code_interpreter",
+        "chart_generate",
+        "document_generate",
+        "request_owner_decision",
+        "send_external"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "stripe",
+        "hubspot",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Guardrail (investment_financial_advice): No personalized investment advice or recommendations to buy, sell or hold. Explain mechanics and model the owner's own scenarios; say you are not a licensed adviser. Escalate to a licensed financial adviser or securities counsel (licensed professional) whenever the update mentions a raise, terms, valuations or returns. 2. Recall last month's update and KPI definitions with memory_recall. Pull numbers with connector_read and compute KPIs, variance to plan, cash and runway (cash divided by average net burn of the last three months) with code_interpreter. 3. Use the same KPI set and definitions as last time; disclose any change in definition. 4. Write the update: TL;DR in three lines, KPIs vs plan (table plus three or four charts via chart_generate), cash and runway, highlights, lowlights with what is being done about them (as prominent as highlights), specific asks (names, roles, intros), thanks. 5. Report facts about the business only. Label forward-looking statements as the owner's current expectations. Never recommend that anyone invest, buy, sell or hold, never project investor returns, and never describe an offer of securities without counsel. 6. Render the email with document_generate and send it to a reviewer for a numbers audit. 7. If a raise or terms are mentioned, route the draft through licensed review before sending. Ask the owner to approve the final text and recipient list with request_owner_decision. 8. Only after approval, send individually with send_external (no public posting), and log receipts. 9. State what could not be verified: provisional numbers and KPIs from unconnected sources.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Pull numbers",
+          "brief": "Read financials and KPIs from connectors.",
+          "acceptance": "Every KPI has a source record."
+        },
+        {
+          "activity": "analysis",
+          "title": "KPIs, cash and runway",
+          "brief": "Compute KPIs vs plan, cash and runway with consistent definitions.",
+          "acceptance": "Definitions match last update or changes are disclosed.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft the update",
+          "brief": "Write TL;DR, KPIs, highlights, lowlights and asks.",
+          "acceptance": "Lowlights present and as prominent as highlights; asks specific.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Numbers and claims audit",
+          "brief": "Check every number and flag any advice, return projection or offer language.",
+          "acceptance": "First line APPROVED or CHANGES; flagged lines quoted.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review when a raise or terms are mentioned",
+          "brief": "Adviser or securities counsel reviews drafts that mention a raise, terms or returns.",
+          "acceptance": "Review recorded, or marked not applicable with reason.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves send",
+          "brief": "Owner approves final text and recipients.",
+          "acceptance": "Explicit approval recorded.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Send individually",
+          "brief": "Send the approved update to each recipient.",
+          "acceptance": "One receipt per recipient; nothing posted publicly.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Same KPI set and definitions as the previous update, with changes disclosed.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Lowlights are as prominent as highlights.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No personalized investment advice, no return projections, no securities offer language; licensed review whenever a raise or terms are mentioned.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Sent only after explicit owner approval, individually, never posted publicly.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Asks are specific (names, roles, intros).",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "cap-table-scenarios",
+        "three-statement-model",
+        "saas-metrics-pack",
+        "data-story",
+        "executive-summary"
+      ],
+      "example_request": "Write this month's update to our six angel investors. Sales were up but we lost our biggest wholesale account, and I need intros to buyers at garden centres.",
+      "regulated_domains": [
+        "investment_financial_advice"
+      ],
+      "typical_departments": [
+        "strategy-leadership",
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "business-plan",
+      "name": "Business plan",
+      "icon": "📑",
+      "category": "strategy-planning",
+      "one_liner": "Lender- or partner-ready plan: market, model, operations, financials and risks.",
+      "description": "Produces a lender- or partner-ready business plan: executive summary with the ask and use of funds, company, market sizing, customers and competition, marketing and sales, operations, team, financial projections tied to a model (with debt service coverage for loans), risks and mitigations, reviewed through a lender's '5 Cs' lens.",
+      "when": "the owner needs a plan for a bank loan, grant, landlord, partner or investor, or wants a coherent plan for themselves",
+      "inputs": [
+        {
+          "id": "purpose_and_reader",
+          "label": "Who the plan is for and what is being asked",
+          "required": true,
+          "source": "owner",
+          "example": "Bank loan of £60k to fit out a second salon"
+        },
+        {
+          "id": "existing_material",
+          "label": "Notes, decks, accounts and past plans",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "financials",
+          "label": "Historic accounts and projections or a model",
+          "required": true,
+          "source": "coworker",
+          "example": "Three-statement model from finance"
+        },
+        {
+          "id": "team",
+          "label": "Owners and key people with relevant experience",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "market_facts",
+          "label": "Local market knowledge",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Business plan",
+          "format": "md -> docx",
+          "description": "Full plan with executive summary, sections, appendices and sources."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Financial summary",
+          "format": "xlsx",
+          "description": "Summary projections, use of funds, break-even and DSCR tied to the model."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_search",
+        "ask_coworker",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "quickbooks",
+        "xero",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url"
+      ],
+      "instructions": "1. Gather existing material with memory_recall and embeddings_search. Confirm the reader and the ask; a lender plan leads with repayment capacity, a partner plan with the opportunity and fit. 2. Research the market with web_search: size (bottom-up where possible), trends, local competition and pricing. Cite every figure. 3. Get financials from the finance coworker with ask_coworker (three-statement model): revenue build, margins, overheads, cash, break-even, and for loans the debt service coverage ratio (cash available for debt service divided by debt service). 4. Draft the plan: executive summary on page one (what, why now, the ask, use of funds, how it is repaid or returns value), company, market, customers and competition, marketing and sales, operations, team, financials, risks and mitigations, appendices. Numbers must match the model exactly. 5. Review through the lender's 5 Cs (character, capacity, capital, collateral, conditions) with a sceptic coworker; fix gaps. 6. Build the financial summary with spreadsheet_generate and charts with chart_generate; render the plan with document_generate; a summary deck can follow with the build-a-slide-deck skill. 7. Projections are estimates, clearly labelled. Do not advise readers to invest; any securities offering needs counsel. Tax and legal statements go to the relevant professional. 8. State what could not be verified: market figures that are estimates and assumptions the owner has not confirmed.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Gather material",
+          "brief": "Collect existing notes, accounts and prior plans.",
+          "acceptance": "Source list with gaps named."
+        },
+        {
+          "activity": "research",
+          "title": "Market and competition",
+          "brief": "Research market size, trends and competitors with citations.",
+          "acceptance": "Every market figure cited.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Financials from the model",
+          "brief": "Get projections, use of funds, break-even and DSCR from the finance coworker.",
+          "acceptance": "Figures match the model; DSCR shown for loans.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft the plan",
+          "brief": "Write all sections with the executive summary first.",
+          "acceptance": "Page one states the ask, use of funds and repayment or return logic.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Lender's-eye review",
+          "brief": "Sceptic review through the 5 Cs.",
+          "acceptance": "First line APPROVED or CHANGES; each C assessed.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render the plan",
+          "brief": "Render the plan and financial summary.",
+          "acceptance": "Numbers identical across plan and summary.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Page one states the ask, use of funds and how it is repaid or returns value.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every market figure is cited; financials match the model exactly.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Risks each have a mitigation.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Loan plans show debt service coverage and break-even.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Tailored to the stated reader.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 150,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "three-statement-model",
+        "market-sizing",
+        "executive-summary",
+        "build-a-slide-deck",
+        "business-model-canvas"
+      ],
+      "example_request": "The bank wants a business plan for a £60k loan to fit out a second salon. I've got bits and pieces. Can you turn it into something they'll take seriously?",
+      "typical_departments": [
+        "strategy-leadership",
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "change-plan",
+      "name": "Change management plan",
+      "icon": "🔄",
+      "category": "strategy-planning",
+      "one_liner": "ADKAR-based adoption plan with stakeholders, messages, training and reinforcement.",
+      "description": "Plans the people side of a change with ADKAR (awareness, desire, knowledge, ability, reinforcement): an impact assessment by group, a stakeholder map, sequenced communications (managers first), training before go-live, resistance handling and adoption metrics, with announcement drafts and an optional spoken version.",
+      "when": "the business is introducing a new system, process, structure or policy and needs people to actually adopt it",
+      "inputs": [
+        {
+          "id": "the_change",
+          "label": "What is changing, why, and when",
+          "required": true,
+          "source": "owner",
+          "example": "Paper job sheets replaced by a tablet app from 1 November"
+        },
+        {
+          "id": "affected_groups",
+          "label": "Who is affected and how",
+          "required": true,
+          "source": "owner",
+          "example": "Field technicians, office admin, two supervisors"
+        },
+        {
+          "id": "concerns_heard",
+          "label": "Objections or worries already raised",
+          "required": false,
+          "source": "owner",
+          "example": "'It'll slow us down'; 'my phone signal is rubbish on site'"
+        },
+        {
+          "id": "training_resources",
+          "label": "Vendor training, champions, time available",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Change plan",
+          "format": "md",
+          "description": "Impact assessment, ADKAR plan per group, timeline, owners and adoption metrics."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Stakeholder and impact map",
+          "format": "xlsx",
+          "description": "Groups, impact, influence, current ADKAR stage, interventions."
+        },
+        {
+          "artifact_type": "message_draft",
+          "name": "Announcement and manager talking points",
+          "format": "md",
+          "description": "The case for change, what changes for you, support available, FAQ."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Spoken announcement",
+          "format": "mp3",
+          "description": "A two-minute voiced version for teams who do not read email."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "spreadsheet_generate",
+        "diagram_generate",
+        "convene_meeting",
+        "document_generate",
+        "tts"
+      ],
+      "connectors_optional": [
+        "slack",
+        "microsoft-teams",
+        "google-workspace",
+        "asana"
+      ],
+      "modalities": [
+        "text",
+        "voice",
+        "audio"
+      ],
+      "instructions": "1. Define the change with memory_recall and embeddings_search: what changes, why now, what stays the same, go-live date. 2. Assess impact per group (processes, tools, skills, roles, behaviours) and rate it high, medium or low. Map stakeholders by influence and impact with spreadsheet_generate. 3. Estimate each group's current ADKAR stage and plan interventions for the first gap: awareness (why), desire (what's in it for me, address fears), knowledge (training), ability (practice, coaching, time), reinforcement (recognition, metrics, removing the old way). Borrow Kotter's guiding coalition and short-term wins where helpful. 4. Sequence communications: sponsor message, managers briefed before staff, team conversations, FAQ; draft each with document_generate. Training happens before go-live. 5. Plan resistance handling: listen, capture concerns, fix legitimate problems (for example offline mode for poor signal), and follow up. 6. Define adoption metrics (usage, error rates, time per task) and a reinforcement plan for the first 90 days. Draw the timeline with diagram_generate. 7. Test the plan in a short session with convene_meeting including a sceptic playing the most resistant group; the owner can listen. 8. Changes to hours, pay, contracts or roles are employment matters: flag them for the owner and employment counsel or HR before announcing. Offer a spoken version of the announcement with tts. 9. State what could not be verified: current ADKAR stages inferred rather than surveyed, and adoption baselines not yet measured.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Change definition and impact",
+          "brief": "Define the change and assess impact per group.",
+          "acceptance": "Every affected group has an impact rating and specifics."
+        },
+        {
+          "activity": "llm",
+          "title": "Stakeholders and ADKAR plan",
+          "brief": "Map stakeholders and plan ADKAR interventions per group.",
+          "acceptance": "Each group has current stage and interventions for its first gap.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Comms, training and metrics",
+          "brief": "Sequence communications, training, resistance handling and adoption metrics.",
+          "acceptance": "Managers briefed before staff; training before go-live; metrics defined.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Resistance rehearsal",
+          "brief": "Voiced session where a sceptic plays the most resistant group.",
+          "acceptance": "Minutes list concerns and plan changes.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Plan review",
+          "brief": "Check sequencing, employment flags and metrics.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render plan and messages",
+          "brief": "Render the plan, map and message drafts.",
+          "acceptance": "All drafts consistent with the plan.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Spoken announcement",
+          "brief": "Voice the approved announcement.",
+          "acceptance": "Audio under two and a half minutes.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every affected group has an impact rating and ADKAR-based interventions.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Managers are briefed before staff and training happens before go-live.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Changes to hours, pay, contracts or roles are flagged for employment counsel or HR.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Adoption metrics and a 90-day reinforcement plan exist.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Legitimate concerns lead to concrete fixes.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "training-module",
+        "plan-a-project",
+        "raci-matrix",
+        "sop-writing",
+        "facilitated-session"
+      ],
+      "example_request": "We're switching from paper job sheets to a tablet app next month and half the team is grumbling already. How do we roll it out so people actually use it?",
+      "typical_departments": [
+        "strategy-leadership",
+        "people-culture",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    }
+  ]
+}

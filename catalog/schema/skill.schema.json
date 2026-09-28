@@ -1,0 +1,631 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-workplace.local/catalog/schema/skill.schema.json",
+  "title": "Skill",
+  "description": "One skill. A category file (catalog/skills/<category-id>.json) is validated with #/$defs/category_file. Compatible superset of biz-bot catalog skills (name, icon, category, description, when, tools, instructions, workflow[{activity,title,brief,acceptance,dependsOn}]).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 80,
+      "description": "human title; biz-bot's 'name' is the id (see export mapping)"
+    },
+    "icon": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8,
+      "description": "a glyph or single emoji"
+    },
+    "category": {
+      "$ref": "#/$defs/skill_category_id"
+    },
+    "one_liner": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 160
+    },
+    "description": {
+      "type": "string",
+      "minLength": 30,
+      "maxLength": 400
+    },
+    "when": {
+      "type": "string",
+      "minLength": 15,
+      "maxLength": 300,
+      "description": "biz-bot compat: when the lead should reach for this skill"
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 120
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "memory",
+              "file",
+              "connector",
+              "web",
+              "coworker"
+            ]
+          },
+          "example": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "required",
+          "source"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "description": "context required"
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/deliverable"
+      },
+      "minItems": 1,
+      "maxItems": 6,
+      "uniqueItems": true
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/coworker_tool_id"
+      },
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true
+    },
+    "connectors_optional": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/connector_id"
+      },
+      "minItems": 0,
+      "maxItems": 10,
+      "uniqueItems": true
+    },
+    "modalities": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/modality"
+      },
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true
+    },
+    "instructions": {
+      "type": "string",
+      "minLength": 120,
+      "maxLength": 3000,
+      "pattern": "^1\\. ",
+      "description": "biz-bot compat: numbered procedure '1. ... 2. ...'"
+    },
+    "workflow": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "activity": {
+            "$ref": "#/$defs/activity_type"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 80
+          },
+          "brief": {
+            "type": "string",
+            "minLength": 15,
+            "maxLength": 600
+          },
+          "acceptance": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 400
+          },
+          "dependsOn": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minItems": 0,
+            "maxItems": 7,
+            "uniqueItems": true,
+            "description": "indices of earlier workflow steps (biz-bot compat)"
+          }
+        },
+        "required": [
+          "activity",
+          "title",
+          "brief",
+          "acceptance"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 8,
+      "description": "typed activities, biz-bot compatible"
+    },
+    "quality_checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "criterion": {
+            "type": "string",
+            "minLength": 10,
+            "maxLength": 300
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "must",
+              "should"
+            ]
+          }
+        },
+        "required": [
+          "criterion",
+          "severity"
+        ]
+      },
+      "minItems": 3,
+      "maxItems": 10,
+      "uniqueItems": true,
+      "description": "rubric"
+    },
+    "approval_tier": {
+      "$ref": "#/$defs/approval_tier"
+    },
+    "effort": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "typical_minutes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600
+        },
+        "cost_class": {
+          "$ref": "#/$defs/cost_class"
+        }
+      },
+      "required": [
+        "typical_minutes",
+        "cost_class"
+      ]
+    },
+    "pairs_with": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "minItems": 0,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "description": "skill ids"
+    },
+    "example_request": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 400,
+      "description": "what an owner might actually say"
+    },
+    "regulated_domains": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/regulated_domain"
+      },
+      "minItems": 0,
+      "maxItems": 3,
+      "uniqueItems": true
+    },
+    "typical_departments": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/department_id"
+      },
+      "minItems": 0,
+      "maxItems": 4,
+      "uniqueItems": true
+    },
+    "biz_bot_name": {
+      "$ref": "#/$defs/id",
+      "description": "present only for skills imported 1:1 from biz-bot; equals id"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "icon",
+    "category",
+    "description",
+    "when",
+    "inputs",
+    "outputs",
+    "tools",
+    "connectors_optional",
+    "modalities",
+    "instructions",
+    "workflow",
+    "quality_checks",
+    "approval_tier",
+    "effort",
+    "pairs_with",
+    "example_request"
+  ],
+  "$defs": {
+    "category_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/skill_category_id"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "$ref": "#"
+          },
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "category",
+        "version",
+        "skills"
+      ],
+      "description": "catalog/skills/<category-id>.json"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+      "maxLength": 48,
+      "description": "kebab-case, globally unique across all catalog records"
+    },
+    "coworker_tool_id": {
+      "type": "string",
+      "enum": [
+        "web_search",
+        "x_search",
+        "web_fetch",
+        "web_watch",
+        "browser",
+        "shell",
+        "coding_agent",
+        "workspace_files",
+        "code_interpreter",
+        "file_parse",
+        "vision_describe",
+        "stt",
+        "tts",
+        "realtime_voice",
+        "image_generate",
+        "image_edit",
+        "video_generate",
+        "document_generate",
+        "spreadsheet_generate",
+        "deck_generate",
+        "web_page_generate",
+        "app_build",
+        "diagram_generate",
+        "chart_generate",
+        "embeddings_search",
+        "memory_recall",
+        "memory_write",
+        "ask_coworker",
+        "message_coworker",
+        "convene_meeting",
+        "request_owner_decision",
+        "propose_idea",
+        "schedule_automation",
+        "connector_read",
+        "connector_write",
+        "send_external",
+        "publish_external"
+      ]
+    },
+    "connector_id": {
+      "type": "string",
+      "enum": [
+        "cloudflare-docs",
+        "deepwiki",
+        "github",
+        "notion",
+        "hubspot",
+        "quickbooks",
+        "xero",
+        "asana",
+        "monday",
+        "calendly",
+        "canva",
+        "google-workspace",
+        "microsoft-365",
+        "slack",
+        "microsoft-teams",
+        "zoom",
+        "whatsapp-business",
+        "twilio",
+        "shopify",
+        "woocommerce",
+        "amazon-seller-central",
+        "etsy",
+        "square",
+        "toast",
+        "opentable",
+        "stripe",
+        "paypal",
+        "gusto",
+        "rippling",
+        "bamboohr",
+        "deel",
+        "greenhouse",
+        "salesforce",
+        "pipedrive",
+        "zendesk",
+        "intercom",
+        "freshdesk",
+        "gorgias",
+        "mailchimp",
+        "klaviyo",
+        "meta-business",
+        "google-ads",
+        "google-analytics",
+        "google-search-console",
+        "google-business-profile",
+        "linkedin",
+        "youtube",
+        "wordpress",
+        "webflow",
+        "docusign",
+        "dropbox",
+        "box",
+        "airtable",
+        "trello",
+        "clickup",
+        "linear",
+        "jira",
+        "confluence",
+        "figma",
+        "typeform",
+        "zapier",
+        "clio",
+        "procore",
+        "mindbody",
+        "kajabi"
+      ]
+    },
+    "activity_type": {
+      "type": "string",
+      "enum": [
+        "llm",
+        "research",
+        "review",
+        "ingest",
+        "mcp",
+        "stt",
+        "tts",
+        "storage",
+        "log",
+        "human",
+        "command",
+        "agent",
+        "browser",
+        "files",
+        "analysis",
+        "image",
+        "video",
+        "document",
+        "app",
+        "meeting",
+        "memory",
+        "effect",
+        "schedule"
+      ]
+    },
+    "artifact_type": {
+      "type": "string",
+      "enum": [
+        "document",
+        "brief",
+        "spreadsheet",
+        "deck",
+        "web_page",
+        "app",
+        "dashboard",
+        "image",
+        "video",
+        "audio_briefing",
+        "script",
+        "dataset",
+        "email_draft",
+        "message_draft",
+        "social_post",
+        "plan",
+        "checklist",
+        "sop",
+        "policy_draft",
+        "contract_draft",
+        "minutes",
+        "decision_record",
+        "transcript",
+        "code",
+        "diagram",
+        "chart",
+        "form",
+        "portrait"
+      ]
+    },
+    "skill_category_id": {
+      "type": "string",
+      "enum": [
+        "research-discovery",
+        "strategy-planning",
+        "data-analysis",
+        "writing-comms",
+        "design-visual",
+        "media-production",
+        "marketing",
+        "sales-revenue",
+        "customer-experience",
+        "finance",
+        "legal-drafting",
+        "people-hiring",
+        "operations-process",
+        "product-management",
+        "engineering-build",
+        "it-security",
+        "meetings-facilitation",
+        "planning-pm",
+        "quality-review",
+        "knowledge-memory",
+        "commerce-retail",
+        "industry-workflows"
+      ]
+    },
+    "department_id": {
+      "type": "string",
+      "enum": [
+        "strategy-leadership",
+        "marketing-growth",
+        "sales-partnerships",
+        "customer-success-support",
+        "operations-supply-chain",
+        "finance-accounting",
+        "legal-compliance",
+        "people-culture",
+        "product",
+        "engineering",
+        "data-analytics",
+        "design-creative",
+        "content-comms-pr",
+        "research-insights",
+        "it-security-automation",
+        "ecommerce-retail",
+        "core-crew",
+        "industry-specialists"
+      ]
+    },
+    "regulated_domain": {
+      "type": "string",
+      "enum": [
+        "legal",
+        "tax_accounting",
+        "medical_clinical",
+        "investment_financial_advice",
+        "employment_law",
+        "security",
+        "privacy"
+      ]
+    },
+    "cost_class": {
+      "type": "string",
+      "enum": [
+        "low",
+        "med",
+        "high"
+      ]
+    },
+    "approval_tier": {
+      "type": "string",
+      "enum": [
+        "inert",
+        "draft",
+        "ask",
+        "always_ask"
+      ]
+    },
+    "modality": {
+      "type": "string",
+      "enum": [
+        "text",
+        "voice",
+        "file",
+        "image",
+        "screen",
+        "camera",
+        "url",
+        "connector_data",
+        "video",
+        "audio",
+        "app",
+        "web_page"
+      ]
+    },
+    "deliverable": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact_type": {
+          "$ref": "#/$defs/artifact_type"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 100
+        },
+        "format": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60,
+          "description": "file format(s), e.g. 'xlsx', 'md -> docx'"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 300
+        }
+      },
+      "required": [
+        "artifact_type",
+        "name",
+        "format"
+      ]
+    }
+  }
+}

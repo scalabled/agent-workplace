@@ -1,0 +1,2228 @@
+{
+  "category": "writing-comms",
+  "version": 1,
+  "skills": [
+    {
+      "id": "write-a-report",
+      "name": "Write a report",
+      "icon": "▤",
+      "category": "writing-comms",
+      "one_liner": "A long-form document that leads with the conclusion and cites its evidence.",
+      "description": "Turns inputs and research into a structured report that answers the question in its first five lines (Pyramid Principle), then gives findings with evidence, open questions and next steps with owners. Every number traces to an input or a cited source.",
+      "when": "the owner needs a document rather than a chat answer: a question that deserves findings, evidence and recommendations someone else will read",
+      "inputs": [
+        {
+          "id": "question",
+          "label": "The question the report must answer, and the decision it feeds",
+          "required": true,
+          "source": "owner",
+          "example": "Why did wholesale revenue fall 22% this year, and what should we do about it?"
+        },
+        {
+          "id": "audience",
+          "label": "Who will read it and what they already know",
+          "required": true,
+          "source": "owner",
+          "example": "My business partner and our bank manager; neither reads spreadsheets"
+        },
+        {
+          "id": "source_material",
+          "label": "Files, exports and notes the owner has already gathered",
+          "required": false,
+          "source": "file",
+          "example": "Sales export 2024-2025.xlsx, three customer emails, supplier price list"
+        },
+        {
+          "id": "house_context",
+          "label": "Business profile, past decisions and prior reports",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "length_and_deadline",
+          "label": "Target length and date needed",
+          "required": false,
+          "source": "owner",
+          "example": "Under 8 pages, by Friday"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Report",
+          "format": "md -> docx",
+          "description": "Executive summary, findings (one heading each, evidence beneath), open questions, next steps with owners, sources."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Supporting charts",
+          "format": "svg",
+          "description": "Only the charts that carry a finding, each with an action title and source line."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "web_search",
+        "memory_recall",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "notion",
+        "confluence",
+        "dropbox"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url",
+        "connector_data"
+      ],
+      "instructions": "1. Restate the question and the decision it serves in one sentence; if either is unclear and it changes the answer, ask one clarifying question, otherwise state your assumption and proceed. 2. Gather the evidence: parse the owner's files with file_parse, recall house knowledge, past decisions and prior reports with memory_recall, and fill genuine gaps with web_search from primary sources. Log every source with a date. 3. Build the storyline before writing, using Minto's Pyramid Principle: one governing answer, three to five supporting findings that are mutually exclusive and collectively exhaustive, and the evidence under each. Open with SCQA (situation, complication, question, answer). 4. Write a five-line executive summary that answers the question outright (BLUF), then one heading per finding with its evidence, a table where comparison helps, open questions, and recommended next steps with an owner and a first step each. 5. Add a chart with chart_generate only where it proves a finding faster than prose; give each an action title and a source line. 6. Make every number traceable: cite the file and cell, the connector record or the URL. Label estimates as estimates and show the working in an appendix. 7. Hand the draft to a reviewer from another discipline (fact-checker or editor) and apply their fixes; escalate to the lead if the evidence contradicts what the owner expects rather than softening the finding. 8. Render with document_generate (Markdown to DOCX or PDF). Length follows the substance, not a target. 9. Close with a short 'What we could not verify' list: missing data, unconfirmed claims and assumptions the reader should know about.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Gather the inputs",
+          "brief": "Parse the owner's files and search house knowledge for everything relevant to the question; list sources with dates.",
+          "acceptance": "A source list covering every supplied file, with each marked used or not relevant."
+        },
+        {
+          "activity": "research",
+          "title": "Fill evidence gaps",
+          "brief": "Research only the gaps the inputs leave, from primary sources, with citations.",
+          "acceptance": "Each gap is either filled with a cited source or listed as unverified.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft the report",
+          "brief": "Draft answer-first: five-line summary, findings with evidence, open questions, next steps with owners.",
+          "acceptance": "A complete Markdown report with all sections and no uncited numbers.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Review the draft",
+          "brief": "Check accuracy against inputs and sources, logic of the storyline, clarity for the named audience and completeness.",
+          "acceptance": "First line APPROVED or CHANGES, followed by specific, located fixes.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render the report",
+          "brief": "Apply review fixes, add charts and render to DOCX or PDF.",
+          "acceptance": "The file opens, headings and tables render, and every chart has a source line.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The first five lines answer the question and name the recommended action.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every number traces to a named input, connector record or cited URL.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Findings are distinct (no overlap) and each has evidence directly beneath it.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Next steps each have an owner and a concrete first step.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Estimates, assumptions and unverified claims are labelled as such.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Length follows the substance; no padding sections.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "executive-summary",
+        "research-and-cite",
+        "fact-check",
+        "editorial-review",
+        "data-story",
+        "build-a-slide-deck"
+      ],
+      "example_request": "Can you pull together a proper report on why our wholesale accounts dropped off this year? Use the sales exports I uploaded and anything you can find on what's happening in the market.",
+      "typical_departments": [
+        "content-comms-pr",
+        "research-insights",
+        "core-crew",
+        "strategy-leadership"
+      ],
+      "biz_bot_name": "write-a-report",
+      "version": 1
+    },
+    {
+      "id": "executive-summary",
+      "name": "Executive summary",
+      "icon": "◎",
+      "category": "writing-comms",
+      "one_liner": "A one-page, answer-first (BLUF, Pyramid Principle) summary for busy readers.",
+      "description": "Condenses a long document, analysis or meeting into one answer-first page: the governing thought, three supporting points and the ask. Optionally adds a 90-second ear-friendly version, ready to be voiced as a listen-in briefing, for owners who would rather listen.",
+      "when": "a busy reader (owner, board, lender, partner) must grasp a long document or analysis and act on it in two minutes",
+      "inputs": [
+        {
+          "id": "source_document",
+          "label": "The document, analysis or transcript to summarize",
+          "required": true,
+          "source": "file",
+          "example": "42-page consultant report on warehouse options"
+        },
+        {
+          "id": "audience_and_decision",
+          "label": "Who reads it and what they must decide or do",
+          "required": true,
+          "source": "owner",
+          "example": "Board, deciding Thursday whether to sign the new lease"
+        },
+        {
+          "id": "word_limit",
+          "label": "Maximum length if not one page",
+          "required": false,
+          "source": "owner",
+          "example": "300 words"
+        },
+        {
+          "id": "house_context",
+          "label": "Relevant prior decisions and preferences",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "One-page executive summary",
+          "format": "md -> pdf",
+          "description": "Governing thought, three key lines with evidence, the ask, risks."
+        },
+        {
+          "artifact_type": "script",
+          "name": "90-second ear-friendly version",
+          "format": "md",
+          "description": "The same summary rewritten for listening, ready to voice as a listen-in briefing."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "embeddings_search",
+        "memory_recall",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "notion",
+        "zoom"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Parse the source with file_parse and recall context with memory_recall; note the audience and the decision they face. 2. Find the governing thought: the single sentence the reader must take away. Use the Pyramid Principle: answer first, then the three key lines that support it, each MECE and each backed by a page or section reference in the source. 3. Write BLUF: sentence one is the answer or recommendation; sentence two is why it matters now. Then the key lines, the ask (decision, approval or action with a date) and the top risk or caveat. 4. Add nothing that is not in the source. If the source is ambiguous or contradicts itself, say so in one line rather than choosing silently. 5. Keep it to one page (about 400 words or the owner's limit). Use numbers, not adjectives. Search embeddings_search for house terms so vocabulary matches what the reader knows. 6. Render the page with document_generate. If the owner prefers listening, also write an ear-friendly version (short sentences, rounded numbers, no tables) that the lead can voice as a listen-in briefing. 7. Escalate to the lead if the source's conclusion is not supported by its own evidence; flag it rather than summarizing it as fact. 8. End with what could not be verified: claims in the source you could not check against data or other sources.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Read the source",
+          "brief": "Parse the source and extract its conclusion, evidence and asks with page references.",
+          "acceptance": "An extraction table with page or section references for every key claim."
+        },
+        {
+          "activity": "llm",
+          "title": "Draft the one-pager",
+          "brief": "Write the answer-first summary: governing thought, three key lines, ask, top risk.",
+          "acceptance": "Fits on one page; first sentence is the answer; every line has a source reference.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Editorial check",
+          "brief": "Check fidelity to the source, clarity for the named reader and that nothing new was added.",
+          "acceptance": "First line APPROVED or CHANGES, with any meaning drift called out by line.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Ear-friendly version",
+          "brief": "Rewrite the approved summary for listening when the owner wants audio.",
+          "acceptance": "Under 250 words, no tables, and content matches the approved text.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The first sentence states the answer or recommendation.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No claim appears that is not in the source; every key line has a reference.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The ask names a decision or action and a date.",
+          "severity": "must"
+        },
+        {
+          "criterion": "One page or the owner's word limit; numbers instead of adjectives.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Audio version is written for the ear, not read from the page.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 15,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "write-a-report",
+        "summarise-documents",
+        "data-story",
+        "listen-in-briefing",
+        "editorial-review"
+      ],
+      "example_request": "I've got a 40-page consultant report on our warehouse options and the board meets Thursday. Boil it down to one page they'll actually read, and give me a version I can listen to in the car.",
+      "typical_departments": [
+        "core-crew",
+        "content-comms-pr",
+        "data-analytics",
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "blog-article",
+      "name": "SEO article",
+      "icon": "✎",
+      "category": "writing-comms",
+      "one_liner": "A search-intent-matched article with outline, sources, internal links and meta.",
+      "description": "Researches search intent and the current results page, then writes an article built to rank and to help: an outline mapped to intent, the owner's first-hand experience (E-E-A-T), cited sources, internal links, meta title and description, and a hero-image brief with alt text.",
+      "when": "the owner wants organic search traffic for a topic their customers search for, or needs a helpful article to answer a recurring customer question",
+      "inputs": [
+        {
+          "id": "topic_or_keyword",
+          "label": "Topic or target search phrase",
+          "required": true,
+          "source": "owner",
+          "example": "how to choose a wedding florist"
+        },
+        {
+          "id": "business_and_location",
+          "label": "What the business sells and where",
+          "required": true,
+          "source": "memory",
+          "example": "Independent florist in Leeds, weddings are 60% of revenue"
+        },
+        {
+          "id": "first_hand_experience",
+          "label": "Owner stories, numbers or opinions only they can give",
+          "required": false,
+          "source": "owner",
+          "example": "We've done 300 weddings; peonies are the most-requested and most-substituted flower"
+        },
+        {
+          "id": "existing_pages",
+          "label": "Site URLs to link internally",
+          "required": false,
+          "source": "web",
+          "example": "/weddings, /pricing, /gallery"
+        },
+        {
+          "id": "voice_guide",
+          "label": "House voice and words to avoid",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "SEO article",
+          "format": "md -> docx",
+          "description": "Article with H1, H2/H3 structure, internal links, sources, FAQ block, meta title, meta description and slug."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Content brief",
+          "format": "md",
+          "description": "Intent, SERP notes, target and related queries, outline, angle and what competitors miss."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Hero image brief",
+          "format": "md",
+          "description": "Subject, style, brand palette, crop sizes and alt text, ready for the image team (ai-image-set)."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "embeddings_search",
+        "memory_recall",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-search-console",
+        "google-analytics",
+        "wordpress",
+        "webflow"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "connector_data"
+      ],
+      "instructions": "1. Classify search intent (informational, commercial, transactional, navigational) with web_search: read the top results with web_fetch and note their format, depth, subtopics and what they all miss. 2. Recall the business profile and voice with memory_recall and find existing pages and past articles with embeddings_search; if Google Search Console is enabled, pull queries the site already appears for, to find related terms and avoid cannibalizing an existing page. 3. Write a content brief: target and related queries, intent, angle, outline (H2/H3), the owner's unique experience to include, internal links and sources. Keep it to one page. 4. Draft to the brief: answer the core question in the first 100 words (featured-snippet style), use the inverted pyramid, short paragraphs and descriptive subheads. Put the owner's first-hand experience up front: this is the E-E-A-T signal competitors cannot copy. 5. Cite every statistic to a primary source. Add at least three internal links with descriptive anchor text and one next-step call to action. 6. Write a meta title (60 characters or fewer), meta description (155 or fewer), slug and an FAQ block for questions from 'People also ask'. 7. Write a hero-image brief (subject, style, brand palette, sizes) and alt text for the image team (ai-image-set). A generated image must never be presented as a real photo of the owner's work. 8. Render with document_generate. Publishing is a separate, approved step; this skill produces the draft. 9. List what could not be verified: statistics without a primary source and claims that need the owner's confirmation.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Intent and SERP analysis",
+          "brief": "Classify intent and analyse the top results: format, depth, subtopics and gaps.",
+          "acceptance": "Intent named with evidence; at least five ranking pages summarized with their gaps."
+        },
+        {
+          "activity": "llm",
+          "title": "Content brief",
+          "brief": "Write the one-page brief: queries, angle, outline, experience to include, links and sources.",
+          "acceptance": "Brief has an outline mapped to intent and at least one unique angle.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft the article",
+          "brief": "Write the article to the brief with citations, internal links, FAQ and meta fields.",
+          "acceptance": "Meta title 60 chars or fewer, description 155 or fewer, three or more internal links, every statistic cited.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Hero image brief",
+          "brief": "Write the hero-image brief and alt text for the image team.",
+          "acceptance": "Brief names subject, style, palette and sizes; alt text written.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "SEO and fact review",
+          "brief": "Check intent match, factual accuracy, citations, readability and brand voice.",
+          "acceptance": "First line APPROVED or CHANGES; unsupported claims listed by line.",
+          "dependsOn": [
+            2,
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render the draft",
+          "brief": "Apply fixes and render the article and brief.",
+          "acceptance": "DOCX opens with headings intact and meta fields at the top.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The article's format and depth match the dominant search intent.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every statistic cites a primary source; no invented quotes or figures.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Meta title is 60 characters or fewer and meta description 155 or fewer.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Includes at least one first-hand detail only the owner could provide, or flags that it is missing.",
+          "severity": "must"
+        },
+        {
+          "criterion": "At least three internal links with descriptive anchors; no keyword stuffing.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Readable at about a 9th-grade level with scannable subheads.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "seo-audit",
+        "content-calendar",
+        "copyedit-pass",
+        "fact-check",
+        "ai-image-set",
+        "local-seo-gbp"
+      ],
+      "example_request": "Write a blog post that could rank for 'how to choose a wedding florist'. We're a florist in Leeds and want more wedding enquiries from Google.",
+      "typical_departments": [
+        "marketing-growth",
+        "content-comms-pr"
+      ],
+      "version": 1
+    },
+    {
+      "id": "email-copy",
+      "name": "Email copywriting",
+      "icon": "✉",
+      "category": "writing-comms",
+      "one_liner": "Single emails or short sequences with subject-line variants and a clear ask.",
+      "description": "Writes a single email or a short sequence with one goal and one call to action per email, using AIDA or PAS, with subject-line and preheader variants for testing, a plain-text version and the compliance footer placeholders marketing email needs.",
+      "when": "the owner needs an announcement, promotion, follow-up or short sequence written, and wants it drafted rather than sent",
+      "inputs": [
+        {
+          "id": "goal_and_cta",
+          "label": "What the reader should do after reading",
+          "required": true,
+          "source": "owner",
+          "example": "Book a table for the autumn tasting menu"
+        },
+        {
+          "id": "audience_segment",
+          "label": "Who receives it and what they already know",
+          "required": true,
+          "source": "owner",
+          "example": "Past diners from the last 12 months"
+        },
+        {
+          "id": "offer_details",
+          "label": "Offer, dates, terms and conditions",
+          "required": true,
+          "source": "owner",
+          "example": "Tasting menu returns 10 October, 7 courses, £65, Thu-Sat only"
+        },
+        {
+          "id": "voice_guide",
+          "label": "House voice, words to avoid, sign-off",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "proof_points",
+          "label": "Reviews, numbers or quotes that support the offer",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "sequence_length",
+          "label": "Number of emails and spacing if a sequence",
+          "required": false,
+          "source": "owner",
+          "example": "Announcement plus a reminder a week later"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "email_draft",
+          "name": "Email or sequence",
+          "format": "md -> html",
+          "description": "Each email with subject-line and preheader variants, body, one CTA, plain-text version and send timing."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Test and send plan",
+          "format": "md",
+          "description": "Which subject line to test, split size, winning metric and suggested send times."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_fetch",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "mailchimp",
+        "klaviyo",
+        "hubspot",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url"
+      ],
+      "instructions": "1. Recall the house voice and past campaigns with memory_recall and embeddings_search; read the landing page the email points to with web_fetch so promises match. 2. Write a one-line brief per email: reader, single goal, single CTA, the one thing they must remember. 3. Choose the structure: AIDA (attention, interest, desire, action) for announcements, PAS (problem, agitate, solve) for pain-led offers. Lead with the reader's benefit, not the business's news. 4. Write three to five subject lines scored against the 4 U's (useful, urgent, unique, ultra-specific), 50 characters or fewer, each with a preheader that adds information rather than repeating it. 5. Put the ask on the first mobile screen, use one primary button or link, and keep paragraphs to one to three lines. Write a plain-text version. 6. Match every claim to the offer terms exactly (dates, prices, limits). Include placeholders for the unsubscribe link and postal address on marketing email, and send only to people who opted in. 7. For a sequence, give each email a distinct job (announce, remind, last chance) and suppress people who already converted. 8. Render with document_generate. Sending is a separate approved step; flag to the lead if the list's consent status is unknown. 9. State what could not be verified: offer details, availability or claims the owner still needs to confirm.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Brief each email",
+          "brief": "Define reader, goal, single CTA and structure (AIDA or PAS) for each email.",
+          "acceptance": "One-line brief per email with a single named CTA."
+        },
+        {
+          "activity": "llm",
+          "title": "Write the emails",
+          "brief": "Draft subject lines, preheaders, body and plain-text versions.",
+          "acceptance": "Three or more subject lines of 50 chars or fewer per email; one primary CTA each.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Clarity and compliance review",
+          "brief": "Check claims against offer terms, one CTA, footer placeholders and voice.",
+          "acceptance": "First line APPROVED or CHANGES; each mismatch with the offer terms listed.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Package the drafts",
+          "brief": "Render the drafts with the test and send plan.",
+          "acceptance": "HTML and plain-text versions present for every email.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "One primary call to action per email, visible on the first mobile screen.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every date, price and limit matches the offer details exactly.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Marketing emails include unsubscribe and postal-address placeholders.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Subject lines are 50 characters or fewer and preheaders add new information.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Reads cleanly aloud; no paragraph over three lines.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "email-flow-design",
+        "newsletter-issue",
+        "voice-style-guide",
+        "copyedit-pass",
+        "abandoned-cart-recovery"
+      ],
+      "example_request": "We're bringing back the autumn tasting menu on 10 October. Can you write the announcement email to our list and a reminder for the week after?",
+      "typical_departments": [
+        "content-comms-pr",
+        "marketing-growth",
+        "sales-partnerships"
+      ],
+      "version": 1
+    },
+    {
+      "id": "plain-language-rewrite",
+      "name": "Plain-language rewrite",
+      "icon": "¶",
+      "category": "writing-comms",
+      "one_liner": "Rewrite dense text to plain language (ISO 24495 principles) without losing meaning.",
+      "description": "Rewrites dense text (policies, terms, letters, instructions) into plain language following ISO 24495-1 principles, so readers can find, understand and use it, and proves nothing was lost with a meaning-preservation table that maps every obligation, number and condition.",
+      "when": "customers or staff keep misreading a policy, letter, form or instruction, or a document must work for a broad audience",
+      "inputs": [
+        {
+          "id": "source_text",
+          "label": "The text to rewrite",
+          "required": true,
+          "source": "file",
+          "example": "Cancellation and refund policy, 1,400 words"
+        },
+        {
+          "id": "readers_and_task",
+          "label": "Who reads it and what they are trying to do",
+          "required": true,
+          "source": "owner",
+          "example": "Customers deciding whether they can cancel a booking and get money back"
+        },
+        {
+          "id": "fixed_terms",
+          "label": "Terms, legal phrases or wording that must not change",
+          "required": false,
+          "source": "owner",
+          "example": "'Deposit' and 'Booking Fee' are defined terms in our contract"
+        },
+        {
+          "id": "house_style",
+          "label": "House voice and glossary",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Plain-language version",
+          "format": "md -> docx",
+          "description": "The rewrite with front-loaded headings, short sentences and lists where they help."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Meaning-preservation table",
+          "format": "xlsx",
+          "description": "Every obligation, number, date and condition in the source mapped to where it appears in the rewrite."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Readability before and after",
+          "format": "md",
+          "description": "Sentence length, passive-voice share and jargon counts before and after, with notes."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "embeddings_search",
+        "memory_recall",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Parse the source with file_parse. Extract every obligation, right, number, date, deadline, condition and exception into a list; this becomes the meaning-preservation table. 2. Identify the readers and their top tasks. Apply ISO 24495-1's four principles: relevant (only what readers need), findable (headings phrased as the reader's questions), understandable (common words, active voice, sentences of about 20 words or fewer), usable (steps as numbered lists, examples for tricky rules). 3. Keep defined and fixed terms exactly as given; explain them once in plain words instead of replacing them. Search embeddings_search for the house glossary and recall the house style with memory_recall. 4. Rewrite, then fill the meaning-preservation table with spreadsheet_generate: each extracted item mapped to its location in the new text, marked preserved, clarified or flagged. 5. Compare readability before and after in the workbook (average sentence length, share of passive sentences, long or technical words). Treat it as a check, not a target. 6. If the text is a contract, legal notice, regulated disclosure or safety instruction, mark the rewrite 'for review by the owner's counsel or relevant professional before use' and do not silently change legal meaning; escalate ambiguities to the lead. 7. Render with document_generate. 8. State what could not be verified: phrases whose legal or technical meaning was uncertain, and any item marked flagged in the table.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Extract meaning units",
+          "brief": "Parse the source and list every obligation, number, date, condition and exception.",
+          "acceptance": "A numbered list of meaning units with source locations."
+        },
+        {
+          "activity": "llm",
+          "title": "Rewrite in plain language",
+          "brief": "Rewrite using ISO 24495-1 principles, keeping fixed terms.",
+          "acceptance": "Headings phrased as reader questions; fixed terms unchanged.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Readability and preservation check",
+          "brief": "Score readability before and after and map every meaning unit to the rewrite.",
+          "acceptance": "Every meaning unit is mapped; scores reported for both versions.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Meaning review",
+          "brief": "A second reader checks that no obligation, number or condition changed.",
+          "acceptance": "First line APPROVED or CHANGES; any meaning drift listed with both versions quoted.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render",
+          "brief": "Render the rewrite, table and readability note.",
+          "acceptance": "All three files open; flagged items highlighted.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every obligation, number, date and condition from the source appears in the rewrite (table shows 100% mapped).",
+          "severity": "must"
+        },
+        {
+          "criterion": "Defined and fixed terms are unchanged.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Legal, regulated or safety text is marked for professional review rather than silently reinterpreted.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Average sentence length is about 20 words or fewer; active voice dominates.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Headings let a reader find their answer in under 30 seconds.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "copyedit-pass",
+        "voice-style-guide",
+        "kb-article",
+        "inclusive-language-review",
+        "policy-draft"
+      ],
+      "example_request": "Our cancellation policy reads like a tax form and customers keep misreading it. Can you make it plain English without changing what it actually says?",
+      "typical_departments": [
+        "content-comms-pr",
+        "design-creative",
+        "customer-success-support",
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "voice-style-guide",
+      "name": "Voice & style guide",
+      "icon": "❝",
+      "category": "writing-comms",
+      "one_liner": "House voice, tone by situation, word list and before/after examples.",
+      "description": "Audits the owner's existing copy, names three to five voice attributes with 'this, not that' pairs, maps tone by situation, sets a word list and mechanics, and proves it with before/after rewrites of real copy. Saves the guide to memory so every coworker writes in the house voice.",
+      "when": "the business sounds different depending on who wrote it, before a rebrand or new website, or when onboarding writers and coworkers",
+      "inputs": [
+        {
+          "id": "copy_samples",
+          "label": "Existing copy: website, emails, social, support replies",
+          "required": true,
+          "source": "file",
+          "example": "Homepage text, ten recent emails, 20 support replies"
+        },
+        {
+          "id": "brand_values",
+          "label": "What the business stands for and how customers describe it",
+          "required": true,
+          "source": "owner",
+          "example": "Honest, a bit cheeky, never salesy"
+        },
+        {
+          "id": "audiences",
+          "label": "Main audiences and channels",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "admired_voices",
+          "label": "Voices the owner admires or wants to avoid (described, not copied)",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Voice and style guide",
+          "format": "md -> pdf",
+          "description": "Voice attributes, tone map by situation, word list, mechanics and before/after examples."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "One-page voice checklist",
+          "format": "md",
+          "description": "A quick check any writer or coworker can run before publishing."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "web_fetch",
+        "embeddings_search",
+        "memory_recall",
+        "request_owner_decision",
+        "document_generate",
+        "memory_write"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "notion",
+        "zendesk",
+        "intercom",
+        "wordpress"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url"
+      ],
+      "instructions": "1. Collect copy with file_parse and web_fetch (site pages), search past work with embeddings_search, and recall stated brand values with memory_recall. Tag each sample by channel and situation. 2. Audit: where does the copy already sound like the business at its best, where does it drift, and which phrases recur? Quote examples. 3. Propose three to five voice attributes, each with 'we are / we are not' pairs and a one-line why (for example: 'Plain-spoken, not blunt'). 4. Map tone by situation using the four tone dimensions (funny-serious, formal-casual, respectful-irreverent, enthusiastic-matter-of-fact) for at least six moments: sales, onboarding, support apology, error or bad news, celebration, social reply. 5. Offer two voice directions if the evidence supports both, and raise the choice with request_owner_decision. 6. Write the word list (preferred, avoid, and product terms with exact spelling) and mechanics decisions (Oxford comma, capitalization, numbers, dates, emoji, sign-offs). 7. Rewrite at least ten real samples before/after to prove the guide works; include one apology and one piece of bad news. 8. Render the guide and checklist with document_generate and save the voice summary with memory_write so every coworker inherits it. 9. State what could not be verified: channels with too few samples and attributes the owner has not yet confirmed.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Collect and tag copy",
+          "brief": "Gather copy samples and tag them by channel and situation.",
+          "acceptance": "At least 20 samples tagged, or a note that fewer exist."
+        },
+        {
+          "activity": "llm",
+          "title": "Voice audit and attributes",
+          "brief": "Audit consistency and propose voice attributes with this/not-that pairs.",
+          "acceptance": "Three to five attributes, each with a quoted example from the owner's copy.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner picks a direction",
+          "brief": "Owner chooses between voice directions or confirms the attributes.",
+          "acceptance": "The owner's choice is recorded as a decision.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Tone map, word list and rewrites",
+          "brief": "Write the tone map, word list, mechanics and ten before/after rewrites.",
+          "acceptance": "Six or more situations mapped and ten or more before/after pairs.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Consistency review",
+          "brief": "An editor checks the guide is usable and the rewrites follow it.",
+          "acceptance": "First line APPROVED or CHANGES with specific fixes.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "memory",
+          "title": "Save to house memory",
+          "brief": "Save the voice summary and word list with provenance.",
+          "acceptance": "Memory entry exists and is visible to all coworkers.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Each voice attribute has a 'we are / we are not' pair and a real example.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Tone guidance covers at least six situations, including an apology and bad news.",
+          "severity": "must"
+        },
+        {
+          "criterion": "At least ten before/after rewrites use the owner's real copy.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Mechanics decisions are explicit (commas, capitals, numbers, dates, emoji).",
+          "severity": "should"
+        },
+        {
+          "criterion": "The guide is saved to memory so every coworker uses it.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "messaging-house",
+        "copyedit-pass",
+        "brand-consistency-check",
+        "brand-identity-kit",
+        "macro-library"
+      ],
+      "example_request": "Everything we write sounds different depending on who wrote it. Can you work out our voice and write it down so the team, and all of you, stay consistent?",
+      "typical_departments": [
+        "content-comms-pr",
+        "marketing-growth",
+        "design-creative"
+      ],
+      "version": 1
+    },
+    {
+      "id": "copyedit-pass",
+      "name": "Copyedit & proofread",
+      "icon": "✂",
+      "category": "writing-comms",
+      "one_liner": "Line edits for clarity, consistency, grammar and house style, with tracked changes.",
+      "description": "Edits in three passes (structure, line, proof) against the house style, with every change visible as tracked changes or a diff, author queries instead of silent factual fixes, and a style sheet recording each decision so the next edit is faster.",
+      "when": "a document is written and needs to be correct, consistent and polished before it goes to print, a client or the web",
+      "inputs": [
+        {
+          "id": "document",
+          "label": "The text to edit",
+          "required": true,
+          "source": "file",
+          "example": "Brochure_v3.docx"
+        },
+        {
+          "id": "edit_depth",
+          "label": "Light proofread, medium line edit, or heavy structural edit",
+          "required": true,
+          "source": "owner",
+          "example": "Light touch, keep my tone"
+        },
+        {
+          "id": "house_style",
+          "label": "Style guide or preferences (AP, Chicago or house rules)",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "audience",
+          "label": "Who will read it",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Edited document with tracked changes",
+          "format": "docx",
+          "description": "Every change visible; comments carry queries."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Style sheet",
+          "format": "md",
+          "description": "Spelling, capitalization, number and name decisions made during the edit."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Author queries",
+          "format": "md",
+          "description": "Facts, names and figures the author must confirm."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "embeddings_search",
+        "memory_recall",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Parse the document with file_parse and recall the house style with memory_recall and embeddings_search; if none exists, default to Chicago for long-form or AP for news-style copy and say so. 2. Agree the depth. Light: typos, grammar, consistency. Medium: plus sentence clarity and flow. Heavy: plus structure and order. Never exceed the agreed depth. 3. Pass 1 (structure, heavy only): does the order serve the reader? Suggest moves as comments, do not rewrite wholesale. 4. Pass 2 (line): tighten sentences, fix ambiguity, make parallel lists parallel, keep the author's voice and rhythm. 5. Pass 3 (proof): spelling, punctuation, names, numbers, dates, units, cross-references, headings and captions. Read numbers and names character by character. 6. Never change a fact silently: query it. Record every style decision in a style sheet (for example 'e-mail -> email', 'numbers under 10 spelled out'). 7. Output tracked changes (DOCX) or a diff with document_generate, plus the query list and style sheet. 8. State what could not be verified: facts, names and figures left as queries.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Read and set depth",
+          "brief": "Parse the document and confirm depth and style rules.",
+          "acceptance": "Depth and style guide named at the top of the style sheet."
+        },
+        {
+          "activity": "llm",
+          "title": "Structure and line edit",
+          "brief": "Apply the structure (if heavy) and line passes with tracked changes.",
+          "acceptance": "Changes stay within the agreed depth; voice preserved.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Proof pass",
+          "brief": "A separate proof pass for spelling, numbers, names, dates and cross-references.",
+          "acceptance": "Every number and name checked; queries logged instead of silent fixes.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Second-eyes check",
+          "brief": "Another editor spot-checks for introduced errors and over-editing.",
+          "acceptance": "First line APPROVED or CHANGES; any introduced error listed.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Deliver the edit",
+          "brief": "Render tracked changes, query list and style sheet.",
+          "acceptance": "Tracked changes open correctly; queries and style sheet included.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every change is visible as a tracked change or diff.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Facts are queried, never silently changed.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The edit stays within the agreed depth and keeps the author's voice.",
+          "severity": "must"
+        },
+        {
+          "criterion": "A style sheet records every consistency decision.",
+          "severity": "should"
+        },
+        {
+          "criterion": "No new errors introduced (verified by a second pass).",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 25,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "editorial-review",
+        "fact-check",
+        "voice-style-guide",
+        "plain-language-rewrite",
+        "brand-consistency-check"
+      ],
+      "example_request": "Can you proofread our new brochure before it goes to the printer on Friday? Light touch, keep my tone, but catch everything.",
+      "typical_departments": [
+        "core-crew",
+        "content-comms-pr"
+      ],
+      "version": 1
+    },
+    {
+      "id": "ghostwrite-thought-leadership",
+      "name": "Speeches & thought leadership",
+      "icon": "✒",
+      "category": "writing-comms",
+      "one_liner": "Speeches, founder letters and posts in the owner's own voice.",
+      "description": "Captures the owner's real stories and opinions by voice interview or voice notes, fingerprints their natural voice from samples, and writes speeches, founder letters and posts that sound like them, with a spoken rehearsal read so they can hear it before they say it.",
+      "when": "the owner has a speech, founder letter, op-ed or series of posts to deliver in their own name and wants it to sound like them on a good day",
+      "inputs": [
+        {
+          "id": "occasion_and_audience",
+          "label": "Occasion, audience, format and length",
+          "required": true,
+          "source": "owner",
+          "example": "10-minute talk at the chamber of commerce breakfast, 80 local business owners"
+        },
+        {
+          "id": "big_idea",
+          "label": "The one thing they want the audience to remember, even roughly",
+          "required": false,
+          "source": "owner",
+          "example": "Paying apprentices properly is the cheapest thing we ever did"
+        },
+        {
+          "id": "voice_material",
+          "label": "Voice notes, past writing or talk recordings",
+          "required": true,
+          "source": "file",
+          "example": "Six voice memos, two old newsletters"
+        },
+        {
+          "id": "stories",
+          "label": "Anecdotes, numbers and people they are willing to mention",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "do_not_say",
+          "label": "Topics, claims or names to avoid",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "script",
+          "name": "Speech script",
+          "format": "md -> docx",
+          "description": "Written for the ear with timing marks, pauses and a one-line summary per section."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Founder letter or op-ed",
+          "format": "md -> docx",
+          "description": "Long-form piece in the owner's voice."
+        },
+        {
+          "artifact_type": "social_post",
+          "name": "Thought-leadership posts",
+          "format": "md",
+          "description": "Three to five posts with hook, story and takeaway."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Rehearsal read",
+          "format": "mp3",
+          "description": "The speech read aloud at target pace so the owner can hear timing."
+        }
+      ],
+      "tools": [
+        "stt",
+        "realtime_voice",
+        "file_parse",
+        "embeddings_search",
+        "memory_recall",
+        "document_generate",
+        "tts"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "linkedin",
+        "zoom",
+        "dropbox"
+      ],
+      "modalities": [
+        "text",
+        "voice",
+        "audio",
+        "file"
+      ],
+      "instructions": "1. Gather voice material: transcribe voice notes and recordings with stt, parse past writing with file_parse, search earlier work with embeddings_search, and recall stated preferences and no-go topics with memory_recall. 2. If material is thin, offer a 15-minute voice interview with realtime_voice: ask for stories (a moment it went wrong, a customer they think about, a number that surprised them), not opinions in the abstract. 3. Fingerprint the voice: typical sentence length, favourite words and phrases, humour, how they open and close, what they never say. Keep the fingerprint in the working notes. 4. Find the one big idea and state it in the first 30 seconds (or first paragraph). For speeches use Monroe's Motivated Sequence (attention, need, satisfaction, visualization, action) or a simple story-point-story shape; use the rule of three for key points. 5. Write for the ear in scripts: short sentences, signposts, repetition of the big idea, pauses marked. Time at 130-150 words per minute to hit the target length. 6. Use only stories, numbers and opinions that come from the owner's material. Never invent anecdotes, credentials, quotes or results in their name; if a story would help but none exists, leave a bracketed prompt for the owner. 7. Render drafts with document_generate and a rehearsal read with tts so the owner can hear pacing (it is a timing guide, not a voice clone). 8. Escalate to the lead if the piece makes claims about competitors, legal matters or health, or names people who have not agreed to be mentioned. 9. State what could not be verified: every figure or claim the owner still needs to confirm, marked in the draft.",
+      "workflow": [
+        {
+          "activity": "stt",
+          "title": "Transcribe voice material",
+          "brief": "Transcribe the owner's voice notes and recordings.",
+          "acceptance": "Transcripts with timestamps for every file supplied."
+        },
+        {
+          "activity": "llm",
+          "title": "Voice fingerprint and outline",
+          "brief": "Fingerprint the owner's voice and outline around one big idea using their stories.",
+          "acceptance": "Big idea in one sentence; outline where every story is traced to a transcript or file.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft",
+          "brief": "Write the speech, letter or posts in the owner's voice, timed to length.",
+          "acceptance": "Length within 10% of target at 140 wpm; no story without a source.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Voice and claims check",
+          "brief": "Check it sounds like the owner (compare to samples) and every claim is sourced.",
+          "acceptance": "First line APPROVED or CHANGES; lines that do not sound like the owner are quoted.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Rehearsal read",
+          "brief": "Render a rehearsal audio of the approved script.",
+          "acceptance": "Audio duration within 10% of target length.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every anecdote, number and opinion comes from the owner's material or is marked for them to supply.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The big idea is stated within the first 30 seconds or first paragraph.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No invented credentials, quotes, results or named people.",
+          "severity": "must"
+        },
+        {
+          "criterion": "A reader who knows the owner would say it sounds like them (checked against samples).",
+          "severity": "should"
+        },
+        {
+          "criterion": "Scripts are written for the ear and timed to target length.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "voice-style-guide",
+        "podcast-episode",
+        "social-media-plan",
+        "fact-check",
+        "voiceover-briefing"
+      ],
+      "example_request": "I'm speaking at the chamber breakfast next month, 10 minutes on why we pay our apprentices properly. I've recorded some rambling voice notes. Can you turn them into a speech that sounds like me?",
+      "typical_departments": [
+        "content-comms-pr",
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "translate-localize",
+      "name": "Translation & localization",
+      "icon": "🌐",
+      "category": "writing-comms",
+      "one_liner": "Translate and culturally adapt copy, with a glossary and MQM-style QA.",
+      "description": "Translates and culturally adapts copy through a translate-edit-proofread process, with a glossary and do-not-translate list, locale conventions, placeholder safety for UI strings, and an MQM-style quality scorecard. High-stakes text is routed to a native human reviewer.",
+      "when": "the owner is selling, supporting or publishing in another language or market, or needs existing translations checked",
+      "inputs": [
+        {
+          "id": "source_content",
+          "label": "Content to translate: pages, emails, product data or UI strings",
+          "required": true,
+          "source": "file",
+          "example": "Product pages CSV, checkout emails, returns policy"
+        },
+        {
+          "id": "target_locales",
+          "label": "Target languages and markets",
+          "required": true,
+          "source": "owner",
+          "example": "es-ES and es-MX"
+        },
+        {
+          "id": "glossary",
+          "label": "Existing glossary, brand terms and do-not-translate list",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "tone_per_market",
+          "label": "Formality and tone per market",
+          "required": false,
+          "source": "owner",
+          "example": "Informal tú for Mexico, usted for B2B Spain"
+        },
+        {
+          "id": "constraints",
+          "label": "Character limits and formats",
+          "required": false,
+          "source": "file",
+          "example": "Button labels max 20 characters"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Translated content",
+          "format": "md -> docx",
+          "description": "Translated copy in the source structure, with adaptation notes inline."
+        },
+        {
+          "artifact_type": "dataset",
+          "name": "Translated strings",
+          "format": "json",
+          "description": "UI or product strings with keys and placeholders preserved."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Glossary and MQM scorecard",
+          "format": "xlsx",
+          "description": "Term base per locale and error counts by MQM category and severity."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Market adaptation notes",
+          "format": "md",
+          "description": "What changes beyond words: formats, idioms, imagery, legal wording to check, payment and address norms."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "embeddings_search",
+        "web_search",
+        "memory_recall",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "woocommerce",
+        "wordpress",
+        "webflow",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Parse the source with file_parse; inventory strings, placeholders ({name}, %s, HTML tags), character limits and content types. 2. Build or extend the glossary and do-not-translate list (brand names, product names, legal terms) with embeddings_search and memory_recall; check market-specific terminology with web_search. 3. Translate (pass 1) following ISO 17100-style translate-edit-proofread: meaning first, then natural phrasing for the locale. Transcreate marketing lines rather than translating literally, and note the change. 4. Apply locale conventions: date, number, currency, units, address and phone formats, formality (tú/usted, du/Sie), and culturally loaded idioms, colours or imagery. 5. Edit (pass 2) by a second coworker and score with MQM: accuracy, fluency, terminology, style, locale convention, with minor, major and critical severity. Record counts in the scorecard via spreadsheet_generate. 6. Verify every placeholder and tag survives intact and every string fits its character limit. 7. Route legal, medical, safety, packaging-claim and contract text to a native professional reviewer before use, with request_owner_decision; never present machine-assisted legal translation as final. 8. Render with document_generate and export strings as JSON. 9. State what could not be verified: terms with no agreed equivalent, locale rules to confirm, and content awaiting native review.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Inventory the source",
+          "brief": "Parse content, placeholders, limits and content types.",
+          "acceptance": "Inventory lists every string or section with its constraints."
+        },
+        {
+          "activity": "llm",
+          "title": "Glossary and do-not-translate list",
+          "brief": "Build the term base per locale.",
+          "acceptance": "Every brand and product term has a decision (translate or keep).",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Translate and adapt",
+          "brief": "Translate and transcreate per locale conventions.",
+          "acceptance": "All strings translated; placeholders intact; adaptation notes written.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "MQM quality review",
+          "brief": "A second coworker edits and scores the translation with MQM categories and severities.",
+          "acceptance": "First line APPROVED or CHANGES; zero critical errors and an MQM score recorded.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Native reviewer check",
+          "brief": "Owner routes high-stakes content to a native professional reviewer.",
+          "acceptance": "Reviewer sign-off recorded or content marked 'pending native review'.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Deliver files",
+          "brief": "Render translated documents, string files, scorecard and market notes.",
+          "acceptance": "Files open; JSON validates; every string within its limit.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Zero critical MQM errors; glossary terms applied consistently.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every placeholder, variable and tag is preserved exactly.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Legal, medical, safety and packaging-claim text is marked for native professional review.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Locale conventions for dates, numbers, currency and formality are correct.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Marketing copy is transcreated with notes, not translated literally.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "product-listing",
+        "glossary-builder",
+        "copyedit-pass",
+        "marketplace-listing-optimization",
+        "voice-style-guide"
+      ],
+      "example_request": "We're launching the online shop in Spain and Mexico next month. Can you translate the product pages and checkout emails, and tell me what needs to change for each market beyond just the words?",
+      "typical_departments": [
+        "content-comms-pr",
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "press-release",
+      "name": "Press release",
+      "icon": "📰",
+      "category": "writing-comms",
+      "one_liner": "Newsworthy release with headline, lede, quotes and boilerplate, AP-style.",
+      "description": "Tests whether the news is actually news, picks the strongest angle, and writes an AP-style release: a headline with an active verb, a 5Ws lede, quotes that add meaning (approved by the people quoted), fact sheet, boilerplate and media contact, plus a press-kit photo list built around the owner's real photos.",
+      "when": "the business has genuine news (launch, milestone, partnership, award, community impact) and wants coverage or a record to link to",
+      "inputs": [
+        {
+          "id": "the_news",
+          "label": "What happened or will happen, with dates and numbers",
+          "required": true,
+          "source": "owner",
+          "example": "Won the contract to supply bread to all 42 county primary schools from January"
+        },
+        {
+          "id": "spokespeople",
+          "label": "Who can be quoted, and their approval",
+          "required": true,
+          "source": "owner",
+          "example": "Owner and the school catering manager (needs her sign-off)"
+        },
+        {
+          "id": "company_facts",
+          "label": "Boilerplate facts: founded, location, size, website",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "photos",
+          "label": "Real photos available for the press kit",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "embargo",
+          "label": "Embargo date and time, if any",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Press release",
+          "format": "md -> docx",
+          "description": "Headline, subhead, dateline, lede, body, quotes, boilerplate, media contact, ###."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Fact sheet and Q&A",
+          "format": "md",
+          "description": "Key facts and likely journalist questions with answers."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Press-kit photo list",
+          "format": "md",
+          "description": "Which of the owner's real photos to include, with captions, credits and sizes for retouching."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "web_search",
+        "embeddings_search",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "wordpress",
+        "dropbox"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Test newsworthiness against news values (timeliness, impact, proximity, novelty, human interest, prominence). Use web_search to check recent coverage of similar stories. If it is not news, say so and suggest what would make it news (data, a local angle, a human story). 2. Propose up to three angles with the likely outlet type for each, and raise the choice with request_owner_decision. 3. Write AP-style: headline under about 10 words with an active verb, a subhead with the key number, dateline, and a lede that answers who, what, when, where and why in about 35 words. Follow the inverted pyramid. 4. Draft quotes that add opinion, emotion or meaning the facts cannot. Every quote attributed to a real person must be approved by that person before release. 5. Remove unsubstantiated superlatives ('leading', 'first', 'best') unless evidence is supplied; check every fact against memory_recall and embeddings_search sources. 6. Add boilerplate, media contact, embargo line if any, and ### end mark. Write a fact sheet and a short Q&A. 7. List press-kit photos from the owner's real photos only, with captions, credits and sizes; retouching goes to the image-edit-retouch skill. Never use generated images presented as real events, people or products. 8. Render with document_generate. Distribution is a separate, approved step. 9. State what could not be verified: facts, figures and quotes awaiting confirmation.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "News test and angles",
+          "brief": "Test news values and propose up to three angles with target outlet types.",
+          "acceptance": "A verdict (news or not) with reasons, and ranked angles."
+        },
+        {
+          "activity": "human",
+          "title": "Owner picks angle and quote approvers",
+          "brief": "Owner chooses the angle and confirms who approves each quote.",
+          "acceptance": "Chosen angle and quote approvers recorded.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft release, fact sheet and Q&A",
+          "brief": "Write the release AP-style with quotes, boilerplate and contact, plus fact sheet and Q&A.",
+          "acceptance": "Lede answers the 5Ws in about 35 words; ### present; contact present.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Press-kit photo list",
+          "brief": "Select the owner's real photos and write captions, credits and required sizes.",
+          "acceptance": "Every listed photo is owner-supplied, with caption and credit; none generated.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Fact and claims review",
+          "brief": "A fact-checker verifies every fact, figure and superlative.",
+          "acceptance": "First line APPROVED or CHANGES; each unverified claim listed.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render",
+          "brief": "Render the release, fact sheet, Q&A and photo list.",
+          "acceptance": "All files open and match the approved text.",
+          "dependsOn": [
+            4,
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The lede answers who, what, when, where and why in about 35 words.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every quote is marked approved by the person quoted before release.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No unsubstantiated superlatives; every fact is checked.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Press images are the owner's real photos, not generated images presented as real.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Headline has an active verb and is about 10 words or fewer.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "media-pitch",
+        "fact-check",
+        "claims-substantiation-check",
+        "crisis-holding-statement",
+        "messaging-house",
+        "image-edit-retouch"
+      ],
+      "example_request": "We just won the contract to supply bread to all the county's primary schools. Is that worth a press release? If so, write it.",
+      "typical_departments": [
+        "content-comms-pr"
+      ],
+      "version": 1
+    },
+    {
+      "id": "media-pitch",
+      "name": "Media list & pitches",
+      "icon": "📣",
+      "category": "writing-comms",
+      "one_liner": "Targeted journalist list and tailored pitch emails with angles and timing.",
+      "description": "Builds a tiered media list of journalists who have recently covered the beat (with the article that proves it), writes short personalized pitches with a clear angle and timing, and sends them one by one only after the owner approves the list and every pitch.",
+      "when": "the owner has a story, release or expert angle and wants the right journalists, podcasters or newsletter writers to hear about it",
+      "inputs": [
+        {
+          "id": "story",
+          "label": "The story or release and its angle",
+          "required": true,
+          "source": "coworker",
+          "example": "Press release: bakery wins school bread contract"
+        },
+        {
+          "id": "target_outlets",
+          "label": "Outlet types or regions to aim for",
+          "required": false,
+          "source": "owner",
+          "example": "Local papers, regional business press, food newsletters"
+        },
+        {
+          "id": "timing",
+          "label": "Embargo, launch date or news hooks",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "existing_contacts",
+          "label": "Journalists the owner already knows",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "dataset",
+          "name": "Tiered media list",
+          "format": "xlsx",
+          "description": "Outlet, journalist, beat, recent relevant article URL and date, why them, public contact route, tier."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Personalized pitches",
+          "format": "md",
+          "description": "Pitch under 150 words per journalist with subject line and personalized opener."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Timing and follow-up plan",
+          "format": "md",
+          "description": "Send order, embargo handling, one follow-up date per pitch."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "x_search",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision",
+        "send_external"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "hubspot",
+        "linkedin"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "connector_data"
+      ],
+      "instructions": "1. Map the beat with web_search and web_fetch: which outlets and named journalists covered this topic, place or industry in the last six months? Check recent posts with x_search for current interests. Record the article URL and date that justifies each name. 2. Tier the list: tier 1 (perfect fit, high value), tier 2 (good fit), tier 3 (long shot). Use only public professional contact routes (outlet tip lines, published work emails, contact forms). Collect no personal data beyond what is needed to pitch. 3. Write a pitch under 150 words per journalist: a subject line that states the story, an opener that references their specific recent work, the angle for their audience, why now, what you can offer (data, interview, photos) and one clear ask. 4. Handle embargoes and exclusives explicitly: state the terms in the first line, and never offer the same exclusive twice. 5. Build the sheet with spreadsheet_generate and drafts with document_generate; present both with request_owner_decision. 6. After approval, send each pitch individually with send_external (never a mass BCC). Log sends. Plan one polite follow-up three to five business days later, then stop. 7. Escalate to the lead if a journalist asks for comment on anything legal, safety-related or about a crisis. 8. State what could not be verified: contact routes you could not confirm and journalists whose beat may have changed.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Beat mapping",
+          "brief": "Find journalists who covered this topic in the last six months, with the article that proves it.",
+          "acceptance": "Every name has a recent article URL and date; only public professional contact routes."
+        },
+        {
+          "activity": "llm",
+          "title": "Tier the list",
+          "brief": "Rank outlets and journalists into tiers with a one-line why.",
+          "acceptance": "Every entry has a tier and a reason.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Write pitches",
+          "brief": "Write personalized pitches under 150 words.",
+          "acceptance": "Each pitch references the journalist's own recent work and has one ask.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Pitch review",
+          "brief": "Check accuracy, personalization, embargo terms and tone.",
+          "acceptance": "First line APPROVED or CHANGES with per-pitch fixes.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves list and pitches",
+          "brief": "Owner approves which pitches go and when.",
+          "acceptance": "Explicit approval recorded per pitch or batch.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Send approved pitches",
+          "brief": "Send each approved pitch individually through the owner's email connector.",
+          "acceptance": "One receipt per sent pitch; no duplicates; nothing unapproved sent.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every journalist has a relevant article from the last six months cited.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Only public professional contact routes are used; no personal data compiled.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Nothing is sent without explicit approval, and pitches go individually, never as a mass BCC.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Pitches are under 150 words with a personalized first line.",
+          "severity": "should"
+        },
+        {
+          "criterion": "At most one follow-up per journalist.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "press-release",
+        "prospect-list-build",
+        "research-and-cite",
+        "fact-check",
+        "messaging-house"
+      ],
+      "example_request": "Can you find the food writers and local business reporters who'd actually care about our zero-waste bakery, and draft pitches I can send next week?",
+      "typical_departments": [
+        "content-comms-pr"
+      ],
+      "version": 1
+    },
+    {
+      "id": "crisis-holding-statement",
+      "name": "Crisis holding statement",
+      "icon": "⚠",
+      "category": "writing-comms",
+      "one_liner": "Fast, accurate holding statement plus Q&A and stakeholder sequencing.",
+      "description": "Within the first hour of an incident, separates what is known from what is not, drafts a short holding statement (care, facts, action, next update), a hard-questions Q&A with bridge lines, and a stakeholder sequence so affected people and staff hear first. Speculation and admissions of liability are kept out.",
+      "when": "something has gone wrong publicly or is about to (product fault, service outage, data incident, viral complaint, accident) and the business needs to say something accurate fast",
+      "inputs": [
+        {
+          "id": "what_happened",
+          "label": "What is known so far, and how it came to light",
+          "required": true,
+          "source": "owner",
+          "example": "Customer posted a photo of glass in a jar; batch 2409 is being checked"
+        },
+        {
+          "id": "actions_taken",
+          "label": "What the business has already done",
+          "required": true,
+          "source": "owner",
+          "example": "Pulled batch 2409 from shelves; called the supplier"
+        },
+        {
+          "id": "stakeholders",
+          "label": "Who is affected or must hear first",
+          "required": false,
+          "source": "owner",
+          "example": "Customers who bought batch 2409, stockists, staff, environmental health"
+        },
+        {
+          "id": "public_conversation",
+          "label": "Links to posts, reviews or articles",
+          "required": false,
+          "source": "web"
+        },
+        {
+          "id": "past_statements",
+          "label": "Previous statements and policies",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Holding statement",
+          "format": "md -> docx",
+          "description": "Under 150 words, with web, social and email variants."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Q&A with bridge lines",
+          "format": "md",
+          "description": "The ten hardest questions with accurate answers and what not to say."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Stakeholder sequence and update cadence",
+          "format": "md",
+          "description": "Who hears what, in what order, through which channel, and when the next update is due."
+        },
+        {
+          "artifact_type": "message_draft",
+          "name": "Staff note",
+          "format": "md",
+          "description": "What staff should say and not say, and where to route questions."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "web_search",
+        "x_search",
+        "web_fetch",
+        "convene_meeting",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "slack",
+        "google-workspace",
+        "meta-business",
+        "google-business-profile",
+        "zendesk"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "image",
+        "voice"
+      ],
+      "instructions": "1. Build a fact sheet in three columns: confirmed, not yet known, being checked (with who is checking and when). Use only what the owner and verified sources confirm, and recall past statements and policies with memory_recall so nothing contradicts them. 2. Read the public conversation with web_search, web_fetch and x_search: what exactly is being claimed, by whom, and how fast it is spreading. 3. Classify the situation with SCCT (Situational Crisis Communication Theory): victim, accidental or preventable cluster. It sets how much responsibility the statement should accept and whether to lead with instructing information (what people should do to stay safe). 4. Draft the holding statement in this order: care for the people affected, what we know, what we are doing, what people should do (if safety is involved), and when we will update next. Under 150 words. Never say 'no comment'. 5. Do not speculate on cause, assign blame to anyone, or admit legal liability. If the incident involves injury, illness, a data breach, a regulator, a possible lawsuit or an employee matter, escalate to the lead and recommend counsel review before release. 6. Write the Q&A with accurate bridge lines and a stakeholder sequence: affected people first, staff, regulators and partners, then media and public. Draft the staff note. 7. If time allows, convene a 10-minute huddle with convene_meeting (owner can listen). Put release approval to the owner with request_owner_decision. 8. Render with document_generate. Publishing is the owner's decision. 9. State what could not be verified and when each open fact is expected to be confirmed.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Fact sheet",
+          "brief": "Separate confirmed facts, unknowns and items being checked.",
+          "acceptance": "Three-column fact sheet; every confirmed fact has a source."
+        },
+        {
+          "activity": "research",
+          "title": "Read the public conversation",
+          "brief": "Find what is being said, where, and how fast it is spreading.",
+          "acceptance": "Key posts and articles linked with claims summarized.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft statement, Q&A and sequence",
+          "brief": "Draft the holding statement, Q&A, staff note and stakeholder sequence.",
+          "acceptance": "Statement under 150 words with care, facts, action and next-update time.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic and counsel-flag review",
+          "brief": "Check for speculation, blame, liability admissions and legal triggers.",
+          "acceptance": "First line APPROVED or CHANGES; legal triggers flagged for counsel.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves release",
+          "brief": "Owner (and counsel where flagged) approves the statement before release.",
+          "acceptance": "Explicit approval recorded; counsel review noted where required.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Contains only confirmed facts; unknowns are named as unknown.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No speculation on cause, no blame, no admission of liability.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Injury, illness, data breach, regulator or litigation triggers are flagged for counsel before release.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Opens with care for affected people and states when the next update will come.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Holding statement is under 150 words and consistent across channel variants.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "escalation-response",
+        "press-release",
+        "review-response",
+        "incident-runbook",
+        "meeting-minutes"
+      ],
+      "example_request": "A customer posted that they found glass in one of our jars and it's getting shared everywhere. We're checking the batch now. What do we say right now?",
+      "typical_departments": [
+        "content-comms-pr",
+        "customer-success-support",
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "newsletter-issue",
+      "name": "Newsletter issue",
+      "icon": "🗞",
+      "category": "writing-comms",
+      "one_liner": "A newsletter issue with a strong lead story, sections and subject-line tests.",
+      "description": "Produces a complete newsletter issue: a strong lead story, short sections, an illustrated header, two subject lines with a proper test plan, and a rendered HTML email. The campaign is prepared in the email platform and sent or scheduled only after the owner approves.",
+      "when": "a regular newsletter is due, or the owner wants to start one and needs the first issue written and ready to go",
+      "inputs": [
+        {
+          "id": "period_and_send_date",
+          "label": "Which period the issue covers and when it should go out",
+          "required": true,
+          "source": "owner",
+          "example": "October issue, Tuesday 8:00"
+        },
+        {
+          "id": "story_candidates",
+          "label": "News, launches, customer stories, events",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "audience_list",
+          "label": "Which list or segment receives it",
+          "required": true,
+          "source": "connector",
+          "example": "Mailchimp 'Newsletter' audience, 3,400 subscribers"
+        },
+        {
+          "id": "past_performance",
+          "label": "Open and click rates of past issues",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "voice_guide",
+          "label": "House voice",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "email_draft",
+          "name": "Newsletter issue",
+          "format": "html",
+          "description": "Rendered HTML email with a plain-text version and web version."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Header illustration",
+          "format": "png",
+          "description": "On-brand header image with alt text, labelled as an illustration."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Subject-line test plan",
+          "format": "md",
+          "description": "Two subject lines, preheaders, split size, winning metric and send time."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_search",
+        "connector_read",
+        "image_generate",
+        "document_generate",
+        "connector_write",
+        "send_external"
+      ],
+      "connectors_optional": [
+        "mailchimp",
+        "klaviyo",
+        "hubspot",
+        "kajabi",
+        "wordpress"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "connector_data",
+        "web_page"
+      ],
+      "instructions": "1. Collect story candidates from memory_recall, embeddings_search (recent work, wins, launches) and, sparingly, relevant industry news with web_search. Pull past performance with connector_read to learn what readers click. 2. Choose one lead story (the most useful or surprising for readers, not the most important for the business) and three to four short sections. Keep the whole issue to roughly 600 words. 3. Write with the inverted pyramid: the lead's point in its first two lines, one primary call to action, and scannable subheads. 4. Generate a header illustration with image_generate in brand colours; write alt text for every image and use live text, not text in images. 5. Write two subject lines and preheaders. Plan a split test on 10-20% of the list with the winner chosen by click rate rather than opens (privacy features inflate opens), then send the winner to the rest. 6. Render the HTML and plain-text versions with document_generate; check links, alt text, colour contrast and the unsubscribe footer. 7. After review, create the campaign as a draft in the email platform with connector_write, send a test to the owner, then ask for approval. Only on explicit approval schedule or send with send_external. 8. State what could not be verified: facts or dates in stories that still need confirmation, and any links that did not resolve.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Gather stories",
+          "brief": "Collect candidates from memory, recent work and relevant news; pull past performance.",
+          "acceptance": "At least five candidates, each with a source, and last three issues' click rates."
+        },
+        {
+          "activity": "llm",
+          "title": "Write the issue",
+          "brief": "Write the lead story, sections, CTA, subject lines and preheaders.",
+          "acceptance": "About 600 words; one primary CTA; two subject lines with preheaders.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Header illustration",
+          "brief": "Generate the on-brand header with alt text.",
+          "acceptance": "One header image in brand colours with alt text and prompt log.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Editorial review",
+          "brief": "Check facts, links, voice, accessibility and footer.",
+          "acceptance": "First line APPROVED or CHANGES; broken links and missing alt text listed.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render HTML",
+          "brief": "Render the HTML email, plain-text and web versions.",
+          "acceptance": "HTML renders at 320px and 600px widths; all links resolve.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves the send",
+          "brief": "Owner reviews the test email and approves send time and audience.",
+          "acceptance": "Explicit approval recorded with audience and send time.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Schedule the send",
+          "brief": "Create or update the campaign and schedule the approved send in the email platform.",
+          "acceptance": "Receipt from the platform showing audience, time and split test; sent exactly once.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The lead story's point is in its first two lines, above the fold on mobile.",
+          "severity": "must"
+        },
+        {
+          "criterion": "All images have alt text; links resolve; the unsubscribe footer is present.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Nothing is scheduled or sent without explicit owner approval.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Subject-line test uses click rate as the winning metric and a 10-20% split.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Issue is about 600 words with one primary call to action.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 50,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "content-calendar",
+        "email-copy",
+        "email-flow-design",
+        "ai-image-set",
+        "copyedit-pass"
+      ],
+      "example_request": "It's time for the October newsletter and I've got nothing. Can you pull together what's happened this month, write it, and get it ready to go out Tuesday morning?",
+      "typical_departments": [
+        "content-comms-pr",
+        "marketing-growth"
+      ],
+      "version": 1
+    }
+  ]
+}

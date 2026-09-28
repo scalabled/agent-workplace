@@ -1,0 +1,2045 @@
+{
+  "category": "legal-drafting",
+  "version": 1,
+  "skills": [
+    {
+      "id": "contract-issue-list",
+      "name": "Contract review issue list",
+      "icon": "📑",
+      "category": "legal-drafting",
+      "one_liner": "Clause-by-clause issues against a playbook, with suggested redlines for attorney review.",
+      "description": "Reads a contract clause by clause against the owner's playbook, or a conservative default one. It produces an issue list with a business-risk rating, the quoted clause, why it matters in plain English and suggested redline language, plus an obligations and key-dates table. It is a draft for review by a licensed attorney, never a legal opinion.",
+      "when": "the owner has received a contract, MSA, lease, supplier agreement or terms to sign and wants to know what to push back on before attorney review",
+      "inputs": [
+        {
+          "id": "contract_file",
+          "label": "The contract and any schedules or referenced documents",
+          "required": true,
+          "source": "file",
+          "example": "The retailer's 34-page supplier agreement PDF"
+        },
+        {
+          "id": "deal_context",
+          "label": "Who the counterparty is, what the deal is and what matters most",
+          "required": true,
+          "source": "owner",
+          "example": "Payment terms and exclusivity matter most"
+        },
+        {
+          "id": "jurisdiction",
+          "label": "Governing law and where each party is based",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "playbook",
+          "label": "Our preferred, fallback and walk-away positions",
+          "required": false,
+          "source": "memory",
+          "example": "Clause library from clause-library"
+        },
+        {
+          "id": "deadline",
+          "label": "When a response or signature is due",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "contract_draft",
+          "name": "Issue list with suggested redlines",
+          "format": "md -> docx",
+          "description": "Clause ref, quoted text, risk rating, plain-English issue, suggested redline for attorney review, question."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Obligations and key dates",
+          "format": "xlsx",
+          "description": "Each obligation, owner, deadline, notice window and renewal date."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Plain-English summary for the owner",
+          "format": "md",
+          "description": "The five issues that matter most and questions for the attorney."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "vision_describe",
+        "embeddings_search",
+        "memory_recall",
+        "document_generate",
+        "spreadsheet_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "dropbox",
+        "box",
+        "docusign",
+        "clio"
+      ],
+      "modalities": [
+        "file",
+        "text",
+        "image"
+      ],
+      "instructions": "1. Guardrail (legal): Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent. Escalate to a licensed attorney in the relevant jurisdiction (licensed professional) before anything is signed, sent, published or relied on, and mark every output 'DRAFT for review by a licensed attorney. Not legal advice.' 2. Record the stated governing law and venue, and flag it if unclear. Every jurisdiction-dependent point is labelled as such. 3. Parse the contract with file_parse (vision_describe for scanned pages) and build a clause map: parties, term and renewal, fees and payment, scope, service levels, IP, confidentiality, data protection, warranties, indemnities, limitation of liability, insurance, termination, assignment, non-solicit and non-compete, dispute resolution, governing law and notices. 4. Load the playbook with memory_recall (preferred, fallback and walk-away positions). If none exists, use a conservative default and say so. 5. For each clause, compare it with the playbook: rate business risk High, Medium or Low, quote the clause, explain the issue in plain English, and propose redline language labelled 'suggested for attorney review'. 6. Flag missing clauses (no liability cap, no termination for convenience) and unusual ones (auto-renewal with a long notice window, unilateral changes, uncapped indemnities, broad IP assignment, most-favoured-customer terms). 7. Extract obligations and key dates (renewal notice windows, payment terms, reporting duties) into the obligations table with spreadsheet_generate. 8. List questions for the attorney and for the counterparty. Never say a clause is enforceable, legal or 'fine'; use cautious language and flag jurisdiction-dependent points. 9. Nothing is sent to the counterparty from this skill. Use request_owner_decision to confirm the attorney review is arranged. 10. State what could not be verified: enforceability in the jurisdiction, referenced documents not provided (schedules, policies, order forms) and uncertainty in scanned text.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Parse contract and map clauses",
+          "brief": "Extract text (including scanned pages) and map every clause to its section reference.",
+          "acceptance": "Every section appears in the clause map with its reference; governing law recorded or flagged as unclear."
+        },
+        {
+          "activity": "llm",
+          "title": "Compare to playbook",
+          "brief": "Rate each clause against the playbook and draft suggested redlines.",
+          "acceptance": "Each clause has a rating, quoted text, plain-English issue and suggested redline.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Issue list and obligations table",
+          "brief": "Render the issue list, obligations table and owner summary.",
+          "acceptance": "Every output carries the draft-for-attorney-review label.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Consistency and overstatement check",
+          "brief": "Check that nothing reads as a legal conclusion and every High issue has a redline.",
+          "acceptance": "First line is APPROVED or CHANGES; no statement presents a legal conclusion as certain; every High issue has a redline.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by an attorney",
+          "brief": "The owner's attorney in the relevant jurisdiction reviews the issue list before anything is signed or sent.",
+          "acceptance": "Attorney review recorded, or the owner has recorded that review is arranged, before signing or sending.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every output is marked as a draft for review by a licensed attorney and not legal advice",
+          "severity": "must"
+        },
+        {
+          "criterion": "Governing law and jurisdiction assumptions are stated",
+          "severity": "must"
+        },
+        {
+          "criterion": "No legal conclusion is stated as certain",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every High-risk issue quotes the clause and proposes redline language for attorney review",
+          "severity": "must"
+        },
+        {
+          "criterion": "Missing standard clauses are flagged",
+          "severity": "should"
+        },
+        {
+          "criterion": "Obligations and notice windows are extracted with dates",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "clause-library",
+        "negotiation-prep",
+        "nda-draft",
+        "compliance-calendar",
+        "dispute-letter-draft"
+      ],
+      "example_request": "A big retailer sent me their supplier agreement and wants it signed by Friday. It's 34 pages. What should I push back on before I send it to my lawyer?",
+      "regulated_domains": [
+        "legal"
+      ],
+      "typical_departments": [
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "nda-draft",
+      "name": "NDA draft",
+      "icon": "🤐",
+      "category": "legal-drafting",
+      "one_liner": "Mutual or one-way NDA drafted from a vetted template for attorney review.",
+      "description": "Drafts a mutual or one-way NDA from the business's vetted template and the deal facts. It covers the definition of confidential information, standard exclusions, permitted use and disclosure, compelled disclosure, return or destruction, term and remedies. A cover note lists every choice and jurisdiction flag for attorney review before signing.",
+      "when": "the owner is about to share confidential information with a potential partner, supplier, investor, contractor or buyer",
+      "inputs": [
+        {
+          "id": "parties",
+          "label": "Exact legal names and addresses of both parties",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "direction",
+          "label": "Mutual or one-way, and who discloses",
+          "required": true,
+          "source": "owner",
+          "example": "Mutual"
+        },
+        {
+          "id": "purpose",
+          "label": "Why information is being shared",
+          "required": true,
+          "source": "owner",
+          "example": "Evaluating a co-manufacturing arrangement"
+        },
+        {
+          "id": "jurisdiction",
+          "label": "Governing law and venue preferred",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "template",
+          "label": "The business's or counsel's vetted NDA template",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "counterparty_draft",
+          "label": "Their NDA, if they sent one",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "contract_draft",
+          "name": "NDA draft",
+          "format": "md -> docx",
+          "description": "Complete NDA marked as a draft for attorney review."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Cover note: choices and questions",
+          "format": "md",
+          "description": "Each drafting choice, deviations from template and questions for the attorney."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "file_parse",
+        "embeddings_search",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "docusign",
+        "dropbox",
+        "clio"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Guardrail (legal): Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent. Escalate to a licensed attorney in the relevant jurisdiction (licensed professional) before anything is signed, sent, published or relied on, and mark every output 'DRAFT for review by a licensed attorney. Not legal advice.' 2. Start from the business's vetted template or counsel's template with memory_recall and embeddings_search. If none exists, use a plain-language standard structure and say clearly that it has not been vetted. 3. Collect the facts: exact legal names and addresses, mutual or one-way, the purpose, governing law and venue, disclosure period and how long confidentiality survives. 4. Draft the core clauses: definition of confidential information (marked and unmarked, with a reasonable-person standard); standard exclusions (public, already known, independently developed, received from a third party); use limited to the purpose; disclosure to representatives with a need to know; compelled disclosure with notice; return or destruction; no licence; no obligation to proceed; remedies including injunctive relief; and, where US law applies, the trade-secret whistleblower immunity notice for the attorney to confirm. 5. Flag choices for the attorney rather than deciding them: term length, residuals clause, non-solicit (often out of place in an NDA), trade-secret survival and jurisdiction-specific points. 6. If the counterparty sent a draft, parse it with file_parse, compare it with the template and list every deviation. 7. Write the cover note listing each choice and open question. 8. This skill never sends or signs. Confirm the attorney review with request_owner_decision. 9. State what could not be verified: enforceability in the chosen jurisdiction and the correctness of entity names.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Collect facts and choose template",
+          "brief": "Gather party details, purpose and jurisdiction, and load the vetted template.",
+          "acceptance": "All required facts are captured or listed as missing; template source stated."
+        },
+        {
+          "activity": "document",
+          "title": "Draft the NDA and cover note",
+          "brief": "Draft the NDA and cover note, and compare against any counterparty draft.",
+          "acceptance": "Draft includes all core clauses and the draft label; deviations listed.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Template conformance check",
+          "brief": "Check the draft against the template and the flagged choices.",
+          "acceptance": "First line is APPROVED or CHANGES; every deviation from the template is listed; the draft label is present.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by an attorney",
+          "brief": "The owner's attorney reviews the draft before it is sent or signed.",
+          "acceptance": "Attorney review recorded before sending or signing.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Marked as a draft for review by a licensed attorney; not legal advice",
+          "severity": "must"
+        },
+        {
+          "criterion": "Jurisdiction and governing law are flagged",
+          "severity": "must"
+        },
+        {
+          "criterion": "Standard exclusions are present",
+          "severity": "must"
+        },
+        {
+          "criterion": "Deviations from the vetted template are listed",
+          "severity": "must"
+        },
+        {
+          "criterion": "Non-solicit or residuals clauses are flagged rather than silently included",
+          "severity": "should"
+        },
+        {
+          "criterion": "Entity names are flagged for verification",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "contract-issue-list",
+        "clause-library",
+        "negotiation-prep"
+      ],
+      "example_request": "I'm meeting a potential manufacturing partner next week and need to show them our recipes. Can you draft a mutual NDA I can send to my lawyer to check?",
+      "regulated_domains": [
+        "legal"
+      ],
+      "typical_departments": [
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "website-terms-draft",
+      "name": "Website terms draft",
+      "icon": "🌐",
+      "category": "legal-drafting",
+      "one_liner": "Terms of service or sale drafted for the business model, for attorney review.",
+      "description": "Drafts terms of service or terms of sale tailored to the actual business model: accounts, orders and payment, subscriptions and auto-renewal, delivery, returns, IP, acceptable use, disclaimers, liability and disputes. Each consumer-law requirement is flagged per market with a primary-source citation, and a list of site changes is included, all for attorney review before publishing.",
+      "when": "the owner launches a website, online store, subscription or app, or the current terms were copied from someone else",
+      "inputs": [
+        {
+          "id": "business_model",
+          "label": "What is sold, to whom, and how (B2C, B2B, subscription, marketplace, user content)",
+          "required": true,
+          "source": "owner",
+          "example": "Monthly coffee subscription on Shopify"
+        },
+        {
+          "id": "site_url",
+          "label": "The website or app",
+          "required": true,
+          "source": "web"
+        },
+        {
+          "id": "markets",
+          "label": "Where customers are",
+          "required": true,
+          "source": "owner",
+          "example": "US and Canada"
+        },
+        {
+          "id": "existing_terms",
+          "label": "Current terms, if any",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "related_policies",
+          "label": "Returns policy and privacy notice",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "contract_draft",
+          "name": "Website terms draft",
+          "format": "md -> docx",
+          "description": "Terms tailored to the model, marked as a draft for attorney review."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Jurisdiction flag table",
+          "format": "md",
+          "description": "Requirement, market, primary-source citation and date, and what the attorney must confirm."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Site changes needed",
+          "format": "md",
+          "description": "Checkout disclosures, consent boxes, cancellation paths and links the terms rely on."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "vision_describe",
+        "memory_recall",
+        "file_parse",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "woocommerce",
+        "wordpress",
+        "webflow",
+        "stripe",
+        "google-workspace"
+      ],
+      "modalities": [
+        "url",
+        "text",
+        "file",
+        "screen"
+      ],
+      "instructions": "1. Guardrail (legal): Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent. Escalate to a licensed attorney in the relevant jurisdiction (licensed professional) before anything is signed, sent, published or relied on, and mark every output 'DRAFT for review by a licensed attorney. Not legal advice.' 2. Understand the model from the site (web_fetch, and vision_describe on checkout screenshots the owner shares) and from the owner: B2C or B2B, goods, services or digital, subscriptions, accounts, user-generated content, marketplace, age limits. 3. Research, with web_search and web_fetch, the consumer-protection requirements the attorney should confirm for each market (for example EU and UK withdrawal and consumer-contract rules, US state automatic-renewal laws, ROSCA), citing primary sources with dates. These are flags, not conclusions. 4. Draft only the sections that fit the model, in plain language, consistent with the actual checkout, returns policy and privacy notice. Include no clause that contradicts what the site does. 5. Make auto-renewal, cancellation and refund terms clear and conspicuous, and note where checkout-level disclosures or consent may be required (to be confirmed). 6. Flag risky choices for the attorney: mandatory arbitration and class waivers, unilateral changes, and liability disclaimers that consumer law may void. 7. If terms already exist, produce a change table against them; then list the site changes the terms rely on. 8. Publishing is the owner's step after attorney review. 9. State what could not be verified: markets not researched, how the checkout actually behaves, and interpretations only an attorney can make.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Business model and requirement flags",
+          "brief": "Map the business model and research market-specific requirement flags from primary sources.",
+          "acceptance": "Every flag cites a primary source with a date."
+        },
+        {
+          "activity": "document",
+          "title": "Draft the terms",
+          "brief": "Draft the terms, flag table and site-change checklist.",
+          "acceptance": "Every section fits the model; the draft label is present.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Consistency with site and policies",
+          "brief": "Compare the terms with checkout flow, returns policy and privacy notice.",
+          "acceptance": "First line is APPROVED or CHANGES; no clause contradicts site behaviour or other policies.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by an attorney",
+          "brief": "The owner's attorney reviews the terms before publication.",
+          "acceptance": "Attorney review recorded before any publication.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Marked as a draft for review by a licensed attorney",
+          "severity": "must"
+        },
+        {
+          "criterion": "Jurisdiction assumptions and consumer-law flags are cited to primary sources",
+          "severity": "must"
+        },
+        {
+          "criterion": "No legal conclusion is stated as certain",
+          "severity": "must"
+        },
+        {
+          "criterion": "Terms match the actual business model and site flows",
+          "severity": "must"
+        },
+        {
+          "criterion": "Auto-renewal and cancellation terms are clear and conspicuous",
+          "severity": "should"
+        },
+        {
+          "criterion": "A list of site changes needed is included",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "privacy-notice-draft",
+        "returns-policy",
+        "regulatory-research",
+        "cancellation-flow",
+        "contract-issue-list"
+      ],
+      "example_request": "We're launching a monthly coffee subscription on Shopify next month. I need terms of sale that cover subscriptions and cancellations: something my lawyer can mark up.",
+      "regulated_domains": [
+        "legal"
+      ],
+      "typical_departments": [
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "privacy-notice-draft",
+      "name": "Privacy notice draft",
+      "icon": "🔏",
+      "category": "legal-drafting",
+      "one_liner": "GDPR/CCPA-aware privacy notice from an actual data map, for review.",
+      "description": "Drafts a privacy notice aware of GDPR, UK GDPR and CCPA/CPRA, written from the business's actual data map and a check of what the live site collects. It covers what is collected, why, lawful basis, sharing, retention, transfers, rights and contacts, in layered plain language, for review by a privacy professional or counsel.",
+      "when": "the site or app collects personal data and the notice is missing, copied from a template, or out of date after adding new tools",
+      "inputs": [
+        {
+          "id": "data_map",
+          "label": "The business's data map or ROPA",
+          "required": true,
+          "source": "memory",
+          "example": "Output of data-map-ropa"
+        },
+        {
+          "id": "site_url",
+          "label": "Website or app to check",
+          "required": true,
+          "source": "web"
+        },
+        {
+          "id": "markets",
+          "label": "Where customers and users are",
+          "required": true,
+          "source": "owner",
+          "example": "US (California) and the EU"
+        },
+        {
+          "id": "vendors",
+          "label": "Tools and processors in use",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "existing_notice",
+          "label": "The current notice",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "privacy_contact",
+          "label": "Who handles privacy requests",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "policy_draft",
+          "name": "Privacy notice draft",
+          "format": "md -> docx",
+          "description": "Layered notice: short summary, then full sections, marked as a draft for review."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Mismatch and decisions list",
+          "format": "md",
+          "description": "Differences between the data map and the live site, and decisions for counsel."
+        },
+        {
+          "artifact_type": "web_page",
+          "name": "HTML version for after review",
+          "format": "html",
+          "description": "Accessible HTML of the notice, to publish only after review."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "web_fetch",
+        "browser",
+        "web_search",
+        "connector_read",
+        "document_generate",
+        "web_page_generate"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "wordpress",
+        "webflow",
+        "google-analytics",
+        "hubspot",
+        "klaviyo"
+      ],
+      "modalities": [
+        "url",
+        "text",
+        "file",
+        "screen"
+      ],
+      "instructions": "1. Guardrail (privacy): Data-protection drafts only; minimize personal data; never collect or compile personal data beyond the business purpose. Escalate to a privacy professional or counsel (licensed professional) before anything is published or relied on, and mark every output 'DRAFT for review by a privacy professional or counsel.' 2. Guardrail (legal): Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent. Legal interpretations (lawful basis, 'sale' or 'share', transfer mechanisms) are decided by counsel, not by this draft. 3. Start from the data map with memory_recall (run data-map-ropa first if there is none): categories of data, sources, purposes, lawful bases (GDPR Art. 6, and Art. 9 for special categories), recipients and processors, transfers and safeguards, retention. 4. Check the live site with the companion browser: forms, cookies and third-party scripts on key pages. Observe only; submit nothing. Reconcile with the data map and list mismatches, because the notice must describe reality. 5. Draft a layered notice: a short summary, then full sections covering GDPR Art. 13/14 information, CCPA/CPRA disclosures where applicable (categories, sale or share, sensitive information, rights, opt-out links), children, security in general terms, changes and contact. 6. Use plain language (reading age about 12–14) and no catch-alls such as 'we may share with partners'. Do not describe processing the business doesn't do. 7. Minimise: the notice contains no personal data beyond the business contact point. 8. List decisions for counsel: lawful-basis choices, the sale or share determination, the cookie consent mechanism and the transfer mechanism. 9. Render the HTML version with web_page_generate for publication after review only. 10. State what could not be verified: processors' own practices, trackers that load only after consent, and markets not analysed.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load the data map",
+          "brief": "Load the data map, vendor list and existing notice.",
+          "acceptance": "Every processing activity from the data map is listed."
+        },
+        {
+          "activity": "browser",
+          "title": "Site data-collection check",
+          "brief": "Visit key pages and record forms, cookies and third-party scripts without submitting anything.",
+          "acceptance": "List of observed collection points and scripts with page URLs; no forms submitted."
+        },
+        {
+          "activity": "document",
+          "title": "Draft the layered notice",
+          "brief": "Draft the notice, mismatch list and decisions list.",
+          "acceptance": "Draft label present; every observed collection point appears in the notice or the mismatch list.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Reality and completeness check",
+          "brief": "Check the notice against the data map, the site observations and required headings per market.",
+          "acceptance": "First line is APPROVED or CHANGES; required disclosure headings present for each flagged market; nothing contradicts the data map.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by a privacy professional or counsel",
+          "brief": "A privacy professional or counsel reviews the notice and decides the flagged points.",
+          "acceptance": "Reviewer decisions recorded before publication.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Marked as a draft for review by a privacy professional or counsel; not legal advice",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every statement matches the data map and the observed site behaviour",
+          "severity": "must"
+        },
+        {
+          "criterion": "No personal data is collected or compiled beyond the business purpose",
+          "severity": "must"
+        },
+        {
+          "criterion": "Jurisdiction assumptions are flagged and no legal conclusion is stated as certain",
+          "severity": "must"
+        },
+        {
+          "criterion": "Layered, plain-language structure",
+          "severity": "should"
+        },
+        {
+          "criterion": "Decisions for counsel are listed",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "data-map-ropa",
+        "website-terms-draft",
+        "vendor-dpa-review",
+        "regulatory-research"
+      ],
+      "example_request": "Our privacy policy was copied from a template four years ago and we've since added Klaviyo, a booking app and a chat widget. Can you draft a real one?",
+      "regulated_domains": [
+        "privacy",
+        "legal"
+      ],
+      "typical_departments": [
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "data-map-ropa",
+      "name": "Data map & ROPA",
+      "icon": "🗂️",
+      "category": "legal-drafting",
+      "one_liner": "Inventory of personal data: purposes, lawful bases, systems, retention and transfers.",
+      "description": "Inventories how the business processes personal data, using metadata only (no actual records exported). It records systems, data categories, data subjects, purposes, proposed lawful bases, recipients, transfers, retention and security measures as a GDPR Article 30-style ROPA, adds a data-flow diagram and a gap list, and goes for review by a privacy professional.",
+      "when": "the owner does not know where customer or staff data lives, a customer or regulator asks for records, or before writing a privacy notice",
+      "inputs": [
+        {
+          "id": "systems",
+          "label": "Apps, tools and places where personal data is kept",
+          "required": true,
+          "source": "connector",
+          "example": "Shopify, Klaviyo, Gusto, Google Drive, the booking app"
+        },
+        {
+          "id": "processes",
+          "label": "How each team collects and uses data",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "existing_docs",
+          "label": "Existing policies, contracts or lists",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "markets",
+          "label": "Where customers and staff are",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "ROPA register",
+          "format": "xlsx",
+          "description": "Activity, purpose, data subjects, data categories, lawful basis (proposed), recipients, transfers, retention, security, owner."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Data-flow map",
+          "format": "mermaid -> svg",
+          "description": "Collection points through systems and processors to deletion."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Privacy gap list",
+          "format": "md",
+          "description": "Gaps and risks with suggested next steps, including DPIA screening."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "memory_recall",
+        "spreadsheet_generate",
+        "diagram_generate",
+        "document_generate",
+        "request_owner_decision",
+        "memory_write"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "hubspot",
+        "shopify",
+        "stripe",
+        "gusto",
+        "zendesk",
+        "mailchimp"
+      ],
+      "modalities": [
+        "connector_data",
+        "text",
+        "file"
+      ],
+      "instructions": "1. Guardrail (privacy): Data-protection drafts only; minimize personal data; never collect or compile personal data beyond the business purpose. Escalate to a privacy professional or counsel (licensed professional) before anything is published or relied on, and mark every output 'DRAFT for review by a privacy professional or counsel.' 2. Discover systems: apps visible through connectors, billing and vendor lists, and an owner interview covering sales, marketing, support, HR, finance, the website, devices and paper records. 3. For each system record metadata only (field names, data categories, record counts where available) with connector_read. Never export actual personal records. 4. For each processing activity capture the Article 30 fields: purpose, categories of data subjects and data, special categories, proposed lawful basis (for counsel to confirm), recipients and processors, international transfers and safeguards, retention period, security measures and system owner. 5. Draw the data-flow map with diagram_generate: collection points to systems to processors to deletion. 6. Flag risks: no lawful basis identified, special-category data, transfers without a safeguard, no retention rule, over-collection, shared logins. Recommend DPIA screening for high-risk processing. 7. Confirm gaps and system owners with the owner via request_owner_decision. 8. After review, propose saving the map as the source of truth with memory_write for privacy notices and vendor reviews. 9. State what could not be verified: systems not connected, processors' sub-processors and whether retention rules are actually applied.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Discover systems",
+          "brief": "List connected systems and read their data schemas and counts (metadata only).",
+          "acceptance": "Every connected system is listed with data categories; no personal records exported."
+        },
+        {
+          "activity": "human",
+          "title": "Owner interview on processes",
+          "brief": "The owner confirms activities, unconnected systems and system owners.",
+          "acceptance": "Activities and owners confirmed or marked unknown."
+        },
+        {
+          "activity": "llm",
+          "title": "Build the ROPA and data flows",
+          "brief": "Fill the ROPA fields and draw the data-flow map.",
+          "acceptance": "Every activity has purpose, proposed lawful basis, retention and recipients, or a flagged gap.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Gap and risk review",
+          "brief": "Review gaps, special-category data, transfers and retention.",
+          "acceptance": "First line is APPROVED or CHANGES; every gap has a suggested next step; DPIA screening flagged where needed.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by a privacy professional or counsel",
+          "brief": "A privacy professional or counsel reviews the ROPA and lawful-basis proposals.",
+          "acceptance": "Reviewer decisions recorded on lawful bases and flagged risks.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "memory",
+          "title": "Save as source of truth",
+          "brief": "Propose the reviewed ROPA as the data-map memory.",
+          "acceptance": "Memory proposal cites the ROPA file and review date; the owner can undo it.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Metadata only; no personal records are exported or compiled",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every activity has purpose, proposed lawful basis, retention and recipients, or a flagged gap",
+          "severity": "must"
+        },
+        {
+          "criterion": "Marked as a draft for review by a privacy professional or counsel",
+          "severity": "must"
+        },
+        {
+          "criterion": "DPIA screening is flagged for high-risk processing",
+          "severity": "should"
+        },
+        {
+          "criterion": "Every system has a named owner",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "privacy-notice-draft",
+        "vendor-dpa-review",
+        "saas-stack-audit",
+        "policy-draft"
+      ],
+      "example_request": "A customer in Germany asked for our GDPR records and I don't even know where all our customer data lives. Can you map it?",
+      "regulated_domains": [
+        "privacy"
+      ],
+      "typical_departments": [
+        "legal-compliance",
+        "it-security-automation"
+      ],
+      "version": 1
+    },
+    {
+      "id": "vendor-dpa-review",
+      "name": "Vendor DPA & security terms check",
+      "icon": "🧾",
+      "category": "legal-drafting",
+      "one_liner": "Check a vendor's DPA and security terms against a checklist and flag gaps.",
+      "description": "Checks a vendor's data processing agreement and security terms against a GDPR Article 28 and Article 32 checklist: instructions, confidentiality, sub-processors, security measures, breach notice, assistance, deletion, audits, transfers and US service-provider terms. Each item is rated Met, Partial or Missing with a suggested ask, for review by a privacy professional or counsel.",
+      "when": "the business is about to share customer or staff personal data with a new vendor, or renew one",
+      "inputs": [
+        {
+          "id": "dpa",
+          "label": "The vendor's DPA, security annex and sub-processor list",
+          "required": true,
+          "source": "file",
+          "example": "Scheduling platform DPA PDF"
+        },
+        {
+          "id": "data_shared",
+          "label": "What personal data the vendor will process, and how much",
+          "required": true,
+          "source": "memory",
+          "example": "Client names, emails, appointment notes"
+        },
+        {
+          "id": "vendor_trust_page",
+          "label": "Vendor's public security or trust page",
+          "required": false,
+          "source": "web"
+        },
+        {
+          "id": "markets",
+          "label": "Where the data subjects are",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "DPA checklist assessment",
+          "format": "xlsx",
+          "description": "Requirement, clause ref, Met/Partial/Missing/NA, evidence and suggested ask."
+        },
+        {
+          "artifact_type": "contract_draft",
+          "name": "Suggested asks for the vendor",
+          "format": "md -> docx",
+          "description": "Requested changes in plain language, for review before sending."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Decision summary",
+          "format": "md",
+          "description": "Acceptable as is, acceptable with asks, or escalate, with reasons."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "web_search",
+        "web_fetch",
+        "memory_recall",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "dropbox",
+        "box",
+        "docusign"
+      ],
+      "modalities": [
+        "file",
+        "url",
+        "text"
+      ],
+      "instructions": "1. Guardrail (privacy): Data-protection drafts only; minimize personal data; never collect or compile personal data beyond the business purpose. Escalate to a privacy professional or counsel (licensed professional) before anything is published or relied on, and mark every output 'DRAFT for review by a privacy professional or counsel.' 2. Guardrail (legal): Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent. Contract interpretation and whether terms are adequate are decided by counsel; this skill rates items against a checklist only. 3. Establish context with memory_recall: what personal data the vendor will process, volume, sensitivity and where it will be processed. 4. Parse the DPA and linked documents (sub-processor list, security annex, standard contractual clauses) with file_parse. 5. Check the Article 28(3) elements: documented instructions, confidentiality of personnel, Article 32 security measures, sub-processor authorisation and flow-down, help with data-subject rights and DPIAs, deletion or return at the end, and audit and information rights. Also check breach-notification timing, the international transfer mechanism (SCCs, UK IDTA or addendum, adequacy), liability, and US service-provider or contractor terms where relevant. 6. Security terms: note the certifications claimed (for example SOC 2 Type II, ISO 27001) and verify them against the public trust page with web_fetch. Say plainly that the reports themselves were not reviewed unless they were provided. Check encryption, access control, MFA, testing and incident response. Items needing a security judgement go to a qualified security professional. 7. Rate each item Met, Partial, Missing or Not applicable, with the clause reference, and write a suggested ask for each Partial or Missing item (for example 'breach notice within 48 hours'). 8. Summarise the decision: acceptable as is, acceptable with asks, or escalate. 9. State what could not be verified: vendor claims without evidence and the terms of sub-processors.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Parse the DPA and security docs",
+          "brief": "Extract the DPA, annexes and sub-processor list.",
+          "acceptance": "Every clause relevant to the checklist is located with its reference."
+        },
+        {
+          "activity": "research",
+          "title": "Verify vendor security claims",
+          "brief": "Check the vendor's public trust page and certification claims.",
+          "acceptance": "Each claimed certification is marked verified-public, unverified or report-not-reviewed."
+        },
+        {
+          "activity": "llm",
+          "title": "Checklist assessment",
+          "brief": "Rate each checklist item and draft asks.",
+          "acceptance": "Every item is rated with a clause reference or marked missing.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Gap report and asks",
+          "brief": "Render the assessment, the asks and the decision summary.",
+          "acceptance": "Draft label present on every output.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Accuracy review",
+          "brief": "Check ratings against clause text.",
+          "acceptance": "First line is APPROVED or CHANGES; no rating contradicts the quoted clause.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by a privacy professional or counsel",
+          "brief": "A privacy professional or counsel reviews before any ask is sent or the DPA is signed.",
+          "acceptance": "Reviewer decision recorded before signing or sending.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Marked as a draft for review by a privacy professional or counsel; not legal advice",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every Article 28 element is rated with a clause reference or marked missing",
+          "severity": "must"
+        },
+        {
+          "criterion": "Only the personal data needed for the review is used; no data is sent to the vendor",
+          "severity": "must"
+        },
+        {
+          "criterion": "Certification claims are marked verified or unverified, never assumed",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each gap has a concrete suggested ask",
+          "severity": "should"
+        },
+        {
+          "criterion": "The decision summary gives a clear recommendation route",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "data-map-ropa",
+        "security-questionnaire",
+        "contract-issue-list",
+        "saas-stack-audit",
+        "privacy-notice-draft"
+      ],
+      "example_request": "We're about to move our client files to a new scheduling platform. Here's their DPA. Is anything missing that we should ask for before signing?",
+      "regulated_domains": [
+        "privacy",
+        "legal"
+      ],
+      "typical_departments": [
+        "legal-compliance",
+        "it-security-automation"
+      ],
+      "version": 1
+    },
+    {
+      "id": "compliance-calendar",
+      "name": "Compliance calendar",
+      "icon": "📅",
+      "category": "legal-drafting",
+      "one_liner": "Recurring filings, licences, renewals and attestations with owners and dates.",
+      "description": "Builds one calendar of recurring obligations: entity filings, licence and permit renewals, tax filing dates, insurance renewals, contract notice windows, attestations, postings and trainings. Each obligation has its primary source, owner, lead time and evidence needed. Reminders are scheduled only after owner approval, and every date is confirmed with an attorney and a tax professional.",
+      "when": "the owner has missed a renewal or filing, is opening a new location or entity, or wants all deadlines in one place",
+      "inputs": [
+        {
+          "id": "business_profile",
+          "label": "Entity type, locations, headcount, industry and fiscal year end",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "licences",
+          "label": "Current licences, permits and certificates with expiry dates",
+          "required": true,
+          "source": "file",
+          "example": "Photos of the salon licences and the health permit"
+        },
+        {
+          "id": "jurisdictions",
+          "label": "Every place the business operates or has staff",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "contracts",
+          "label": "Contracts with renewal or notice windows",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "owners",
+          "label": "Who looks after what",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Compliance calendar",
+          "format": "xlsx",
+          "description": "Obligation, jurisdiction, source, due-date rule, next due, owner, lead time, fee, penalty per source, evidence, status."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "12-month obligations view",
+          "format": "md",
+          "description": "Month-by-month list for the year ahead."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Evidence checklist per obligation",
+          "format": "xlsx",
+          "description": "What proves each obligation was met."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "web_search",
+        "web_fetch",
+        "file_parse",
+        "vision_describe",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "schedule_automation"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "asana",
+        "monday",
+        "notion",
+        "slack"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url",
+        "image"
+      ],
+      "instructions": "1. Guardrail (legal): Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent. Escalate interpretations of what applies to a licensed attorney in the relevant jurisdiction (licensed professional), and mark the calendar as a draft to confirm. 2. Guardrail (tax_accounting): Organize, reconcile and draft. Filings, elections and tax positions are for a qualified professional to decide and sign. Escalate tax filing dates, frequencies and positions to the owner's CPA, EA or chartered accountant (licensed professional); the calendar only organises them. 3. Read licence and permit documents with file_parse and vision_describe to capture numbers and expiry dates. 4. Build the obligation inventory from the business profile: entity filings (annual reports, registered agent); business and professional licences; permits (health, fire, signage, alcohol); sales and payroll tax filing frequencies (dates confirmed by the tax professional); insurance renewals; contract notice windows (from contract-issue-list); data-protection tasks; workplace postings and trainings; industry certifications. 5. For each obligation, cite the primary source (the regulator's page) for the requirement and due-date rule with web_search and web_fetch, and note the jurisdiction. 6. Compute next due dates from each due-date rule in code_interpreter, and record owner, lead time, documents needed, published fee, penalty for missing as stated by the source, and evidence of completion. Mark items 'confirmed' only when the source is primary and current; otherwise 'to confirm with professional'. 7. Produce the calendar with spreadsheet_generate and the 12-month view with document_generate. 8. With explicit owner approval for each automation, create reminders (for example 30 and 7 days before) with schedule_automation. 9. State what could not be verified: local requirements not published online and dates that depend on the tax professional's filing setup.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Obligation inventory from primary sources",
+          "brief": "List every obligation from the profile and documents and cite a primary source for each.",
+          "acceptance": "Every obligation cites a primary source or is marked to confirm."
+        },
+        {
+          "activity": "analysis",
+          "title": "Dates, owners and lead times",
+          "brief": "Compute next due dates, lead times and owners.",
+          "acceptance": "Every obligation has a next due date or rule, an owner and a lead time.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Compliance calendar",
+          "brief": "Render the calendar, 12-month view and evidence checklist.",
+          "acceptance": "Files open; draft-to-confirm label present.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Source and completeness check",
+          "brief": "Check sources, dates and missing obligation types.",
+          "acceptance": "First line is APPROVED or CHANGES; every obligation cites a primary source or is marked to confirm.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by an attorney and a CPA or EA",
+          "brief": "The owner's attorney and tax professional confirm applicable obligations and tax dates.",
+          "acceptance": "Confirmations recorded, or items left marked to confirm.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "schedule",
+          "title": "Set approved reminders",
+          "brief": "Create only the reminders the owner approves.",
+          "acceptance": "Each reminder automation was approved individually and has a receipt.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every obligation cites a primary source or is marked to confirm with a professional",
+          "severity": "must"
+        },
+        {
+          "criterion": "Marked as a draft; tax dates and positions are confirmed by a CPA, EA or chartered accountant, and legal interpretations by an attorney",
+          "severity": "must"
+        },
+        {
+          "criterion": "Reminders are created only after explicit owner approval",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each item has an owner, lead time and evidence of completion",
+          "severity": "should"
+        },
+        {
+          "criterion": "Penalties are stated only as the source states them",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "regulatory-research",
+        "contract-issue-list",
+        "tax-organizer",
+        "risk-register",
+        "policy-draft"
+      ],
+      "example_request": "I run two salons and I've been fined twice for late renewals. Can you put every licence, permit and filing we have into one calendar with reminders?",
+      "regulated_domains": [
+        "legal",
+        "tax_accounting"
+      ],
+      "typical_departments": [
+        "legal-compliance",
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "trademark-search-prep",
+      "name": "Trademark clearance prep",
+      "icon": "™️",
+      "category": "legal-drafting",
+      "one_liner": "Knockout search across public databases and a memo for attorney review.",
+      "description": "Runs a knockout trademark search for a proposed name or logo across public registers (USPTO, EUIPO, WIPO Global Brand Database, UKIPO and others as relevant) and common-law web use, domains and handles, organised by Nice class. It produces a memo with hits graded on likelihood-of-confusion factors, for attorney review. It is never a clearance opinion.",
+      "when": "before paying for a logo, printing packaging, registering a domain or launching under a new name",
+      "inputs": [
+        {
+          "id": "proposed_mark",
+          "label": "The name, tagline or logo",
+          "required": true,
+          "source": "owner",
+          "example": "Little Ember Bakehouse"
+        },
+        {
+          "id": "goods_services",
+          "label": "What will be sold under it",
+          "required": true,
+          "source": "owner",
+          "example": "Baked goods, jarred preserves, online and in store"
+        },
+        {
+          "id": "markets",
+          "label": "Where it will be used",
+          "required": true,
+          "source": "owner",
+          "example": "US, later Canada"
+        },
+        {
+          "id": "logo_image",
+          "label": "The logo, if any",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Knockout search memo",
+          "format": "md -> pdf",
+          "description": "Summary, registers searched with queries and dates, hits table, risk grading, alternatives and questions for the attorney."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Hits table",
+          "format": "xlsx",
+          "description": "Mark, owner, status, classes, goods, filing date, link and risk grade."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "browser",
+        "vision_describe",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "url",
+        "screen"
+      ],
+      "instructions": "1. Guardrail (legal): Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent. Escalate to a licensed trademark attorney in the relevant jurisdiction (licensed professional) before adoption, filing or spend, and mark the memo 'Knockout search for attorney review. Not a clearance opinion.' 2. Describe the goods and services and map them to likely Nice classes, plus coordinated classes. 3. Search the relevant registers through the companion browser (search forms only; nothing is filed or submitted): USPTO trademark search, EUIPO eSearch or TMview, WIPO Global Brand Database, UKIPO and national registers for target markets. Cover identical marks, phonetic equivalents, spelling variants and translations; compare design marks with vision_describe. 4. Search common-law use with web_search and web_fetch: the web, marketplaces, business registries, domain availability and social handles. 5. Record each hit: mark, owner, status (live or dead), classes, goods, filing date and link. 6. Grade each hit low, medium or high using likelihood-of-confusion factors (similarity in sight, sound and meaning; relatedness of goods; trade channels) as input for the attorney, not a conclusion. 7. Note distinctiveness concerns (descriptive or generic words) and suggest alternatives to test. 8. Write the memo with registers, queries, dates, the hits table and questions for the attorney. 9. State what could not be verified: registers not searched, unregistered offline use and pending applications not yet published.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Goods, services and classes",
+          "brief": "Describe goods and services and map to Nice classes with reasons.",
+          "acceptance": "Classes listed with reasons."
+        },
+        {
+          "activity": "browser",
+          "title": "Register searches",
+          "brief": "Search each register for identical, phonetic, variant and translated marks, and design marks.",
+          "acceptance": "Each register searched with query strings, date and result counts logged; screenshots of key hits; nothing submitted beyond search.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "research",
+          "title": "Common-law, domain and handle checks",
+          "brief": "Search web use, marketplaces, registries, domains and handles.",
+          "acceptance": "Each check has a link and date.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Grade hits",
+          "brief": "Grade each hit on likelihood-of-confusion factors.",
+          "acceptance": "Every hit has a grade with the factors behind it.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Knockout memo",
+          "brief": "Write the memo and hits table.",
+          "acceptance": "Memo carries the not-a-clearance-opinion label.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by a trademark attorney",
+          "brief": "A trademark attorney reviews the memo before adoption or filing.",
+          "acceptance": "Attorney review recorded before adoption or spend.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Marked as knockout research for review by a licensed attorney, not a clearance opinion",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every register searched is listed with its queries and date",
+          "severity": "must"
+        },
+        {
+          "criterion": "No conclusion that a mark is available or safe to use",
+          "severity": "must"
+        },
+        {
+          "criterion": "Phonetic, spelling and translation variants are searched",
+          "severity": "should"
+        },
+        {
+          "criterion": "Nice classes are mapped with reasons",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "brand-identity-kit",
+        "positioning-statement",
+        "regulatory-research",
+        "moodboard"
+      ],
+      "example_request": "We want to rename the bakery 'Little Ember Bakehouse' and start selling jars online nationally. Is anyone already using that name before I pay a designer?",
+      "regulated_domains": [
+        "legal"
+      ],
+      "typical_departments": [
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "policy-draft",
+      "name": "Company policy draft",
+      "icon": "📜",
+      "category": "legal-drafting",
+      "one_liner": "A clear policy with scope, rules, exceptions and owner, for qualified review.",
+      "description": "Drafts a clear company policy (purpose, scope, definitions, rules, exceptions and who approves them, roles, enforcement, review date) in plain language. It is benchmarked against primary-source guidance and flagged by jurisdiction, with a staff summary, for review by an attorney, or by employment counsel where staff are affected.",
+      "when": "the business needs a rule written down: expenses, company cards, remote work, device use, refunds, gifts, conflicts of interest, data retention or similar",
+      "inputs": [
+        {
+          "id": "topic",
+          "label": "What the policy covers and why now",
+          "required": true,
+          "source": "owner",
+          "example": "Expenses and company cards; people keep buying lunches"
+        },
+        {
+          "id": "jurisdictions",
+          "label": "Where staff and operations are",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "current_practice",
+          "label": "What happens today",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "related_policies",
+          "label": "Existing policies and handbook",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "policy_draft",
+          "name": "Policy draft",
+          "format": "md -> docx",
+          "description": "Standard structure with owner, version and review date, marked as a draft for qualified review."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Staff summary",
+          "format": "md",
+          "description": "One page: what changes, what to do, who to ask."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Jurisdiction flags and sources",
+          "format": "md",
+          "description": "Requirements that vary by place, with primary-source links."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_search",
+        "web_fetch",
+        "file_parse",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "notion",
+        "confluence",
+        "bamboohr",
+        "rippling"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Guardrail (legal): Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent. Escalate to a licensed attorney in the relevant jurisdiction (licensed professional) before anything is signed, sent, published or relied on, and mark every output 'DRAFT for review by a licensed attorney. Not legal advice.' 2. Guardrail (employment_law): Policies and processes as drafts with jurisdiction flags. Terminations, discipline, accommodations, classification and pay-equity questions escalate to the owner and counsel. Where the policy affects staff, escalate to employment counsel or a qualified HR professional (licensed professional); the policy never decides an individual case. 3. Clarify the problem the policy solves and who it applies to; check existing policies with embeddings_search and file_parse for conflicts. 4. Research requirements and reputable guidance from primary sources (regulators, government guidance, standards bodies) for each jurisdiction with web_search and web_fetch, and flag where the rules differ by state or country. 5. Draft in a standard structure: purpose, scope, definitions, policy statements (must and must not), procedures, exceptions and who approves them, roles and responsibilities, related documents, enforcement, and review cadence with version and owner. 6. Write in plain language: short sentences, 'you' and 'we', and examples for grey areas. 7. Flag employment-related items (discipline, leave, monitoring, accommodations, pay deductions) for employment counsel. 8. Add an acknowledgement line and a one-page staff summary; confirm policy choices with the owner via request_owner_decision. 9. State what could not be verified: jurisdictional variations not researched, and practices the owner described but that aren't documented.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Requirements and guidance",
+          "brief": "Research requirements and guidance per jurisdiction from primary sources.",
+          "acceptance": "Every requirement cites a primary source and jurisdiction."
+        },
+        {
+          "activity": "document",
+          "title": "Draft the policy",
+          "brief": "Draft the policy, staff summary and flag list.",
+          "acceptance": "Standard structure complete; draft label present.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Plain-language and conflict review",
+          "brief": "Check readability and conflicts with existing policies.",
+          "acceptance": "First line is APPROVED or CHANGES; no conflict with existing policies remains unflagged.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by an attorney or employment counsel",
+          "brief": "An attorney, or employment counsel or a qualified HR professional where staff are affected, reviews before adoption.",
+          "acceptance": "Qualified reviewer recorded before adoption.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Marked as a draft for review by an attorney, or by employment counsel or a qualified HR professional where staff are affected",
+          "severity": "must"
+        },
+        {
+          "criterion": "Jurisdiction flags accompany every requirement that varies by place",
+          "severity": "must"
+        },
+        {
+          "criterion": "No individual employment decision is made or implied",
+          "severity": "must"
+        },
+        {
+          "criterion": "No legal conclusion is stated as certain",
+          "severity": "must"
+        },
+        {
+          "criterion": "Standard structure with owner and review date",
+          "severity": "should"
+        },
+        {
+          "criterion": "Plain-language reading level",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "handbook-section",
+        "ai-use-policy",
+        "compliance-calendar",
+        "plain-language-rewrite",
+        "inclusive-language-review"
+      ],
+      "example_request": "We need a proper expense and company-card policy. People keep buying lunches on the card and I don't know what's allowed. Draft something fair.",
+      "regulated_domains": [
+        "legal",
+        "employment_law"
+      ],
+      "typical_departments": [
+        "legal-compliance",
+        "people-culture"
+      ],
+      "version": 1
+    },
+    {
+      "id": "regulatory-research",
+      "name": "Regulatory requirements research",
+      "icon": "🏛️",
+      "category": "legal-drafting",
+      "one_liner": "Requirements from primary sources for a business activity and place, with citations.",
+      "description": "Researches the licences, permits, registrations and rules that apply to a specific activity in a specific place, from primary sources, at every layer of jurisdiction. Output is a requirements matrix (citation, agency, conditions, deadlines, published fees, effective dates), a sequenced path, and questions for the attorney and the agency.",
+      "when": "the owner plans a new activity, product, location or market and needs to know what rules apply before spending money",
+      "inputs": [
+        {
+          "id": "activity",
+          "label": "The activity in concrete terms",
+          "required": true,
+          "source": "owner",
+          "example": "Selling homemade hot sauce at farmers markets and online"
+        },
+        {
+          "id": "location",
+          "label": "Where, down to city or county",
+          "required": true,
+          "source": "owner",
+          "example": "Portland, Oregon"
+        },
+        {
+          "id": "business_profile",
+          "label": "Entity type, size and current licences",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "timeline",
+          "label": "When the owner wants to start",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Requirements matrix",
+          "format": "xlsx",
+          "description": "Requirement, citation and link, agency, applies-when, deadline, fee as published, effective and last-updated dates, penalty, evidence."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Regulatory research memo",
+          "format": "md -> pdf",
+          "description": "Summary, sequenced path, open questions and pending changes."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Permit sequence",
+          "format": "mermaid -> svg",
+          "description": "What must happen before what."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "browser",
+        "spreadsheet_generate",
+        "document_generate",
+        "diagram_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "screen"
+      ],
+      "instructions": "1. Guardrail (legal): Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent. Escalate to a licensed attorney in the relevant jurisdiction (licensed professional) before anything is signed, sent, published or relied on, and mark every output 'DRAFT for review by a licensed attorney. Not legal advice.' 2. Define the activity precisely and every layer of jurisdiction: federal or national, state or province, county, city and sector regulators. 3. Search primary sources only for requirements with web_search and web_fetch: statutes, regulations, agency guidance and official forms. Use secondary sources only to find primary ones. Use the companion browser for agency portals and lookups that need filters, and submit nothing. 4. For each requirement capture: the requirement, citation and link, agency, conditions that trigger it, deadlines, fees as published, effective date and last-updated date, penalty and evidence required. 5. Note conflicts, ambiguities and pending changes (proposed rules, consultations). 6. Build the requirements matrix and a sequenced path with diagram_generate (for example zoning before building permit before health permit). 7. List questions for the attorney and for the agency. 8. Offer watch-a-page on key agency pages so changes are caught. 9. State what could not be verified: local rules not published online, interpretive questions and pages without a last-updated date.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Primary-source search",
+          "brief": "Search every jurisdiction layer for requirements from primary sources.",
+          "acceptance": "Every requirement has a primary-source link and date."
+        },
+        {
+          "activity": "browser",
+          "title": "Agency portal lookups",
+          "brief": "Use agency portals that need filters or lookups; submit nothing.",
+          "acceptance": "Lookup pages recorded with URLs; nothing submitted.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Requirements matrix and sequence",
+          "brief": "Build the matrix and the dependency sequence.",
+          "acceptance": "Each requirement is placed in sequence with its dependencies.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Citation audit",
+          "brief": "Check each citation supports its requirement and is current.",
+          "acceptance": "First line is APPROVED or CHANGES; every requirement cites a primary source; outdated pages flagged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by an attorney",
+          "brief": "The owner's attorney reviews interpretations before the owner acts or spends.",
+          "acceptance": "Attorney review recorded or marked as pending before action.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every requirement cites a primary source with a link and date",
+          "severity": "must"
+        },
+        {
+          "criterion": "Marked as research for review by a licensed attorney; no conclusion is stated as certain",
+          "severity": "must"
+        },
+        {
+          "criterion": "Jurisdiction layers are listed explicitly",
+          "severity": "must"
+        },
+        {
+          "criterion": "Pending changes are flagged",
+          "severity": "should"
+        },
+        {
+          "criterion": "A sequenced path with dependencies is included",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "compliance-calendar",
+        "policy-draft",
+        "store-opening-checklist",
+        "research-and-cite",
+        "watch-a-page"
+      ],
+      "example_request": "I want to sell homemade hot sauce at farmers markets and online in Oregon. What licences and rules apply? Give me the actual sources.",
+      "regulated_domains": [
+        "legal"
+      ],
+      "typical_departments": [
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "clause-library",
+      "name": "Clause library & playbook",
+      "icon": "🗃️",
+      "category": "legal-drafting",
+      "one_liner": "Preferred, fallback and walk-away positions for common clauses.",
+      "description": "Builds a contract playbook from the business's own signed contracts and templates. For each common clause it gives preferred, fallback and walk-away positions with plain-English reasons, approved language, and who may approve deviations. It is drafted for attorney approval, then saved so reviews and negotiations stay fast and consistent.",
+      "when": "the business negotiates similar contracts repeatedly and argues about the same clauses each time",
+      "inputs": [
+        {
+          "id": "past_contracts",
+          "label": "Signed contracts and templates",
+          "required": true,
+          "source": "file",
+          "example": "The last 20 client agreements in Dropbox"
+        },
+        {
+          "id": "risk_appetite",
+          "label": "What the owner will and won't accept",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "deal_types",
+          "label": "The kinds of contracts in scope",
+          "required": false,
+          "source": "owner",
+          "example": "Client services agreements and supplier terms"
+        },
+        {
+          "id": "counsel_positions",
+          "label": "Positions or templates from counsel",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "contract_draft",
+          "name": "Clause playbook",
+          "format": "md -> docx",
+          "description": "Per clause: preferred, fallback and walk-away positions, rationale, approved language, approver."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Position matrix",
+          "format": "xlsx",
+          "description": "Clause types against what the business has actually agreed, with ranges and outliers."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "embeddings_search",
+        "code_interpreter",
+        "document_generate",
+        "spreadsheet_generate",
+        "request_owner_decision",
+        "memory_write"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "dropbox",
+        "box",
+        "docusign",
+        "clio",
+        "notion"
+      ],
+      "modalities": [
+        "file",
+        "text"
+      ],
+      "instructions": "1. Guardrail (legal): Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent. Escalate to a licensed attorney in the relevant jurisdiction (licensed professional) before anything is signed, sent, published or relied on, and mark every output 'DRAFT for review by a licensed attorney. Not legal advice.' 2. Collect signed contracts and templates with file_parse, and extract clauses by type with embeddings_search: limitation of liability, indemnity, IP, confidentiality, payment, term and renewal, termination, warranties, service levels, data protection, governing law, assignment and non-solicit. 3. For each clause type, show in code_interpreter what the business has actually agreed to (the range across contracts and the outliers) and where it has been burned. 4. Propose positions: preferred (our paper), one or two fallbacks (acceptable concessions) and walk-away (escalate or decline), each with a plain-English rationale and a business-risk rating. 5. Attach approved language to each position, taken from the business's vetted templates or counsel. Mark any new language 'proposed for attorney drafting', never vetted. 6. Set approval rules: who may accept fallback positions (owner, counsel), and a deviation log. 7. Ask the owner to set risk appetite on each walk-away point with request_owner_decision. 8. After attorney approval, propose saving the library with memory_write for contract-issue-list and negotiation-prep. 9. State what could not be verified: enforceability of positions by jurisdiction and contracts not provided.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Extract clauses from past contracts",
+          "brief": "Parse contracts and tag clauses by type.",
+          "acceptance": "Every contract is parsed; each clause type has its examples listed."
+        },
+        {
+          "activity": "analysis",
+          "title": "Current-position analysis",
+          "brief": "Summarise ranges and outliers per clause type.",
+          "acceptance": "Each clause type shows range, outliers and count.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Draft the playbook",
+          "brief": "Draft positions, rationales, language and approvers.",
+          "acceptance": "Every position has a rationale and approver; new language is labelled proposed.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner sets risk appetite",
+          "brief": "The owner confirms walk-away points and approval rules.",
+          "acceptance": "Owner decisions recorded per clause type.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by an attorney",
+          "brief": "The owner's attorney approves the positions and language.",
+          "acceptance": "Attorney approval recorded before the library is used.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "memory",
+          "title": "Save the approved library",
+          "brief": "Propose the approved library as shared memory.",
+          "acceptance": "Memory proposal cites the playbook version and approval date.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Marked as a draft for approval by a licensed attorney",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every position has a plain-English rationale and a named approver",
+          "severity": "must"
+        },
+        {
+          "criterion": "New language is labelled proposed, never presented as vetted",
+          "severity": "must"
+        },
+        {
+          "criterion": "Shows the range the business has actually agreed to",
+          "severity": "should"
+        },
+        {
+          "criterion": "Walk-away positions are explicit",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "contract-issue-list",
+        "negotiation-prep",
+        "nda-draft",
+        "proposal-writing"
+      ],
+      "example_request": "Every time a client sends their contract we argue about the same five clauses. Can you build us a playbook of what we accept and what we don't, so I stop reinventing it?",
+      "regulated_domains": [
+        "legal"
+      ],
+      "typical_departments": [
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "dispute-letter-draft",
+      "name": "Dispute letter draft",
+      "icon": "📨",
+      "category": "legal-drafting",
+      "one_liner": "A firm, factual letter draft for a dispute, for attorney review before sending.",
+      "description": "Drafts a firm, factual letter for a dispute: a dated chronology with an evidence index, the terms relied on, the remedy and amount with its calculation, a reasonable deadline and next steps the owner is prepared to take. It comes in softer and firmer variants, with no threats, defamation or admissions, for attorney review before sending.",
+      "when": "a customer, supplier, contractor or landlord has not done what was agreed and conversation has not fixed it",
+      "inputs": [
+        {
+          "id": "dispute_summary",
+          "label": "What happened, in the owner's words",
+          "required": true,
+          "source": "owner",
+          "example": "Contractor took a $9,000 deposit and hasn't shown up in six weeks"
+        },
+        {
+          "id": "documents",
+          "label": "Contract, invoices, emails, messages and photos",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "desired_outcome",
+          "label": "What the owner wants and the minimum acceptable",
+          "required": true,
+          "source": "owner",
+          "example": "Full deposit back, or a start date within 14 days"
+        },
+        {
+          "id": "counterparty",
+          "label": "Who they are and their address",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "jurisdiction",
+          "label": "Where each party is and where the work happened",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Dispute letter draft (softer and firmer variants)",
+          "format": "md -> docx",
+          "description": "Marked as a draft for attorney review before sending."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Chronology and evidence index",
+          "format": "xlsx",
+          "description": "Date, event, evidence reference and source file."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "vision_describe",
+        "connector_read",
+        "embeddings_search",
+        "document_generate",
+        "spreadsheet_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "quickbooks",
+        "xero",
+        "dropbox",
+        "clio"
+      ],
+      "modalities": [
+        "file",
+        "text",
+        "image"
+      ],
+      "instructions": "1. Guardrail (legal): Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent. Escalate to a licensed attorney in the relevant jurisdiction (licensed professional) before anything is signed, sent, published or relied on, and mark every output 'DRAFT for review by a licensed attorney. Not legal advice.' 2. Build a dated chronology from the documents (contracts, invoices, emails, messages, photos read with vision_describe) with an evidence index. Quote the exact terms relied on. 3. Clarify the owner's goal (payment, repair, refund, stopping an action) and minimum acceptable outcome, and consider whether a call or mediation should come first. 4. Draft the letter: the facts in neutral language; the obligation and how it was not met, with references; the specific remedy and amount with its calculation; a reasonable deadline; and the next step if unresolved (for example mediation or small claims), but only steps the owner is actually prepared to take. 5. Avoid defamatory statements, admissions, emotional language, and threats of criminal prosecution or regulatory complaints used as leverage. 6. Flag jurisdiction points for the attorney: limitation periods, pre-action requirements (such as letter-before-claim protocols), consumer-law rules and 'without prejudice' usage. 7. Provide a softer and a firmer variant; confirm the chosen tone and remedy with request_owner_decision. 8. This skill never sends the letter. 9. State what could not be verified: facts from the owner's account without documents, and the counterparty's position.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Evidence and chronology",
+          "brief": "Parse the documents and build the chronology and evidence index.",
+          "acceptance": "Every event has a date and an evidence reference, or is marked owner-reported."
+        },
+        {
+          "activity": "document",
+          "title": "Draft letter variants",
+          "brief": "Draft the softer and firmer variants.",
+          "acceptance": "Both variants state facts, terms, remedy with calculation and deadline; draft label present.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Tone and risk review",
+          "brief": "Check for threats, defamation, admissions and unsupported claims.",
+          "acceptance": "First line is APPROVED or CHANGES; no threats, defamatory statements or unsupported claims; every fact cites the evidence index.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by an attorney",
+          "brief": "The owner's attorney reviews the letter before anything is sent.",
+          "acceptance": "Attorney review recorded before sending.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Marked as a draft for review by a licensed attorney before sending",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every factual statement is tied to evidence",
+          "severity": "must"
+        },
+        {
+          "criterion": "No threats of criminal action, defamatory language or admissions",
+          "severity": "must"
+        },
+        {
+          "criterion": "Jurisdiction points such as limitation periods and pre-action rules are flagged, not decided",
+          "severity": "must"
+        },
+        {
+          "criterion": "The remedy amount shows its calculation",
+          "severity": "should"
+        },
+        {
+          "criterion": "Softer and firmer variants are offered",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "contract-issue-list",
+        "ar-collections",
+        "escalation-response",
+        "negotiation-prep"
+      ],
+      "example_request": "A contractor took a $9,000 deposit for our shop fit-out and hasn't shown up in six weeks. I want a firm letter demanding the money back, for my lawyer to check first.",
+      "regulated_domains": [
+        "legal"
+      ],
+      "typical_departments": [
+        "legal-compliance"
+      ],
+      "version": 1
+    }
+  ]
+}

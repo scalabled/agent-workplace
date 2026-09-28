@@ -1,0 +1,1892 @@
+{
+  "category": "media-production",
+  "version": 1,
+  "skills": [
+    {
+      "id": "ai-image-set",
+      "name": "AI image set",
+      "icon": "🖼️",
+      "category": "media-production",
+      "one_liner": "A consistent set of generated images from a brief, with a prompt log and rights notes.",
+      "description": "Generates a visually consistent set of images from a brief. A style frame (medium, palette, lighting, lens, composition) and a fixed prompt template keep the set coherent, an approved hero image anchors the look, and the set ships with a full prompt log and plain rights notes.",
+      "when": "the owner needs several matching images (website sections, a campaign, a course, a blog series) and no photo shoot or illustrator is available",
+      "inputs": [
+        {
+          "id": "brief",
+          "label": "What the images are for, how many, and the subjects",
+          "required": true,
+          "source": "owner",
+          "example": "12 illustrations for budgeting, saving and tax pages"
+        },
+        {
+          "id": "brand_style",
+          "label": "Brand colors, fonts, existing imagery and voice",
+          "required": false,
+          "source": "memory",
+          "example": "Teal #1F7A7A and mustard #E0A526, warm and hand-drawn"
+        },
+        {
+          "id": "references",
+          "label": "Reference images the owner likes",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "placements",
+          "label": "Where they will appear and at what sizes",
+          "required": true,
+          "source": "owner",
+          "example": "Website hero 16:9, blog cards 4:3, Instagram 4:5"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "image",
+          "name": "Image set",
+          "format": "png + webp",
+          "description": "Final images at each placement's aspect ratio, consistently named."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Style frame",
+          "format": "md",
+          "description": "Medium, palette with hex codes, lighting, lens or line quality, composition rules and negative guidance."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Prompt log and rights notes",
+          "format": "md -> pdf",
+          "description": "Every prompt, model and settings used, plus usage and disclosure notes."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "image_generate",
+        "image_edit",
+        "vision_describe",
+        "request_owner_decision",
+        "document_generate",
+        "workspace_files"
+      ],
+      "connectors_optional": [
+        "canva",
+        "figma",
+        "dropbox",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "file"
+      ],
+      "instructions": "1. Recall brand colors and past visual decisions with memory_recall; read reference images with vision_describe and name what makes them work (medium, palette, light, composition). 2. Write a style frame: medium, palette in hex, lighting, lens or line quality, composition rules, and what to avoid (text in image, real people's likenesses, logos, living artists' names). 3. Build a prompt template: fixed style tokens plus a variable subject slot, and write the subject list for the whole set. 4. Generate 3 hero candidates with image_generate and ask the owner to pick one with request_owner_decision. 5. Generate the rest of the set from the same template. Where a subject drifts, use image_edit on the hero to carry the look across; keep aspect ratios per placement. 6. QA every image with vision_describe: artifacts, malformed hands, accidental text, off-palette colors, and anything that could read as a stereotype. Regenerate failures. 7. Save with consistent file names via workspace_files and write the prompt log and rights notes with document_generate: AI-generated, no real people or third-party marks, platform AI-label rules, and the fact that copyright protection for AI images may be limited. 8. State what could not be verified, such as whether a generated image unintentionally resembles an existing work.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Style frame and subjects",
+          "brief": "Write the style frame, prompt template and subject list from the brief and references.",
+          "acceptance": "Style frame names palette hex codes, medium, lighting and exclusions; every image has a subject line."
+        },
+        {
+          "activity": "image",
+          "title": "Generate hero candidates",
+          "brief": "Generate three hero candidates from the template.",
+          "acceptance": "Three candidates that follow the style frame.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner picks the hero",
+          "brief": "Decision card with the three candidates.",
+          "acceptance": "Owner picks one or asks for another round.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Generate the set",
+          "brief": "Generate the remaining images, using edits from the hero to hold consistency.",
+          "acceptance": "All images generated at the right ratios and visibly in one style.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Art direction QA",
+          "brief": "An art director checks consistency, artifacts, accidental text and representation.",
+          "acceptance": "First line is APPROVED or CHANGES; failing images listed with the reason.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Package set and prompt log",
+          "brief": "Save final files and write the prompt log and rights notes.",
+          "acceptance": "Every image has a logged prompt and settings; rights notes present.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "No real person's likeness, third-party logo or living artist's name in any prompt.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every image has its prompt and settings logged.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No accidental or garbled text in images.",
+          "severity": "must"
+        },
+        {
+          "criterion": "A viewer would read the set as one style: same palette, light and medium.",
+          "severity": "should"
+        },
+        {
+          "criterion": "People depicted are varied and never stereotyped.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "moodboard",
+        "brand-identity-kit",
+        "social-graphics-set",
+        "image-edit-retouch",
+        "product-photo-brief"
+      ],
+      "example_request": "I need 12 matching illustrations for our new website — cozy, hand-drawn feel, in our teal and mustard — for the pages about budgeting, saving and taxes.",
+      "typical_departments": [
+        "design-creative",
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "image-edit-retouch",
+      "name": "Image edit & retouch",
+      "icon": "🪄",
+      "category": "media-production",
+      "one_liner": "Edit or retouch images while preserving identity, product and brand elements.",
+      "description": "Edits and retouches images (background cleanup or replacement, color correction, crops, seasonal variants) while protecting what must not change: faces, product shape, color and texture, logos and labels. Originals are kept, and an edit log explains every change.",
+      "when": "the owner has real photos that need cleaning up, making consistent for a store or listing, or adapting to new formats without misrepresenting the product or person",
+      "inputs": [
+        {
+          "id": "images",
+          "label": "The original images",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "edit_goal",
+          "label": "What should change and where the images will be used",
+          "required": true,
+          "source": "owner",
+          "example": "White background for Etsy; consistent warm light"
+        },
+        {
+          "id": "protected_elements",
+          "label": "What must not change",
+          "required": false,
+          "source": "owner",
+          "example": "Candle label, wax color, jar shape"
+        },
+        {
+          "id": "platform_specs",
+          "label": "Target platform image requirements",
+          "required": false,
+          "source": "web",
+          "example": "Etsy: at least 2000px on the shortest side"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "image",
+          "name": "Edited images",
+          "format": "png + jpg",
+          "description": "Edited files at the target sizes, originals untouched."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Edit log",
+          "format": "md",
+          "description": "Per image: what changed, what was protected and before/after notes."
+        }
+      ],
+      "tools": [
+        "vision_describe",
+        "image_edit",
+        "web_fetch",
+        "workspace_files",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "dropbox",
+        "google-workspace",
+        "shopify",
+        "etsy",
+        "canva"
+      ],
+      "modalities": [
+        "image",
+        "file",
+        "text"
+      ],
+      "instructions": "1. Inspect every image with vision_describe and list the protected elements: faces and identity, product shape, true color, texture, label text and logos. 2. Confirm platform requirements with web_fetch where they matter (size, background, margins) and set the target specs. 3. Edit with image_edit using a preservation instruction first (preserve the exact identity, shape, color and label; only adjust the requested presentation), then the specific change. 4. Never slim, reshape or change the skin of real people without their explicit consent; never alter a product's color, size or features in a way that misrepresents it; flag composites. 5. Compare each result with the original using vision_describe, checking every protected element; redo any image that drifted. 6. Save originals and edits side by side with workspace_files and write the edit log with document_generate. 7. State what could not be verified, for example exact color accuracy without a calibrated reference.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Inspect originals",
+          "brief": "Describe each image and list protected elements and defects.",
+          "acceptance": "Protected elements listed per image."
+        },
+        {
+          "activity": "image",
+          "title": "Apply edits",
+          "brief": "Apply the requested edits with preservation instructions.",
+          "acceptance": "Every image edited to spec.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Before/after check",
+          "brief": "An image art director compares each edit with its original, element by element.",
+          "acceptance": "First line is APPROVED or CHANGES; drifted images are listed.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "files",
+          "title": "Save and log",
+          "brief": "Save edits next to untouched originals and write the edit log.",
+          "acceptance": "Originals preserved; log covers every image.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Protected elements (identity, product shape, color, labels) are unchanged.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No body or skin alteration of real people without their consent.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Originals are preserved alongside every edit.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Edits meet the target platform's size and background requirements.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The set looks consistent in light and framing.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "product-photo-brief",
+        "product-listing",
+        "ai-image-set",
+        "marketplace-listing-optimization",
+        "social-graphics-set"
+      ],
+      "example_request": "Here are 30 photos of our candles shot on my kitchen table. Clean up the backgrounds and make them consistent for the Etsy shop, but don't change what the candles actually look like.",
+      "typical_departments": [
+        "design-creative",
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "product-photo-brief",
+      "name": "Product photography brief",
+      "icon": "📸",
+      "category": "media-production",
+      "one_liner": "Shot list, angles, lighting and styling references for product imagery.",
+      "description": "A photographer-ready brief: shot list per SKU (hero on white, 45-degree, detail, scale, lifestyle, packaging, group), angles, lighting setups, styling and prop references, and marketplace image specs, plus a call sheet so one shoot day produces listing-ready and social-ready images.",
+      "when": "the owner is booking a product shoot, or current product photos fail marketplace requirements or look inconsistent",
+      "inputs": [
+        {
+          "id": "sku_list",
+          "label": "Products to shoot, with variants",
+          "required": true,
+          "source": "owner",
+          "example": "14 skincare SKUs, two sizes each"
+        },
+        {
+          "id": "channels",
+          "label": "Where images will be used",
+          "required": true,
+          "source": "owner",
+          "example": "Amazon, Shopify, Instagram"
+        },
+        {
+          "id": "brand_style",
+          "label": "Brand look, colors and mood",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "current_photos",
+          "label": "Current product photos",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "shoot_constraints",
+          "label": "Budget, date, location and crew",
+          "required": false,
+          "source": "owner",
+          "example": "One day, small studio, one photographer"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Photography brief",
+          "format": "md -> pdf",
+          "description": "Goals, look and feel, lighting setups, styling, specs and delivery requirements."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Shot list and call sheet",
+          "format": "xlsx",
+          "description": "Shot id, SKU, angle, setup, props, ratio, platform and priority, with a timed run order."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Mood and composition references",
+          "format": "png",
+          "description": "Generated reference frames clearly labelled as references, not product images."
+        }
+      ],
+      "tools": [
+        "vision_describe",
+        "web_fetch",
+        "memory_recall",
+        "image_generate",
+        "document_generate",
+        "spreadsheet_generate"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "amazon-seller-central",
+        "etsy",
+        "canva",
+        "dropbox"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "file",
+        "url"
+      ],
+      "instructions": "1. Review current photos with vision_describe and list what fails (background, shadows, color cast, inconsistency, missing angles). 2. Fetch current image requirements for each channel with web_fetch (for example marketplace main-image background, product fill and minimum pixel size for zoom) and cite them. 3. Recall brand look with memory_recall and define the look: high-key or moody, surfaces, palette, props, hands or models. 4. Write the shot list per SKU: hero on white, 45-degree, back or label, detail or macro texture, scale or in-hand, lifestyle in context, packaging, group or bundle; add ratio and platform per shot. 5. Specify lighting setups (key, fill, rim; diffused for reflective packaging) and a color-accuracy step (gray card or color checker). 6. Generate a few mood and composition references with image_generate and label them as references only. 7. Build the shot list and a timed call sheet with spreadsheet_generate, grouping shots by setup to minimize changes, and the brief with document_generate, including file naming and delivery specs. 8. State what could not be verified, such as channel rules that change or props availability.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Audit current photos",
+          "brief": "Describe current product photos and list failures against the channel specs.",
+          "acceptance": "Failure list per SKU or a note that no photos exist."
+        },
+        {
+          "activity": "research",
+          "title": "Channel image specs",
+          "brief": "Fetch and cite the current image requirements for each channel.",
+          "acceptance": "Each channel has cited requirements."
+        },
+        {
+          "activity": "llm",
+          "title": "Look, lighting and shot list",
+          "brief": "Define the look and lighting and write the full shot list per SKU.",
+          "acceptance": "Every SKU has the required channel shots with ratio and platform.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Reference frames",
+          "brief": "Generate mood and composition references labelled as references.",
+          "acceptance": "3-6 references, each labelled as a reference.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Brief and call sheet",
+          "brief": "Render the brief and a shot list with a timed run order grouped by setup.",
+          "acceptance": "Run order fits the shoot day; brief includes naming and delivery specs.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Art direction review",
+          "brief": "An image art director checks feasibility, consistency and coverage.",
+          "acceptance": "First line is APPROVED or CHANGES; missing or infeasible shots flagged.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every channel's image requirements are cited and met by the shot list.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Generated references are labelled as references, never as product images.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The run order groups shots by lighting setup to save time.",
+          "severity": "should"
+        },
+        {
+          "criterion": "A color-accuracy step is included.",
+          "severity": "should"
+        },
+        {
+          "criterion": "File naming and delivery specs are defined.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "image-edit-retouch",
+        "product-listing",
+        "marketplace-listing-optimization",
+        "moodboard",
+        "ai-image-set"
+      ],
+      "example_request": "We're doing our first proper product shoot for 14 skincare SKUs next week. Give the photographer a shot list and brief so we get Amazon-ready and Instagram-ready images in one day.",
+      "typical_departments": [
+        "design-creative",
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "short-video-script",
+      "name": "Short-form video script & storyboard",
+      "icon": "🎞️",
+      "category": "media-production",
+      "one_liner": "Hook-value-CTA scripts with shot-by-shot storyboards for Reels, Shorts and TikTok.",
+      "description": "Hook-value-CTA scripts for Reels, Shorts and TikTok with a shot-by-shot storyboard: a 1-3 second hook, retention beats every few seconds, on-screen text inside 9:16 safe zones, captions and a scratch voiceover for timing. Each script comes with three alternative hooks to test.",
+      "when": "the owner wants short-form video they can film themselves, or needs scripts and storyboards before a shoot or an AI clip",
+      "inputs": [
+        {
+          "id": "topic_or_offer",
+          "label": "What the videos are about",
+          "required": true,
+          "source": "owner",
+          "example": "Same-day bike tune-ups"
+        },
+        {
+          "id": "audience",
+          "label": "Who should watch and what they care about",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "filming_constraints",
+          "label": "Who films, with what, where",
+          "required": false,
+          "source": "owner",
+          "example": "Owner on a phone in the workshop, weekends"
+        },
+        {
+          "id": "platforms",
+          "label": "Target platforms and lengths",
+          "required": true,
+          "source": "owner",
+          "example": "Instagram Reels and TikTok, 20-40 seconds"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "script",
+          "name": "Video scripts",
+          "format": "md -> docx",
+          "description": "Hook, beats, on-screen text, spoken lines, B-roll and CTA with timings."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Storyboard frames",
+          "format": "png",
+          "description": "One frame per shot showing framing, action and text placement in 9:16."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Scratch voiceover",
+          "format": "mp3",
+          "description": "Timing guide read at target pace."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "x_search",
+        "web_search",
+        "image_generate",
+        "tts",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "meta-business",
+        "youtube",
+        "canva"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "audio",
+        "video"
+      ],
+      "instructions": "1. Recall the audience and voice with memory_recall. Scan current native formats and hooks in the niche with x_search and web_search, and cite examples. 2. For each video, write a hook that pays off in the first 1-3 seconds (visual pattern break, specific question, surprising result with proof) plus three alternates to test. 3. Structure hook -> value -> CTA with a beat every 3-5 seconds (a cut, reveal or new line of on-screen text) and one clear CTA. 4. Write on-screen text of 6 words or fewer per card, kept inside the 9:16 safe zone and clear of platform UI; write captions for sound-off viewing. 5. Storyboard each shot (framing, action, text placement) with image_generate at 9:16; mark real-footage shots versus B-roll. Music comes only from licensed or platform libraries. 6. Render a scratch voiceover with tts to check timing against the target length, then trim. 7. Assemble scripts with document_generate and include filming tips for the owner's setup. 8. State what could not be verified, such as trend longevity or platform-specific reach.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Scan native formats",
+          "brief": "Find current formats and hooks in the niche; cite examples.",
+          "acceptance": "At least five cited examples with why they work."
+        },
+        {
+          "activity": "llm",
+          "title": "Write scripts and hooks",
+          "brief": "Write each script with hook, beats and CTA, plus three alternate hooks.",
+          "acceptance": "Every script fits the target length and has one CTA.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Storyboard frames",
+          "brief": "Generate one 9:16 frame per shot showing framing and text placement.",
+          "acceptance": "Every shot has a frame; text sits inside safe zones.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Scratch voiceover",
+          "brief": "Render spoken lines to check timing.",
+          "acceptance": "Rendered duration within 10 percent of target.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Hook and clarity review",
+          "brief": "A motion designer or editor checks hook strength, pacing and filmability.",
+          "acceptance": "First line is APPROVED or CHANGES; weak hooks or unfilmable shots flagged.",
+          "dependsOn": [
+            2,
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Script pack",
+          "brief": "Assemble scripts, storyboards and filming tips.",
+          "acceptance": "Pack renders with every script and frame.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The hook lands within the first three seconds.",
+          "severity": "must"
+        },
+        {
+          "criterion": "On-screen text is inside safe zones and readable on a phone.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Music and footage sources are licensed or original.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each script has three alternate hooks to test.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Shots are filmable with the owner's stated setup.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 35,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "ai-video-clip",
+        "social-media-plan",
+        "ugc-ad-brief",
+        "thumbnail-title-pack",
+        "voiceover-briefing"
+      ],
+      "example_request": "Write me five TikTok and Reels scripts showing how our bike shop does a same-day tune-up. I'll film them on my phone this weekend.",
+      "typical_departments": [
+        "design-creative",
+        "marketing-growth",
+        "content-comms-pr"
+      ],
+      "version": 1
+    },
+    {
+      "id": "ai-video-clip",
+      "name": "AI video clip",
+      "icon": "🎥",
+      "category": "media-production",
+      "one_liner": "Generate short video clips from a storyboard as a background job.",
+      "description": "Turns an approved storyboard into short generated video clips, run as background jobs. Each shot gets a prompt (subject, action, camera move, light, style, duration) and optional reference frames for consistency. Frames are QA-checked, and clips are labelled as AI-generated.",
+      "when": "the owner needs B-roll, a website loop, a promo opener or concept footage and filming is impractical",
+      "inputs": [
+        {
+          "id": "storyboard",
+          "label": "Storyboard or shot list",
+          "required": true,
+          "source": "coworker",
+          "example": "Three 6-second shots: steam, beans pouring, cup sliding"
+        },
+        {
+          "id": "style",
+          "label": "Look and brand style",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "placements",
+          "label": "Where clips will run and at what ratio",
+          "required": true,
+          "source": "owner",
+          "example": "Website hero 16:9 loop, Reels 9:16"
+        },
+        {
+          "id": "clip_budget",
+          "label": "Maximum number of clips or renders",
+          "required": false,
+          "source": "owner",
+          "example": "Up to 6 renders"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "video",
+          "name": "Generated clips",
+          "format": "mp4",
+          "description": "Clips at the requested ratios and lengths, named by shot id."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Render log",
+          "format": "md",
+          "description": "Per clip: prompt, reference frame, settings, attempts and QA result."
+        }
+      ],
+      "tools": [
+        "image_generate",
+        "video_generate",
+        "vision_describe",
+        "request_owner_decision",
+        "workspace_files",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "youtube",
+        "dropbox",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "video"
+      ],
+      "instructions": "1. Confirm the storyboard, ratios and render budget; if more renders are needed than the owner allowed, ask with request_owner_decision before spending them. 2. Write one prompt per shot: subject, action, camera move, lens feel, lighting, style and duration. Keep style tokens identical across shots. 3. Where consistency matters, create an approved reference frame with image_generate first and use it to anchor the shot. 4. Start each clip with video_generate as a background job and collect results; never depict real, identifiable people, other brands' logos or anything that would mislead viewers about the product. 5. QA sampled frames with vision_describe: warped hands or objects, flicker, garbled text, off-brand color. Re-render within budget or flag. 6. Save clips with workspace_files and write the render log with document_generate, labelling the clips as AI-generated for platform disclosure rules. 7. State what could not be verified, such as how a clip will look after platform compression.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Shot prompts",
+          "brief": "Write per-shot prompts with consistent style tokens.",
+          "acceptance": "Every storyboard shot has a prompt with action, camera and duration."
+        },
+        {
+          "activity": "image",
+          "title": "Reference frames",
+          "brief": "Generate reference frames for shots that need consistency.",
+          "acceptance": "Reference frames exist where needed and match the style.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Approve render budget",
+          "brief": "Decision card if planned renders exceed the owner's budget.",
+          "acceptance": "Owner approves the render count, or the plan fits the budget.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "video",
+          "title": "Render clips",
+          "brief": "Run video generation jobs and collect results.",
+          "acceptance": "A clip exists for every shot or the failure is logged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Frame QA",
+          "brief": "A motion designer checks sampled frames for artifacts, text errors and brand fit.",
+          "acceptance": "First line is APPROVED or CHANGES; failing clips listed.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "files",
+          "title": "Save and log",
+          "brief": "Save clips by shot id and write the render log with AI labels.",
+          "acceptance": "Every clip logged with prompt, settings and QA result.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "No real, identifiable person or third-party logo appears in any clip.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Clips are labelled as AI-generated for disclosure.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Render count stays within the owner's approved budget.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Style is consistent across clips.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Each clip meets the placement's ratio and length.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "short-video-script",
+        "product-demo-video",
+        "ai-image-set",
+        "social-media-plan",
+        "thumbnail-title-pack"
+      ],
+      "example_request": "Turn this storyboard into three 6-second clips for the top of our website: steam rising off the coffee, beans pouring, a cup sliding across the counter.",
+      "typical_departments": [
+        "design-creative"
+      ],
+      "version": 1
+    },
+    {
+      "id": "voiceover-briefing",
+      "name": "Voiceover & audio briefing",
+      "icon": "🎙️",
+      "category": "media-production",
+      "one_liner": "Write for the ear and render a voiceover or briefing in a coworker's voice.",
+      "description": "Writes for the ear (short sentences, signposts, rounded numbers, a pronunciation guide) and renders a voiceover or spoken briefing in a coworker's assigned voice, with timing data for lip sync, captions, and a transcription round-trip check that catches mispronunciations and dropped lines.",
+      "when": "the owner wants to listen rather than read (a weekly update, a training explainer, a video voiceover) or a coworker should present something in their own voice",
+      "inputs": [
+        {
+          "id": "source_material",
+          "label": "What to cover: a report, notes or data",
+          "required": true,
+          "source": "file",
+          "example": "This week's sales summary"
+        },
+        {
+          "id": "speaker",
+          "label": "Which coworker voices it",
+          "required": false,
+          "source": "owner",
+          "example": "Nico, the podcast producer"
+        },
+        {
+          "id": "length",
+          "label": "Target length",
+          "required": true,
+          "source": "owner",
+          "example": "Two minutes"
+        },
+        {
+          "id": "pronunciations",
+          "label": "Names or terms that are easy to mispronounce",
+          "required": false,
+          "source": "memory",
+          "example": "Ngata, Kgosi, Worcestershire"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "script",
+          "name": "Script for the ear",
+          "format": "md",
+          "description": "Spoken script with signposts, pronunciation guide and pacing marks."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Rendered audio",
+          "format": "mp3",
+          "description": "The voiceover or briefing in the coworker's voice, with timing data for lip sync."
+        },
+        {
+          "artifact_type": "transcript",
+          "name": "Captions",
+          "format": "txt (SRT) + md",
+          "description": "Timed captions and a clean transcript."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "file_parse",
+        "document_generate",
+        "tts",
+        "stt",
+        "workspace_files"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "dropbox",
+        "youtube"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "audio",
+        "voice"
+      ],
+      "instructions": "1. Parse the source with file_parse and recall context and pronunciations with memory_recall. 2. Write for the ear: open with the point, one idea per sentence, signposts ('three things'), round numbers and say them naturally ('about four in ten'), no parentheses or unexplained acronyms, and a closing line that repeats the takeaway. Aim for about 150 spoken words per minute. 3. Add a pronunciation guide with plain respellings for names and terms, plus pacing marks. 4. Render with tts in the chosen coworker's assigned voice from their persona (no cloned or imitated real voices), at a speed between 0.90 and 1.10, keeping the timing data for lip sync. 5. Transcribe the render with stt and compare it with the script to catch mispronunciations, skipped lines or wrong numbers; fix and re-render. 6. Produce captions and save the script, audio and captions with workspace_files; render the script with document_generate. 7. State what could not be verified, such as pronunciations nobody has confirmed.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Read the source",
+          "brief": "Parse the source material and gather pronunciations.",
+          "acceptance": "Key facts and numbers extracted with their source."
+        },
+        {
+          "activity": "llm",
+          "title": "Write for the ear",
+          "brief": "Write the spoken script with signposts, pronunciation guide and pacing.",
+          "acceptance": "Word count fits the target length at about 150 words per minute.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Render the audio",
+          "brief": "Render in the coworker's assigned voice with timing data.",
+          "acceptance": "Audio renders within 10 percent of the target length.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "stt",
+          "title": "Round-trip check",
+          "brief": "Transcribe the render and compare it with the script.",
+          "acceptance": "No dropped lines; numbers and names match the script.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Listening review",
+          "brief": "A producer or editor checks clarity, pacing and pronunciation.",
+          "acceptance": "First line is APPROVED or CHANGES; problem timestamps listed.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "files",
+          "title": "Package audio and captions",
+          "brief": "Save the script, audio and timed captions.",
+          "acceptance": "All three files saved and named consistently.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every number and name in the audio matches the source.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Voices are the coworker's assigned catalog voice; no cloning or imitation of real people.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Captions are provided for accessibility.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The main point comes in the first 15 seconds.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Length is within 10 percent of the target.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "listen-in-briefing",
+        "podcast-episode",
+        "daily-brief",
+        "product-demo-video",
+        "executive-summary"
+      ],
+      "example_request": "Can you turn this week's sales numbers into a two-minute audio update I can listen to in the car, read by Nico?",
+      "typical_departments": [
+        "content-comms-pr",
+        "design-creative"
+      ],
+      "version": 1
+    },
+    {
+      "id": "podcast-episode",
+      "name": "Podcast episode production",
+      "icon": "🎧",
+      "category": "media-production",
+      "one_liner": "Format, outline and multi-voice script rendered as a listenable episode.",
+      "description": "Produces a listenable episode: chooses the format, researches with citations, outlines a run-of-show (cold open, segments, recap, CTA) and writes a multi-voice script. Each coworker's line is rendered in their own distinct voice, stitched and loudness-normalized, and shipped with timestamped show notes and sources.",
+      "when": "the owner wants an episode for customers, members or staff, or wants a topic explained as a conversation they can listen to",
+      "inputs": [
+        {
+          "id": "topic",
+          "label": "Episode topic and angle",
+          "required": true,
+          "source": "owner",
+          "example": "How the new recycling rules affect small cafés"
+        },
+        {
+          "id": "audience",
+          "label": "Who listens and what they already know",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "length",
+          "label": "Target length",
+          "required": true,
+          "source": "owner",
+          "example": "12 minutes"
+        },
+        {
+          "id": "hosts",
+          "label": "Which coworkers host or guest",
+          "required": false,
+          "source": "owner",
+          "example": "Two hosts: friendly and curious"
+        },
+        {
+          "id": "sources",
+          "label": "Documents or links to draw on",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "script",
+          "name": "Episode script",
+          "format": "md -> docx",
+          "description": "Run-of-show and full multi-voice script with segment timings."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Episode audio",
+          "format": "mp3",
+          "description": "Stitched, loudness-normalized episode with an AI-voices disclosure."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Show notes",
+          "format": "md",
+          "description": "Summary, timestamps, sources and credits."
+        },
+        {
+          "artifact_type": "transcript",
+          "name": "Transcript",
+          "format": "md",
+          "description": "Speaker-labelled transcript for accessibility."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "memory_recall",
+        "document_generate",
+        "tts",
+        "stt",
+        "code_interpreter",
+        "workspace_files"
+      ],
+      "connectors_optional": [
+        "youtube",
+        "kajabi",
+        "dropbox",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "audio",
+        "file",
+        "url"
+      ],
+      "instructions": "1. Recall audience context with memory_recall and research the topic with web_search and web_fetch; cite primary sources for every factual claim. 2. Pick a format (co-hosted discussion, interview, solo explainer, narrative) and outline the run-of-show: cold open, intro, 2-4 segments with a question each answers, recap and CTA. 3. Write the multi-voice script: distinct voices and roles per host, natural turn-taking, spoken-style numbers, and one sentence in the intro disclosing that the hosts are AI coworkers. 4. Assign each speaker their catalog voice, unique within the episode, and render every line with tts, keeping timing data. 5. Stitch the lines, add short pauses and normalize loudness (around -16 LUFS for stereo) with code_interpreter. 6. Transcribe the episode with stt, check it against the script and sources, and fix any mispronounced names or wrong numbers. 7. Write show notes with timestamps, sources and credits using document_generate, and save all files with workspace_files. 8. State what could not be verified and which claims rely on a single source.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Research and sources",
+          "brief": "Research the topic and collect cited primary sources.",
+          "acceptance": "Every planned claim has a source link."
+        },
+        {
+          "activity": "llm",
+          "title": "Run-of-show and script",
+          "brief": "Outline segments and write the full multi-voice script with an AI disclosure.",
+          "acceptance": "Script fits the target length; every speaker has a distinct role.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Fact and flow review",
+          "brief": "A fact-checker checks claims against sources; an editor checks flow.",
+          "acceptance": "First line is APPROVED or CHANGES; unsupported claims flagged.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Render voices",
+          "brief": "Render each line in the speaker's catalog voice with timing data.",
+          "acceptance": "All lines rendered; voices unique within the episode.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Stitch and normalize",
+          "brief": "Stitch lines with pauses and normalize loudness.",
+          "acceptance": "One episode file near -16 LUFS within 10 percent of target length.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "stt",
+          "title": "Transcript check",
+          "brief": "Transcribe the episode and compare with the script.",
+          "acceptance": "Transcript matches the script; names and numbers correct.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Show notes",
+          "brief": "Write show notes with timestamps, sources and credits.",
+          "acceptance": "Timestamps line up with the audio; all sources listed.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The episode discloses that the hosts are AI coworkers.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every factual claim is sourced in the show notes.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Voices are distinct catalog voices; no impersonation of real people.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Loudness is normalized and consistent across speakers.",
+          "severity": "should"
+        },
+        {
+          "criterion": "A transcript is provided.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "voiceover-briefing",
+        "listen-in-briefing",
+        "research-and-cite",
+        "newsletter-issue",
+        "thumbnail-title-pack"
+      ],
+      "example_request": "Make a 12-minute episode for our members about how the new recycling rules affect small cafés — two hosts, friendly, with the sources in the show notes.",
+      "typical_departments": [
+        "content-comms-pr"
+      ],
+      "version": 1
+    },
+    {
+      "id": "thumbnail-title-pack",
+      "name": "Thumbnail & title pack",
+      "icon": "🖱️",
+      "category": "media-production",
+      "one_liner": "YouTube packaging: title options and thumbnail concepts tested for clarity.",
+      "description": "YouTube packaging for one video: ten title options (clear promise plus curiosity, keyword front-loaded, fits the visible length) and three thumbnail concepts (one focal subject, three or four words at most, high contrast). Each is checked at phone size, the title and thumbnail are designed to complement each other rather than repeat, and a test plan is included.",
+      "when": "a good video is underperforming on click-through, or before publishing a video that matters",
+      "inputs": [
+        {
+          "id": "video_summary",
+          "label": "What the video delivers and for whom",
+          "required": true,
+          "source": "owner",
+          "example": "How I price wedding cakes, for new home bakers"
+        },
+        {
+          "id": "channel_data",
+          "label": "Channel click-through and impressions",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "frames_or_photos",
+          "label": "Stills from the video or photos of the presenter",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "brand_style",
+          "label": "Channel colors and fonts",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Title options",
+          "format": "md",
+          "description": "Ten titles grouped by angle, with character counts and the recommended pair."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Thumbnail concepts",
+          "format": "png",
+          "description": "Three 1280x720 concepts checked at small size."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Packaging test plan",
+          "format": "md",
+          "description": "Which title and thumbnail to test, the metric and how long to run it."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "web_search",
+        "image_generate",
+        "image_edit",
+        "vision_describe",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "youtube",
+        "canva"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "connector_data"
+      ],
+      "instructions": "1. Read the channel's click-through rate, impressions and top-performing packaging with connector_read if enabled. 2. Search the topic with web_search to see competing packaging, and find an angle that differs. 3. Write ten titles across angles (outcome, mistake, number, story, contrarian), front-load the keyword, keep the visible part under about 60 characters, and never promise what the video does not deliver. 4. Design three thumbnail concepts: one focal subject, three or four words at most that complement the title rather than repeat it, and strong contrast. Use the owner's real frames with image_edit where possible, or image_generate for backgrounds; never fake a scene the video does not contain. 5. Check legibility at phone size with vision_describe on 160-pixel-wide previews, and fix unreadable text. 6. Pick the recommended pair and write a test plan (the platform's built-in thumbnail test, or sequential swaps with a fixed time window) with document_generate. 7. State what could not be verified, such as how the recommendation algorithm will treat the video.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read channel data",
+          "brief": "Read click-through and impression data for recent videos.",
+          "acceptance": "Baseline click-through and top packaging patterns, or marked unavailable."
+        },
+        {
+          "activity": "research",
+          "title": "Competing packaging",
+          "brief": "Scan competing videos' titles and thumbnails for the topic.",
+          "acceptance": "At least five cited examples and one differentiating angle."
+        },
+        {
+          "activity": "llm",
+          "title": "Write titles",
+          "brief": "Write ten titles across angles with character counts.",
+          "acceptance": "Ten titles; all honest to the content.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Thumbnail concepts",
+          "brief": "Create three concepts from real frames or generated backgrounds.",
+          "acceptance": "Three 1280x720 concepts, each with at most four words.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Small-size legibility check",
+          "brief": "A designer checks legibility at phone size and title-thumbnail complementarity.",
+          "acceptance": "First line is APPROVED or CHANGES; unreadable concepts flagged.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Pack and test plan",
+          "brief": "Package titles, thumbnails and the test plan.",
+          "acceptance": "Recommended pair chosen; test metric and duration defined.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Titles and thumbnails do not promise anything the video does not deliver.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Thumbnail text is legible at phone size.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Thumbnail words complement the title rather than repeat it.",
+          "severity": "should"
+        },
+        {
+          "criterion": "A test plan with a metric and time window is included.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Titles front-load the searchable keyword.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "short-video-script",
+        "podcast-episode",
+        "creator-media-kit",
+        "ai-image-set",
+        "social-graphics-set"
+      ],
+      "example_request": "My video on how I price wedding cakes is great but only got 800 views. Give me better title options and three thumbnail ideas I can test.",
+      "typical_departments": [
+        "industry-specialists",
+        "design-creative",
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "coworker-portrait",
+      "name": "Coworker portrait & face setup",
+      "icon": "🧑‍🎨",
+      "category": "media-production",
+      "one_liner": "Create a warpable portrait, expression set and landmarks for a new coworker.",
+      "description": "Creates a new coworker's face for the lip-synced avatar: a warpable 3:4 resting portrait that follows the catalog's exact prompt conventions, three matching expressions, normalized face landmarks, and a procedural fallback look. The lead applies it to the persona once the owner approves.",
+      "when": "the lead spawns a custom coworker, the owner asks to restyle a coworker's appearance, or a catalog coworker has no approved portrait yet",
+      "inputs": [
+        {
+          "id": "persona_brief",
+          "label": "Persona name, pronouns, age range and role",
+          "required": true,
+          "source": "coworker",
+          "example": "Bookkeeper, she/her, 50-54"
+        },
+        {
+          "id": "look",
+          "label": "Look preferences from the owner or look_hint",
+          "required": true,
+          "source": "owner",
+          "example": "Friendly and grounded, glasses, cardigan, gray-streaked curls"
+        },
+        {
+          "id": "accent_color",
+          "label": "Persona accent color",
+          "required": false,
+          "source": "coworker",
+          "example": "#3E7C6B"
+        },
+        {
+          "id": "heritage",
+          "label": "Heritage, used only as it shapes appearance",
+          "required": false,
+          "source": "coworker"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "portrait",
+          "name": "Resting portrait",
+          "format": "png",
+          "description": "Approved 3:4 head-and-shoulders portrait with lips closed."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Expression set",
+          "format": "png",
+          "description": "Thinking, delighted (closed-lip smile) and concerned edits with the head pose unchanged."
+        },
+        {
+          "artifact_type": "portrait",
+          "name": "Landmarks and appearance record",
+          "format": "json",
+          "description": "Normalized landmarks, the descriptive appearance, every procedural fallback field, alt text and the prompt log."
+        }
+      ],
+      "tools": [
+        "image_generate",
+        "vision_describe",
+        "image_edit",
+        "code_interpreter",
+        "request_owner_decision",
+        "workspace_files"
+      ],
+      "connectors_optional": [],
+      "modalities": [
+        "text",
+        "image"
+      ],
+      "instructions": "1. Write the portrait prompt so that it begins verbatim with \"A single adult, front-facing portrait, unobstructed face, relaxed closed lips, head and shoulders, natural facial proportions, no text.\" and then follows the prompt order: age and presence; skin and complexion; hair and any head covering; facial hair trimmed so the lips stay visible; clear-lens eyewear and accessories; attire and one signature detail; a calm, attentive, lips-closed expression; a soft plain background tinted with the accent color; soft even light at eye level with an 85mm portrait look. 2. Describe heritage, disability aids and features respectfully and only as they shape appearance; never reference a real person, a celebrity likeness or a brand, and never use a photo of a real person as the basis. 3. Generate three candidates with image_generate at 3:4. 4. Check each candidate with vision_describe against the warpability rules: exactly one adult, front-facing and level, lips relaxed and closed, mouth, jaw and chin fully visible, eyes visible with no glare, plain background with no text, face at 35-45 percent of image height. Discard failures. 5. Ask the owner to choose with request_owner_decision. 6. Derive thinking, delighted (a warm closed-lip smile) and concerned with image_edit, starting from the preservation instruction and keeping head pose identical so landmarks stay valid. 7. Run face-landmark detection on the approved portrait with code_interpreter and store normalized geometry (face box, eyes, mouth contours, jaw). If lip contours cannot be found, record the level-of-detail tier the renderer should fall back to. 8. Fill every procedural fallback field (base bust index, eye, brow, lid, lip and skin values; sizes and brightness never 0) and write one-sentence alt text; save everything with workspace_files and hand it to the lead to apply to the persona. 9. State what could not be verified, such as landmark quality on unusual angles or how the face animates before a live render test.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Write the portrait prompt",
+          "brief": "Compose the prompt with the exact prefix and the prescribed order.",
+          "acceptance": "Prompt begins with the exact prefix and covers every element of the order."
+        },
+        {
+          "activity": "image",
+          "title": "Generate candidates",
+          "brief": "Generate three 3:4 candidates.",
+          "acceptance": "Three candidates returned.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Warpability check",
+          "brief": "Check each candidate against the warpability rules and for respectful representation.",
+          "acceptance": "First line is APPROVED or CHANGES; each failed rule is named per candidate.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves the face",
+          "brief": "Decision card with the passing candidates.",
+          "acceptance": "Owner picks one or asks for another round.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Expression edits",
+          "brief": "Create thinking, delighted and concerned edits with the preservation instruction.",
+          "acceptance": "Three edits with the same head pose; delighted has closed lips.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Landmarks and fallback",
+          "brief": "Detect normalized landmarks and fill every procedural fallback field.",
+          "acceptance": "Landmark JSON is under 100 KB, or the fallback tier is recorded; no size or brightness field is 0.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "files",
+          "title": "Package for the lead",
+          "brief": "Save the portrait, expressions, landmarks, appearance record, alt text and prompt log.",
+          "acceptance": "Package complete and ready for the lead to apply.",
+          "dependsOn": [
+            4,
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The prompt starts with the exact catalog prefix.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The resting portrait has closed lips, a fully visible mouth and chin, and one front-facing adult.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The face does not depict or imitate a real, identifiable person.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Heritage and disability aids are portrayed respectfully, never as caricature or costume.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every procedural field is filled, with no size or brightness value of 0.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Expressions keep the head pose identical to the resting portrait.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "voiceover-briefing",
+        "coworker-briefing-pack",
+        "image-edit-retouch",
+        "ai-image-set"
+      ],
+      "example_request": "Spin up a bookkeeper coworker for me — I'd like her to look friendly and grounded, maybe in her fifties, glasses, a cardigan. Make her face and let me approve it before she joins.",
+      "typical_departments": [
+        "design-creative",
+        "core-crew"
+      ],
+      "version": 1
+    },
+    {
+      "id": "product-demo-video",
+      "name": "Product demo video",
+      "icon": "💻",
+      "category": "media-production",
+      "one_liner": "Screen-flow script, shot list and voiceover for a product walkthrough.",
+      "description": "A product walkthrough built from the real product: a screen-flow script (problem, aha moment, two or three key workflows, outcome, CTA), a shot list of screen captures with zooms and callouts, personal data redacted, a rendered voiceover and captions, all ready to edit into a 60-90 second teaser or a 3-5 minute walkthrough.",
+      "when": "the owner needs a homepage demo, onboarding walkthrough, sales demo recording or app-store preview for their own product",
+      "inputs": [
+        {
+          "id": "product_access",
+          "label": "Product URL or screenshots of the flows to show",
+          "required": true,
+          "source": "owner",
+          "example": "Staging URL of the booking app"
+        },
+        {
+          "id": "audience_and_goal",
+          "label": "Who watches and what they should do next",
+          "required": true,
+          "source": "owner",
+          "example": "Studio owners; start a free trial"
+        },
+        {
+          "id": "key_workflows",
+          "label": "The 2-3 workflows that show the value",
+          "required": true,
+          "source": "owner",
+          "example": "Client books a class; gets a reminder; owner sees the schedule"
+        },
+        {
+          "id": "length",
+          "label": "Target length",
+          "required": false,
+          "source": "owner",
+          "example": "90 seconds"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "script",
+          "name": "Demo script",
+          "format": "md -> docx",
+          "description": "Scene-by-scene script with narration, on-screen actions, callouts and timings."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Screen captures",
+          "format": "png",
+          "description": "Captured and redacted screens with zoom and callout annotations."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Voiceover",
+          "format": "mp3",
+          "description": "Narration in a coworker's voice with timing data."
+        },
+        {
+          "artifact_type": "transcript",
+          "name": "Captions",
+          "format": "txt (SRT)",
+          "description": "Timed captions."
+        }
+      ],
+      "tools": [
+        "browser",
+        "vision_describe",
+        "image_edit",
+        "tts",
+        "document_generate",
+        "workspace_files"
+      ],
+      "connectors_optional": [
+        "youtube",
+        "figma",
+        "dropbox"
+      ],
+      "modalities": [
+        "text",
+        "screen",
+        "image",
+        "audio",
+        "video",
+        "url"
+      ],
+      "instructions": "1. Walk the key workflows in the owner's product with browser (through the desktop companion, using a demo or staging account the owner provides; the owner keeps their own logins), or work from uploaded screenshots. 2. Read each screen with vision_describe and write accurate step-by-step actions; never show features that do not exist. 3. Structure the script: problem (5-10 s), aha moment early, 2-3 workflows showing outcomes rather than every click, proof, CTA. 4. Capture the screens and use image_edit to redact any personal or customer data, then add zoom and callout annotations. 5. Render narration with tts in the chosen coworker's voice, keeping timing data, and write timed captions. 6. Assemble the script, capture list and editing notes with document_generate, and save assets with workspace_files. 7. State what could not be verified, such as flows that behave differently in production than in the demo account.",
+      "workflow": [
+        {
+          "activity": "browser",
+          "title": "Walk the workflows",
+          "brief": "Walk each key workflow in a demo account and capture the screens.",
+          "acceptance": "Every workflow captured end to end, or screenshots ingested."
+        },
+        {
+          "activity": "llm",
+          "title": "Write the demo script",
+          "brief": "Write the scene-by-scene script with narration, actions and callouts.",
+          "acceptance": "Aha moment lands in the first third; every action matches a real screen.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Redact and annotate",
+          "brief": "Redact personal data and add zooms and callouts to captures.",
+          "acceptance": "No personal data visible; callouts match the script.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Record voiceover",
+          "brief": "Render narration with timing data and captions.",
+          "acceptance": "Narration within 10 percent of target length.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Accuracy review",
+          "brief": "A product manager checks every claim and step against the product.",
+          "acceptance": "First line is APPROVED or CHANGES; inaccurate steps flagged.",
+          "dependsOn": [
+            2,
+            3
+          ]
+        },
+        {
+          "activity": "files",
+          "title": "Package the demo kit",
+          "brief": "Save script, captures, voiceover and captions with editing notes.",
+          "acceptance": "Kit complete and named by scene.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Only real, existing features are shown or described.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No personal or customer data is visible in any capture.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The owner's logins are never requested or stored; a demo account is used.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The aha moment appears in the first third.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Captions are included.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "voiceover-briefing",
+        "release-notes",
+        "short-video-script",
+        "ai-video-clip",
+        "launch-tiering"
+      ],
+      "example_request": "We need a 90-second demo of our booking app for the homepage — show a client booking a class and getting the reminder. Script it and do the voiceover.",
+      "typical_departments": [
+        "product",
+        "design-creative",
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "ugc-ad-brief",
+      "name": "Creator & UGC ad brief",
+      "icon": "🤳",
+      "category": "media-production",
+      "one_liner": "A creator brief with hooks, talking points, do's and don'ts, and usage rights.",
+      "description": "A creator and UGC brief creators can actually follow: objective, audience, product truths, five hook options, talking points, must-say and must-not-say claims, deliverable specs, do's and don'ts, disclosure requirements and a usage-rights section (organic versus paid, duration, territory, exclusivity) flagged for the owner's contract.",
+      "when": "the owner is hiring creators for user-generated-style videos or influencer posts and wants consistent, compliant content",
+      "inputs": [
+        {
+          "id": "product_truths",
+          "label": "What the product does, proven claims and its limits",
+          "required": true,
+          "source": "memory",
+          "example": "Leak-proof to 1 liter, dishwasher-safe lid, not microwave-safe"
+        },
+        {
+          "id": "campaign_goal",
+          "label": "Goal, platforms and number of creators",
+          "required": true,
+          "source": "owner",
+          "example": "5 creators, TikTok and Reels, drive first purchases"
+        },
+        {
+          "id": "usage_needs",
+          "label": "How the owner wants to use the videos",
+          "required": true,
+          "source": "owner",
+          "example": "Organic reposts plus paid ads for 6 months"
+        },
+        {
+          "id": "budget_and_timeline",
+          "label": "Fee range and deadlines",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "Creator brief",
+          "format": "md -> pdf",
+          "description": "One brief creators can follow: hooks, talking points, specs, do's and don'ts, disclosure."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Claims and disclosure checklist",
+          "format": "md",
+          "description": "Approved claims, banned claims and required disclosure labels."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Usage-rights term sheet",
+          "format": "md -> docx",
+          "description": "Rights requested, flagged for the owner's contract and legal review."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "x_search",
+        "web_search",
+        "web_fetch",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "meta-business",
+        "youtube",
+        "google-workspace",
+        "docusign"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "video"
+      ],
+      "instructions": "1. Recall product truths and substantiated claims with memory_recall; any claim without proof goes on the must-not-say list. 2. Scan current creator content in the category with x_search and web_search to find formats that feel native, and cite examples. 3. Write five hook options and talking points built on the customer's problem, never on scripted testimonials of results the creator has not experienced. 4. Specify deliverables: lengths, 9:16, raw footage plus the edit, captions, product visible in the first three seconds, natural light, no copyrighted music. 5. Add disclosure requirements (a clear ad or paid-partnership label and the platform's branded-content tool) and fetch the current platform rules with web_fetch. 6. Draft the usage-rights section (organic versus paid usage, whitelisting or ad authorization, duration, territory, exclusivity, edits allowed) as a term sheet for the owner's contract, marked for legal review before anyone signs. 7. Render the brief, checklist and term sheet with document_generate. 8. State what could not be verified, such as claims the owner has not substantiated or platform rules that differ by region.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Native format scan",
+          "brief": "Find current native creator formats in the category; cite examples.",
+          "acceptance": "At least five cited examples."
+        },
+        {
+          "activity": "llm",
+          "title": "Write the brief",
+          "brief": "Write hooks, talking points, specs, do's and don'ts and disclosure rules.",
+          "acceptance": "Five hooks; every claim traces to a product truth.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Usage-rights term sheet",
+          "brief": "Draft the rights requested, flagged for contract and legal review.",
+          "acceptance": "Duration, territory, paid usage and exclusivity are all specified.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Claims and disclosure review",
+          "brief": "A fact-checker and a compliance-minded reviewer check claims and disclosures.",
+          "acceptance": "First line is APPROVED or CHANGES; unsubstantiated claims removed.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render the pack",
+          "brief": "Render the brief, checklist and term sheet.",
+          "acceptance": "Three files render and agree with each other.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every allowed claim is substantiated; everything else is on the must-not-say list.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Disclosure requirements are explicit and current.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Usage rights are flagged for the owner's contract and legal review before signing.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Hooks are native to the platform, not ad-speak.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Specs cover ratio, length, raw footage and captions.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 35,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "short-video-script",
+        "social-media-plan",
+        "paid-ads-plan",
+        "claims-substantiation-check",
+        "contract-issue-list"
+      ],
+      "example_request": "We want five creators to make TikToks about our reusable lunch boxes. Write the brief we send them, including what they can and can't say and how long we can use the videos in ads.",
+      "typical_departments": [
+        "marketing-growth",
+        "design-creative"
+      ],
+      "version": 1
+    }
+  ]
+}

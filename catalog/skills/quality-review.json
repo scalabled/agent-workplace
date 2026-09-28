@@ -1,0 +1,1643 @@
+{
+  "category": "quality-review",
+  "version": 1,
+  "skills": [
+    {
+      "id": "fact-check",
+      "name": "Fact-check",
+      "icon": "✓",
+      "category": "quality-review",
+      "one_liner": "Verify a statement, article or plan before it is used, claim by claim.",
+      "description": "Checks a claim or a draft against sources and returns verdicts with evidence. Each checkable claim is traced laterally (SIFT) to its best primary source, and gets a quoted line, a link, a date and a verdict: supported, partly supported, contradicted or unverifiable. Corrected wording is suggested, and the risk of acting on anything unverified is summarised.",
+      "when": "a statement, article or plan needs verification before it is used",
+      "inputs": [
+        {
+          "id": "content",
+          "label": "The statement, draft, deck or plan to check",
+          "required": true,
+          "source": "file",
+          "example": "Blog post draft with statistics and two quotes"
+        },
+        {
+          "id": "context",
+          "label": "Where it will be used and how much is at stake",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "house_sources",
+          "label": "Internal data the claims may rely on",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Claim table with verdicts",
+          "format": "md",
+          "description": "Claim id, claim, verdict, quoted evidence, link, date and suggested correction."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Risk summary",
+          "format": "md",
+          "description": "What is safe to use, what must change, and the risk of acting on unverified claims."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "embeddings_search",
+        "file_parse",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "file"
+      ],
+      "instructions": "1. Extract each checkable claim with file_parse: numbers, dates, names, quotes, causal claims and comparatives. Skip opinions, but flag opinions presented as fact. 2. For each claim, read laterally with SIFT (Stop, Investigate the source, Find better coverage, Trace to the original) to find the best primary source: the original study, dataset, filing, law or the person's own words. Check internal claims against house sources with embeddings_search. 3. Quote the relevant line and link it with its date. 4. Give a verdict (supported, partly supported, contradicted or unverifiable) with a one-line reason. 5. Check dates: a claim can be true in 2024 and false now. Look for updates and retractions. 6. For quotes, confirm wording and context; for statistics, confirm denominator, geography and year. 7. Suggest corrected wording for anything not fully supported. 8. Summarise the risk of acting on the unverified claims. 9. State what could not be verified and why (paywall, no primary source, conflicting sources).",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Extract claims",
+          "brief": "List every checkable claim with an id.",
+          "acceptance": "Every checkable claim is listed with an id; opinions presented as fact are flagged."
+        },
+        {
+          "activity": "research",
+          "title": "Trace each claim",
+          "brief": "Trace each claim to its best primary source and quote it.",
+          "acceptance": "Each claim has a verdict, quoted evidence, link and date.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Second check",
+          "brief": "Check each verdict against its quoted evidence.",
+          "acceptance": "First line is APPROVED or CHANGES; each verdict matches its quoted evidence.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Claim table and corrections",
+          "brief": "Render the claim table, corrections and risk summary.",
+          "acceptance": "Every non-supported claim has suggested wording.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every claim has a verdict with quoted evidence, a link and a date",
+          "severity": "must"
+        },
+        {
+          "criterion": "Primary sources are preferred and traced",
+          "severity": "must"
+        },
+        {
+          "criterion": "Unverifiable claims are listed with the reason",
+          "severity": "must"
+        },
+        {
+          "criterion": "Corrected wording is suggested",
+          "severity": "should"
+        },
+        {
+          "criterion": "Recency is checked",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "research-and-cite",
+        "editorial-review",
+        "claims-substantiation-check",
+        "provenance-check",
+        "press-release"
+      ],
+      "example_request": "Before this blog post goes live, check every number and quote in it. I don't want to get called out for a made-up stat.",
+      "typical_departments": [
+        "core-crew",
+        "research-insights"
+      ],
+      "biz_bot_name": "fact-check",
+      "version": 1
+    },
+    {
+      "id": "pre-mortem",
+      "name": "Pre-mortem",
+      "icon": "🔮",
+      "category": "quality-review",
+      "one_liner": "Imagine the plan failed and work back to the most likely causes and mitigations.",
+      "description": "Runs Gary Klein's pre-mortem: assume the plan has failed badly, then have a voiced team session generate the reasons independently before any discussion. Reasons are clustered and rated, and the top ones get mitigations, early-warning signals with thresholds, and owners. Plan-killing assumptions are named with the cheapest test for each.",
+      "when": "before committing money, signing, launching or hiring against a plan",
+      "inputs": [
+        {
+          "id": "plan",
+          "label": "The plan, its goal and success criteria",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "assumptions",
+          "label": "Known key assumptions",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "comparables",
+          "label": "Similar past projects and how they went",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "minutes",
+          "name": "Pre-mortem minutes",
+          "format": "md",
+          "description": "Every failure reason raised, by participant, before and after discussion."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Failure modes with ratings and mitigations",
+          "format": "xlsx",
+          "description": "Cluster, likelihood, impact, mitigation, contingency, warning signal, threshold and owner."
+        },
+        {
+          "artifact_type": "decision_record",
+          "name": "Go, change or rethink recommendation",
+          "format": "md",
+          "description": "Recommendation, reasons and conditions."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_search",
+        "convene_meeting",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "asana",
+        "notion",
+        "google-workspace",
+        "monday",
+        "jira"
+      ],
+      "modalities": [
+        "text",
+        "audio",
+        "file"
+      ],
+      "instructions": "1. Load the plan, goal, success criteria and key assumptions. Find base rates for similar projects with memory_recall and web_search (reference-class forecasting: how often do projects like this overrun or miss?). 2. Frame it: 'It is [a date after the deadline]. The plan failed badly. Why?' 3. Convene a voiced session with the team, the sceptic and someone from outside the plan's discipline. Everyone writes reasons independently first (silent generation avoids groupthink), then shares one at a time, round-robin. 4. Cluster the reasons (people, process, market, technical, dependencies, assumptions) and rate likelihood and impact 1–5 in code_interpreter. 5. For the top five to seven: a mitigation (prevent), a contingency (respond), an early-warning indicator with its threshold, and an owner. 6. Name any assumption that would kill the plan if false, with the cheapest test to check it. 7. Recommend go, go with changes, or rethink to the lead, with reasons. 8. State what could not be verified: base rates from weak comparisons and risks outside the team's knowledge.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Plan, assumptions and base rates",
+          "brief": "Summarise the plan, list assumptions and find base rates.",
+          "acceptance": "Assumptions listed; base rate cited or marked unavailable."
+        },
+        {
+          "activity": "meeting",
+          "title": "Pre-mortem session",
+          "brief": "Voiced session: silent generation then round-robin sharing; the owner can listen or join.",
+          "acceptance": "Minutes list reasons from every participant, generated independently before discussion.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Rate and cluster",
+          "brief": "Cluster and rate the reasons.",
+          "acceptance": "Every reason is clustered and rated.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Mitigations and warning signals",
+          "brief": "Write mitigations, contingencies, indicators and owners.",
+          "acceptance": "Top risks each have a mitigation, a warning signal with threshold and an owner.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Lead review of the recommendation",
+          "brief": "Check that the recommendation follows from the ratings.",
+          "acceptance": "First line is APPROVED or CHANGES; the recommendation cites the top risks and plan-killing assumptions.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Reasons are generated independently before group discussion",
+          "severity": "must"
+        },
+        {
+          "criterion": "Top risks each have a mitigation, a warning signal with threshold, and an owner",
+          "severity": "must"
+        },
+        {
+          "criterion": "Plan-killing assumptions are named with a test",
+          "severity": "must"
+        },
+        {
+          "criterion": "Base rates from comparable projects are considered",
+          "severity": "should"
+        },
+        {
+          "criterion": "Includes a participant from outside the plan's discipline",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "red-team-critique",
+        "risk-register",
+        "plan-a-project",
+        "scenario-plan",
+        "decision-record"
+      ],
+      "example_request": "We're about to sign the lease for a second location. Before I commit, have the team imagine it's a year from now and it flopped. What went wrong?",
+      "typical_departments": [
+        "core-crew"
+      ],
+      "version": 1
+    },
+    {
+      "id": "red-team-critique",
+      "name": "Red-team critique",
+      "icon": "🥊",
+      "category": "quality-review",
+      "one_liner": "Attack a plan or draft from the outside view and list the weaknesses that matter.",
+      "description": "Attacks a plan, pitch or draft from the outside view. It steelmans the work first, maps assumptions, compares with base rates, and argues from perspectives not in the room (customer, competitor, regulator, frontline, finance). Second-order effects and common failure patterns are checked. Only weaknesses that change a decision are kept, each with a specific fix, and what is strong is named too.",
+      "when": "a plan, pitch, proposal or big draft is about to be relied on and nobody has argued against it yet",
+      "inputs": [
+        {
+          "id": "work",
+          "label": "The plan, pitch or draft",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "goal",
+          "label": "What it is meant to achieve and for whom",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "context",
+          "label": "Constraints, history and past attempts",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Red-team memo",
+          "format": "md",
+          "description": "Steelman, ranked weaknesses with fixes, what is strong, verdict."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Assumption map",
+          "format": "xlsx",
+          "description": "Assumption, evidenced/plausible/unsupported, criticality and test."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "memory_recall",
+        "web_search",
+        "web_fetch",
+        "embeddings_search",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Read the work and its goal, then steelman it: restate its strongest version in three sentences so the critique is fair. 2. Map assumptions, explicit and implicit; mark each as evidenced, plausible or unsupported, with how critical it is. 3. Take the outside view: compare with base rates and similar cases (competitors or analogues that tried it) using web_search and web_fetch. 4. Argue from perspectives not in the room: the customer, a competitor's response, a regulator, frontline staff, finance, and the most sceptical investor. 5. Trace second-order effects: what happens next if it works (capacity, cash, cannibalisation) and if it half-works. 6. Check for common failure patterns: planning fallacy, survivorship bias, vanity metrics, single points of failure, no clear owner. 7. Rank weaknesses by consequence x likelihood, keep only those that change a decision, and give each a specific fix or test. 8. Say plainly what is strong and should not change. The verdict's first line is APPROVED or CHANGES. Critique the work, never the people. 9. State what could not be verified.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Steelman and assumption map",
+          "brief": "Steelman the work and map its assumptions.",
+          "acceptance": "Steelman in three sentences; every assumption rated."
+        },
+        {
+          "activity": "research",
+          "title": "Outside view",
+          "brief": "Find base rates and analogous cases.",
+          "acceptance": "At least two cited comparables or a note that none exist.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Red-team critique",
+          "brief": "Attack from missing perspectives and rank weaknesses with fixes.",
+          "acceptance": "First line is APPROVED or CHANGES; each weakness has consequence, likelihood and a specific fix.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Critique memo",
+          "brief": "Write the memo and assumption map.",
+          "acceptance": "Memo names what is strong as well as what is weak.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "A steelman is stated before the critique",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every weakness is ranked and paired with a specific fix or test",
+          "severity": "must"
+        },
+        {
+          "criterion": "The critique targets the work, never people",
+          "severity": "must"
+        },
+        {
+          "criterion": "Includes perspectives not represented in the team",
+          "severity": "should"
+        },
+        {
+          "criterion": "Names what is strong and should stay",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "pre-mortem",
+        "fact-check",
+        "structured-debate",
+        "compare-options",
+        "rubric-scoring"
+      ],
+      "example_request": "Here's my plan to raise prices 20% and add a premium tier. Tear it apart. I'd rather hear it from you than from my customers.",
+      "typical_departments": [
+        "core-crew",
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "acceptance-verification",
+      "name": "Acceptance criteria verification",
+      "icon": "☑️",
+      "category": "quality-review",
+      "one_liner": "Check each deliverable against its acceptance criteria with evidence.",
+      "description": "Checks each deliverable against its acceptance criteria with evidence. Vague criteria are rewritten as testable first. Every file is opened, numbers are recalculated, links and citations sampled, apps and pages tried, and claimed external actions matched to connector receipts. Output is a pass/fail matrix: nothing counts as done without proof.",
+      "when": "a task or project is reported done, before the owner is told, or before a deliverable leaves the workspace",
+      "inputs": [
+        {
+          "id": "criteria",
+          "label": "The acceptance criteria from the plan or brief",
+          "required": true,
+          "source": "coworker"
+        },
+        {
+          "id": "deliverables",
+          "label": "The files, links, apps or records produced",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "receipts",
+          "label": "Connector receipts for any external actions",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "checklist",
+          "name": "Acceptance matrix with evidence",
+          "format": "md",
+          "description": "Criterion, verdict (pass, fail, cannot verify), evidence and fix owner."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Verification verdict",
+          "format": "md",
+          "description": "APPROVED or CHANGES, with what is missing and who should fix it."
+        }
+      ],
+      "tools": [
+        "workspace_files",
+        "file_parse",
+        "code_interpreter",
+        "web_fetch",
+        "vision_describe",
+        "connector_read",
+        "ask_coworker",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "github",
+        "google-workspace",
+        "microsoft-365",
+        "jira",
+        "linear"
+      ],
+      "modalities": [
+        "file",
+        "text",
+        "screen",
+        "url",
+        "connector_data"
+      ],
+      "instructions": "1. Collect the acceptance criteria verbatim from the plan. If any is vague ('looks good'), rewrite it as testable and confirm the rewrite with the lead via ask_coworker before checking. 2. Open every deliverable itself (workspace_files, file_parse), not the summary about it: check it exists, opens, and is the right format and version. 3. For each criterion, perform the check and record evidence: a quote, a cell reference, a recalculated value, a screenshot, a link status, a test output or a connector receipt. 4. Recalculate key numbers independently in code_interpreter, and follow a sample of links and citations with web_fetch. 5. For apps and pages, run the stated user tasks and capture what happened with vision_describe. 6. Verify claimed external actions (sent, published, updated) against connector receipts with connector_read. No receipt means not done. 7. Give each criterion a verdict (pass, fail or cannot verify) with evidence; the overall first line is APPROVED or CHANGES. 8. For each fail, state exactly what is missing and who should fix it. 9. State what could not be verified.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Make criteria testable",
+          "brief": "Rewrite vague criteria as testable and confirm them with the lead.",
+          "acceptance": "Every criterion is testable and confirmed."
+        },
+        {
+          "activity": "ingest",
+          "title": "Open and inspect deliverables",
+          "brief": "Open every deliverable and check existence, format and version.",
+          "acceptance": "Each deliverable opened; format and version recorded.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Run checks and recalculations",
+          "brief": "Run each check, recalculate numbers, sample links and match receipts.",
+          "acceptance": "Every criterion has evidence attached.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Verdict",
+          "brief": "Give per-criterion verdicts and the overall verdict.",
+          "acceptance": "First line is APPROVED or CHANGES; every criterion has pass, fail or cannot-verify with evidence.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every criterion has a verdict with concrete evidence",
+          "severity": "must"
+        },
+        {
+          "criterion": "External actions are verified by receipt",
+          "severity": "must"
+        },
+        {
+          "criterion": "Deliverables are opened directly, not judged by their summaries",
+          "severity": "must"
+        },
+        {
+          "criterion": "Vague criteria are rewritten as testable before checking",
+          "severity": "should"
+        },
+        {
+          "criterion": "Each fail names the fix and the owner",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "rubric-scoring",
+        "numbers-audit",
+        "fact-check",
+        "editorial-review",
+        "test-plan"
+      ],
+      "example_request": "The team says the new price list, the website update and the email to wholesale customers are all done. Check each one actually meets what we asked for before I tell my partner.",
+      "typical_departments": [
+        "core-crew"
+      ],
+      "version": 1
+    },
+    {
+      "id": "editorial-review",
+      "name": "Editorial review",
+      "icon": "🖋️",
+      "category": "quality-review",
+      "one_liner": "Structural and line review against the brief, audience and house style.",
+      "description": "Edits against the brief, audience and house style, structure first: does it lead with the answer (Pyramid Principle), are the groups logical, does every section earn its place? A line edit and style pass follow, with a read-aloud pass in a coworker voice to catch sentences that don't survive being spoken. Output is tracked suggestions plus an editor's note, with facts flagged for fact-check.",
+      "when": "a draft is about to go to customers, staff, investors or the public, or it feels long, muddled or off-voice",
+      "inputs": [
+        {
+          "id": "draft",
+          "label": "The draft",
+          "required": true,
+          "source": "file",
+          "example": "Letter to members about the fee increase"
+        },
+        {
+          "id": "brief",
+          "label": "Purpose, audience, desired action, length and format",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "house_style",
+          "label": "House style and voice guide",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Edited draft with suggestions",
+          "format": "docx",
+          "description": "Tracked suggestions preserving the author's voice."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Editor's note",
+          "format": "md",
+          "description": "Verdict, top three structural changes and why, and claims flagged for fact-check."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Read-aloud pass",
+          "format": "mp3",
+          "description": "The edited draft read aloud, to hear the rhythm."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "memory_recall",
+        "embeddings_search",
+        "code_interpreter",
+        "document_generate",
+        "tts"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "notion",
+        "wordpress"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "audio"
+      ],
+      "instructions": "1. Read the brief (purpose, audience, desired action, length, format) and load the house style with memory_recall. 2. Structural edit first: does the piece lead with the answer (BLUF, or the Pyramid Principle's governing thought, key line and support)? Are the groups logical and MECE? Cut or move sections that don't serve the purpose. 3. Check audience fit: jargon, assumed knowledge and tone. 4. Line edit: active voice, concrete nouns, one idea per sentence, hedges and filler cut, parallel lists, consistent terms. Measure readability in code_interpreter where it helps. 5. Apply house style consistently: spelling variant, numerals, capitalisation, dates, serial comma, brand voice and headings. 6. Read aloud: render the edited draft with tts and fix the sentences that don't survive being spoken. 7. Flag factual claims for fact-check rather than verifying them here. 8. Return tracked suggestions with document_generate plus an editor's note: the top three structural changes and why. The verdict's first line is APPROVED or CHANGES. 9. State what could not be verified.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Brief and structure check",
+          "brief": "Compare the draft's structure with the brief.",
+          "acceptance": "Main point, audience and structure issues listed."
+        },
+        {
+          "activity": "review",
+          "title": "Structural edit",
+          "brief": "Propose structural changes with reasons.",
+          "acceptance": "First line is APPROVED or CHANGES; each structural change explained.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Line and style edit",
+          "brief": "Line-edit and apply house style.",
+          "acceptance": "Suggestions keep the author's meaning and voice.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Read-aloud pass",
+          "brief": "Render the edited draft aloud and note awkward sentences.",
+          "acceptance": "Awkward sentences found in the read-aloud are fixed or noted.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Tracked edit and editor's note",
+          "brief": "Render the tracked edit and the note.",
+          "acceptance": "Claims needing verification are flagged for fact-check.",
+          "dependsOn": [
+            2,
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The piece leads with its main point for the stated audience",
+          "severity": "must"
+        },
+        {
+          "criterion": "Suggestions preserve the author's voice and meaning",
+          "severity": "must"
+        },
+        {
+          "criterion": "Claims needing verification are flagged for fact-check",
+          "severity": "must"
+        },
+        {
+          "criterion": "House style is applied consistently",
+          "severity": "should"
+        },
+        {
+          "criterion": "The editor's note explains the top structural changes",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "copyedit-pass",
+        "fact-check",
+        "plain-language-rewrite",
+        "brand-consistency-check",
+        "write-a-report"
+      ],
+      "example_request": "This is my letter to members about the fee increase. It's too long and sounds defensive. Edit it so it's clear and kind.",
+      "typical_departments": [
+        "core-crew",
+        "content-comms-pr"
+      ],
+      "version": 1
+    },
+    {
+      "id": "numbers-audit",
+      "name": "Numbers & formula audit",
+      "icon": "🧮",
+      "category": "quality-review",
+      "one_liner": "Recalculate totals, trace formulas and flag inconsistencies.",
+      "description": "Audits the numbers in a spreadsheet, report or deck. It maps inputs, calculations and outputs, independently recalculates totals, rates and averages, and traces key outputs back to inputs. Broken ranges, hard-coded values, unit, currency and period mismatches, and cross-document inconsistencies are caught. Findings are logged by cell and slide, and the original is never altered.",
+      "when": "numbers are about to go to a bank, board, investor, customer or tax professional, or two documents disagree",
+      "inputs": [
+        {
+          "id": "files",
+          "label": "The spreadsheet, report or deck",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "source_data",
+          "label": "Where the numbers should come from",
+          "required": false,
+          "source": "connector",
+          "example": "QuickBooks P&L for the year"
+        },
+        {
+          "id": "tolerance",
+          "label": "Acceptable rounding tolerance",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Findings log by cell",
+          "format": "xlsx",
+          "description": "File, tab, cell or slide, issue, impact on outputs, correction and severity."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Audit summary",
+          "format": "md",
+          "description": "Verdict, material errors and what to fix before sharing."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "quickbooks",
+        "xero"
+      ],
+      "modalities": [
+        "file",
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Load the files with file_parse, and the source data each number should come from with connector_read. 2. Map the workbook: inputs, calculations and outputs. Flag hard-coded numbers inside formulas and outputs with no formula. 3. Recalculate independently in code_interpreter: totals, subtotals, percentages, growth rates and averages (weighted versus simple). Compare with reported values within a stated tolerance. 4. Trace key outputs back to inputs through their precedent chains. Check that ranges include all rows, absolute and relative references are right, lookups don't return errors or wrong matches, and there are no circular references. 5. Check consistency: the same metric matches across tabs, the report and the deck; units (thousands versus units), currency, periods (fiscal versus calendar) and signs agree. 6. Sanity checks: ratios in plausible ranges; balance checks (the balance sheet balances, cash ties to the bank); parts sum to the whole. 7. Log each finding with location (file, tab and cell, or slide), issue, impact on outputs, correction and severity. The verdict's first line is APPROVED or CHANGES. 8. Never alter the owner's original; provide a corrected copy with spreadsheet_generate only if asked. 9. State what could not be verified: numbers without a traceable source.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load files and sources",
+          "brief": "Parse files and load source data.",
+          "acceptance": "Every file parsed; sources identified per key number."
+        },
+        {
+          "activity": "analysis",
+          "title": "Map and recalculate",
+          "brief": "Map the model and recalculate totals and rates.",
+          "acceptance": "Every reported total recalculated with the difference shown.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Trace and consistency checks",
+          "brief": "Trace precedents and check cross-document consistency.",
+          "acceptance": "Key outputs traced to inputs; mismatches listed.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Audit verdict",
+          "brief": "Give the verdict and severity of findings.",
+          "acceptance": "First line is APPROVED or CHANGES; every finding has a cell or slide reference and impact.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Findings log",
+          "brief": "Render the findings log and summary.",
+          "acceptance": "Original files untouched.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every reported total is independently recalculated",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each finding cites file, tab and cell, or slide",
+          "severity": "must"
+        },
+        {
+          "criterion": "Original files are never altered",
+          "severity": "must"
+        },
+        {
+          "criterion": "Units, currency and period consistency are checked",
+          "severity": "should"
+        },
+        {
+          "criterion": "Hard-coded values inside formulas are flagged",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "acceptance-verification",
+        "three-statement-model",
+        "budget-vs-actual",
+        "fact-check",
+        "data-cleanup"
+      ],
+      "example_request": "My bookkeeper sent the year-end summary and the numbers in the deck don't match the spreadsheet. Find out where it's wrong before the bank meeting.",
+      "typical_departments": [
+        "core-crew",
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "brand-consistency-check",
+      "name": "Brand consistency check",
+      "icon": "🖌️",
+      "category": "quality-review",
+      "one_liner": "Check assets against brand guidelines: voice, colour, type and logo use.",
+      "description": "Checks assets (pages, posts, decks, emails, print) against the brand guidelines. It samples logo use, colour values, typography, imagery style and accessibility with vision and computed contrast, and scores the verbal voice with examples. Each issue is annotated on the asset with the guideline it breaks and a specific fix, and patterns across assets are summarised.",
+      "when": "several people or freelancers produce content, before a campaign ships, or when things 'don't look like us'",
+      "inputs": [
+        {
+          "id": "assets",
+          "label": "Files, URLs or screenshots to check",
+          "required": true,
+          "source": "file",
+          "example": "Last month's Instagram posts"
+        },
+        {
+          "id": "guidelines",
+          "label": "Brand guidelines: voice, palette, type, logo rules and imagery",
+          "required": true,
+          "source": "memory"
+        },
+        {
+          "id": "scope",
+          "label": "Which channels or campaigns",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Brand check report",
+          "format": "md -> pdf",
+          "description": "Issues by severity with annotated assets and patterns."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Annotated assets",
+          "format": "png",
+          "description": "Each issue marked on the asset."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Issue log",
+          "format": "xlsx",
+          "description": "Asset, issue, guideline broken, severity and fix."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "vision_describe",
+        "web_fetch",
+        "file_parse",
+        "code_interpreter",
+        "image_edit",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "canva",
+        "figma",
+        "google-workspace",
+        "dropbox",
+        "wordpress"
+      ],
+      "modalities": [
+        "image",
+        "file",
+        "url",
+        "text"
+      ],
+      "instructions": "1. Load the brand guidelines with memory_recall: voice attributes, vocabulary dos and don'ts, palette hex values, type, logo rules and imagery style. If there are none, say so and check only internal consistency. 2. Collect the assets (files with file_parse, URLs with web_fetch, screenshots). 3. Visual checks with vision_describe: logo version, clear space, minimum size, distortion, colour use (hex values sampled in code_interpreter against the palette within a tolerance), typefaces, layout grid and imagery style. 4. Accessibility: text contrast against WCAG 2.2, text baked into images, and alt text present. 5. Verbal checks: score each asset against the voice attributes (for example warm, plain, confident) with example sentences; check banned words, product naming, capitalisation and claims. 6. Annotate each issue on the asset with image_edit and give the specific fix. 7. Summarise by severity (off-brand, inconsistent, minor) and by pattern (for example 'everyone is using the old logo'). The verdict's first line is APPROVED or CHANGES. 8. State what could not be verified: fonts that can't be identified from images and colour shifts in screenshots.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load guidelines and assets",
+          "brief": "Load the guidelines and every asset.",
+          "acceptance": "Every asset loaded; guideline sections listed."
+        },
+        {
+          "activity": "analysis",
+          "title": "Visual and accessibility checks",
+          "brief": "Sample colours, check logo, type, imagery and contrast.",
+          "acceptance": "Colour checks use sampled values; contrast computed.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Voice and naming checks",
+          "brief": "Score voice and check naming and claims.",
+          "acceptance": "Each asset has a voice score with example sentences.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "image",
+          "title": "Annotate issues",
+          "brief": "Mark each issue on its asset.",
+          "acceptance": "Every logged issue has an annotation.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Consistency verdict",
+          "brief": "Give the verdict and patterns.",
+          "acceptance": "First line is APPROVED or CHANGES; every issue cites the guideline it breaks.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every issue cites the specific guideline it breaks",
+          "severity": "must"
+        },
+        {
+          "criterion": "Colour checks use sampled values against the palette",
+          "severity": "must"
+        },
+        {
+          "criterion": "Contrast is checked against WCAG 2.2",
+          "severity": "must"
+        },
+        {
+          "criterion": "Patterns across assets are summarised",
+          "severity": "should"
+        },
+        {
+          "criterion": "Fixes are specific",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "brand-identity-kit",
+        "social-graphics-set",
+        "editorial-review",
+        "voice-style-guide",
+        "wcag-audit"
+      ],
+      "example_request": "We have three freelancers making our social posts and it's starting to look like three different companies. Check the last month's posts against our brand guide.",
+      "typical_departments": [
+        "design-creative",
+        "core-crew"
+      ],
+      "version": 1
+    },
+    {
+      "id": "rubric-scoring",
+      "name": "Rubric scoring",
+      "icon": "📏",
+      "category": "quality-review",
+      "one_liner": "Score work against an explicit rubric and explain each score.",
+      "description": "Scores work against an explicit analytic rubric: criteria tied to the goal, levels described in observable terms, and weights. Scorers calibrate on an anchor example, score each criterion independently with quoted evidence, and score blind to names with inter-rater agreement where many items are compared. Output is the top improvements. Scores inform decisions; they never make them.",
+      "when": "work needs a fair, consistent judgement: grant applications, proposals, vendor responses, content, training work or candidate work samples",
+      "inputs": [
+        {
+          "id": "items",
+          "label": "The work to score",
+          "required": true,
+          "source": "file",
+          "example": "23 community grant applications"
+        },
+        {
+          "id": "rubric",
+          "label": "An existing rubric, or the goal to build one from",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "anchor",
+          "label": "A known good or poor example for calibration",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Scorecard",
+          "format": "xlsx",
+          "description": "Item, criterion scores with evidence references, weighted total and agreement."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Score rationale and top improvements",
+          "format": "md",
+          "description": "Per item: why each score, and the three changes that would raise it most."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "memory_recall",
+        "embeddings_search",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "ask_coworker"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "greenhouse",
+        "airtable"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Get or build the rubric: four to seven criteria tied to the goal, each with three to five levels described in observable terms (not 'good' or 'strong'), and weights. Confirm a newly built rubric with the lead via ask_coworker before scoring. 2. Calibrate by scoring an anchor example (a known good or poor piece) to align the scale. 3. Score each criterion independently, quoting or pointing to the evidence in the work. To avoid the halo effect, score criteria in random order and don't compute the total until the end. 4. For many items (applications, proposals, work samples), score blind to names where possible, use a second scorer on a sample, and report agreement in code_interpreter. 5. Compute weighted totals and show sensitivity when an item is close to a threshold. 6. Give the top three specific improvements that would raise each score most. 7. If people are being scored (hiring, performance), stick strictly to job-related criteria and flag any use in employment decisions to the owner. The rubric informs; it does not decide. 8. When used as a review gate, the verdict's first line is APPROVED or CHANGES. 9. State what could not be verified.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Build or load the rubric",
+          "brief": "Load or build the rubric and confirm it.",
+          "acceptance": "Criteria have observable level descriptors and weights summing to 100."
+        },
+        {
+          "activity": "analysis",
+          "title": "Calibrate on an anchor",
+          "brief": "Score the anchor and align the scale.",
+          "acceptance": "Anchor scores recorded with reasons.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Score with evidence",
+          "brief": "Score each item and criterion with evidence.",
+          "acceptance": "First line is APPROVED or CHANGES; each criterion is scored with quoted evidence.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Scorecard and improvements",
+          "brief": "Render the scorecard and rationale.",
+          "acceptance": "Agreement reported when multiple items are scored.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every score cites evidence from the work",
+          "severity": "must"
+        },
+        {
+          "criterion": "Rubric levels are observable, not vague adjectives",
+          "severity": "must"
+        },
+        {
+          "criterion": "Scores inform, never make, employment or legal decisions",
+          "severity": "must"
+        },
+        {
+          "criterion": "Calibration on an anchor example",
+          "severity": "should"
+        },
+        {
+          "criterion": "Inter-rater agreement is reported when multiple items are scored",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "acceptance-verification",
+        "interview-kit",
+        "grant-proposal",
+        "red-team-critique",
+        "performance-review-kit"
+      ],
+      "example_request": "We got 23 applications for our community grant. Score them against our criteria so the committee has something fair to start from.",
+      "typical_departments": [
+        "core-crew"
+      ],
+      "version": 1
+    },
+    {
+      "id": "claims-substantiation-check",
+      "name": "Marketing claims check",
+      "icon": "📢",
+      "category": "quality-review",
+      "one_liner": "Flag claims that need substantiation or disclosure (FTC/ASA-style) for review.",
+      "description": "Flags marketing claims that need substantiation or disclosure under FTC and ASA-style standards: performance, comparative, superlative, environmental, health, 'free', reference pricing, urgency, testimonials and influencer posts. It reads copy, images, video and audio, grades the evidence on file for each claim and suggests safer wording, for review by a licensed attorney.",
+      "when": "before an ad, landing page, packaging, listing, email or influencer campaign makes claims about results, comparisons, the environment or health",
+      "inputs": [
+        {
+          "id": "materials",
+          "label": "Copy, images, video, packaging or landing pages to check",
+          "required": true,
+          "source": "file",
+          "example": "New ad video, product page and packaging proof"
+        },
+        {
+          "id": "evidence_on_file",
+          "label": "Tests, data and sources behind the claims",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "markets",
+          "label": "Where the materials will run",
+          "required": true,
+          "source": "owner",
+          "example": "US and UK"
+        },
+        {
+          "id": "endorsers",
+          "label": "Influencers, affiliates or testimonial sources and their relationship",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Claims register with evidence grades",
+          "format": "xlsx",
+          "description": "Claim, location, type, express or implied, evidence, grade, disclosure needed and safer wording."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Claims review memo",
+          "format": "md -> docx",
+          "description": "Highest-risk claims, suggested wording and questions, for attorney review."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "vision_describe",
+        "stt",
+        "web_fetch",
+        "embeddings_search",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "meta-business",
+        "google-ads",
+        "shopify",
+        "amazon-seller-central",
+        "youtube"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "video",
+        "audio",
+        "url"
+      ],
+      "instructions": "1. Guardrail (legal): Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent. Escalate to a licensed attorney in the relevant jurisdiction (licensed professional) before anything is published, and mark the memo 'Claims review for attorney review. Not legal advice.' Record the markets (for example US FTC, UK ASA/CAP Code, EU UCPD) as jurisdiction assumptions. 2. Extract every claim from copy (file_parse and web_fetch), images and on-screen text (vision_describe), and video or audio (transcribed with stt), including implied claims judged by net impression. 3. Classify each claim: objective performance, comparative, superlative ('best', '#1'), environmental ('green', 'recyclable', 'carbon neutral'), health or safety, 'free' and pricing or discount (reference prices), urgency or scarcity, testimonials and endorsements (typicality, material connections), influencer posts (disclosure), origin ('made in'), and AI-generated imagery that represents results. 4. For each objective claim, find the substantiation on file with embeddings_search and grade it adequate, weak or none. Flag puffery separately. 5. Flag the disclosures needed: material connections (for example #ad), results not typical, subscription terms, and the basis of reference prices. 6. Suggest safer wording that keeps the intent. 7. Route health, medical and financial-performance claims to the owner and a licensed professional in that field. 8. Never state that a claim is legal or compliant. 9. State what could not be verified: evidence not provided and jurisdiction-specific rules not reviewed.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Extract claims from all formats",
+          "brief": "Extract express and implied claims from copy, images, video and audio.",
+          "acceptance": "Every claim has a location reference (page, frame or timestamp)."
+        },
+        {
+          "activity": "llm",
+          "title": "Classify and match evidence",
+          "brief": "Classify claims and grade the substantiation on file.",
+          "acceptance": "Every objective claim has an evidence grade.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Disclosures and safer wording",
+          "brief": "Flag disclosures and draft safer wording.",
+          "acceptance": "Each high-risk claim has a safer alternative.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Risk ranking",
+          "brief": "Rank claims by risk and check nothing is declared legal.",
+          "acceptance": "First line is APPROVED or CHANGES; every objective claim has its evidence graded; no claim is declared legal.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Claims register and memo",
+          "brief": "Render the register and memo.",
+          "acceptance": "Memo carries the attorney-review label and jurisdiction assumptions.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review by an attorney",
+          "brief": "The owner's attorney reviews high-risk claims before publication.",
+          "acceptance": "Attorney review recorded before publication.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Marked for review by a licensed attorney; never states a claim is legal",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every objective claim is mapped to evidence or flagged as unsubstantiated",
+          "severity": "must"
+        },
+        {
+          "criterion": "Jurisdiction assumptions are stated",
+          "severity": "must"
+        },
+        {
+          "criterion": "Implied claims and on-screen and audio claims are included",
+          "severity": "must"
+        },
+        {
+          "criterion": "Safer wording keeps the intent",
+          "severity": "should"
+        },
+        {
+          "criterion": "Endorsement and influencer disclosures are checked",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "fact-check",
+        "product-listing",
+        "packaging-concept",
+        "paid-ads-plan",
+        "battlecard"
+      ],
+      "example_request": "Our new ad says our cleaner is '99.9% effective, eco-friendly and the #1 choice of pro cleaners'. Can we say that? Flag what we need to back it up before my lawyer looks.",
+      "regulated_domains": [
+        "legal"
+      ],
+      "typical_departments": [
+        "legal-compliance",
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "inclusive-language-review",
+      "name": "Bias & inclusive language review",
+      "icon": "🗨️",
+      "category": "quality-review",
+      "one_liner": "Find biased, exclusionary or inaccessible language and suggest fixes.",
+      "description": "Reviews content for biased, exclusionary, stigmatising or inaccessible language: gendered defaults, ableist idioms, age-coded wording in job ads, cultural assumptions, stigmatising terms and jargon. It also checks reading level and how people are represented in images. Each flag quotes the text, explains why it may exclude and offers a precise alternative that keeps the author's meaning and voice.",
+      "when": "before publishing job ads, careers pages, policies, customer communications or campaigns, or after feedback that something landed badly",
+      "inputs": [
+        {
+          "id": "content",
+          "label": "Text and images to review",
+          "required": true,
+          "source": "file",
+          "example": "Three job ads and the careers page"
+        },
+        {
+          "id": "audience_markets",
+          "label": "Audience, markets and languages",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "style_guide",
+          "label": "House style and any inclusive-language guide",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Inclusive language review",
+          "format": "md -> docx",
+          "description": "Each flag with quote, concern, alternative and confidence."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Summary and patterns",
+          "format": "md",
+          "description": "Recurring patterns, reading level and imagery notes."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "web_fetch",
+        "memory_recall",
+        "vision_describe",
+        "code_interpreter",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "notion",
+        "greenhouse"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "image",
+        "url"
+      ],
+      "instructions": "1. Understand the context: audience, purpose, markets and languages, and the house style guide (memory_recall). 2. Scan with file_parse and web_fetch for: gendered defaults and titles (use role-based terms or singular 'they'); ableist idioms and metaphors; age-coded language (especially in job ads); assumptions about family, religion, culture, names or holidays; stigmatising terms around mental health, addiction or disability (person-first or identity-first, as the community prefers); exclusionary jargon; and idioms that don't translate. 3. For job ads, check requirements that screen people out without being job-related, 'culture fit' language and degree inflation; keep criteria that are genuinely required. 4. Measure accessibility of the language in code_interpreter: reading level (about eighth grade for public content), sentence length, link text and expanded acronyms. 5. Check who is shown, and in what roles, in any images with vision_describe, and flag stereotypes. 6. For each item: quote, why it may exclude, suggested alternative and confidence. Avoid over-correction and don't flatten the voice. 7. Note where community preferences differ and the owner should choose. 8. The verdict's first line is APPROVED or CHANGES. 9. State what could not be verified: community preferences that vary by region.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load content and context",
+          "brief": "Load the text, images and style guide.",
+          "acceptance": "All content loaded with audience noted."
+        },
+        {
+          "activity": "review",
+          "title": "Language scan",
+          "brief": "Flag language with quote, concern and alternative.",
+          "acceptance": "First line is APPROVED or CHANGES; each flag quotes the text with reason and alternative.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Readability and imagery check",
+          "brief": "Measure reading level and review imagery.",
+          "acceptance": "Reading level reported; imagery notes recorded.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Suggestions and summary",
+          "brief": "Render suggestions and the patterns summary.",
+          "acceptance": "Genuinely job-related requirements are kept.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Each flag quotes the text, explains the concern and offers an alternative",
+          "severity": "must"
+        },
+        {
+          "criterion": "Suggestions keep the author's meaning and voice",
+          "severity": "must"
+        },
+        {
+          "criterion": "Genuinely job-related requirements are kept",
+          "severity": "must"
+        },
+        {
+          "criterion": "Reading level is reported",
+          "severity": "should"
+        },
+        {
+          "criterion": "Imagery representation is checked where images exist",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "job-description",
+        "editorial-review",
+        "plain-language-rewrite",
+        "policy-draft",
+        "wcag-audit"
+      ],
+      "example_request": "Can you check our new job ads and careers page? I want to be sure we're not accidentally putting people off who'd be great.",
+      "typical_departments": [
+        "people-culture",
+        "content-comms-pr"
+      ],
+      "version": 1
+    },
+    {
+      "id": "provenance-check",
+      "name": "Image & source provenance check",
+      "icon": "©️",
+      "category": "quality-review",
+      "one_liner": "Check rights, licences, AI-disclosure and attribution for assets and quotes.",
+      "description": "Clears every image, video, audio file, font and quote before use: embedded metadata (EXIF, IPTC, C2PA), people, logos and property spotted with vision, licence terms and permitted uses, releases, AI-generation disclosure and prompt logs, and quotes checked against the original. Output is a rights log with a status and fix per asset.",
+      "when": "before a website, campaign, publication, deck or product launch goes live with assets of mixed or unknown origin",
+      "inputs": [
+        {
+          "id": "deliverable",
+          "label": "The page, deck, campaign or folder of assets",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "licences",
+          "label": "Licence documents, stock receipts and releases on file",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "prompt_logs",
+          "label": "Prompt logs for AI-generated assets",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Rights and provenance log",
+          "format": "xlsx",
+          "description": "Asset or quote, origin, licence, permitted uses, releases, attribution, AI disclosure, status and action."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Clearance summary",
+          "format": "md",
+          "description": "What is cleared, what needs attribution, releases or replacement."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "code_interpreter",
+        "vision_describe",
+        "web_search",
+        "web_fetch",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "dropbox",
+        "google-workspace",
+        "canva",
+        "box"
+      ],
+      "modalities": [
+        "image",
+        "video",
+        "audio",
+        "file",
+        "url"
+      ],
+      "instructions": "1. Inventory every asset and quote in the deliverable with where it came from: owner upload, stock library, AI-generated, or the web. 2. Read embedded metadata (EXIF, IPTC, C2PA content credentials) with code_interpreter. Describe each image with vision_describe to spot logos, identifiable people, artworks, trademarks and private property. 3. Match each asset to its licence with file_parse and web_fetch (stock licence, Creative Commons type and conditions, font EULA, music licence). Check permitted uses (commercial use, print run, paid ads, merchandise), attribution requirements and exclusions. 4. People and property: identifiable people need a model release for commercial use; recognisable private property or artworks may need releases. 5. AI-generated assets: confirm a prompt log exists; disclose where platform rules or law require; avoid prompts imitating living artists' styles or real people; check outputs for accidental trademarks. 6. Quotes: verify wording and source against the original with web_search, attribute correctly, and seek permission for long excerpts. 7. Log each item with a status (cleared, needs attribution, needs release or licence, replace), an evidence link and an action. 8. Send rights questions with legal weight to the owner and counsel. 9. State what could not be verified: origin of assets with stripped metadata and licences not on file.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Inventory assets and quotes",
+          "brief": "List every asset and quote with its origin.",
+          "acceptance": "Every asset and quote in the deliverable is listed."
+        },
+        {
+          "activity": "analysis",
+          "title": "Metadata and vision checks",
+          "brief": "Read metadata and describe images for people, logos, art and property.",
+          "acceptance": "Metadata result and vision notes recorded per asset.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "research",
+          "title": "Licence and quote verification",
+          "brief": "Match licences and verify quotes against originals.",
+          "acceptance": "Each asset has its licence terms or 'not found'; each quote is verified or flagged.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Clearance verdict",
+          "brief": "Assign a status to each item.",
+          "acceptance": "First line is APPROVED or CHANGES; each asset has a clearance status with evidence.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Rights log and fixes",
+          "brief": "Render the rights log and summary.",
+          "acceptance": "Replacements suggested for anything uncleared.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every asset and quote has a clearance status with evidence",
+          "severity": "must"
+        },
+        {
+          "criterion": "Identifiable people and property are checked for releases",
+          "severity": "must"
+        },
+        {
+          "criterion": "AI-generated assets carry a prompt log and a disclosure where required",
+          "severity": "must"
+        },
+        {
+          "criterion": "Quotes are verified against the original source",
+          "severity": "should"
+        },
+        {
+          "criterion": "A replacement is suggested for anything uncleared",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "fact-check",
+        "ai-image-set",
+        "social-graphics-set",
+        "claims-substantiation-check",
+        "image-edit-retouch"
+      ],
+      "example_request": "Before the new website launches, check that we're allowed to use every photo, font and customer quote on it. Some came from an old designer and I have no idea where.",
+      "typical_departments": [
+        "core-crew",
+        "design-creative"
+      ],
+      "version": 1
+    }
+  ]
+}

@@ -1,0 +1,679 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-workplace.local/catalog/schema/team-recipe.schema.json",
+  "title": "Team recipe",
+  "description": "One team recipe. A group file (catalog/teams/<group-id>.json) is validated with #/$defs/group_file. Exports to biz-bot teams {key, name, goal, bots, coordinator, rounds} and plan tasks (see SCHEMA.md).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 80
+    },
+    "icon": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8
+    },
+    "group": {
+      "type": "string",
+      "enum": [
+        "grow",
+        "run-and-build"
+      ]
+    },
+    "outcome": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 300
+    },
+    "when_to_use": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 500
+    },
+    "inputs_from_owner": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 160
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "example": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "required"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true
+    },
+    "composition": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "persona_id": {
+            "$ref": "#/$defs/id"
+          },
+          "role": {
+            "$ref": "#/$defs/team_role"
+          },
+          "why": {
+            "type": "string",
+            "minLength": 15,
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "persona_id",
+          "role",
+          "why"
+        ]
+      },
+      "minItems": 3,
+      "maxItems": 8,
+      "description": "the full team; exactly one sceptic",
+      "contains": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "const": "sceptic"
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "minContains": 1,
+      "maxContains": 1
+    },
+    "coordinator_persona_id": {
+      "$ref": "#/$defs/id",
+      "description": "optional; defaults to the first composition member with role 'lead'. Never the sceptic."
+    },
+    "lean_variant": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "minItems": 2,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "description": "persona ids for the lean team"
+    },
+    "full_variant": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "minItems": 4,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "description": "persona ids for the thorough team"
+    },
+    "plan_skeleton": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 100
+          },
+          "activity": {
+            "$ref": "#/$defs/activity_type"
+          },
+          "skill_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "minItems": 1,
+            "maxItems": 3,
+            "uniqueItems": true
+          },
+          "owner_persona_id": {
+            "$ref": "#/$defs/id"
+          },
+          "reviewer_persona_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "minItems": 0,
+            "maxItems": 2,
+            "uniqueItems": true
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "minItems": 0,
+            "maxItems": 6,
+            "uniqueItems": true,
+            "description": "task ids in this plan"
+          },
+          "acceptance": {
+            "type": "string",
+            "minLength": 15,
+            "maxLength": 400
+          },
+          "brief": {
+            "type": "string",
+            "minLength": 15,
+            "maxLength": 600
+          },
+          "needs_owner_decision": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "activity",
+          "skill_ids",
+          "owner_persona_id",
+          "reviewer_persona_ids",
+          "depends_on",
+          "acceptance"
+        ]
+      },
+      "minItems": 3,
+      "maxItems": 8,
+      "description": "a DAG of 3-8 tasks"
+    },
+    "deliverables": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/deliverable"
+      },
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true
+    },
+    "connectors_useful": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/connector_id"
+      },
+      "minItems": 0,
+      "maxItems": 10,
+      "uniqueItems": true
+    },
+    "meeting_moments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 48,
+            "description": "'kickoff', 'final', or a plan task id"
+          },
+          "format": {
+            "$ref": "#/$defs/meeting_format"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 100
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "minItems": 2,
+            "maxItems": 6,
+            "uniqueItems": true
+          },
+          "owner_can_listen": {
+            "type": "boolean"
+          },
+          "what_owner_hears": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 400
+          }
+        },
+        "required": [
+          "after",
+          "format",
+          "title",
+          "participants",
+          "owner_can_listen",
+          "what_owner_hears"
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 4,
+      "uniqueItems": true
+    },
+    "duration_estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "active_minutes": {
+          "type": "integer",
+          "minimum": 5,
+          "maximum": 2400
+        },
+        "calendar_days": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 60
+        },
+        "note": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "active_minutes",
+        "calendar_days"
+      ]
+    },
+    "cost_class": {
+      "$ref": "#/$defs/cost_class"
+    },
+    "success_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 10,
+        "maxLength": 300
+      },
+      "minItems": 3,
+      "maxItems": 6,
+      "uniqueItems": true
+    },
+    "variants_by_industry": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "industry": {
+            "$ref": "#/$defs/industry_id"
+          },
+          "changes": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 500
+          },
+          "swap_in": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "minItems": 0,
+            "maxItems": 3,
+            "uniqueItems": true
+          },
+          "swap_out": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "minItems": 0,
+            "maxItems": 3,
+            "uniqueItems": true
+          },
+          "extra_skill_ids": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/id"
+            },
+            "minItems": 0,
+            "maxItems": 3,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "industry",
+          "changes",
+          "swap_in",
+          "swap_out"
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 6,
+      "uniqueItems": true
+    },
+    "regulated_domains": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/regulated_domain"
+      },
+      "minItems": 0,
+      "maxItems": 4,
+      "uniqueItems": true
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "group",
+    "outcome",
+    "when_to_use",
+    "inputs_from_owner",
+    "composition",
+    "lean_variant",
+    "full_variant",
+    "plan_skeleton",
+    "deliverables",
+    "connectors_useful",
+    "meeting_moments",
+    "duration_estimate",
+    "cost_class",
+    "success_criteria",
+    "variants_by_industry"
+  ],
+  "$defs": {
+    "group_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "group": {
+          "type": "string",
+          "enum": [
+            "grow",
+            "run-and-build"
+          ]
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "recipes": {
+          "type": "array",
+          "items": {
+            "$ref": "#"
+          },
+          "minItems": 1,
+          "maxItems": 24,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "group",
+        "version",
+        "recipes"
+      ],
+      "description": "catalog/teams/<group-id>.json"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+      "maxLength": 48,
+      "description": "kebab-case, globally unique across all catalog records"
+    },
+    "activity_type": {
+      "type": "string",
+      "enum": [
+        "llm",
+        "research",
+        "review",
+        "ingest",
+        "mcp",
+        "stt",
+        "tts",
+        "storage",
+        "log",
+        "human",
+        "command",
+        "agent",
+        "browser",
+        "files",
+        "analysis",
+        "image",
+        "video",
+        "document",
+        "app",
+        "meeting",
+        "memory",
+        "effect",
+        "schedule"
+      ]
+    },
+    "artifact_type": {
+      "type": "string",
+      "enum": [
+        "document",
+        "brief",
+        "spreadsheet",
+        "deck",
+        "web_page",
+        "app",
+        "dashboard",
+        "image",
+        "video",
+        "audio_briefing",
+        "script",
+        "dataset",
+        "email_draft",
+        "message_draft",
+        "social_post",
+        "plan",
+        "checklist",
+        "sop",
+        "policy_draft",
+        "contract_draft",
+        "minutes",
+        "decision_record",
+        "transcript",
+        "code",
+        "diagram",
+        "chart",
+        "form",
+        "portrait"
+      ]
+    },
+    "connector_id": {
+      "type": "string",
+      "enum": [
+        "cloudflare-docs",
+        "deepwiki",
+        "github",
+        "notion",
+        "hubspot",
+        "quickbooks",
+        "xero",
+        "asana",
+        "monday",
+        "calendly",
+        "canva",
+        "google-workspace",
+        "microsoft-365",
+        "slack",
+        "microsoft-teams",
+        "zoom",
+        "whatsapp-business",
+        "twilio",
+        "shopify",
+        "woocommerce",
+        "amazon-seller-central",
+        "etsy",
+        "square",
+        "toast",
+        "opentable",
+        "stripe",
+        "paypal",
+        "gusto",
+        "rippling",
+        "bamboohr",
+        "deel",
+        "greenhouse",
+        "salesforce",
+        "pipedrive",
+        "zendesk",
+        "intercom",
+        "freshdesk",
+        "gorgias",
+        "mailchimp",
+        "klaviyo",
+        "meta-business",
+        "google-ads",
+        "google-analytics",
+        "google-search-console",
+        "google-business-profile",
+        "linkedin",
+        "youtube",
+        "wordpress",
+        "webflow",
+        "docusign",
+        "dropbox",
+        "box",
+        "airtable",
+        "trello",
+        "clickup",
+        "linear",
+        "jira",
+        "confluence",
+        "figma",
+        "typeform",
+        "zapier",
+        "clio",
+        "procore",
+        "mindbody",
+        "kajabi"
+      ]
+    },
+    "industry_id": {
+      "type": "string",
+      "enum": [
+        "general",
+        "hospitality-restaurants",
+        "real-estate",
+        "construction-trades",
+        "healthcare-practice",
+        "legal-practice",
+        "professional-services",
+        "nonprofit",
+        "saas-startup",
+        "manufacturing",
+        "fitness-wellness",
+        "education-coaching",
+        "creator-economy",
+        "ecommerce-retail",
+        "local-services"
+      ]
+    },
+    "regulated_domain": {
+      "type": "string",
+      "enum": [
+        "legal",
+        "tax_accounting",
+        "medical_clinical",
+        "investment_financial_advice",
+        "employment_law",
+        "security",
+        "privacy"
+      ]
+    },
+    "team_role": {
+      "type": "string",
+      "enum": [
+        "lead",
+        "co_owner",
+        "reviewer",
+        "sceptic",
+        "facilitator",
+        "specialist"
+      ]
+    },
+    "meeting_format": {
+      "type": "string",
+      "enum": [
+        "kickoff",
+        "standup",
+        "brainstorm",
+        "debate",
+        "critique",
+        "decision",
+        "briefing",
+        "retro",
+        "workshop",
+        "interview"
+      ]
+    },
+    "cost_class": {
+      "type": "string",
+      "enum": [
+        "low",
+        "med",
+        "high"
+      ]
+    },
+    "deliverable": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact_type": {
+          "$ref": "#/$defs/artifact_type"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 100
+        },
+        "format": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 60,
+          "description": "file format(s), e.g. 'xlsx', 'md -> docx'"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 300
+        }
+      },
+      "required": [
+        "artifact_type",
+        "name",
+        "format"
+      ]
+    }
+  }
+}

@@ -1,0 +1,2071 @@
+{
+  "category": "data-analysis",
+  "version": 1,
+  "skills": [
+    {
+      "id": "kpi-tree",
+      "name": "KPI tree & metric definitions",
+      "icon": "🌳",
+      "category": "data-analysis",
+      "one_liner": "Decompose the North Star into driver metrics with precise, agreed definitions.",
+      "description": "Decomposes the business's North Star metric into a driver tree (for example revenue = visitors x conversion x order value x frequency), gives every metric a precise definition (formula, grain, source, owner, refresh), checks the tree reconciles to actuals, and names counter-metrics so no number gets gamed.",
+      "when": "the owner tracks too many numbers without knowing which ones to act on, before setting OKRs, or before building a dashboard",
+      "inputs": [
+        {
+          "id": "business_model",
+          "label": "How the business makes money and its main offers",
+          "required": true,
+          "source": "memory",
+          "example": "Café with walk-in, catering and a coffee-bean subscription"
+        },
+        {
+          "id": "current_metrics",
+          "label": "Numbers the owner already tracks and where",
+          "required": false,
+          "source": "owner",
+          "example": "Weekly takings, covers, Instagram followers, Google rating"
+        },
+        {
+          "id": "data_sources",
+          "label": "Systems holding the numbers",
+          "required": false,
+          "source": "connector",
+          "example": "Square POS, Shopify for beans, Xero"
+        },
+        {
+          "id": "goals",
+          "label": "What the owner is trying to achieve this year",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "diagram",
+          "name": "KPI tree",
+          "format": "mermaid -> svg",
+          "description": "North Star at the root, two or three levels of driver metrics, input metrics owned by named people."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Metric dictionary",
+          "format": "xlsx",
+          "description": "Name, formula, grain, source system and field, filters, owner, refresh cadence, caveats, counter-metric."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "What to watch and why",
+          "format": "md",
+          "description": "The five metrics that matter most, with baselines and the decisions each informs."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "code_interpreter",
+        "diagram_generate",
+        "spreadsheet_generate",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "square",
+        "shopify",
+        "stripe",
+        "quickbooks",
+        "xero",
+        "google-analytics",
+        "hubspot"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Recall the business model and goals with memory_recall. Propose a North Star metric that captures value delivered to customers and leads to revenue (for example 'weekly paid covers' or 'active subscribers'), with the reasoning. 2. Decompose it into a driver tree that is mathematically true: each level multiplies or sums to its parent. Keep it to three levels and about 15 metrics. Separate output metrics (results) from input metrics (things a team can move this week). 3. For each input metric, name a counter-metric that guards against gaming (Goodhart's law), for example covers vs. average spend, speed vs. accuracy. 4. Write a definition for every metric: formula, grain (per day, order, customer), source system and field, filters and exclusions, owner, refresh cadence and known caveats. 5. Pull baselines with connector_read and check the tree reconciles with code_interpreter: the product or sum of the children should match the parent within a stated tolerance for the last three periods. Explain any gap (refunds, tax, timing). 6. Draw the tree with diagram_generate and build the dictionary with spreadsheet_generate. 7. Ask the owner to agree the definitions with request_owner_decision: agreement is the point, so disagreements are recorded, not smoothed over. 8. Render a one-page brief with document_generate naming the five metrics to watch and the decision each informs. 9. State what could not be verified: metrics without a reliable source, and any tree branch that did not reconcile.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "North Star and draft tree",
+          "brief": "Propose the North Star and a three-level driver tree with input and output metrics.",
+          "acceptance": "Tree nodes combine arithmetically to their parent; about 15 metrics or fewer."
+        },
+        {
+          "activity": "analysis",
+          "title": "Baselines and reconciliation",
+          "brief": "Pull baselines and test that the tree reconciles to actuals for three periods.",
+          "acceptance": "Reconciliation table with variance per level and explanations for gaps over 2%.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Tree and dictionary",
+          "brief": "Draw the tree and write the metric dictionary.",
+          "acceptance": "Every metric has formula, grain, source, owner, refresh and counter-metric.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Definition review",
+          "brief": "An analyst from another discipline checks definitions for ambiguity and gaming risk.",
+          "acceptance": "First line APPROVED or CHANGES; ambiguous definitions quoted.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner agrees definitions",
+          "brief": "Owner confirms the North Star and definitions.",
+          "acceptance": "Owner decision recorded; disagreements noted.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The tree is arithmetically valid and reconciles to actuals within a stated tolerance.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every metric has formula, grain, source, owner and refresh cadence.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each input metric has a named counter-metric.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Three levels or fewer and about 15 metrics or fewer.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Input metrics are ones a named person can influence within a week.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "dashboard-build",
+        "okr-set",
+        "instrumentation-plan",
+        "anomaly-watch",
+        "saas-metrics-pack"
+      ],
+      "example_request": "I look at about 30 numbers every week and none of them tells me what to do. Can you work out which numbers actually drive our business and define them properly?",
+      "typical_departments": [
+        "data-analytics",
+        "strategy-leadership",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "cohort-analysis",
+      "name": "Cohort & retention analysis",
+      "icon": "▥",
+      "category": "data-analysis",
+      "one_liner": "Retention and revenue by cohort, with curves, payback and what changed.",
+      "description": "Groups customers by when they started and tracks retention and revenue over their lifetime: a cohort triangle, retention curves, gross and net revenue retention, cohort LTV and payback, with the changes between cohorts explained and small cohorts flagged.",
+      "when": "the owner asks whether newer customers stick as well as older ones, what a customer is worth, or whether a change improved retention",
+      "inputs": [
+        {
+          "id": "transactions",
+          "label": "Orders, subscriptions or visits with customer id, date and amount",
+          "required": true,
+          "source": "connector",
+          "example": "Shopify orders export, 2022 to today"
+        },
+        {
+          "id": "cohort_definition",
+          "label": "What defines a cohort and what counts as active",
+          "required": false,
+          "source": "owner",
+          "example": "Month of first order; active = ordered in that month"
+        },
+        {
+          "id": "segments",
+          "label": "Cuts to compare: channel, first product, plan, location",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "acquisition_cost",
+          "label": "Marketing spend by month or channel, for payback",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Cohort tables",
+          "format": "xlsx",
+          "description": "Logo and revenue retention triangles, cohort sizes, GRR/NRR and cumulative revenue per customer."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Retention curves",
+          "format": "svg",
+          "description": "Curves by cohort with the flattening point marked."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "What changed and why it matters",
+          "format": "md",
+          "description": "Findings, likely drivers, caveats and next questions."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "chart_generate",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "stripe",
+        "square",
+        "woocommerce",
+        "quickbooks",
+        "google-analytics",
+        "hubspot"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Load transactions with connector_read or file_parse. Clean with code_interpreter: remove test orders, handle refunds (net revenue), merge duplicate customers, and state every exclusion. 2. Define the cohort (usually month of first purchase or sign-up) and the activity event (purchase, active subscription, visit). Write both at the top of the output. 3. Build the logo retention triangle (share of each cohort active in month 0, 1, 2...) and the revenue retention triangle (revenue per cohort as % of month 0). Compute gross and net revenue retention for subscription businesses. 4. Exclude or grey out incomplete periods; flag cohorts under 30 customers as too small to read. 5. Plot retention curves with chart_generate and mark where curves flatten (the loyal core). Compute cumulative revenue and gross-margin LTV per customer by cohort age; if spend data exists, compute CAC payback month. 6. Cut by the owner's segments (channel, first product, location) and compare like-for-like ages. Explain what changed between cohorts with evidence (price change, channel mix, product launch), and label correlations as correlations. 7. Build the workbook with spreadsheet_generate, keeping the query or code in a tab so it can be refreshed, and write the brief with document_generate. 8. Escalate to the lead if data gaps (missing months, identity problems) make the answer unreliable. 9. State what could not be verified: data gaps, identity-matching limits and any causal claim that would need a test.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load and clean transactions",
+          "brief": "Load transactions and clean refunds, tests and duplicates.",
+          "acceptance": "Row counts before and after cleaning with every exclusion listed."
+        },
+        {
+          "activity": "analysis",
+          "title": "Cohort triangles and curves",
+          "brief": "Build logo and revenue triangles, retention curves, GRR/NRR and LTV.",
+          "acceptance": "Triangles reconcile to total revenue per month within 1%; small cohorts flagged.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Segment cuts and drivers",
+          "brief": "Compare cohorts by segment at equal ages and identify likely drivers.",
+          "acceptance": "Each driver claim cites the data cut that supports it.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Numbers audit",
+          "brief": "An independent check of definitions, reconciliation and interpretation.",
+          "acceptance": "First line APPROVED or CHANGES; any reconciliation gap explained.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Workbook and brief",
+          "brief": "Render the workbook and the findings brief.",
+          "acceptance": "Workbook includes the refreshable code tab; brief leads with the answer.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Cohort and activity definitions are stated explicitly.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Incomplete periods are excluded and cohorts under 30 customers are flagged.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Totals reconcile to source revenue within 1%.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Comparisons are made at equal cohort ages.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Driver explanations are labelled correlational unless tested.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "rfm-segmentation",
+        "unit-economics",
+        "churn-risk-review",
+        "data-story",
+        "sql-analysis"
+      ],
+      "example_request": "Are the customers who found us in lockdown still buying? I want to know if newer customers stick around as well as the old ones. Here's our Shopify export.",
+      "typical_departments": [
+        "data-analytics",
+        "finance-accounting",
+        "customer-success-support"
+      ],
+      "version": 1
+    },
+    {
+      "id": "funnel-analysis",
+      "name": "Funnel analysis",
+      "icon": "▽",
+      "category": "data-analysis",
+      "one_liner": "Step conversion, drop-off diagnosis and the biggest lever to pull.",
+      "description": "Measures conversion at each funnel step, finds where people drop and for whom (device, channel, new vs returning), reviews the screens at the leaky steps with the LIFT model, and sizes the biggest lever in money so the owner knows what to fix first.",
+      "when": "people show interest but do not convert (sign up, book, check out), or the owner wants to know where the funnel leaks most",
+      "inputs": [
+        {
+          "id": "funnel_steps",
+          "label": "The steps from first visit to conversion",
+          "required": true,
+          "source": "owner",
+          "example": "Product page -> add to cart -> checkout start -> payment -> order"
+        },
+        {
+          "id": "event_data",
+          "label": "Analytics or order data covering the steps",
+          "required": true,
+          "source": "connector",
+          "example": "GA4 events for the last 90 days"
+        },
+        {
+          "id": "step_screenshots",
+          "label": "Screenshots or URLs of each step",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "order_value",
+          "label": "Average order or customer value, for sizing",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "chart",
+          "name": "Funnel chart",
+          "format": "svg",
+          "description": "Step conversion and drop-off, overall and by key segment."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Step table",
+          "format": "xlsx",
+          "description": "Users, conversion and drop-off per step and segment, with sample sizes."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Biggest lever memo",
+          "format": "md",
+          "description": "The leakiest step, likely causes (LIFT), sized opportunity and tests to run."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "ask_coworker",
+        "chart_generate",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-analytics",
+        "shopify",
+        "woocommerce",
+        "stripe",
+        "hubspot"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file",
+        "url"
+      ],
+      "instructions": "1. Define each step with the exact event or page and the counting unit (unique users or sessions) and time window; keep it consistent across steps. 2. Pull data with connector_read or file_parse and compute step and cumulative conversion with code_interpreter, overall and by device, channel and new vs returning. Show sample sizes; flag segments too small to read. 3. Find the largest absolute loss (people x value), not just the lowest percentage. 4. Ask a conversion or UX coworker with ask_coworker to review the screens at the leaky steps using the LIFT model (value proposition, relevance, clarity, anxiety, distraction, urgency) and to name concrete issues (hidden delivery costs, forced account creation, slow payment page). 5. Size each lever: traffic at the step x plausible uplift range x value per conversion. Rank with ICE (impact, confidence, ease). 6. Chart with chart_generate, build the step table with spreadsheet_generate and write the memo with document_generate, recommending the first test. 7. Escalate to the lead if tracking looks broken (steps with more users than the step before), and recommend fixing measurement first. 8. State what could not be verified: tracking gaps, consent-related data loss and causes that need a test to confirm.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Define steps and load data",
+          "brief": "Define steps, counting unit and window; load event or order data.",
+          "acceptance": "Step definitions table and row counts per step."
+        },
+        {
+          "activity": "analysis",
+          "title": "Step conversion by segment",
+          "brief": "Compute step and cumulative conversion by device, channel and new vs returning.",
+          "acceptance": "Every segment shows sample size; step counts never increase down the funnel.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "LIFT review of leaky steps",
+          "brief": "Get a LIFT-model review of the worst steps from a conversion or UX coworker.",
+          "acceptance": "At least three specific, located issues per leaky step.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Size the levers",
+          "brief": "Estimate value at stake per lever and rank with ICE.",
+          "acceptance": "Each lever has a money range and ICE score.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic check",
+          "brief": "Challenge the sizing and whether tracking is trustworthy.",
+          "acceptance": "First line APPROVED or CHANGES; tracking concerns listed.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Chart and memo",
+          "brief": "Render the chart, table and memo.",
+          "acceptance": "Memo names one first test with its success metric.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Step definitions and counting unit are explicit and consistent.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Segments show sample sizes; small segments are flagged.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The biggest lever is quantified in money with a range.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Screens at leaky steps are reviewed with the LIFT model.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Recommends a testable next step rather than a redesign.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "landing-page-cro",
+        "ab-test-design",
+        "instrumentation-plan",
+        "abandoned-cart-recovery",
+        "heuristic-ux-review"
+      ],
+      "example_request": "Loads of people add to cart but hardly anyone finishes checkout. Where exactly are we losing them and what should we fix first?",
+      "typical_departments": [
+        "data-analytics",
+        "marketing-growth",
+        "product",
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "ab-test-design",
+      "name": "A/B test design & readout",
+      "icon": "⚗",
+      "category": "data-analysis",
+      "one_liner": "Hypothesis, power and MDE, guardrails, and an honest readout.",
+      "description": "Designs a trustworthy A/B test before it starts (hypothesis, primary and guardrail metrics, minimum detectable effect, power, sample size and duration) and reads it out honestly afterwards: sample-ratio check, effect size with confidence interval, guardrails, and 'inconclusive' when that is the truth.",
+      "when": "the owner wants to test a change (price, page, email, offer) and know whether it really worked, or has a finished test to interpret",
+      "inputs": [
+        {
+          "id": "change_to_test",
+          "label": "The change and why the owner thinks it will help",
+          "required": true,
+          "source": "owner",
+          "example": "Free shipping threshold £40 vs £50"
+        },
+        {
+          "id": "baseline_metrics",
+          "label": "Current conversion, traffic and value",
+          "required": true,
+          "source": "connector",
+          "example": "GA4: 18,000 sessions/week, 2.1% conversion, £46 AOV"
+        },
+        {
+          "id": "test_platform",
+          "label": "Where the test runs",
+          "required": false,
+          "source": "owner",
+          "example": "Shopify theme split or email platform A/B"
+        },
+        {
+          "id": "results_data",
+          "label": "Test results for a readout",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Test plan (pre-registration)",
+          "format": "md",
+          "description": "Hypothesis, metrics, MDE, power, sample size, duration, stopping rule and decision rule."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Sample-size calculator",
+          "format": "xlsx",
+          "description": "Inputs for baseline, MDE, alpha and power with the resulting sample and duration."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Readout",
+          "format": "md",
+          "description": "SRM check, effect and 95% CI, guardrails, decision and what we learned."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Result chart",
+          "format": "svg",
+          "description": "Effect with confidence interval, not bars without error."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-analytics",
+        "shopify",
+        "klaviyo",
+        "mailchimp",
+        "google-ads"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Write the hypothesis: 'Because we saw [evidence], we believe [change] will cause [effect] for [audience], measured by [primary metric].' One primary metric; list guardrail metrics (for example margin per order, refunds, unsubscribes). 2. Pull baselines with connector_read. With code_interpreter compute sample size for alpha 0.05 and power 0.8 at a minimum detectable effect the owner cares about in money terms; convert to duration in whole weeks (at least one full business cycle, usually two weeks). 3. If the required duration is unrealistic, say so and propose a bolder change, a higher-traffic page or a different metric rather than running an underpowered test. 4. Fix the stopping rule (no peeking-based stopping; fixed horizon or a pre-declared sequential method) and the decision rule before launch. Save the plan as the pre-registration. 5. The test is launched in the owner's tool outside this skill. For the readout, load results with file_parse or connector_read and first run a sample-ratio-mismatch chi-square check; if it fails, stop and investigate. 6. Report the effect as a difference with a 95% confidence interval and practical significance in money, check guardrails, and watch for novelty effects (compare week 1 vs week 2). 7. Call it: ship, don't ship, or inconclusive. Never declare a winner from a peek or an underpowered test. Chart with chart_generate, calculators with spreadsheet_generate, documents with document_generate. 8. State what could not be verified: tracking quality, external events during the test, and segments too small to read.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Hypothesis and metrics",
+          "brief": "Write the hypothesis, primary metric and guardrails.",
+          "acceptance": "One primary metric; at least two guardrails; hypothesis cites evidence."
+        },
+        {
+          "activity": "analysis",
+          "title": "Power, sample and duration",
+          "brief": "Compute sample size and duration from baselines at the chosen MDE.",
+          "acceptance": "Sample size, duration in whole weeks, and MDE in money terms reported.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Plan review",
+          "brief": "A sceptic checks power, duration, stopping rule and metric choice.",
+          "acceptance": "First line APPROVED or CHANGES; underpowered designs rejected.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves the test",
+          "brief": "Owner approves the plan and launches the test in their tool.",
+          "acceptance": "Approval and launch date recorded.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Readout",
+          "brief": "Run SRM check, compute effect with CI, check guardrails and novelty.",
+          "acceptance": "SRM p-value reported; effect with 95% CI; guardrails checked.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Readout memo",
+          "brief": "Write the decision memo and chart.",
+          "acceptance": "Decision is ship, don't ship or inconclusive, with reasoning.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Primary metric, MDE, sample size and stopping rule are fixed before launch.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Readout reports effect size with a 95% confidence interval, not only a p-value.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Sample-ratio mismatch is checked before interpreting results.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Underpowered or peeked tests are called inconclusive.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Duration covers at least one full business cycle.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "funnel-analysis",
+        "landing-page-cro",
+        "price-test",
+        "instrumentation-plan",
+        "numbers-audit"
+      ],
+      "example_request": "We want to test free shipping over £40 versus £50. How long do we need to run it, and can you tell me afterwards whether it actually worked?",
+      "typical_departments": [
+        "data-analytics",
+        "marketing-growth",
+        "product"
+      ],
+      "version": 1
+    },
+    {
+      "id": "demand-forecast",
+      "name": "Demand & sales forecast",
+      "icon": "∿",
+      "category": "data-analysis",
+      "one_liner": "Time-series forecast with seasonality, intervals and stated assumptions.",
+      "description": "Forecasts demand or sales by week or month with trend, seasonality and holidays, backtested against a seasonal-naive baseline, with 80% and 95% prediction intervals and every judgmental override (promotions, events) documented with its owner.",
+      "when": "the owner must decide how much to make, buy, staff or spend ahead of time, or needs a sales forecast for a budget",
+      "inputs": [
+        {
+          "id": "sales_history",
+          "label": "At least two years of sales by day, week or month (by product if relevant)",
+          "required": true,
+          "source": "connector",
+          "example": "Square sales by week, 2022-2025"
+        },
+        {
+          "id": "horizon_and_grain",
+          "label": "How far ahead and at what level",
+          "required": true,
+          "source": "owner",
+          "example": "Next 16 weeks by product line"
+        },
+        {
+          "id": "known_events",
+          "label": "Promotions, price changes, closures and events ahead",
+          "required": false,
+          "source": "owner",
+          "example": "Christmas market stall 1-22 Dec; price rise in January"
+        },
+        {
+          "id": "external_drivers",
+          "label": "Weather, school holidays or local events that matter",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Forecast",
+          "format": "xlsx",
+          "description": "Point forecast with 80% and 95% intervals by period and item, with assumptions tab."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Fan chart",
+          "format": "svg",
+          "description": "History and forecast with prediction intervals."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Assumptions and accuracy memo",
+          "format": "md",
+          "description": "Method, backtest accuracy vs baseline, overrides and their owners."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "memory_recall",
+        "code_interpreter",
+        "chart_generate",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "square",
+        "shopify",
+        "toast",
+        "stripe",
+        "quickbooks",
+        "amazon-seller-central"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Load history with connector_read or file_parse. Clean with code_interpreter: fill or flag missing periods, mark stockouts and closures (demand was censored), and separate one-off spikes. 2. Decompose trend and seasonality (STL). If there are fewer than two full seasonal cycles, say the seasonal estimate is weak. 3. Fit a seasonal-naive baseline and at least one model: ETS (Holt-Winters) and an additive model with holiday effects. Recall holiday, closure and event dates with memory_recall and the owner's calendar. 4. Backtest with rolling-origin evaluation over the last several periods; report WAPE and MASE for each model against the baseline. Use the simplest model that beats the baseline; if none does, use the baseline and say so. 5. Produce 80% and 95% prediction intervals. Apply judgmental overlays for known events only as documented, separate adjustments with an owner and reason. 6. Build the workbook with spreadsheet_generate (inputs, forecast, assumptions, backtest), the fan chart with chart_generate and the memo with document_generate. 7. Translate the forecast into the decision it serves (units to make, stock to order, staff hours) and show the cost of being wrong in each direction. 8. State what could not be verified: censored demand from stockouts, structural breaks, and events not in the history.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load and clean history",
+          "brief": "Load sales history, flag stockouts, closures and one-offs.",
+          "acceptance": "Clean series with every adjustment logged."
+        },
+        {
+          "activity": "analysis",
+          "title": "Decompose and model",
+          "brief": "Decompose, fit baseline and candidate models with holiday effects.",
+          "acceptance": "At least two models plus the seasonal-naive baseline fitted.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Backtest and select",
+          "brief": "Rolling-origin backtest; select the simplest model that beats the baseline.",
+          "acceptance": "WAPE and MASE reported for every model and the baseline.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Overlays and decision translation",
+          "brief": "Document event overlays and translate the forecast into the decision.",
+          "acceptance": "Each overlay has an owner and reason; decision quantities stated.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Forecast review",
+          "brief": "A second analyst checks method, intervals and overlays.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Workbook, chart and memo",
+          "brief": "Render the forecast workbook, fan chart and memo.",
+          "acceptance": "Intervals visible in the chart and workbook.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Backtest accuracy is reported against a seasonal-naive baseline.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Forecast shows 80% and 95% prediction intervals, not just a point.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every judgmental override is documented with owner and reason.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Stockouts and closures are treated as censored demand, not low demand.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The forecast is translated into the decision it serves.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "inventory-reorder-plan",
+        "demand-supply-plan",
+        "capacity-plan",
+        "annual-budget",
+        "cash-flow-13-week"
+      ],
+      "example_request": "How many Christmas hampers should we plan to make this year? Here are the last three years of sales by week.",
+      "typical_departments": [
+        "data-analytics",
+        "operations-supply-chain",
+        "ecommerce-retail",
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "data-cleanup",
+      "name": "Data cleaning & reconciliation",
+      "icon": "🧹",
+      "category": "data-analysis",
+      "one_liner": "Dedupe, standardize and reconcile messy data, with a change log.",
+      "description": "Profiles messy data against quality dimensions, standardizes formats, deduplicates with exact and fuzzy matching under explicit survivorship rules, reconciles control totals and logs every change. Uncertain matches go to the owner; writing back to a live system happens only on approval, after a backup.",
+      "when": "a list or table is messy (duplicates, inconsistent formats, missing fields) before an import, migration, mailing or analysis",
+      "inputs": [
+        {
+          "id": "dataset",
+          "label": "The data to clean, or the connector and object",
+          "required": true,
+          "source": "file",
+          "example": "customers_export.csv, 8,200 rows"
+        },
+        {
+          "id": "purpose",
+          "label": "What the clean data is for",
+          "required": true,
+          "source": "owner",
+          "example": "Import into HubSpot as contacts and companies"
+        },
+        {
+          "id": "rules",
+          "label": "Known rules: which record wins, required fields, formats",
+          "required": false,
+          "source": "owner",
+          "example": "Most recent order wins; phone must be E.164"
+        },
+        {
+          "id": "reference_data",
+          "label": "Lists to reconcile against",
+          "required": false,
+          "source": "connector",
+          "example": "Shopify customers, Xero contacts"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "dataset",
+          "name": "Clean dataset",
+          "format": "csv",
+          "description": "Cleaned, standardized and deduplicated records ready for the stated purpose."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Change log",
+          "format": "xlsx",
+          "description": "Every change with rule, before and after, and record ids; merge groups with survivors."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Data-quality report",
+          "format": "md",
+          "description": "Profile before and after by dimension, control totals, open questions."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision",
+        "connector_write"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "salesforce",
+        "pipedrive",
+        "airtable",
+        "shopify",
+        "mailchimp",
+        "google-workspace",
+        "xero"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Load a copy with file_parse or connector_read; never edit the source in place. Record row counts and control totals (sums of amounts, counts by status). 2. Profile with code_interpreter against DAMA quality dimensions: completeness, validity, uniqueness, consistency, accuracy and timeliness. Produce a before-scorecard. 3. Standardize: trim and case names, ISO 8601 dates, E.164 phones, ISO 3166 country codes, postcodes, currency; split or join fields as the purpose requires. 4. Deduplicate in two passes: exact keys (email, tax id, customer id) then fuzzy matching (Jaro-Winkler or Levenshtein on name plus address or domain) with a score. Apply survivorship rules (most recent, most complete, or source priority) and keep all ids of merged records. 5. Send matches below the confidence threshold to the owner with request_owner_decision as a short review list; never auto-merge uncertain pairs. 6. Reconcile: control totals after cleaning must equal before, minus logged removals. Build the change log with spreadsheet_generate and the report with document_generate. 7. Minimize personal data: keep only the fields the purpose needs, and do not enrich records with personal data from outside sources. 8. Write back to a live system with connector_write only after explicit approval, after exporting a backup, in small batches with receipts. 9. State what could not be verified: records whose accuracy could not be checked against a trusted source and any remaining suspected duplicates.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load a copy",
+          "brief": "Load the data into a working copy and record control totals.",
+          "acceptance": "Row counts and control totals recorded; source untouched."
+        },
+        {
+          "activity": "analysis",
+          "title": "Profile quality",
+          "brief": "Score the data on quality dimensions.",
+          "acceptance": "Before-scorecard with counts per issue type.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Standardize and deduplicate",
+          "brief": "Standardize formats, match exact and fuzzy duplicates, apply survivorship.",
+          "acceptance": "Every change logged; fuzzy matches scored; merged ids retained.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner reviews uncertain matches",
+          "brief": "Owner confirms or rejects matches below the threshold.",
+          "acceptance": "Every uncertain pair has an owner decision.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Reconciliation check",
+          "brief": "Check control totals and a random sample of changes.",
+          "acceptance": "First line APPROVED or CHANGES; totals reconcile exactly after logged removals.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Write back on approval",
+          "brief": "Back up, then write clean records to the live system in batches.",
+          "acceptance": "Backup file exists; receipts per batch; counts match the approved set.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The source is never modified; work happens on a copy.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every change is logged with rule, before and after values.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Control totals reconcile after cleaning, allowing only for logged removals.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Uncertain matches go to the owner; write-back happens only after approval and a backup.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Personal data is limited to fields the purpose needs.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "crm-hygiene",
+        "sql-analysis",
+        "rfm-segmentation",
+        "dashboard-build",
+        "bank-reconciliation"
+      ],
+      "example_request": "Our customer list is a mess: duplicates, three spellings of the same company, phone numbers in every format. Can you clean it up before we import it into HubSpot?",
+      "typical_departments": [
+        "data-analytics",
+        "sales-partnerships",
+        "it-security-automation",
+        "engineering"
+      ],
+      "version": 1
+    },
+    {
+      "id": "dashboard-build",
+      "name": "Dashboard design & build",
+      "icon": "◫",
+      "category": "data-analysis",
+      "one_liner": "A decision-focused dashboard with definitions, targets and alert thresholds.",
+      "description": "Designs a dashboard around the decisions it serves: who looks, how often, what they decide. Builds it as an interactive canvas app or workbook with defined metrics, targets and red/amber/green thresholds, accessible colours, and a visible refresh time, and checks the numbers against source.",
+      "when": "the owner wants one place to see how the business is doing, or an existing dashboard is ignored because nobody trusts or understands it",
+      "inputs": [
+        {
+          "id": "decisions_and_users",
+          "label": "Who uses it, how often, and what they decide",
+          "required": true,
+          "source": "owner",
+          "example": "Me, every Monday: do I need to change staffing, ordering or marketing?"
+        },
+        {
+          "id": "metrics",
+          "label": "Metrics or KPI tree to show",
+          "required": false,
+          "source": "coworker",
+          "example": "KPI tree from the head of analytics"
+        },
+        {
+          "id": "data_sources",
+          "label": "Systems the numbers come from",
+          "required": true,
+          "source": "connector",
+          "example": "Square, rota spreadsheet in Google Sheets, Google reviews"
+        },
+        {
+          "id": "targets",
+          "label": "Targets and thresholds",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "existing_dashboard",
+          "label": "Screenshots of dashboards in use now",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "dashboard",
+          "name": "Dashboard",
+          "format": "canvas",
+          "description": "Interactive dashboard with tiles, trends, targets and thresholds; exportable to xlsx."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Metric definitions and runbook",
+          "format": "md",
+          "description": "Definitions, sources, refresh steps, owners and what to do when a tile turns red."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "chart_generate",
+        "app_build",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "square",
+        "shopify",
+        "stripe",
+        "quickbooks",
+        "google-analytics",
+        "google-workspace",
+        "hubspot",
+        "airtable"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file",
+        "image",
+        "app"
+      ],
+      "instructions": "1. Write a decision brief: users, cadence, the three to five decisions the dashboard must support, and the metric that informs each. Recall any KPI tree or definitions with memory_recall. 2. If screenshots or exports of an existing dashboard exist, read them with file_parse and critique them: what is unused, misleading or missing. 3. Pull data with connector_read and compute metrics with code_interpreter, using the agreed definitions. Keep calculations in code so they can be refreshed. 4. Design on Stephen Few's principles: one screen, most important top-left, nine or fewer primary tiles, each with current value, comparison (target or last period), trend sparkline and a threshold state. Follow Tufte: maximize data-ink, no 3D, no decorative gauges. 5. Make it accessible: colour-blind-safe palette, never colour alone (add icons or labels), WCAG AA contrast, direct labels instead of legends. 6. Build it with app_build (canvas) and chart_generate; offer an xlsx version with spreadsheet_generate for owners who prefer spreadsheets. Show 'last refreshed' on screen. 7. Verify: for one recent period, reconcile every tile to its source system and note differences (tax, refunds, timing). 8. Write the definitions and runbook with document_generate, including what to do when each tile goes red. 9. State what could not be verified: sources without an API, manual inputs and tiles whose reconciliation showed a gap.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Decision brief",
+          "brief": "Define users, cadence, decisions and the metric for each.",
+          "acceptance": "Three to five decisions each mapped to one metric."
+        },
+        {
+          "activity": "analysis",
+          "title": "Data pull and metric calculation",
+          "brief": "Pull data and compute metrics per definitions.",
+          "acceptance": "Each metric computed with the code kept for refresh.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "app",
+          "title": "Build the dashboard",
+          "brief": "Build the canvas dashboard with tiles, trends, targets and thresholds.",
+          "acceptance": "Nine or fewer primary tiles; last-refreshed time visible; runs without errors.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Numbers and accessibility review",
+          "brief": "Reconcile tiles to source for one period and check accessibility.",
+          "acceptance": "First line APPROVED or CHANGES; every tile reconciled or its gap explained.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Definitions and runbook",
+          "brief": "Write metric definitions and the red-tile runbook.",
+          "acceptance": "Every tile has a definition, source, owner and red-state action.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every tile maps to a named decision and has a definition, target and threshold.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Tiles reconcile to source systems for a sample period, with gaps explained.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Colour is never the only signal; contrast meets WCAG AA.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Nine or fewer primary tiles on the first screen.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Last-refreshed time is visible.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "kpi-tree",
+        "anomaly-watch",
+        "sql-analysis",
+        "data-story",
+        "saas-metrics-pack"
+      ],
+      "example_request": "I want one screen I can check every Monday that tells me if the café is on track: sales, labour, waste, reviews. Can you build it from Square and our rota spreadsheet?",
+      "typical_departments": [
+        "data-analytics",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "sql-analysis",
+      "name": "SQL & spreadsheet analysis",
+      "icon": "∑",
+      "category": "data-analysis",
+      "one_liner": "Answer a business question from raw tables with queries and the working shown.",
+      "description": "Answers a specific business question from raw tables or exports with SQL or spreadsheet analysis, showing the working: restated question and definitions, reproducible queries, sanity checks (join fan-out, nulls, duplicates) and an answer-first result that reconciles to a known total.",
+      "when": "the owner has a concrete question and the data exists in exports, spreadsheets or a database",
+      "inputs": [
+        {
+          "id": "question",
+          "label": "The business question in the owner's words",
+          "required": true,
+          "source": "owner",
+          "example": "Which products are most often bought together?"
+        },
+        {
+          "id": "data",
+          "label": "Tables, exports or connector objects",
+          "required": true,
+          "source": "file",
+          "example": "orders.csv and order_items.csv, two years"
+        },
+        {
+          "id": "definitions",
+          "label": "How the owner defines key terms",
+          "required": false,
+          "source": "owner",
+          "example": "A 'customer' is a unique email"
+        },
+        {
+          "id": "known_total",
+          "label": "A total to reconcile against",
+          "required": false,
+          "source": "connector",
+          "example": "Revenue per month from Xero"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "Answer",
+          "format": "md",
+          "description": "Answer first, with definitions, method, caveats and next questions."
+        },
+        {
+          "artifact_type": "code",
+          "name": "Queries and notebook",
+          "format": "txt",
+          "description": "SQL or Python used, commented, rerunnable."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Result tables",
+          "format": "xlsx",
+          "description": "Result tables and pivots with a sanity-check tab."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Supporting chart",
+          "format": "svg",
+          "description": "One chart if it helps answer the question."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "airtable",
+        "stripe",
+        "shopify",
+        "quickbooks",
+        "xero"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Restate the question precisely and define every term (customer, active, revenue net or gross, time window). If a definition changes the answer materially, show both. 2. Load tables with file_parse or connector_read into code_interpreter (DuckDB SQL or pandas). Inspect schemas, keys, row counts and date ranges first. 3. Write queries with CTEs for readability; use window functions for running totals, ranks and period comparisons. 4. Sanity-check every step: row counts before and after joins (detect fan-out), duplicates on keys, null handling, timezone and currency, and outliers. Record the checks. 5. Reconcile the headline figure to a known total (for example monthly revenue in the accounts) and explain any difference. 6. Lead with the answer: the number, its definition and what it means for the decision. Add one chart with chart_generate only if it helps. 7. Deliver the queries, the result workbook via spreadsheet_generate and the brief via document_generate so anyone can rerun it. 8. State what could not be verified: data quality issues found, assumptions made and anything that did not reconcile.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Restate and define",
+          "brief": "Restate the question and define every term and window.",
+          "acceptance": "Definitions list agreed or assumptions stated."
+        },
+        {
+          "activity": "ingest",
+          "title": "Load and inspect tables",
+          "brief": "Load data and inspect schemas, keys, counts and ranges.",
+          "acceptance": "Schema and row-count summary for each table.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Query with sanity checks",
+          "brief": "Run queries with join, duplicate and null checks.",
+          "acceptance": "Every join has before/after counts; headline reconciles to a known total or gap explained.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Numbers audit",
+          "brief": "An independent reviewer reruns key queries and checks logic.",
+          "acceptance": "First line APPROVED or CHANGES; reproduction result reported.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Answer and files",
+          "brief": "Write the answer-first brief and package queries and tables.",
+          "acceptance": "Answer in the first line; queries rerun cleanly.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The answer is stated first with its definition.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every figure is reproducible from the included queries.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Join fan-out, duplicates and nulls are checked and recorded.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The headline figure reconciles to a known total or the gap is explained.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Assumptions and exclusions are listed.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "data-cleanup",
+        "cohort-analysis",
+        "data-story",
+        "build-a-spreadsheet",
+        "numbers-audit"
+      ],
+      "example_request": "Which of our products are most often bought together? I've exported two years of orders as CSV.",
+      "typical_departments": [
+        "data-analytics",
+        "finance-accounting",
+        "engineering"
+      ],
+      "version": 1
+    },
+    {
+      "id": "rfm-segmentation",
+      "name": "RFM customer segmentation",
+      "icon": "◉",
+      "category": "data-analysis",
+      "one_liner": "Recency-frequency-monetary segments with actions per segment.",
+      "description": "Scores every customer on recency, frequency and monetary value, groups them into named segments (Champions, Loyal, At Risk, Can't Lose, Hibernating and more), shows each segment's size and revenue share, and gives each one a specific action, channel and success metric with a holdout.",
+      "when": "the owner wants to treat customers differently instead of blasting everyone, find their best customers, or catch people drifting away",
+      "inputs": [
+        {
+          "id": "orders",
+          "label": "Order history with customer id, date and amount",
+          "required": true,
+          "source": "connector",
+          "example": "Shopify orders, last 24 months"
+        },
+        {
+          "id": "analysis_window",
+          "label": "Time window and how to treat refunds",
+          "required": false,
+          "source": "owner",
+          "example": "Last 24 months, net of refunds"
+        },
+        {
+          "id": "channels_available",
+          "label": "How the owner can reach customers",
+          "required": false,
+          "source": "memory",
+          "example": "Email via Klaviyo, SMS, in-store"
+        },
+        {
+          "id": "margin",
+          "label": "Gross margin by product, for value-based segments",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "dataset",
+          "name": "Segment assignments",
+          "format": "csv",
+          "description": "Customer id, R, F, M scores and segment; no more personal data than needed."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Segment summary",
+          "format": "xlsx",
+          "description": "Size, revenue share, average order, recency and trend per segment."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Action plan per segment",
+          "format": "md",
+          "description": "One action, channel, offer, success metric and holdout size per segment."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Segment map",
+          "format": "svg",
+          "description": "Recency vs frequency grid sized by revenue."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "shopify",
+        "woocommerce",
+        "square",
+        "stripe",
+        "klaviyo",
+        "mailchimp",
+        "hubspot"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Load orders with connector_read or file_parse. Use customer ids; drop names, addresses and other personal fields not needed for scoring. 2. Set the analysis window and compute per customer with code_interpreter: recency (days since last order), frequency (orders in window) and monetary (net revenue, or gross margin if available). 3. Score each on quintiles 1-5 (adjust for ties: frequency is often skewed) and map score combinations to named segments: Champions, Loyal, Potential Loyalists, New, Promising, Need Attention, About to Sleep, At Risk, Can't Lose Them, Hibernating, Lost. 4. Summarize segments: size, revenue share (show the Pareto concentration), average order and trend vs the prior period. Chart with chart_generate. 5. For each segment write one action with a channel, message angle, offer (or no offer: Champions often need recognition, not discounts), success metric and a 10% holdout so impact can be measured. 6. Deliver the assignment file, summary workbook (spreadsheet_generate) and plan (document_generate). Use segments only for the business's own marketing and service. 7. Escalate to the lead if the plan would use sensitive attributes or profiling beyond purchase behaviour. 8. State what could not be verified: identity-matching limits (guest checkouts, multiple emails) and segments too small to act on.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load orders",
+          "brief": "Load order history keyed by customer id with personal fields dropped.",
+          "acceptance": "Customer count, window and refund treatment stated."
+        },
+        {
+          "activity": "analysis",
+          "title": "Score and segment",
+          "brief": "Compute R, F, M quintiles and assign named segments.",
+          "acceptance": "Every customer has scores and a segment; segment totals equal customer count.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Actions per segment",
+          "brief": "Write one action, channel, offer, metric and holdout per segment.",
+          "acceptance": "Every segment has all five fields.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Plan review",
+          "brief": "Check the logic, offers against margin, and privacy minimization.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Deliver",
+          "brief": "Render assignments, summary, chart and action plan.",
+          "acceptance": "Files open; assignment file contains ids and scores only.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Window and monetary definition (net of refunds) are stated.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every segment has size, revenue share, one action, channel, metric and holdout.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Personal data is minimized to customer ids in outputs.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Offers are checked against margin; top segments are not over-discounted.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Revenue concentration (Pareto) is shown.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 35,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "cohort-analysis",
+        "email-flow-design",
+        "loyalty-program",
+        "churn-risk-review",
+        "abandoned-cart-recovery"
+      ],
+      "example_request": "Who are our best customers and who's drifting away? I'd like to send different emails to different groups instead of blasting everyone.",
+      "typical_departments": [
+        "data-analytics",
+        "marketing-growth",
+        "ecommerce-retail"
+      ],
+      "version": 1
+    },
+    {
+      "id": "anomaly-watch",
+      "name": "Metric anomaly watch",
+      "icon": "📡",
+      "category": "data-analysis",
+      "one_liner": "A scheduled check that flags unusual moves and suggests likely causes.",
+      "description": "Sets up a scheduled check on the metrics that matter, with seasonal baselines and control-chart thresholds backtested for false alarms. When something moves, the alert says what, how unusual, and the likely causes, checking tracking and data problems first. The schedule is created only after the owner approves it.",
+      "when": "the owner wants to be told when something unusual happens (sales drop, refunds spike, traffic vanishes) instead of watching dashboards",
+      "inputs": [
+        {
+          "id": "metrics_to_watch",
+          "label": "Metrics and their sources",
+          "required": true,
+          "source": "owner",
+          "example": "Daily sales, refund rate, website sessions, new reviews"
+        },
+        {
+          "id": "history",
+          "label": "At least 8-12 weeks of history per metric",
+          "required": true,
+          "source": "connector",
+          "example": "Square daily sales; GA4 sessions"
+        },
+        {
+          "id": "alert_budget",
+          "label": "How many alerts per month the owner will tolerate, and where to send them",
+          "required": false,
+          "source": "owner",
+          "example": "No more than 4 a month, to my phone"
+        },
+        {
+          "id": "known_calendar",
+          "label": "Holidays, closures and promotions",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Alert rules spec",
+          "format": "md",
+          "description": "Metric, baseline method, threshold, direction, expected alerts per month and check schedule."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Backtest control charts",
+          "format": "svg",
+          "description": "History with baseline and thresholds and where alerts would have fired."
+        },
+        {
+          "artifact_type": "message_draft",
+          "name": "Alert message template",
+          "format": "md",
+          "description": "What moved, expected range, actual, likely causes checked, suggested next step."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "connector_read",
+        "code_interpreter",
+        "chart_generate",
+        "document_generate",
+        "request_owner_decision",
+        "schedule_automation",
+        "message_coworker"
+      ],
+      "connectors_optional": [
+        "square",
+        "shopify",
+        "stripe",
+        "google-analytics",
+        "google-business-profile",
+        "zendesk",
+        "slack"
+      ],
+      "modalities": [
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Recall the KPI tree and calendar with memory_recall; choose five to ten metrics that should trigger action, not every number. 2. Pull history with connector_read. With code_interpreter build a seasonal baseline per metric (day-of-week and holiday effects via STL decomposition or a rolling same-weekday median). 3. Set thresholds using statistical process control: residuals beyond 3 sigma (or robust MAD-based limits for skewed data), plus Western Electric run rules for slow drifts. Direction matters: a refund spike alerts, a refund drop may not. 4. Backtest on history and count how often each rule would have fired; tune to the owner's alert budget. Chart with chart_generate. 5. Define the alert: metric, expected range, actual, size of the deviation, and a first-pass cause check in order: data freshness and tracking (did the feed or tag break?), calendar (holiday, closure, promotion), then business causes (stockout, price change, outage). Hand deep dives to the relevant coworker with message_coworker. 6. Write the spec with document_generate and ask the owner to approve metrics, thresholds, destination and check schedule with request_owner_decision. 7. Only after approval, create the scheduled check with schedule_automation, with an easy off-switch and a monthly review of false alarms. 8. State what could not be verified: metrics with short or broken history and causes that need human confirmation.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Choose metrics",
+          "brief": "Pick five to ten action-worthy metrics and their direction of concern.",
+          "acceptance": "Each metric has a named action when it alerts."
+        },
+        {
+          "activity": "analysis",
+          "title": "Baselines and backtest",
+          "brief": "Build seasonal baselines, set SPC thresholds and backtest alert frequency.",
+          "acceptance": "Expected alerts per month per metric reported and within the owner's budget.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Rule review",
+          "brief": "Check thresholds, direction and the cause-check order.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves the watch",
+          "brief": "Owner approves metrics, thresholds, destination and schedule.",
+          "acceptance": "Explicit approval recorded.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "schedule",
+          "title": "Create the scheduled check",
+          "brief": "Create the automation with an off-switch.",
+          "acceptance": "Automation id and schedule recorded; test alert delivered once.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Each metric's baseline method, threshold and expected alert rate are documented from a backtest.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Alerts check data and tracking problems before business causes.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The schedule is created only after explicit owner approval and has an off-switch.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Total expected alerts fit the owner's alert budget.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Alert messages state expected range, actual and suggested next step.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "kpi-tree",
+        "dashboard-build",
+        "watch-a-page",
+        "daily-brief",
+        "root-cause-analysis"
+      ],
+      "example_request": "I don't want to stare at dashboards. Just tell me if something weird happens, like sales suddenly dropping or refunds spiking.",
+      "typical_departments": [
+        "data-analytics",
+        "it-security-automation",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "location-analysis",
+      "name": "Location & catchment analysis",
+      "icon": "📍",
+      "category": "data-analysis",
+      "one_liner": "Catchment, drive-time and site-scoring analysis for locations or territories.",
+      "description": "Compares candidate sites or territories on catchment (drive and walk times), demand, competition and cost with a weighted scoring matrix agreed before scoring, a Huff-style gravity estimate of share, cannibalization of existing sites, and a sensitivity test so the ranking is robust.",
+      "when": "the owner is choosing a new location, deciding between units, or designing sales or delivery territories",
+      "inputs": [
+        {
+          "id": "candidates",
+          "label": "Candidate addresses or areas",
+          "required": true,
+          "source": "owner",
+          "example": "Three units: High St 14, Station Rd 2, Market Sq 7"
+        },
+        {
+          "id": "business_type_and_customer",
+          "label": "What customers come for and how they travel",
+          "required": true,
+          "source": "memory",
+          "example": "Coffee shop; commuters on foot, weekend families by car"
+        },
+        {
+          "id": "existing_sites",
+          "label": "Current locations and their sales",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "criteria_and_costs",
+          "label": "Rent, fit-out and must-haves",
+          "required": false,
+          "source": "file",
+          "example": "Rent quotes, floor plans, photos of each unit"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Site scoring matrix",
+          "format": "xlsx",
+          "description": "Criteria, weights, sourced data per site, scores and sensitivity analysis."
+        },
+        {
+          "artifact_type": "image",
+          "name": "Catchment maps",
+          "format": "png",
+          "description": "Walk- and drive-time catchments with competitors and anchors marked."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Site comparison memo",
+          "format": "md -> docx",
+          "description": "Ranking, why, risks, cannibalization estimate and what to check on site."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "browser",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-business-profile",
+        "square",
+        "shopify",
+        "google-analytics"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "image",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Agree criteria and weights with the owner before scoring (for example footfall proxy 25%, catchment demand 25%, competition 15%, visibility and access 15%, total occupancy cost 20%). 2. Gather public, aggregate data per site with web_search, web_fetch and, where maps or listing filters need navigation, the companion browser: population and workers in 5/10-minute walk and drive catchments, competitor locations and ratings, anchors (stations, schools, supermarkets), parking and transit. Record source and date for each value. 3. Read listing details, photos and floor plans with file_parse: frontage, visibility, step-free access, seating capacity. 4. With code_interpreter compute catchments and a Huff gravity model (attractiveness divided by distance decay) to estimate share against competitors; estimate cannibalization of existing sites from overlapping catchments. 5. Score each site and run a sensitivity test (weights plus or minus 20%). Report whether the ranking holds. Build the matrix with spreadsheet_generate and maps as PNGs from code_interpreter. 6. Write the memo with document_generate: recommendation, runner-up, the risk that would change the answer, and a checklist for an in-person visit (counts at peak times). 7. Flag lease terms, planning use class, licensing and zoning as questions for the owner's solicitor or surveyor; do not interpret them. 8. State what could not be verified: data that is modelled or outdated, footfall proxies and anything that needs a site visit.",
+      "workflow": [
+        {
+          "activity": "human",
+          "title": "Agree criteria and weights",
+          "brief": "Owner agrees criteria and weights before any scoring.",
+          "acceptance": "Weights sum to 100% and are recorded."
+        },
+        {
+          "activity": "research",
+          "title": "Gather site data",
+          "brief": "Collect catchment, competition, access and cost data per site with sources.",
+          "acceptance": "Every data point has a source and date.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Catchments, gravity and cannibalization",
+          "brief": "Compute catchments, Huff share estimates and overlap with existing sites.",
+          "acceptance": "Share estimate and cannibalization range per site.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Score and sensitivity",
+          "brief": "Score sites and test ranking stability under weight changes.",
+          "acceptance": "Ranking and whether it holds under plus or minus 20% weights.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic review",
+          "brief": "Challenge data quality, proxies and weightings.",
+          "acceptance": "First line APPROVED or CHANGES; weak data points listed.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Memo and maps",
+          "brief": "Render the memo, matrix and maps.",
+          "acceptance": "Memo names a recommendation, runner-up and on-site checks.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Criteria and weights are agreed before scoring.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every data point has a source and date; modelled figures are labelled.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Ranking stability under weight changes is reported.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Cannibalization of existing sites is estimated.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Lease, planning and licensing questions are flagged for professionals, not interpreted.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "market-sizing",
+        "compare-options",
+        "store-opening-checklist",
+        "business-plan",
+        "competitor-teardown"
+      ],
+      "example_request": "We're thinking about a second coffee shop. I've got three possible units. Can you compare them on footfall, competition and who lives and works nearby?",
+      "typical_departments": [
+        "data-analytics",
+        "strategy-leadership",
+        "ecommerce-retail",
+        "industry-specialists"
+      ],
+      "version": 1
+    },
+    {
+      "id": "data-story",
+      "name": "Data story memo",
+      "icon": "◔",
+      "category": "data-analysis",
+      "one_liner": "An answer-first memo with three charts that make the decision obvious.",
+      "description": "Turns analysis into an answer-first memo with no more than three charts, each with an action title that states the point, built on the Pyramid Principle and storytelling-with-data practice, so the decision is obvious. Optionally voiced as a two-minute audio briefing.",
+      "when": "an analysis is done but must persuade someone (partner, board, team) to make a decision",
+      "inputs": [
+        {
+          "id": "decision",
+          "label": "The decision and who makes it",
+          "required": true,
+          "source": "owner",
+          "example": "Convince my business partner to switch couriers"
+        },
+        {
+          "id": "analysis",
+          "label": "Analysis, tables or data to draw on",
+          "required": true,
+          "source": "coworker",
+          "example": "Delivery-time analysis and cost comparison"
+        },
+        {
+          "id": "audience_context",
+          "label": "What the audience believes now and cares about",
+          "required": false,
+          "source": "owner",
+          "example": "He trusts the current courier and worries about the switching hassle"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "brief",
+          "name": "Data story memo",
+          "format": "md -> pdf",
+          "description": "Answer first, three supporting points, up to three charts, caveats and the ask."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Three decision charts",
+          "format": "svg",
+          "description": "Each with an action title, labelled axes, source and date."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Two-minute spoken version",
+          "format": "mp3",
+          "description": "The story written for the ear, voiced by the coworker."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "code_interpreter",
+        "chart_generate",
+        "document_generate",
+        "tts"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "audio"
+      ],
+      "instructions": "1. Recall the audience's context with memory_recall and find the analysis and prior discussion with embeddings_search. Write the governing message in one sentence and the decision it asks for. 2. Use the Pyramid Principle: three supporting points, each backed by one piece of evidence. Address the audience's likely objection directly in one of them. 3. Choose chart forms by the relationship shown: comparison (bar), change over time (line), part-to-whole (stacked bar, rarely pie), distribution (histogram or dot plot). Compute exactly what each needs with code_interpreter. 4. Apply storytelling-with-data practice: remove clutter, use one highlight colour for the point, write action titles that state the takeaway ('Courier B is late half as often'), label directly, show source and date. At most three charts with chart_generate. 5. Write the memo with document_generate: answer first, the three points with their charts, caveats and the ask with a date. 6. Offer a two-minute spoken version rewritten for the ear and voiced with tts. 7. Keep it honest: show the uncertainty and the case against. Escalate to the lead if the data does not support the decision the owner wants. 8. State what could not be verified: data limits and assumptions behind each chart.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Governing message",
+          "brief": "Write the one-sentence answer, the decision and three supporting points.",
+          "acceptance": "Answer sentence and three points, each tied to evidence."
+        },
+        {
+          "activity": "analysis",
+          "title": "Compute chart data",
+          "brief": "Compute exactly the data each chart needs.",
+          "acceptance": "Each chart's numbers reproducible from the analysis.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Build charts",
+          "brief": "Build up to three decluttered charts with action titles.",
+          "acceptance": "Three or fewer charts, each with action title, labels, source and date.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Write the memo",
+          "brief": "Write the answer-first memo with caveats and the ask.",
+          "acceptance": "First sentence is the answer; ask has a date.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Honesty review",
+          "brief": "Check charts do not mislead (axes, scales, cherry-picking) and caveats are fair.",
+          "acceptance": "First line APPROVED or CHANGES with specific fixes.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Voice the story",
+          "brief": "Render the spoken version when requested.",
+          "acceptance": "Audio under 2.5 minutes matching the approved memo.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The first sentence is the answer and the decision it supports.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No more than three charts, each with an action title, labelled axes, source and date.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Charts do not mislead: honest axes, no cherry-picked windows.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The audience's main objection is addressed with evidence.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Caveats and uncertainty are stated.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 35,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "executive-summary",
+        "sql-analysis",
+        "dashboard-build",
+        "build-a-slide-deck",
+        "listen-in-briefing"
+      ],
+      "example_request": "I've got all this analysis on delivery times but I need to convince my business partner we should switch couriers. Make it obvious in one page.",
+      "typical_departments": [
+        "data-analytics",
+        "content-comms-pr",
+        "strategy-leadership"
+      ],
+      "version": 1
+    }
+  ]
+}

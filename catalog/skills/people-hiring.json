@@ -1,0 +1,2017 @@
+{
+  "category": "people-hiring",
+  "version": 1,
+  "skills": [
+    {
+      "id": "job-description",
+      "name": "Job description",
+      "icon": "📝",
+      "category": "people-hiring",
+      "one_liner": "An outcomes-based, inclusive job description with a clear scorecard.",
+      "description": "Writes an outcomes-based job description from a Who-method scorecard: the role's mission, 3-5 measurable first-year outcomes, and competencies. It keeps must-haves few and genuinely required, states the pay range, includes an accommodation statement, and checks the wording for exclusionary language.",
+      "when": "the owner is opening a new role, rewriting a posting that attracts the wrong applicants, or needs the scorecard that interviews will be judged against",
+      "inputs": [
+        {
+          "id": "role_context",
+          "label": "Why the role exists and what problem it solves",
+          "required": true,
+          "source": "owner",
+          "example": "Two bakeries; I spend 20 hours a week on scheduling and suppliers"
+        },
+        {
+          "id": "outcomes",
+          "label": "What success looks like after 12 months",
+          "required": true,
+          "source": "owner",
+          "example": "Labor under 30 percent of sales; zero missed supplier deliveries"
+        },
+        {
+          "id": "pay_range",
+          "label": "Approved pay range and benefits",
+          "required": true,
+          "source": "owner",
+          "example": "$58,000-$66,000 plus health stipend"
+        },
+        {
+          "id": "location_and_schedule",
+          "label": "Location, remote options and hours",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "past_postings",
+          "label": "Previous job descriptions",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Job description",
+          "format": "md -> docx",
+          "description": "Mission, outcomes, responsibilities, must-haves, nice-to-haves, pay, benefits, how to apply and an accommodation statement."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Role scorecard",
+          "format": "md",
+          "description": "Mission, measurable outcomes and competencies used later by the interview kit."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Inclusive-language check",
+          "format": "md",
+          "description": "Flagged words and requirements, each with a suggested replacement and why."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_search",
+        "ask_coworker",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "greenhouse",
+        "bamboohr",
+        "rippling",
+        "linkedin"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Recall the business profile and any past postings with memory_recall and embeddings_search. 2. Write the scorecard: a one-sentence mission, 3-5 outcomes with numbers and dates, and 4-6 competencies (skills and behaviours) that predict those outcomes. 3. Confirm the outcomes and pay range with the owner through request_owner_decision; never invent a pay range. 4. Research comparable titles and any pay-transparency posting rules for the location with web_search, and cite them; flag rules for the owner to confirm with an HR professional. 5. Draft the description: start with the mission and outcomes, then responsibilities, then 3-5 true must-haves. Move everything else to nice-to-haves, and drop degree requirements unless the work truly needs one. 6. Check the language: coded or exclusionary wording, jargon, unnecessary physical requirements, and age proxies ('digital native', 'young team'). Add an accommodation statement and an equal-opportunity statement for the owner to confirm. 7. Use ask_coworker to have an inclusion or talent coworker review the draft, then render the description, scorecard and checklist with document_generate. 8. State what could not be verified, such as posting-law requirements for the exact location.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Draft the scorecard",
+          "brief": "Write the mission, measurable outcomes and competencies.",
+          "acceptance": "3-5 outcomes each with a number and a date."
+        },
+        {
+          "activity": "human",
+          "title": "Owner confirms outcomes and pay",
+          "brief": "Decision card with the scorecard and the pay range.",
+          "acceptance": "Owner approves or edits outcomes and pay.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Write the job description",
+          "brief": "Draft the posting from the approved scorecard.",
+          "acceptance": "Must-haves are at most five and each maps to an outcome.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Inclusion review",
+          "brief": "An inclusion or talent partner checks for exclusionary language and unnecessary requirements.",
+          "acceptance": "First line is APPROVED or CHANGES; each flag has a replacement.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render the pack",
+          "brief": "Render the description, scorecard and language checklist.",
+          "acceptance": "Three files render and agree with each other.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Pay range comes from the owner and appears in the posting.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No wording that signals preference by age, gender, ethnicity, disability or family status.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every must-have is genuinely required and traceable to an outcome.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Outcomes are measurable and dated.",
+          "severity": "should"
+        },
+        {
+          "criterion": "An accommodation statement explains how to request adjustments.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "interview-kit",
+        "candidate-sourcing",
+        "comp-benchmark",
+        "inclusive-language-review",
+        "employee-onboarding-plan"
+      ],
+      "example_request": "I need to hire my first operations manager for our two bakeries. Write a job description that attracts people who can actually run the place, not just people with fancy titles.",
+      "typical_departments": [
+        "people-culture"
+      ],
+      "version": 1
+    },
+    {
+      "id": "interview-kit",
+      "name": "Structured interview kit",
+      "icon": "🧭",
+      "category": "people-hiring",
+      "one_liner": "Competency questions, rubrics and a debrief template for consistent hiring.",
+      "description": "A structured interview kit built on the role scorecard. Each interviewer owns specific competencies and gets behavioural (STAR) and situational questions, a scored work sample, and a 1-4 rating scale with behavioural anchors. Interviewers score independently before an evidence-based debrief, so every candidate is judged the same way.",
+      "when": "the owner is about to interview for a role, interviewers disagree without evidence, or recent hires interviewed well but did not perform",
+      "inputs": [
+        {
+          "id": "scorecard",
+          "label": "Role scorecard (mission, outcomes, competencies)",
+          "required": true,
+          "source": "coworker",
+          "example": "From the job-description skill"
+        },
+        {
+          "id": "interviewers",
+          "label": "Who will interview and their availability",
+          "required": true,
+          "source": "owner",
+          "example": "Owner, head chef, front-of-house lead"
+        },
+        {
+          "id": "process_constraints",
+          "label": "Number of rounds and time per candidate",
+          "required": false,
+          "source": "owner",
+          "example": "Two rounds, under three hours total"
+        },
+        {
+          "id": "past_kits",
+          "label": "Existing questions or kits",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Interview guide",
+          "format": "md -> docx",
+          "description": "Per interviewer: competencies owned, questions, follow-ups and what good sounds like."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Scoring rubric and scorecard",
+          "format": "xlsx",
+          "description": "Behaviourally anchored 1-4 scales per competency, with independent-score columns."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Debrief template",
+          "format": "md",
+          "description": "Evidence-first debrief order, the decision rule and bias checks."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "ask_coworker",
+        "document_generate",
+        "spreadsheet_generate"
+      ],
+      "connectors_optional": [
+        "greenhouse",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Recall the scorecard with memory_recall (run job-description first if there is none) and search past kits with embeddings_search. 2. Assign each competency to exactly one interviewer so nothing is covered twice or missed. 3. Write 2-3 behavioural questions per competency ('tell me about a time...', probed with STAR) and one situational question tied to a real scenario from the business, with follow-up probes. 4. Design a work sample that mirrors the job, can be done in under 90 minutes (longer tasks should be paid), and has a scoring key. 5. Write behaviourally anchored 1-4 rating scales: what a 1, 2, 3 and 4 answer contains. Build the rubric with spreadsheet_generate, with columns for independent scores submitted before the debrief. 6. Add lawful-questions guidance: never ask about age, family plans, religion, health or disability, national origin, or other protected characteristics; offer accommodations up front and tell candidates the format in advance. 7. Write the debrief template: independent scores first, evidence before opinions, the most junior voice speaks first, and a decision rule tied to the scorecard. 8. Use ask_coworker to have the talent partner review, render the guide with document_generate, and state what could not be verified, such as whether each question predicts performance in this specific role.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Map competencies to interviewers",
+          "brief": "Assign each scorecard competency to one interviewer and round.",
+          "acceptance": "Every competency is covered exactly once."
+        },
+        {
+          "activity": "llm",
+          "title": "Questions, work sample and anchors",
+          "brief": "Write questions, probes, the work sample and anchored rating scales.",
+          "acceptance": "Every competency has questions and a 1-4 anchored scale.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Fairness and legality review",
+          "brief": "An inclusion or people partner checks for unlawful or biased questions and accessibility.",
+          "acceptance": "First line is APPROVED or CHANGES; any risky question is removed.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render the kit",
+          "brief": "Render the guide, the rubric workbook and the debrief template.",
+          "acceptance": "Kit renders; rubric includes independent-score columns.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "No question touches a protected characteristic.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every competency has a behaviourally anchored scale.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Interviewers score independently before the debrief.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The work sample mirrors real work and takes under 90 minutes, or is paid.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Candidates are told the format in advance and offered accommodations.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 40,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "job-description",
+        "candidate-sourcing",
+        "offer-letter-draft",
+        "rubric-scoring",
+        "employee-onboarding-plan"
+      ],
+      "example_request": "We keep hiring people who interview great and then flop. Build us a proper interview process for the sous chef role so the three of us score candidates the same way.",
+      "typical_departments": [
+        "people-culture"
+      ],
+      "version": 1
+    },
+    {
+      "id": "candidate-sourcing",
+      "name": "Candidate sourcing plan",
+      "icon": "🧲",
+      "category": "people-hiring",
+      "one_liner": "Channels, Boolean strings and outreach messages for a role.",
+      "description": "A sourcing plan for one role: where the right people actually are (niche communities, schools, returner programs, referrals), Boolean and X-ray search strings the owner can run, short personalized outreach templates with a three-touch cadence, and funnel math showing how much outreach one hire takes.",
+      "when": "a posting gets few or poor applicants, the role is niche or bilingual, or the owner wants to reach passive candidates",
+      "inputs": [
+        {
+          "id": "role_scorecard",
+          "label": "Role scorecard or job description",
+          "required": true,
+          "source": "coworker"
+        },
+        {
+          "id": "location",
+          "label": "Location, remote scope and languages",
+          "required": true,
+          "source": "owner",
+          "example": "Hybrid in San Antonio; Spanish-English bilingual"
+        },
+        {
+          "id": "employer_pitch",
+          "label": "Why someone would want this job",
+          "required": true,
+          "source": "owner",
+          "example": "Four-day week, paid training, stable team"
+        },
+        {
+          "id": "past_hiring_data",
+          "label": "Where past good hires came from",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Sourcing plan",
+          "format": "md -> pdf",
+          "description": "Channels ranked by expected yield, with effort, cost and why each fits."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Search strings",
+          "format": "md",
+          "description": "Boolean and X-ray strings per channel with notes on tuning them."
+        },
+        {
+          "artifact_type": "message_draft",
+          "name": "Outreach templates",
+          "format": "md",
+          "description": "Three-touch outreach and a referral ask to current staff."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Funnel tracker",
+          "format": "xlsx",
+          "description": "Outreach, replies, screens, interviews and offers with conversion formulas."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "web_search",
+        "connector_read",
+        "document_generate",
+        "spreadsheet_generate"
+      ],
+      "connectors_optional": [
+        "greenhouse",
+        "linkedin",
+        "bamboohr"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "url"
+      ],
+      "instructions": "1. Recall the scorecard and employer pitch with memory_recall; read where past good hires came from with connector_read if an applicant tracking system is enabled. 2. Research channels with web_search: niche job boards, professional associations, community groups, schools and training programs, returner and veteran programs, and local language communities; cite each. 3. Write Boolean strings (title synonyms OR'd, skills AND'd, exclusions NOT'd) and X-ray variants for public profiles. The owner or recruiter runs them. 4. Do not compile dossiers on individuals, scrape behind logins or gather personal data beyond what is needed to contact a candidate about this role; respect opt-outs. 5. Write outreach that is short, specific to the person's public work, honest about pay and schedule, with an easy yes and an easy no; three touches spaced 3-5 days apart. Add a referral ask for current staff. 6. Estimate the funnel (reply rate, screen rate, offer rate) from past data or labelled assumptions, and build the tracker with spreadsheet_generate. 7. Render the plan and templates with document_generate, and state what could not be verified, such as channel yields that are assumptions.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Find the channels",
+          "brief": "Research where people with this profile gather and look for work; cite sources.",
+          "acceptance": "At least six channels, each with a source and a fit rationale."
+        },
+        {
+          "activity": "mcp",
+          "title": "Past hiring sources",
+          "brief": "Read source-of-hire data from the applicant tracking system if enabled.",
+          "acceptance": "Source-of-hire summary, or marked unavailable."
+        },
+        {
+          "activity": "llm",
+          "title": "Strings, outreach and funnel",
+          "brief": "Write search strings, outreach templates and funnel estimates.",
+          "acceptance": "Strings for each searchable channel; outreach has three touches; assumptions labelled.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Privacy and tone review",
+          "brief": "A talent partner checks tone, honesty about pay and privacy boundaries.",
+          "acceptance": "First line is APPROVED or CHANGES; any dossier-style data gathering removed.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render plan and tracker",
+          "brief": "Render the sourcing plan, strings, templates and tracker.",
+          "acceptance": "All files render; the tracker computes conversions.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "No personal data about individuals is compiled beyond what is needed to contact them about the role.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Outreach states pay and schedule honestly.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Channels include at least two that reach under-represented talent pools.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Funnel assumptions are labelled when not based on the owner's data.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Search strings are tuned per channel syntax.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "job-description",
+        "interview-kit",
+        "outbound-sequence",
+        "employee-onboarding-plan"
+      ],
+      "example_request": "We need a bilingual Spanish-English dental receptionist and the job board ad got two applicants. Where else should we look, and what should we say to people?",
+      "typical_departments": [
+        "people-culture"
+      ],
+      "version": 1
+    },
+    {
+      "id": "offer-letter-draft",
+      "name": "Offer letter draft",
+      "icon": "✍️",
+      "category": "people-hiring",
+      "one_liner": "Offer letter from approved terms, for review before sending.",
+      "description": "Drafts an offer letter strictly from terms the owner has approved (title, start date, pay and frequency, classification, benefits, contingencies, reporting line), with jurisdiction flags on at-will wording, restrictive covenants, background checks and classification. It goes to employment counsel or a qualified HR professional before the owner sends it.",
+      "when": "the owner has agreed terms with a candidate and needs the written offer drafted for review before sending",
+      "inputs": [
+        {
+          "id": "approved_terms",
+          "label": "Approved terms: title, start date, pay, pay frequency, hours",
+          "required": true,
+          "source": "owner",
+          "example": "Office manager; March 3; $62,000 salary; biweekly; full-time"
+        },
+        {
+          "id": "jurisdiction",
+          "label": "Work location (state or country)",
+          "required": true,
+          "source": "owner",
+          "example": "Colorado, USA"
+        },
+        {
+          "id": "benefits_and_contingencies",
+          "label": "Benefits, probation, background or reference checks",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "template",
+          "label": "The company's existing offer template",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "candidate_name",
+          "label": "Candidate's name and preferred name",
+          "required": true,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "contract_draft",
+          "name": "Offer letter draft",
+          "format": "md -> docx",
+          "description": "Marked DRAFT for review; only approved terms; signature block left for the owner."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Jurisdiction and classification flags",
+          "format": "md",
+          "description": "Items the licensed reviewer must confirm, with why each matters."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "file_parse",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "docusign",
+        "gusto",
+        "rippling",
+        "bamboohr",
+        "deel",
+        "greenhouse"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Parse the template with file_parse if provided and recall company details and standing rules with memory_recall. 2. Confirm every term with the owner through request_owner_decision before drafting; never add or infer compensation, equity, bonus, title or start date that the owner has not approved. 3. Draft the letter in plain language: role, reporting line, start date, pay and frequency, hours, classification as stated by the owner, benefits summary, contingencies, how to accept, and an expiry date. 4. Flag, rather than decide, jurisdiction-dependent items: at-will or notice terms, non-compete or non-solicit enforceability, background-check timing rules, pay-transparency requirements, exempt versus non-exempt classification, and contractor versus employee status. 5. Mark the document DRAFT, leave the signature block for the owner, and render the letter and flag checklist with document_generate. 6. Regulated domain (employment_law): Policies and processes as drafts with jurisdiction flags. Terminations, discipline, accommodations, classification and pay-equity questions escalate to the owner and counsel. Escalate to employment counsel or a qualified HR professional (licensed review) before anything leaves the workspace; never present the output as professional advice and never imply a licence you do not hold. 7. Sending or e-signature is a separate governed action the owner approves after the licensed review. State what could not be verified, such as local rules for the exact work location.",
+      "workflow": [
+        {
+          "activity": "human",
+          "title": "Owner confirms terms",
+          "brief": "Decision card listing every term to be included.",
+          "acceptance": "Owner confirms each term or edits it."
+        },
+        {
+          "activity": "llm",
+          "title": "Draft the letter",
+          "brief": "Draft the offer letter from confirmed terms and the template.",
+          "acceptance": "Every term in the letter matches the confirmed list; nothing added.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "People partner check",
+          "brief": "A people partner checks completeness, tone and that flags are raised rather than decided.",
+          "acceptance": "First line is APPROVED or CHANGES; missing flags listed.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render draft and flags",
+          "brief": "Render the DRAFT letter and the jurisdiction checklist.",
+          "acceptance": "Letter marked DRAFT; checklist lists every flag.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review",
+          "brief": "Raise a decision card (request_owner_decision) asking the owner to route the draft to employment counsel or a qualified HR professional. Attach the draft and the flag checklist.",
+          "acceptance": "Owner confirms the licensed reviewer has approved, or returns their changes; nothing external happens before this step completes.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The employment_law rule is restated and the work is routed to employment counsel or a qualified HR professional for licensed review before anything is sent, signed or published.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every term in the letter was explicitly approved by the owner.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Classification, restrictive covenants and at-will wording are flagged, not decided.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The letter is plain-language and includes an acceptance deadline.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The candidate's preferred name is used correctly.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "interview-kit",
+        "comp-benchmark",
+        "employee-onboarding-plan",
+        "contract-issue-list",
+        "handbook-section"
+      ],
+      "example_request": "We agreed on $62k and a March 3rd start with Priya for the office manager role. Draft her offer letter so I can get it checked and send it this week.",
+      "regulated_domains": [
+        "employment_law"
+      ],
+      "typical_departments": [
+        "people-culture",
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "employee-onboarding-plan",
+      "name": "30/60/90 onboarding plan",
+      "icon": "🚀",
+      "category": "people-hiring",
+      "one_liner": "First-90-days plan with goals, buddy, training and check-ins.",
+      "description": "A first-90-days plan for a new hire: preboarding checklist (accounts, equipment, paperwork routed to payroll), a day-one agenda, week-one schedule, 30/60/90 goals (learn, contribute, own), a buddy, training from the business's own SOPs, check-ins at day 5, 30, 60 and 90, and a welcome message.",
+      "when": "someone new starts soon, or past hires spent their first week without logins, context or a clear first win",
+      "inputs": [
+        {
+          "id": "role_and_start",
+          "label": "Role, start date and manager",
+          "required": true,
+          "source": "owner",
+          "example": "Dispatcher, starts Monday, reports to Ana"
+        },
+        {
+          "id": "scorecard",
+          "label": "Role scorecard or job description",
+          "required": false,
+          "source": "coworker"
+        },
+        {
+          "id": "sops_and_tools",
+          "label": "SOPs and systems the role uses",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "hr_record",
+          "label": "New hire record in the HR system",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "30/60/90 onboarding plan",
+          "format": "md -> docx",
+          "description": "Goals, training, buddy, check-ins and first wins for each phase."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Preboarding and access checklist",
+          "format": "xlsx",
+          "description": "Accounts, equipment, paperwork and owners, each due before day one."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Welcome message",
+          "format": "md",
+          "description": "Warm welcome with day-one logistics."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "connector_read",
+        "ask_coworker",
+        "document_generate",
+        "spreadsheet_generate"
+      ],
+      "connectors_optional": [
+        "bamboohr",
+        "rippling",
+        "gusto",
+        "google-workspace",
+        "microsoft-365",
+        "slack"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Read the new hire's record with connector_read if an HR system is enabled; recall the scorecard, SOPs and tools with memory_recall and embeddings_search. 2. Use ask_coworker to get the access list from the IT coworker (accounts, least-privilege roles, devices) so everything is ready before day one. 3. Build the preboarding checklist with spreadsheet_generate: accounts, equipment, workspace, paperwork routed to payroll or HR (never collected by coworkers), and a named buddy. 4. Write the day-one agenda (welcome, logins working by 10am, meet the team, one small real task) and the week-one schedule. 5. Set 30/60/90 goals: learn (systems, customers, SOPs), contribute (owns routine work with review), own (independent on the core outcomes from the scorecard), each with a check-in and a first win. 6. Draft the welcome message and render the plan with document_generate. 7. State what could not be verified, such as equipment lead times or accounts that need the owner's admin action.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read the hire record",
+          "brief": "Read start date, role and manager from the HR system if enabled.",
+          "acceptance": "Hire details captured, or taken from the owner."
+        },
+        {
+          "activity": "llm",
+          "title": "Collect access needs",
+          "brief": "Ask the IT coworker for accounts, roles and devices; gather SOPs to include.",
+          "acceptance": "Access list with least-privilege roles and a list of SOPs.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft plan and checklist",
+          "brief": "Write the preboarding checklist, day-one agenda and 30/60/90 goals.",
+          "acceptance": "Every checklist item has an owner and a due date before day one.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Manager and people review",
+          "brief": "An employee-experience specialist checks realism, the buddy plan and check-ins.",
+          "acceptance": "First line is APPROVED or CHANGES; unrealistic goals flagged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render the pack",
+          "brief": "Render the plan, checklist and welcome message.",
+          "acceptance": "Three files render.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Accounts and equipment are scheduled to be ready before day one.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Coworkers never collect identity or tax documents; they route them to payroll or HR.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each phase has a first win and a check-in.",
+          "severity": "should"
+        },
+        {
+          "criterion": "A named buddy is assigned.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Training uses the business's own SOPs.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "job-description",
+        "training-module",
+        "coworker-briefing-pack",
+        "access-review",
+        "manager-feedback-guide"
+      ],
+      "example_request": "Our new dispatcher starts Monday and last time the new hire sat around for a week with no logins. Put together a real onboarding plan for her first 90 days.",
+      "typical_departments": [
+        "people-culture",
+        "it-security-automation"
+      ],
+      "version": 1
+    },
+    {
+      "id": "performance-review-kit",
+      "name": "Performance review framework",
+      "icon": "📈",
+      "category": "people-hiring",
+      "one_liner": "Review cycle, forms, calibration guide and manager talking points.",
+      "description": "A performance review system a small business can run: cycle and calendar, self and manager review forms tied to goals and values, a behaviourally anchored rating scale, a calibration guide with bias checks, and manager talking points. Development conversations are kept separate from pay decisions.",
+      "when": "the business has never run reviews, staff are asking about raises and growth, or reviews feel arbitrary",
+      "inputs": [
+        {
+          "id": "team_shape",
+          "label": "Team size, roles and managers",
+          "required": true,
+          "source": "owner",
+          "example": "14 staff, two managers"
+        },
+        {
+          "id": "values_and_goals",
+          "label": "Company values and team goals",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "cycle_preferences",
+          "label": "Timing and effort the owner can support",
+          "required": true,
+          "source": "owner",
+          "example": "Once a year in January, plus quarterly check-ins"
+        },
+        {
+          "id": "pay_link",
+          "label": "Whether and how reviews inform pay",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Review process guide",
+          "format": "md -> docx",
+          "description": "Cycle, calendar, roles, forms, rating scale, calibration and communication."
+        },
+        {
+          "artifact_type": "form",
+          "name": "Review forms",
+          "format": "html + json",
+          "description": "Self review and manager review forms."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Calibration grid",
+          "format": "xlsx",
+          "description": "Ratings with evidence and bias-check columns."
+        },
+        {
+          "artifact_type": "policy_draft",
+          "name": "Review policy draft",
+          "format": "md -> docx",
+          "description": "Short policy text for the handbook, marked for review."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_page_generate",
+        "document_generate",
+        "spreadsheet_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "bamboohr",
+        "rippling",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "web_page"
+      ],
+      "instructions": "1. Recall values, goals and any past review materials with memory_recall and embeddings_search. 2. Design a cycle the team can sustain: a yearly or twice-yearly review plus short quarterly check-ins, with a calendar and time estimate per manager. 3. Write the forms: a self review and a manager review against goals and values, with evidence prompts ('what happened, what was the impact'), and build them with web_page_generate. 4. Define a 4-point behaviourally anchored scale (or a no-rating narrative option) and write a calibration guide covering recency, halo and horns, central tendency and leniency, with the rule that every rating cites evidence. 5. Write manager talking points using SBI (situation, behaviour, impact) and keep the development conversation separate from the pay conversation. 6. Ask the owner to choose the pay link and cadence with request_owner_decision, then render the guide, calibration grid and policy draft with document_generate and spreadsheet_generate. 7. Underperformance that could lead to an improvement plan, discipline or termination is out of scope for this kit and escalates to the owner and counsel. 8. Regulated domain (employment_law): Policies and processes as drafts with jurisdiction flags. Terminations, discipline, accommodations, classification and pay-equity questions escalate to the owner and counsel. Escalate to employment counsel or a qualified HR professional (licensed review) before anything leaves the workspace; never present the output as professional advice and never imply a licence you do not hold. 9. State what could not be verified, such as local rules on review records or pay decisions.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Design the cycle",
+          "brief": "Design cadence, calendar, roles and time budget.",
+          "acceptance": "Calendar fits the owner's stated effort."
+        },
+        {
+          "activity": "human",
+          "title": "Owner chooses pay link",
+          "brief": "Decision card: whether reviews inform pay, and when.",
+          "acceptance": "Owner decides.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Forms, scale and calibration",
+          "brief": "Build the forms, anchored scale, calibration guide and talking points.",
+          "acceptance": "Forms render; every rating level has behavioural anchors.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Fairness review",
+          "brief": "A people partner or inclusion partner checks for bias risks and clarity.",
+          "acceptance": "First line is APPROVED or CHANGES; bias risks named with fixes.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review",
+          "brief": "Raise a decision card (request_owner_decision) asking the owner to route the draft to employment counsel or a qualified HR professional. Include the policy draft and the pay-link decision.",
+          "acceptance": "Owner confirms the licensed reviewer has approved, or returns their changes; nothing external happens before this step completes.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Final pack",
+          "brief": "Render the final guide, forms, grid and policy draft after licensed review.",
+          "acceptance": "Final pack reflects reviewer changes.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The employment_law rule is restated and the work is routed to employment counsel or a qualified HR professional for licensed review before anything is sent, signed or published.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every rating requires written evidence.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Discipline, improvement plans and termination are routed to the owner and counsel, not handled by the kit.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Development and pay conversations are separated.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Calibration guide names specific rater biases and checks for them.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "manager-feedback-guide",
+        "comp-benchmark",
+        "okr-set",
+        "handbook-section",
+        "engagement-survey"
+      ],
+      "example_request": "We've never done performance reviews and people are asking about raises. Set up a simple, fair review process for our 14 staff that I can run in January.",
+      "regulated_domains": [
+        "employment_law"
+      ],
+      "typical_departments": [
+        "people-culture"
+      ],
+      "version": 1
+    },
+    {
+      "id": "comp-benchmark",
+      "name": "Compensation benchmark & bands",
+      "icon": "⚖️",
+      "category": "people-hiring",
+      "one_liner": "Market-based salary bands with sources and a pay-equity check.",
+      "description": "Builds market-based salary bands from cited public data (government wage statistics, posted ranges, owner-supplied surveys), matched by level and location, with midpoints and range spreads. It places current employees by compa-ratio and runs a like-for-like pay-equity check, then flags any gap for counsel with the cost to fix.",
+      "when": "the owner is setting pay for a new role, employees have found pay differences, pay-transparency rules apply, or before annual raises",
+      "inputs": [
+        {
+          "id": "roles_and_levels",
+          "label": "Roles, levels and locations to benchmark",
+          "required": true,
+          "source": "owner",
+          "example": "Technician I-III, Denver"
+        },
+        {
+          "id": "payroll_data",
+          "label": "Current pay by employee (names can be replaced with ids)",
+          "required": true,
+          "source": "connector",
+          "example": "Gusto export"
+        },
+        {
+          "id": "pay_philosophy",
+          "label": "Target market position",
+          "required": false,
+          "source": "owner",
+          "example": "Pay at the 50th percentile plus a strong bonus"
+        },
+        {
+          "id": "survey_data",
+          "label": "Any purchased or association salary survey",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Salary bands and placement",
+          "format": "xlsx",
+          "description": "Band minimum, midpoint and maximum by level; employee compa-ratios, all with formulas."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Methodology and sources",
+          "format": "md -> docx",
+          "description": "Job matching, data sources with dates, aging factor and limitations."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Pay-equity flags for counsel",
+          "format": "md",
+          "description": "Unexplained gaps between like-for-like roles, with cost-to-fix scenarios, marked for licensed review."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "file_parse",
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "gusto",
+        "rippling",
+        "bamboohr",
+        "deel",
+        "quickbooks",
+        "xero"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "connector_data",
+        "url"
+      ],
+      "instructions": "1. Read current pay with connector_read or file_parse, replacing names with ids so the analysis is not tied to individuals. 2. Match each role by duties and level, not title. Research public sources with web_search and web_fetch (government occupational wage statistics, posted pay ranges, association surveys) and cite each with its date. 3. In code_interpreter, age data to a common date, apply location differentials, and set midpoints at the owner's chosen market position with range spreads suited to the level (narrower for entry roles, wider for senior ones). 4. Place each employee: compa-ratio, position in range, and anyone below the minimum. 5. Run a like-for-like pay-equity check comparing the same role and level, with legitimate factors (tenure, performance, location) separated out. Flag any unexplained gap as a question for counsel, never as a conclusion. 6. Model cost-to-fix scenarios and ask the owner to choose a philosophy and timing with request_owner_decision. 7. Render the bands workbook with spreadsheet_generate and the methodology and flags with document_generate. 8. Regulated domain (employment_law): Policies and processes as drafts with jurisdiction flags. Terminations, discipline, accommodations, classification and pay-equity questions escalate to the owner and counsel. Escalate to employment counsel or a qualified HR professional (licensed review) before anything leaves the workspace; never present the output as professional advice and never imply a licence you do not hold. 9. State what could not be verified, such as survey coverage for small local markets or whether roles are truly comparable.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load pay data",
+          "brief": "Load current pay, anonymized with ids.",
+          "acceptance": "Pay table with role, level, tenure and location; no names in the analysis."
+        },
+        {
+          "activity": "research",
+          "title": "Market data",
+          "brief": "Research and cite market pay data per matched role.",
+          "acceptance": "Each role has at least two dated sources."
+        },
+        {
+          "activity": "analysis",
+          "title": "Build bands and placement",
+          "brief": "Age data, set midpoints and spreads, and compute compa-ratios.",
+          "acceptance": "Bands have formulas; every employee is placed.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Pay-equity check",
+          "brief": "Compare like-for-like roles and separate legitimate factors.",
+          "acceptance": "Unexplained gaps listed with their size; no conclusions drawn.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner picks philosophy and timing",
+          "brief": "Decision card with cost-to-fix scenarios.",
+          "acceptance": "Owner chooses a scenario.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render bands and memo",
+          "brief": "Render the workbook, methodology and equity flags.",
+          "acceptance": "Numbers match across files.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review",
+          "brief": "Raise a decision card (request_owner_decision) asking the owner to route the draft to employment counsel or a qualified HR professional. Attach the pay-equity flags and methodology.",
+          "acceptance": "Owner confirms the licensed reviewer has approved, or returns their changes; nothing external happens before this step completes.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The employment_law rule is restated and the work is routed to employment counsel or a qualified HR professional for licensed review before anything is sent, signed or published.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every market figure has a dated source.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Employee names are replaced with ids in the analysis.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Pay-equity findings are framed as questions for counsel, not conclusions.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Jobs are matched on duties and level, not title alone.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "job-description",
+        "offer-letter-draft",
+        "performance-review-kit",
+        "org-design",
+        "annual-budget"
+      ],
+      "example_request": "Two of my technicians just found out they're paid $4 an hour apart for the same job. Help me build proper pay bands and check we're being fair before I talk to them.",
+      "regulated_domains": [
+        "employment_law"
+      ],
+      "typical_departments": [
+        "people-culture",
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "engagement-survey",
+      "name": "Engagement survey & eNPS",
+      "icon": "💬",
+      "category": "people-hiring",
+      "one_liner": "A short survey, analysis and action plan from the results.",
+      "description": "A short anonymous engagement survey (eNPS plus 10-12 driver items on role clarity, manager support, growth, recognition, workload and belonging, and two open questions), then the analysis (eNPS, driver ranking, themed comments with groups under five suppressed) and an action plan the team sees.",
+      "when": "morale feels off, turnover is rising, after a big change, or as a twice-yearly pulse",
+      "inputs": [
+        {
+          "id": "context",
+          "label": "What prompted the survey and what the owner will act on",
+          "required": true,
+          "source": "owner",
+          "example": "Moved to a new warehouse; two resignations"
+        },
+        {
+          "id": "team_size_and_groups",
+          "label": "Headcount and any groups to report by",
+          "required": true,
+          "source": "owner",
+          "example": "38 staff, three shifts"
+        },
+        {
+          "id": "survey_tool",
+          "label": "Survey tool, or use a generated form",
+          "required": false,
+          "source": "owner",
+          "example": "Typeform"
+        },
+        {
+          "id": "results_export",
+          "label": "Survey responses once collected",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "form",
+          "name": "Survey",
+          "format": "html + json",
+          "description": "Anonymous survey with 5-point Likert items, eNPS and open questions."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Results and action plan",
+          "format": "md -> pdf",
+          "description": "eNPS, driver ranking, comment themes, 2-3 focus areas and 'you said, we did' messaging."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Driver chart",
+          "format": "svg",
+          "description": "Item scores and their relationship to eNPS."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "web_page_generate",
+        "request_owner_decision",
+        "file_parse",
+        "connector_read",
+        "code_interpreter",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "typeform",
+        "google-workspace",
+        "microsoft-365",
+        "slack"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "connector_data",
+        "web_page"
+      ],
+      "instructions": "1. Recall context with memory_recall and agree what the owner is willing to act on, because asking without acting harms trust. 2. Draft the survey: the eNPS question, 10-12 balanced 5-point Likert items across drivers, two open questions, neutral wording without double-barrelled or leading items, and a completion time under 7 minutes. Build it with web_page_generate or as an import file for the owner's tool. 3. Set anonymity rules: no group reported under five responses, no free-text quotes that could identify someone, and optional demographics only. 4. Ask the owner to approve and send it with request_owner_decision; coworkers do not send it. 5. Load results with file_parse or connector_read. In code_interpreter compute eNPS (promoters minus detractors), item means, the correlation of each driver with eNPS, and themed comments. 6. Pick 2-3 focus areas (high importance, low score), draft actions with owners and dates, and draft the 'you said, we did' message. 7. Render charts with chart_generate and the report with document_generate. 8. State what could not be verified, such as non-response bias or small-group results suppressed for anonymity.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Design the survey",
+          "brief": "Draft items, anonymity rules and the communication note.",
+          "acceptance": "Under 7 minutes; every item is single-barrelled and neutral."
+        },
+        {
+          "activity": "review",
+          "title": "Survey design review",
+          "brief": "A survey researcher checks wording, balance and anonymity.",
+          "acceptance": "First line is APPROVED or CHANGES; leading or double-barrelled items fixed.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Build the form",
+          "brief": "Build the survey form or import file.",
+          "acceptance": "Form renders and works on a phone.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner sends the survey",
+          "brief": "Decision card; the owner sends through their own channel.",
+          "acceptance": "Owner confirms the send date.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "ingest",
+          "title": "Load responses",
+          "brief": "Load the results export once the survey closes.",
+          "acceptance": "Responses loaded; groups under five suppressed.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Analyse results",
+          "brief": "Compute eNPS, drivers and comment themes.",
+          "acceptance": "Every finding shows its n; no identifying quotes.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Action plan and report",
+          "brief": "Choose focus areas, draft actions and render the report and charts.",
+          "acceptance": "2-3 focus areas, each with an owner and date.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "No group with fewer than five responses is reported.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No quote or detail could identify a respondent.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Coworkers never send the survey; the owner does.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Focus areas are few (2-3) and chosen by importance and score.",
+          "severity": "should"
+        },
+        {
+          "criterion": "A 'you said, we did' message closes the loop.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "survey-design",
+        "retrospective",
+        "manager-feedback-guide",
+        "change-plan",
+        "performance-review-kit"
+      ],
+      "example_request": "Morale feels off since we moved to the new warehouse but nobody says anything. Can we run a quick anonymous survey and figure out what to fix?",
+      "typical_departments": [
+        "people-culture",
+        "research-insights"
+      ],
+      "version": 1
+    },
+    {
+      "id": "handbook-section",
+      "name": "Employee handbook section",
+      "icon": "📘",
+      "category": "people-hiring",
+      "one_liner": "Handbook sections drafted with jurisdiction flags for counsel review.",
+      "description": "Drafts employee handbook sections (time off, sick leave, conduct, anti-harassment, remote work, expenses, device and social media use) in plain language. Requirements are researched from primary government sources for each jurisdiction, with flags and an acknowledgement form, all marked draft for employment counsel.",
+      "when": "the business has no handbook, is hiring in a new state or country, or a policy is outdated or inconsistently applied",
+      "inputs": [
+        {
+          "id": "sections",
+          "label": "Which sections to draft",
+          "required": true,
+          "source": "owner",
+          "example": "PTO, sick leave, remote work"
+        },
+        {
+          "id": "jurisdictions",
+          "label": "Every state or country where people work",
+          "required": true,
+          "source": "owner",
+          "example": "Colorado and Texas"
+        },
+        {
+          "id": "current_practice",
+          "label": "What actually happens today and any existing policy",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "company_values",
+          "label": "Values and tone",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "policy_draft",
+          "name": "Handbook sections",
+          "format": "md -> docx",
+          "description": "Plain-language sections marked DRAFT, with jurisdiction notes inline."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Jurisdiction flags",
+          "format": "md",
+          "description": "Requirement, source link, jurisdiction and what counsel must confirm."
+        },
+        {
+          "artifact_type": "form",
+          "name": "Acknowledgement form",
+          "format": "html",
+          "description": "Employee acknowledgement of the handbook sections."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "web_search",
+        "web_fetch",
+        "document_generate",
+        "web_page_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "notion",
+        "confluence",
+        "bamboohr"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url",
+        "web_page"
+      ],
+      "instructions": "1. Recall current practice and values with memory_recall and embeddings_search; note where written policy and actual practice differ. 2. For each jurisdiction, research requirements from primary sources (government labor department pages) with web_search and web_fetch, and cite each with the date checked. Secondary summaries may guide the search but are never the only source. 3. Draft each section in plain language: purpose, who it covers, the rule, how to request or report, and who decides. Put jurisdiction differences in clearly marked notes. 4. Mark every section DRAFT and add a flag checklist of what counsel must confirm (accrual and carryover rules, final pay, breaks, leave protections, at-will language, arbitration or other clauses). 5. Build an acknowledgement form with web_page_generate and render the sections with document_generate. 6. Regulated domain (employment_law): Policies and processes as drafts with jurisdiction flags. Terminations, discipline, accommodations, classification and pay-equity questions escalate to the owner and counsel. Escalate to employment counsel or a qualified HR professional (licensed review) before anything leaves the workspace; never present the output as professional advice and never imply a licence you do not hold. 7. Ask the owner, with request_owner_decision, to route the pack to counsel. State what could not be verified, such as local ordinances or recent changes not yet on official pages.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Jurisdiction research",
+          "brief": "Research requirements per jurisdiction from primary sources.",
+          "acceptance": "Each requirement has a primary-source link and a checked date."
+        },
+        {
+          "activity": "llm",
+          "title": "Draft sections",
+          "brief": "Draft plain-language sections with jurisdiction notes and flags.",
+          "acceptance": "Every section marked DRAFT; every requirement traced to a source.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Plain-language and consistency review",
+          "brief": "An editor and a people partner check clarity and practice-versus-policy gaps.",
+          "acceptance": "First line is APPROVED or CHANGES; unclear rules rewritten.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render pack",
+          "brief": "Render the sections, flag checklist and acknowledgement form.",
+          "acceptance": "Pack renders; flags cover every jurisdiction.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review",
+          "brief": "Raise a decision card (request_owner_decision) asking the owner to route the draft to employment counsel or a qualified HR professional. Attach the flag checklist.",
+          "acceptance": "Owner confirms the licensed reviewer has approved, or returns their changes; nothing external happens before this step completes.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The employment_law rule is restated and the work is routed to employment counsel or a qualified HR professional for licensed review before anything is sent, signed or published.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every legal requirement cites a primary source and the date it was checked.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every section is marked DRAFT until counsel approves.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Sections are readable at roughly a grade-8 level.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Differences between current practice and the written policy are surfaced.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "policy-draft",
+        "regulatory-research",
+        "plain-language-rewrite",
+        "compliance-calendar",
+        "employee-onboarding-plan"
+      ],
+      "example_request": "We're at 22 employees across Colorado and Texas and still don't have a real handbook. Start with PTO, sick leave and remote work.",
+      "regulated_domains": [
+        "employment_law"
+      ],
+      "typical_departments": [
+        "people-culture",
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "org-design",
+      "name": "Org design & workforce plan",
+      "icon": "🏗️",
+      "category": "people-hiring",
+      "one_liner": "Structure options, spans and layers, and a headcount plan.",
+      "description": "Org design options for a growing business: two or three structures (functional, by location or product, lightweight matrix) with spans and layers, role architecture, RACI for the decisions that jam today, a headcount plan tied to revenue or workload triggers, costs, and a transition plan.",
+      "when": "the owner has too many direct reports, decisions bottleneck on one person, or the business is about to add a location, product line or management layer",
+      "inputs": [
+        {
+          "id": "roster",
+          "label": "Current roles, reporting lines and headcount",
+          "required": true,
+          "source": "file",
+          "example": "Org chart photo or roster export"
+        },
+        {
+          "id": "strategy_and_growth",
+          "label": "Growth plan and constraints",
+          "required": true,
+          "source": "memory",
+          "example": "Second location in spring; flat margins"
+        },
+        {
+          "id": "pain_points",
+          "label": "Where work or decisions get stuck",
+          "required": true,
+          "source": "owner",
+          "example": "Everything comes to me; the kitchen and front of house clash"
+        },
+        {
+          "id": "budget",
+          "label": "Budget for new roles",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "diagram",
+          "name": "Org chart options",
+          "format": "mermaid + svg",
+          "description": "Current structure and each option."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Org design memo",
+          "format": "md -> docx",
+          "description": "Options, trade-offs, spans and layers, RACI and the recommended path."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Headcount plan",
+          "format": "xlsx",
+          "description": "Roles, timing, triggers and fully loaded cost."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "vision_describe",
+        "memory_recall",
+        "code_interpreter",
+        "diagram_generate",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "bamboohr",
+        "rippling",
+        "gusto"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "image"
+      ],
+      "instructions": "1. Load the roster with file_parse (or read an org chart photo with vision_describe) and recall strategy with memory_recall. 2. In code_interpreter compute spans of control and layers; flag managers with more than about 8 direct reports doing varied work, and single points of failure. 3. List the 5-10 recurring decisions that bottleneck and write a RACI for them. 4. Design 2-3 structure options, each with how it solves the pain, what it costs, and what it risks (duplicated work, handoffs, culture). 5. Build a headcount plan with triggers (hire when revenue, volume or workload crosses X) and fully loaded cost. 6. Draw each option with diagram_generate and ask the owner to choose with request_owner_decision. 7. Write the transition plan: sequencing, communication and what stays the same. Any change to an individual's role, pay or employment status is handled by the owner with an HR professional or counsel. 8. Render the memo and workbook with document_generate and spreadsheet_generate, and state what could not be verified, such as workload estimates the owner gave from memory.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load the current org",
+          "brief": "Load roles and reporting lines.",
+          "acceptance": "Current org chart reproduced accurately."
+        },
+        {
+          "activity": "analysis",
+          "title": "Spans, layers and bottlenecks",
+          "brief": "Compute spans and layers; list bottleneck decisions.",
+          "acceptance": "Spans per manager and a list of bottleneck decisions.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Options, RACI and headcount",
+          "brief": "Design options with trade-offs, RACI and a triggered headcount plan.",
+          "acceptance": "Each option names what it solves, costs and risks.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Draw options",
+          "brief": "Render org chart options and the headcount workbook.",
+          "acceptance": "One diagram per option; costs computed.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic review",
+          "brief": "Challenge assumptions about growth, cost and the people impact.",
+          "acceptance": "First line is APPROVED or CHANGES; the weakest assumption named.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner chooses a direction",
+          "brief": "Decision card with the options side by side.",
+          "acceptance": "Owner chooses or asks for a variant.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Memo and transition plan",
+          "brief": "Write the memo and transition plan for the chosen option.",
+          "acceptance": "Memo recommends a path with sequencing and communication.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every option states what it solves, what it costs and what it risks.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Changes to any individual's employment terms are routed to the owner and a qualified HR professional or counsel.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Headcount additions are tied to explicit triggers.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Bottleneck decisions have a RACI with one accountable person each.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "raci-matrix",
+        "capacity-plan",
+        "comp-benchmark",
+        "change-plan",
+        "annual-budget"
+      ],
+      "example_request": "I have 11 people all reporting to me and I'm drowning. Show me two or three ways to structure the team and who I should hire next.",
+      "typical_departments": [
+        "people-culture",
+        "strategy-leadership"
+      ],
+      "version": 1
+    },
+    {
+      "id": "training-module",
+      "name": "Training module (ADDIE)",
+      "icon": "🎓",
+      "category": "people-hiring",
+      "one_liner": "Objectives, practice activities, job aids and a Kirkpatrick evaluation plan.",
+      "description": "A training module built with ADDIE. Task analysis of the real job leads to objectives written with Bloom's verbs, practice on realistic scenarios, a job aid for the point of work, a short quiz, an audio version, and a Kirkpatrick evaluation plan from reaction through to behaviour and results.",
+      "when": "staff keep making the same mistakes, a new process or tool is rolling out, or new hires need consistent first-week training",
+      "inputs": [
+        {
+          "id": "performance_gap",
+          "label": "What people do now versus what they should do",
+          "required": true,
+          "source": "owner",
+          "example": "Cashiers process exchanges as refunds"
+        },
+        {
+          "id": "audience",
+          "label": "Who is trained, their experience and constraints",
+          "required": true,
+          "source": "owner",
+          "example": "New cashiers, first day, 30 minutes"
+        },
+        {
+          "id": "sops",
+          "label": "Relevant SOPs and policies",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "examples",
+          "label": "Real examples of errors or good work",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Facilitator guide",
+          "format": "md -> docx",
+          "description": "Objectives, timings, activities, scenarios and debrief questions."
+        },
+        {
+          "artifact_type": "deck",
+          "name": "Training slides",
+          "format": "pptx",
+          "description": "One idea per slide with speaker notes."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Job aid",
+          "format": "md -> pdf",
+          "description": "One-page point-of-work checklist."
+        },
+        {
+          "artifact_type": "web_page",
+          "name": "Self-check quiz",
+          "format": "html",
+          "description": "Scenario-based quiz with feedback on each answer."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Audio version",
+          "format": "mp3",
+          "description": "A short spoken version for listening on the go."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "embeddings_search",
+        "document_generate",
+        "deck_generate",
+        "web_page_generate",
+        "tts"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "notion",
+        "kajabi"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "audio",
+        "web_page"
+      ],
+      "instructions": "1. Analyse: confirm it is a skill or knowledge gap (not a tool, incentive or process problem) and do a task analysis of the real steps using the SOPs found with memory_recall and embeddings_search. 2. Design: write 3-5 objectives in ABCD form (audience, behaviour, condition, degree) with Bloom's verbs at the level the job needs. 3. Develop: realistic scenarios from real examples, worked examples, practice with feedback, a one-page job aid and a scenario-based quiz. Keep it within the time available. 4. Build the facilitator guide with document_generate, slides with deck_generate and the quiz with web_page_generate, and render an audio version with tts. 5. Implement: delivery plan, who trains, and when to refresh. 6. Evaluate with Kirkpatrick: level 1 reaction (two questions), level 2 learning (quiz), level 3 behaviour (observed after 2-4 weeks), level 4 results (the error rate that started this). 7. State what could not be verified, such as whether the job aid matches every store's till setup.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Analysis and objectives",
+          "brief": "Task analysis and ABCD objectives with Bloom's verbs.",
+          "acceptance": "Each objective is observable and measurable."
+        },
+        {
+          "activity": "llm",
+          "title": "Scenarios and practice",
+          "brief": "Write scenarios, practice activities, the job aid and quiz items.",
+          "acceptance": "Every objective has practice and at least one quiz item.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Build materials",
+          "brief": "Build the facilitator guide, slides, job aid and quiz.",
+          "acceptance": "All materials render; the quiz gives feedback per answer.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Audio version",
+          "brief": "Render a short spoken version.",
+          "acceptance": "Audio under five minutes covering every objective.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Learning design review",
+          "brief": "A learning designer or subject expert checks accuracy and practice quality.",
+          "acceptance": "First line is APPROVED or CHANGES; inaccurate steps flagged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Evaluation plan",
+          "brief": "Write the Kirkpatrick levels 1-4 plan.",
+          "acceptance": "Level 4 metric ties to the original performance gap.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Objectives are observable and measurable (ABCD).",
+          "severity": "must"
+        },
+        {
+          "criterion": "Content matches the business's actual SOPs.",
+          "severity": "must"
+        },
+        {
+          "criterion": "At least half the time is practice, not presentation.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Evaluation reaches behaviour and results, not only satisfaction.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Materials are accessible: captions or transcript for audio, readable job aid.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "sop-writing",
+        "employee-onboarding-plan",
+        "course-curriculum",
+        "voiceover-briefing",
+        "kb-article"
+      ],
+      "example_request": "Our new cashiers keep messing up refunds and exchanges. Build a short training they can do on their first day, with a quiz and a cheat sheet by the register.",
+      "typical_departments": [
+        "people-culture"
+      ],
+      "version": 1
+    },
+    {
+      "id": "manager-feedback-guide",
+      "name": "Manager 1:1 & feedback guide",
+      "icon": "🤝",
+      "category": "people-hiring",
+      "one_liner": "SBI-based feedback scripts and a 1:1 agenda for managers.",
+      "description": "Helps a manager give feedback that lands: SBI (situation, behaviour, impact) scripts for the specific conversation, a 1:1 agenda the employee owns, likely reactions and how to respond, and a live voice role-play where a coworker plays the employee so the manager can practise before the real talk.",
+      "when": "a manager is avoiding a hard conversation, wants to give recognition that means something, or is starting regular 1:1s",
+      "inputs": [
+        {
+          "id": "situation",
+          "label": "What happened, when, and its impact",
+          "required": true,
+          "source": "owner",
+          "example": "Shift lead arrives 15 minutes late about twice a week"
+        },
+        {
+          "id": "relationship_context",
+          "label": "Relationship, strengths and history",
+          "required": false,
+          "source": "owner",
+          "example": "Great with customers; two informal mentions before"
+        },
+        {
+          "id": "desired_outcome",
+          "label": "What the manager wants to change or reinforce",
+          "required": true,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "script",
+          "name": "Feedback conversation script",
+          "format": "md",
+          "description": "Opening, SBI statement, questions, likely reactions and responses, agreed next step."
+        },
+        {
+          "artifact_type": "document",
+          "name": "1:1 agenda template",
+          "format": "md -> docx",
+          "description": "Employee-owned agenda: wins, blockers, growth, feedback both ways."
+        },
+        {
+          "artifact_type": "transcript",
+          "name": "Role-play debrief",
+          "format": "md",
+          "description": "What worked in the practice run and what to adjust."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "document_generate",
+        "convene_meeting",
+        "realtime_voice",
+        "ask_coworker"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "slack"
+      ],
+      "modalities": [
+        "text",
+        "voice"
+      ],
+      "instructions": "1. Recall the context with memory_recall and separate facts from interpretations. 2. Write the SBI statement: a specific situation, the observable behaviour (never a character judgement) and the concrete impact, followed by an open question ('what's going on from your side?'). 3. Plan for likely reactions (surprise, defensiveness, a personal reason) with calm responses, and agree a specific next step and follow-up date. 4. For recognition, use SBI too, so the praise is specific and repeatable. 5. Draft an employee-owned 1:1 agenda with document_generate. 6. Offer a practice run: with convene_meeting in workshop format and realtime_voice, a coworker plays the employee realistically (not a pushover) while the manager practises; debrief afterwards. 7. Stop and escalate to the owner and a qualified HR professional or counsel if the situation involves harassment, discrimination, safety, a health condition or accommodation, or possible discipline or termination; use ask_coworker to bring in the people partner. 8. State what could not be verified, such as details the manager recalled from memory.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Prepare the conversation",
+          "brief": "Separate facts from interpretations and write the SBI script and responses.",
+          "acceptance": "SBI statement uses observable behaviour and concrete impact."
+        },
+        {
+          "activity": "review",
+          "title": "People partner check",
+          "brief": "A people partner checks tone and screens for escalation triggers.",
+          "acceptance": "First line is APPROVED or CHANGES; escalation triggers named if present.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Voice role-play",
+          "brief": "Live practice with a coworker playing the employee; the manager joins by voice.",
+          "acceptance": "At least one full run-through, with a debrief of what to adjust.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Script and 1:1 template",
+          "brief": "Render the final script and the 1:1 agenda template.",
+          "acceptance": "Script reflects the debrief; template renders.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Feedback describes observable behaviour and impact, never character.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Harassment, discrimination, safety, accommodation or discipline issues are escalated, not scripted.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The script ends with a specific next step and a follow-up date.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The role-play partner behaves realistically.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 25,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "performance-review-kit",
+        "disagreement-mediation",
+        "employee-onboarding-plan",
+        "engagement-survey"
+      ],
+      "example_request": "My shift lead is great with customers but keeps showing up 15 minutes late and I've been avoiding the talk. Help me say it well, and let me practise first.",
+      "typical_departments": [
+        "people-culture"
+      ],
+      "version": 1
+    }
+  ]
+}

@@ -1,0 +1,1965 @@
+{
+  "category": "engineering-build",
+  "version": 1,
+  "skills": [
+    {
+      "id": "build-a-web-page",
+      "name": "Build a web page",
+      "icon": "⬡",
+      "category": "engineering-build",
+      "one_liner": "An interactive page, mock-up, calculator or landing page as one self-contained HTML file.",
+      "description": "Produces one self-contained web page (HTML, CSS and JS, no external requests) that runs in the result sandbox: a landing page, calculator, mock-up or interactive explainer. Responsive, keyboard-accessible, WCAG 2.2 AA contrast, with a short usage note at the top and data inline.",
+      "when": "the deliverable is an interactive page, mock-up, calculator, landing page or small dashboard rather than a document",
+      "inputs": [
+        {
+          "id": "purpose",
+          "label": "What the page is for and who uses it",
+          "required": true,
+          "source": "owner",
+          "example": "A quote calculator for our website: room size and finish give a price range"
+        },
+        {
+          "id": "content_and_data",
+          "label": "Copy, prices, rules or data to include",
+          "required": true,
+          "source": "owner",
+          "example": "Rates per m² for three finishes; minimum charge £180"
+        },
+        {
+          "id": "brand",
+          "label": "Colours, fonts and logo rules",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "reference",
+          "label": "Sketch, screenshot or example to follow",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "web_page",
+          "name": "Self-contained page",
+          "format": "html",
+          "description": "One HTML file with inline CSS, JS and data; no network requests."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "ask_coworker",
+        "web_page_generate",
+        "workspace_files"
+      ],
+      "connectors_optional": [
+        "figma",
+        "canva",
+        "wordpress",
+        "webflow"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "web_page"
+      ],
+      "instructions": "1. Write a short spec: purpose, sections, inputs and outputs, interactions, and the edge cases (empty input, zero, very large values). Recall brand colours and fonts with memory_recall; if a sketch or screenshot is supplied, ask a design coworker with ask_coworker to describe its layout. 2. Build one HTML file with web_page_generate: semantic HTML (header, main, section, button, label), inline CSS and JS, data inline, no external requests, no trackers. 3. Make it responsive (mobile-first, works from 320px), keyboard operable with visible focus, every input labelled, colour contrast at least 4.5:1 for text (WCAG 2.2 AA), and no information conveyed by colour alone. 4. If a visual helps, embed an owner-supplied image or a CSS/SVG illustration inline with descriptive alt text; never present an illustration as a photo of real work. 5. Put a short usage note at the top of the file (as a comment and, where useful, on the page) explaining what it does and how to change the data. 6. Test the main interactions and edge cases by walking through them, and describe the results. Validate calculations against two hand-worked examples. 7. Save with workspace_files and name every file produced on its own line as 'Artifact: <path relative to the workspace>'. Publishing to a live site is a separate, approved step. 8. State what could not be verified: browsers or screen readers not tested, and any business rule assumed rather than given.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Spec the page",
+          "brief": "Write purpose, sections, interactions and edge cases.",
+          "acceptance": "Spec lists every interaction and at least three edge cases."
+        },
+        {
+          "activity": "document",
+          "title": "Build the page",
+          "brief": "Build the self-contained HTML with inline data and accessible markup.",
+          "acceptance": "Single HTML file; zero external requests; all inputs labelled.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Accessibility and behaviour review",
+          "brief": "Check responsiveness, keyboard use, contrast, edge cases and calculations.",
+          "acceptance": "First line APPROVED or CHANGES; failed checks listed with element.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Fix and finalize",
+          "brief": "Apply fixes, add the usage note and register the artifact.",
+          "acceptance": "Usage note present; 'Artifact:' line names the file.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "One self-contained HTML file with no external network requests.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Works from 320px wide; keyboard operable; every input has a label.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Text contrast is at least 4.5:1 and colour is never the only signal.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Calculations match two hand-worked examples.",
+          "severity": "should"
+        },
+        {
+          "criterion": "A usage note at the top explains how to change the data.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "app-canvas-build",
+        "landing-page-cro",
+        "wcag-audit",
+        "web-performance-audit",
+        "wireframes"
+      ],
+      "example_request": "Make me a little quote calculator page for our website. Customers pick room size and paint finish and it shows a price range.",
+      "typical_departments": [
+        "engineering",
+        "design-creative",
+        "product"
+      ],
+      "biz_bot_name": "build-a-web-page",
+      "version": 1
+    },
+    {
+      "id": "app-canvas-build",
+      "name": "Sandboxed app build",
+      "icon": "⧉",
+      "category": "engineering-build",
+      "one_liner": "A working interactive app in the canvas, iterated until it runs cleanly.",
+      "description": "Builds a working interactive app in the sandboxed canvas from user stories: state model first, a thin vertical slice, then iterations that self-repair from runtime errors until it runs cleanly and every acceptance criterion is demonstrated. No real credentials or secrets are embedded.",
+      "when": "the owner needs a small working tool (tracker, booking board, calculator with state, internal form, prototype) they can click through and use",
+      "inputs": [
+        {
+          "id": "user_stories",
+          "label": "Who uses it and what they need to do",
+          "required": true,
+          "source": "owner",
+          "example": "The team sees today's jobs, ticks them off and adds notes"
+        },
+        {
+          "id": "data_shape",
+          "label": "What information the app holds",
+          "required": false,
+          "source": "owner",
+          "example": "Job: customer, address, time slot, status, notes"
+        },
+        {
+          "id": "sketch",
+          "label": "Sketch, screenshot or similar tool",
+          "required": false,
+          "source": "file",
+          "example": "Photo of a whiteboard layout"
+        },
+        {
+          "id": "brand",
+          "label": "Colours and tone",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "app",
+          "name": "Canvas app",
+          "format": "canvas",
+          "description": "The running app with sample data."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Readme and how-to",
+          "format": "md",
+          "description": "What it does, how to use it, where data lives, limits and next steps."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "ask_coworker",
+        "code_interpreter",
+        "app_build",
+        "workspace_files"
+      ],
+      "connectors_optional": [
+        "airtable",
+        "google-workspace",
+        "notion"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "app"
+      ],
+      "instructions": "1. Turn the request into three to seven user stories with testable acceptance criteria (Given/When/Then). If a sketch is supplied, ask a design coworker with ask_coworker to describe it; recall brand and prior tools with memory_recall. 2. Design the state model first: entities, fields, statuses and transitions. Generate realistic sample data with code_interpreter (no real customer data). 3. Build the thinnest vertical slice with app_build: one story working end to end (create, view, update), then add stories one at a time. 4. Let the canvas self-repair from runtime errors; after each iteration check the console is clean and the previous stories still pass. 5. Keep it accessible: labelled controls, keyboard use, visible focus, readable contrast. 6. Never embed real API keys, passwords or personal data. State where data is stored (in-canvas only unless a connector is set up separately) and what happens on refresh. 7. Walk through every acceptance criterion and record the result. Write the readme with workspace_files. 8. State what could not be verified: devices not tested, multi-user behaviour, and anything that needs a real backend.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Stories and state model",
+          "brief": "Write user stories with acceptance criteria and the state model.",
+          "acceptance": "Three to seven stories, each with Given/When/Then criteria."
+        },
+        {
+          "activity": "app",
+          "title": "First vertical slice",
+          "brief": "Build one story end to end with sample data.",
+          "acceptance": "The slice runs with zero console errors.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "app",
+          "title": "Iterate to all stories",
+          "brief": "Add remaining stories, self-repairing from runtime errors.",
+          "acceptance": "All stories implemented; console clean.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Acceptance walkthrough",
+          "brief": "Walk through every acceptance criterion and accessibility basics.",
+          "acceptance": "First line APPROVED or CHANGES; each criterion marked pass or fail.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner tries it",
+          "brief": "Owner uses the app and gives feedback.",
+          "acceptance": "Owner feedback recorded as new or changed stories.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Runs with zero console errors.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every user story's acceptance criteria are demonstrated.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No real credentials, secrets or personal data are embedded.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Data storage and persistence behaviour are stated in the readme.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Controls are labelled and keyboard operable.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "build-a-web-page",
+        "prd",
+        "wireframes",
+        "test-plan",
+        "usability-test"
+      ],
+      "example_request": "Can you build us a simple job-tracking board where the lads can see what's booked each day and tick it off when done?",
+      "typical_departments": [
+        "product",
+        "engineering"
+      ],
+      "version": 1
+    },
+    {
+      "id": "build-a-spreadsheet",
+      "name": "Build a spreadsheet",
+      "icon": "▦",
+      "category": "engineering-build",
+      "one_liner": "A workbook, budget, tracker or model with clear inputs, formulas and checks.",
+      "description": "Produces a spreadsheet (XLSX, or CSV as fallback) with real formulas: separate inputs, consistent calculations, check cells, data validation, frozen headers and number formats, plus a sheet map, built from data or requirements.",
+      "when": "the deliverable is a workbook, budget, tracker or table with calculations",
+      "inputs": [
+        {
+          "id": "purpose",
+          "label": "What the workbook must do and who uses it",
+          "required": true,
+          "source": "owner",
+          "example": "Track equipment hire: who has what, due dates, late fees"
+        },
+        {
+          "id": "data",
+          "label": "Data to load, if any",
+          "required": false,
+          "source": "file",
+          "example": "Current hire list CSV"
+        },
+        {
+          "id": "rules",
+          "label": "Calculations and business rules",
+          "required": false,
+          "source": "owner",
+          "example": "Late fee £12/day after 2 days' grace"
+        },
+        {
+          "id": "preferences",
+          "label": "Excel vs Google Sheets, layout preferences",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Workbook",
+          "format": "xlsx",
+          "description": "Inputs, calculations, outputs and checks with live formulas; CSV if XLSX is unavailable."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Sheet map",
+          "format": "md",
+          "description": "What each tab does, which cells are inputs, and how to extend it."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "workspace_files"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "airtable"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Design the structure before building: input tab (assumptions and parameters), data tab, calculation tab(s), output or summary tab, and a checks tab. Parse any supplied data with file_parse. 2. Build with spreadsheet_generate (or a short openpyxl script in code_interpreter): formulas for totals and derived columns, never pasted values; one consistent formula per column; named ranges for key inputs. 3. Make inputs obvious (distinct fill colour) and protected with data validation (lists, number ranges, dates). Freeze the header row, set number, currency and date formats, and add conditional formatting only where it signals action. 4. Add check cells (totals reconcile, no negative stock, no blank required fields) that show OK or ERROR. 5. Recompute key totals independently in code_interpreter and compare with the workbook's formulas. 6. If XLSX generation is unavailable, write a CSV and say so plainly. 7. Save with workspace_files, write the sheet map, and name every file produced on its own line as 'Artifact: <path relative to the workspace>'. 8. State what could not be verified: rules assumed rather than given, and behaviour in the owner's specific spreadsheet app.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Design the workbook",
+          "brief": "Lay out tabs, inputs, calculations, outputs and checks.",
+          "acceptance": "Structure lists every tab with its purpose and input cells."
+        },
+        {
+          "activity": "analysis",
+          "title": "Build with formulas",
+          "brief": "Build the workbook with live formulas, validation and formats.",
+          "acceptance": "Totals and derived columns are formulas; check cells present.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Formula audit",
+          "brief": "Recompute key totals independently and inspect formulas for hard-codes.",
+          "acceptance": "First line APPROVED or CHANGES; mismatches and hard-codes listed.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Finalize and map",
+          "brief": "Fix issues, write the sheet map and register the artifact.",
+          "acceptance": "Sheet map complete; 'Artifact:' line names the file.",
+          "dependsOn": [
+            2
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Totals and derived columns use formulas, not pasted values.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Check cells exist and pass.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Inputs are visually distinct and validated.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Headers frozen; number, currency and date formats set.",
+          "severity": "should"
+        },
+        {
+          "criterion": "If only CSV was possible, this is stated.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 25,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "three-statement-model",
+        "annual-budget",
+        "sql-analysis",
+        "dashboard-build",
+        "data-cleanup"
+      ],
+      "example_request": "I need a simple tracker for our equipment hire: who has what, when it's due back, and the late fees it's racking up.",
+      "typical_departments": [
+        "engineering",
+        "finance-accounting",
+        "operations-supply-chain",
+        "data-analytics"
+      ],
+      "biz_bot_name": "build-a-spreadsheet",
+      "version": 1
+    },
+    {
+      "id": "code-change-with-tests",
+      "name": "Code change with tests",
+      "icon": "⌘",
+      "category": "engineering-build",
+      "one_liner": "A reviewed code change in a repository with tests that prove it.",
+      "description": "Implements a scoped code change in the project workspace through a CLI coding agent: reads the relevant code first, makes the smallest change that meets the brief in the codebase's own style, adds or updates tests, runs the suite, and reports files changed, how it was verified and what is left.",
+      "when": "the task is a change to code in a repository: a bug fix, small feature or refactor with a clear brief",
+      "inputs": [
+        {
+          "id": "brief",
+          "label": "What should change and how we'll know it works",
+          "required": true,
+          "source": "owner",
+          "example": "Booking form must reject dates in the past"
+        },
+        {
+          "id": "repository",
+          "label": "Repository and branch",
+          "required": true,
+          "source": "connector",
+          "example": "github: acme/booking-site, branch main"
+        },
+        {
+          "id": "test_command",
+          "label": "How to run the tests",
+          "required": false,
+          "source": "file",
+          "example": "npm test"
+        },
+        {
+          "id": "related_issue",
+          "label": "Issue or ticket with context",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "code",
+          "name": "Code change with tests",
+          "format": "diff",
+          "description": "Minimal diff including new or updated tests."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Change report",
+          "format": "md",
+          "description": "Files changed, how it was verified (test output), and anything left."
+        }
+      ],
+      "tools": [
+        "workspace_files",
+        "coding_agent",
+        "shell"
+      ],
+      "connectors_optional": [
+        "github",
+        "linear",
+        "jira",
+        "deepwiki"
+      ],
+      "modalities": [
+        "text",
+        "file"
+      ],
+      "instructions": "1. Read the brief and any linked issue text the lead supplies. Read the relevant files with workspace_files before editing; find existing tests and conventions. 2. Where feasible, write or update a test that fails for the current behaviour first (red), then make it pass (green), then tidy (refactor). 3. Delegate the implementation to coding_agent with a precise scope: the smallest change that meets the brief, matching the codebase's style, no unrelated rewrites, no new dependencies unless required and justified. 4. Run the project's test command with shell (for example npm test or pytest) and capture the output. If tests fail, fix and rerun; after two failed attempts, stop and report. 5. Check the diff for secrets, debug leftovers and unrelated changes. 6. Report: files changed, how it was verified (test output), and anything left or out of scope. Name every file produced on its own line as 'Artifact: <path relative to the workspace>'. 7. Merging and deploying are separate, owner-approved steps. Escalate to the lead if the change touches authentication, payments or personal data. 8. State what could not be verified: environments not tested and behaviour not covered by tests.",
+      "workflow": [
+        {
+          "activity": "agent",
+          "title": "Implement the change",
+          "brief": "Implement the brief in the workspace with the coding agent; add or update tests.",
+          "acceptance": "The change is implemented with tests and a summary of changed files."
+        },
+        {
+          "activity": "command",
+          "title": "Run the tests",
+          "brief": "Run the project's test command in the workspace.",
+          "acceptance": "The command exits 0.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Review the change",
+          "brief": "Review the diff and test output against the brief.",
+          "acceptance": "First line APPROVED or CHANGES; approved or specific fixes listed.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Tests are added or updated and the full suite passes (exit 0).",
+          "severity": "must"
+        },
+        {
+          "criterion": "The diff is limited to the brief; no unrelated rewrites.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No secrets, credentials or debug leftovers in the diff.",
+          "severity": "must"
+        },
+        {
+          "criterion": "A test fails before the change and passes after it, where feasible.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The report lists files changed, verification and leftovers.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "code-review",
+        "bug-triage",
+        "test-plan",
+        "architecture-decision-record",
+        "tech-docs"
+      ],
+      "example_request": "The booking form lets people pick dates in the past. Can you fix that in the repo and make sure it's tested?",
+      "typical_departments": [
+        "engineering"
+      ],
+      "biz_bot_name": "code-change-with-tests",
+      "version": 1
+    },
+    {
+      "id": "code-review",
+      "name": "Code review",
+      "icon": "⌕",
+      "category": "engineering-build",
+      "one_liner": "Correctness, security and maintainability review of a diff with concrete fixes.",
+      "description": "Reviews a diff or pull request for correctness, security (OWASP Top 10), tests, readability and performance. Every finding carries file and line, severity, a concrete failure scenario and a fix, labelled with Conventional Comments; findings are verified before reporting so there are no false alarms.",
+      "when": "a code change needs a second pair of eyes before merging, especially from a freelancer, a new contributor or in sensitive areas like payments or personal data",
+      "inputs": [
+        {
+          "id": "diff",
+          "label": "Pull request or diff to review",
+          "required": true,
+          "source": "connector",
+          "example": "github PR #142: add online payments"
+        },
+        {
+          "id": "context",
+          "label": "What the change is meant to do",
+          "required": true,
+          "source": "owner",
+          "example": "Adds card payments via the payment provider's hosted checkout"
+        },
+        {
+          "id": "risk_areas",
+          "label": "Areas the owner is worried about",
+          "required": false,
+          "source": "owner",
+          "example": "Anything that could leak customer data"
+        },
+        {
+          "id": "test_command",
+          "label": "How to run tests and linters",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Review report",
+          "format": "md",
+          "description": "Findings by severity with file:line, failure scenario, fix and Conventional Comments label; plus what is good."
+        },
+        {
+          "artifact_type": "code",
+          "name": "Suggested patches",
+          "format": "diff",
+          "description": "Patches for the blocking findings where the fix is clear."
+        }
+      ],
+      "tools": [
+        "workspace_files",
+        "shell",
+        "web_fetch",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "github",
+        "linear",
+        "jira",
+        "deepwiki",
+        "cloudflare-docs"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url"
+      ],
+      "instructions": "1. Read the diff (git diff on the checked-out branch, via shell) and the surrounding code with workspace_files; understand the intent before judging. 2. Run the tests and linters with shell and note failures. 3. Review in order: correctness (logic, edge cases, error handling, concurrency), security (OWASP Top 10: injection, broken access control, cryptographic failures, insecure design, misconfiguration, vulnerable components, auth failures, integrity failures, logging gaps, SSRF), tests (do they prove the change?), readability and maintainability, performance. 4. Check library and API usage against current documentation with web_fetch where behaviour is uncertain. 5. For each finding give file:line, severity (blocking or non-blocking), a concrete failure scenario (inputs or state leading to the wrong result) and a fix. Label with Conventional Comments (issue, suggestion, question, nitpick, praise). 6. Verify every finding before reporting: reproduce it, or trace the code path to confirm; drop anything you cannot substantiate. 7. Say what is good in one or two lines. Write suggested patches for clear blocking fixes and the report with document_generate. This skill reviews only defensive quality; it never probes systems the owner does not control. 8. State what could not be verified: code paths not exercised, environment-specific behaviour, and findings left as questions.",
+      "workflow": [
+        {
+          "activity": "files",
+          "title": "Read the change",
+          "brief": "Load the diff, related code and intent from the workspace.",
+          "acceptance": "Summary of what the change does in three lines."
+        },
+        {
+          "activity": "command",
+          "title": "Run tests and linters",
+          "brief": "Run the test suite and linters.",
+          "acceptance": "Exit codes and failures captured.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Review",
+          "brief": "Review correctness, security, tests, readability and performance.",
+          "acceptance": "Each finding has file:line, severity, failure scenario and fix.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Verify findings",
+          "brief": "A second pass reproduces or traces each finding and drops unsubstantiated ones.",
+          "acceptance": "First line APPROVED or CHANGES; every remaining finding marked verified.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Report",
+          "brief": "Write the review report and suggested patches.",
+          "acceptance": "Blocking findings listed first; patches apply cleanly.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every finding has file:line, severity, a concrete failure scenario and a fix.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Findings are verified; unsubstantiated ones are dropped.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Security is checked against the relevant OWASP Top 10 categories.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Nitpicks are never marked blocking.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Briefly notes what is done well.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "code-change-with-tests",
+        "threat-model-stride",
+        "test-plan",
+        "security-baseline",
+        "architecture-decision-record"
+      ],
+      "example_request": "Our freelancer opened a PR that adds online payments. Before I merge it, can you review it properly, especially anything that could leak customer data?",
+      "typical_departments": [
+        "engineering",
+        "it-security-automation"
+      ],
+      "version": 1
+    },
+    {
+      "id": "test-plan",
+      "name": "Test plan & test cases",
+      "icon": "🧪",
+      "category": "engineering-build",
+      "one_liner": "Risk-based test plan with cases, data and exit criteria.",
+      "description": "Writes a risk-based test plan: what could hurt most, test cases designed with equivalence partitioning and boundary values, exploratory charters, test data, and measurable entry and exit criteria, traceable back to requirements. Optionally runs exploratory sessions in the companion browser.",
+      "when": "something is about to launch or change and the owner wants to know what to test before trusting it with real customers",
+      "inputs": [
+        {
+          "id": "scope",
+          "label": "What is being tested and what changed",
+          "required": true,
+          "source": "owner",
+          "example": "New online booking flow: select service, time, pay deposit"
+        },
+        {
+          "id": "requirements",
+          "label": "PRD, user stories or acceptance criteria",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "risks_known",
+          "label": "Known problems, past incidents, worries",
+          "required": false,
+          "source": "owner",
+          "example": "Double bookings happened last year"
+        },
+        {
+          "id": "environments",
+          "label": "Where it can be tested (staging URL, devices)",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Test plan",
+          "format": "md -> docx",
+          "description": "Scope, risks, approach, environments, data, entry and exit criteria, roles and schedule."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Test cases",
+          "format": "xlsx",
+          "description": "ID, requirement, preconditions, steps, data, expected result, priority, status."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Exit criteria",
+          "format": "md",
+          "description": "Measurable conditions to declare testing complete."
+        }
+      ],
+      "tools": [
+        "workspace_files",
+        "vision_describe",
+        "browser",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "github",
+        "jira",
+        "linear",
+        "asana"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "image",
+        "screen",
+        "url"
+      ],
+      "instructions": "1. Read requirements with workspace_files and screenshots with vision_describe. List risks and score likelihood x impact; the highest risks get the most testing. 2. Choose the approach per risk: automated checks, scripted cases, exploratory sessions, accessibility and performance spot checks. Follow the test pyramid: many small checks, fewer end-to-end tests. 3. Design cases with equivalence partitioning and boundary value analysis (for example: dates yesterday, today, the last bookable day; capacity limits; zero and maximum quantities). Include negative cases and concurrency (two people booking the same slot). 4. Define test data and environments; never use real customer personal data. 5. Write exploratory charters (explore [area] with [resources] to discover [risk]) in session-based format; if a staging URL exists, run sessions in the companion browser and record findings with screenshots. 6. Set measurable entry and exit criteria (for example: all high-risk cases pass, no open severity-1 or -2 bugs, accessibility spot check done). 7. Build the case sheet with spreadsheet_generate and the plan with document_generate. 8. State what could not be verified: environments or devices unavailable and risks without a test.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Risk analysis",
+          "brief": "List and score risks by likelihood and impact.",
+          "acceptance": "Every requirement area has a risk score."
+        },
+        {
+          "activity": "llm",
+          "title": "Design test cases",
+          "brief": "Design cases with partitions, boundaries, negatives and concurrency.",
+          "acceptance": "Every high risk has at least two cases; each case has expected result.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "browser",
+          "title": "Exploratory sessions",
+          "brief": "Run chartered exploratory sessions on staging when available.",
+          "acceptance": "Session notes with findings and screenshots, or a note that no environment was available.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Plan review",
+          "brief": "A reviewer checks coverage against risks and requirements.",
+          "acceptance": "First line APPROVED or CHANGES; uncovered risks listed.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render plan and cases",
+          "brief": "Render the plan, case sheet and exit criteria.",
+          "acceptance": "Files open; traceability column filled.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every high-impact risk has at least one test case.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Cases have preconditions, steps, data and an expected result.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Exit criteria are measurable.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Boundaries, negative cases and concurrency are covered.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Test data contains no real customer personal data.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 45,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "code-change-with-tests",
+        "bug-triage",
+        "launch-checklist",
+        "prd",
+        "acceptance-verification"
+      ],
+      "example_request": "We're launching online booking next month. What exactly should we test before we trust it with real customers?",
+      "typical_departments": [
+        "engineering",
+        "product"
+      ],
+      "version": 1
+    },
+    {
+      "id": "api-integration",
+      "name": "API & webhook integration",
+      "icon": "🔌",
+      "category": "engineering-build",
+      "one_liner": "Connect two systems with idempotent, observable, retry-safe calls.",
+      "description": "Connects two systems with retry-safe, observable integration code: field mapping, idempotency keys, signature-verified webhooks, bounded retries with backoff, dead-letter handling, least-privilege scopes and a runbook. Tested against sandbox or test mode first; enabled only after the owner approves and enters credentials themselves.",
+      "when": "data should flow between two systems automatically (payment to schedule, form to CRM, order to accounting) and a no-code tool is not enough or not reliable",
+      "inputs": [
+        {
+          "id": "flow",
+          "label": "What should happen, triggered by what",
+          "required": true,
+          "source": "owner",
+          "example": "When a deposit is paid in Stripe, create the job in Airtable"
+        },
+        {
+          "id": "systems",
+          "label": "The two systems and their plans or APIs",
+          "required": true,
+          "source": "owner",
+          "example": "Stripe; Airtable base 'Jobs'"
+        },
+        {
+          "id": "field_mapping",
+          "label": "Which fields map to which",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "hosting",
+          "label": "Where the integration can run",
+          "required": false,
+          "source": "memory",
+          "example": "Existing serverless account or the companion"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "code",
+          "name": "Integration code with tests",
+          "format": "zip",
+          "description": "Handler, mapping, retry and dedupe logic, tests with recorded webhook fixtures."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Data-flow sequence diagram",
+          "format": "mermaid",
+          "description": "Trigger, calls, retries and failure paths."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Mapping and runbook",
+          "format": "md",
+          "description": "Field mapping, scopes, failure modes, replay steps, monitoring and how to switch it off."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "diagram_generate",
+        "coding_agent",
+        "shell",
+        "workspace_files",
+        "request_owner_decision",
+        "schedule_automation"
+      ],
+      "connectors_optional": [
+        "stripe",
+        "airtable",
+        "shopify",
+        "hubspot",
+        "quickbooks",
+        "slack",
+        "zapier",
+        "cloudflare-docs",
+        "deepwiki",
+        "github"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Have the coding_agent read both APIs' current official docs (and docs connectors such as DeepWiki or Cloudflare Docs via connector_read where enabled): auth and scopes, rate limits, webhook events and signing, idempotency support, pagination and test modes. 2. Design: field mapping, sequence (draw with diagram_generate), and failure modes. Decide idempotency keys (for example the payment event id) so duplicate deliveries never create duplicates. 3. Implement with coding_agent: verify webhook signatures (HMAC) and reject stale timestamps; handle at-least-once delivery with dedupe; retry transient errors with exponential backoff and jitter, respecting 429 Retry-After; send poison messages to a dead-letter store; log structured events with a correlation id and no personal data or secrets. 4. Use least-privilege scopes and read secrets from the platform's secret store; the coworker never sees or handles credentials. 5. Test with shell against sandbox or test mode: recorded webhook fixtures, duplicate delivery, out-of-order events, API errors and timeouts. 6. Write the mapping and runbook with workspace_files: how to replay failures, where alerts go, how to switch it off. 7. Ask the owner to approve go-live with request_owner_decision; the owner enters production credentials themselves. Only then enable the trigger with schedule_automation. 8. State what could not be verified: production-only behaviours, rate limits at real volume and events not available in test mode.",
+      "workflow": [
+        {
+          "activity": "agent",
+          "title": "Read the API docs",
+          "brief": "Read auth, scopes, events, signing, rate limits and test modes for both systems from current official docs.",
+          "acceptance": "Notes cite doc URLs for every behaviour relied on."
+        },
+        {
+          "activity": "llm",
+          "title": "Design mapping and failure modes",
+          "brief": "Design field mapping, sequence and failure handling with idempotency keys.",
+          "acceptance": "Every write has an idempotency key; diagram shows failure paths.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "agent",
+          "title": "Implement with tests",
+          "brief": "Implement handler, dedupe, retries and logging with tests.",
+          "acceptance": "Tests cover duplicate, out-of-order and error cases.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "command",
+          "title": "Run tests in test mode",
+          "brief": "Run tests and a sandbox end-to-end check.",
+          "acceptance": "Test command exits 0; sandbox run creates exactly one record per event.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Security and reliability review",
+          "brief": "Check signatures, scopes, secrets handling, retries and logs.",
+          "acceptance": "First line APPROVED or CHANGES; any secret or PII in logs is blocking.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves go-live",
+          "brief": "Owner approves and enters production credentials.",
+          "acceptance": "Approval recorded; credentials entered by the owner.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "schedule",
+          "title": "Enable the trigger",
+          "brief": "Enable the webhook or scheduled trigger with an off-switch.",
+          "acceptance": "Trigger id recorded; first live event processed exactly once.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every write is idempotent; duplicate deliveries do not create duplicates.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Webhook signatures are verified; retries are bounded with backoff.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No secrets or personal data in code or logs; the owner enters credentials.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Tested in sandbox or test mode before go-live, and enabled only after approval.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Runbook covers replay, alerts and switch-off.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "connector-setup",
+        "workflow-automation",
+        "code-change-with-tests",
+        "architecture-decision-record",
+        "tech-docs"
+      ],
+      "example_request": "When someone pays a deposit in Stripe I want the job to appear in our Airtable schedule automatically, without us copying it over.",
+      "typical_departments": [
+        "engineering",
+        "it-security-automation"
+      ],
+      "version": 1
+    },
+    {
+      "id": "bug-triage",
+      "name": "Bug triage & reproduction",
+      "icon": "🐞",
+      "category": "engineering-build",
+      "one_liner": "Reproduce, isolate and prioritize bugs with minimal repro steps.",
+      "description": "Turns vague reports (tickets, screenshots, customer messages, voice-note transcripts) into a reproducible bug: minimal repro steps, environment, expected vs actual, evidence, severity and priority with rationale, and the likely area or commit via bisecting, packaged as a clean issue ready to file on approval.",
+      "when": "customers or staff report something broken and nobody can say exactly what, where or how often",
+      "inputs": [
+        {
+          "id": "reports",
+          "label": "Tickets, messages, screenshots or voice-note transcripts describing the problem",
+          "required": true,
+          "source": "file",
+          "example": "Three support tickets, two phone screenshots, one voice-note transcript"
+        },
+        {
+          "id": "product_access",
+          "label": "URL, app or repository to reproduce in",
+          "required": true,
+          "source": "owner",
+          "example": "Staging site URL and repo"
+        },
+        {
+          "id": "recent_changes",
+          "label": "Recent releases or changes",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "tracker",
+          "label": "Where issues are filed",
+          "required": false,
+          "source": "connector",
+          "example": "Linear, team 'Web'"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Bug report",
+          "format": "md",
+          "description": "Title, minimal repro steps, environment, expected vs actual, evidence, severity, priority, suspected area."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Reproduction log",
+          "format": "md",
+          "description": "Environments and steps tried, with results and screenshot references, personal data redacted."
+        },
+        {
+          "artifact_type": "dataset",
+          "name": "Triage list",
+          "format": "csv",
+          "description": "All reports grouped into distinct bugs with counts and duplicates linked."
+        }
+      ],
+      "tools": [
+        "workspace_files",
+        "vision_describe",
+        "browser",
+        "shell",
+        "spreadsheet_generate",
+        "document_generate",
+        "message_coworker"
+      ],
+      "connectors_optional": [
+        "github",
+        "linear",
+        "jira",
+        "zendesk",
+        "intercom",
+        "freshdesk"
+      ],
+      "modalities": [
+        "text",
+        "image",
+        "screen",
+        "file"
+      ],
+      "instructions": "1. Collect the reports the lead supplies (tickets, messages, voice-note transcripts) from the workspace with workspace_files and read screenshots with vision_describe. Group reports that describe the same symptom and count them. 2. Extract the environment clues: device, browser or app version, account type, time, steps taken. 3. Reproduce in the companion browser on the matching device profile. Reduce to the minimal steps that still fail. If it will not reproduce, record exactly what was tried. 4. Isolate with shell where there is a repository: check logs, run the failing path, and use git bisect across recent releases to find the introducing change when feasible. 5. Classify severity (impact: data loss, payment failure, blocked task, cosmetic) and priority (urgency given reach and workarounds) separately, with a one-line rationale each. 6. Write the report with document_generate: title as symptom plus condition ('Checkout button unresponsive on iOS Safari when a discount code is applied'), numbered steps, expected vs actual, environment, evidence, frequency, suspected area. Redact customer personal data from screenshots and logs. 7. Link duplicates and build the triage list with spreadsheet_generate. Hand the report to the lead with message_coworker so it is filed in the tracker, linked to the original tickets, once the owner approves; this skill never writes to the tracker itself. 8. State what could not be verified: environments you could not reproduce in and any suspected cause not yet confirmed.",
+      "workflow": [
+        {
+          "activity": "files",
+          "title": "Collect and group reports",
+          "brief": "Read the supplied reports and screenshots; group by symptom.",
+          "acceptance": "Distinct bugs listed with report counts."
+        },
+        {
+          "activity": "browser",
+          "title": "Reproduce",
+          "brief": "Reproduce each bug in the matching environment and minimize the steps.",
+          "acceptance": "Minimal repro steps or a record of what was tried.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "command",
+          "title": "Isolate",
+          "brief": "Check logs and bisect recent changes where a repository is available.",
+          "acceptance": "Suspected area or commit named with evidence, or 'not isolated'.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Severity, priority and report",
+          "brief": "Classify and write the bug report with redacted evidence.",
+          "acceptance": "Severity and priority each have a rationale; personal data redacted.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Report review",
+          "brief": "A developer-minded reviewer checks the steps are followable and the evidence is sound.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Package for filing",
+          "brief": "Render the report and triage list and hand them to the lead for filing on approval.",
+          "acceptance": "One report per bug, duplicates linked, hand-off sent; nothing written to the tracker directly.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Repro steps are minimal and followable by someone else, or the attempts are recorded.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Expected vs actual and environment are stated.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Customer personal data is redacted from screenshots and logs.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Severity and priority are separate, each with a rationale.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Duplicates are linked and report counts shown.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 30,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "code-change-with-tests",
+        "ticket-triage",
+        "test-plan",
+        "root-cause-analysis",
+        "post-mortem"
+      ],
+      "example_request": "Three customers say the checkout button does nothing on their phones. Can you figure out what's going on and write it up for the developer?",
+      "typical_departments": [
+        "engineering",
+        "customer-success-support",
+        "product"
+      ],
+      "version": 1
+    },
+    {
+      "id": "architecture-decision-record",
+      "name": "Architecture decision record",
+      "icon": "🏛",
+      "category": "engineering-build",
+      "one_liner": "Context, options, decision and consequences in one ADR.",
+      "description": "Captures a technical decision in one ADR (Nygard/MADR style): context and drivers, real options including doing nothing, trade-offs against quality attributes, the decision, consequences (good and bad), reversibility and the trigger to revisit, with a C4 context diagram.",
+      "when": "a technical choice with lasting consequences is being made (platform, vendor, architecture, build vs buy) and the reasoning should be written down",
+      "inputs": [
+        {
+          "id": "decision_question",
+          "label": "The decision to make",
+          "required": true,
+          "source": "owner",
+          "example": "Keep extending WordPress or move the shop to a hosted commerce platform?"
+        },
+        {
+          "id": "constraints",
+          "label": "Budget, skills, timelines and must-haves",
+          "required": true,
+          "source": "owner",
+          "example": "£8k budget, no in-house developer, must keep SEO rankings"
+        },
+        {
+          "id": "current_system",
+          "label": "What exists today",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "prior_decisions",
+          "label": "Earlier ADRs or decisions",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "decision_record",
+          "name": "Architecture decision record",
+          "format": "md",
+          "description": "Title, status, context, drivers, options with pros and cons, decision, consequences, revisit trigger."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "C4 context diagram",
+          "format": "mermaid",
+          "description": "System context before and after the decision."
+        },
+        {
+          "artifact_type": "minutes",
+          "name": "Design review minutes",
+          "format": "md",
+          "description": "Arguments raised, risks accepted and dissent recorded."
+        }
+      ],
+      "tools": [
+        "embeddings_search",
+        "memory_recall",
+        "web_search",
+        "web_fetch",
+        "diagram_generate",
+        "convene_meeting",
+        "request_owner_decision",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "github",
+        "confluence",
+        "notion",
+        "deepwiki",
+        "cloudflare-docs"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url",
+        "voice"
+      ],
+      "instructions": "1. Recall prior decisions and constraints with memory_recall and embeddings_search. Write the context: the forces at play, in neutral language. 2. List decision drivers and weight them, drawing on ISO 25010 quality attributes (maintainability, security, performance, reliability, portability, usability) plus cost, lock-in and skills available. 3. Research at least two real options plus 'do nothing' with web_search and web_fetch: current pricing, limits, migration effort and known failure modes. 4. Compare options against drivers (MADR format: pros, cons, neutral), including total cost over three years and exit cost. 5. Draw the C4 context diagram with diagram_generate. 6. Hold a short design review with convene_meeting including a sceptic; the owner can listen. Record dissent. 7. If the decision commits money or creates lock-in, put it to the owner with request_owner_decision. 8. Write the ADR with document_generate: status, decision, consequences (including negatives), reversibility (one-way or two-way door) and the trigger that would make us revisit it. 9. State what could not be verified: vendor claims not independently checked and assumptions about future volume or skills.",
+      "workflow": [
+        {
+          "activity": "llm",
+          "title": "Context and drivers",
+          "brief": "Write context and weighted decision drivers.",
+          "acceptance": "Drivers weighted and tied to constraints."
+        },
+        {
+          "activity": "research",
+          "title": "Research options",
+          "brief": "Research two or more options plus do-nothing with current facts.",
+          "acceptance": "Each option has cost, limits and migration effort with sources.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Compare options",
+          "brief": "Compare options against drivers with pros, cons and 3-year cost.",
+          "acceptance": "Comparison table complete for every option and driver.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "meeting",
+          "title": "Design review",
+          "brief": "Voiced review with a sceptic to challenge the leading option.",
+          "acceptance": "Minutes record arguments and dissent.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner decides",
+          "brief": "Owner decides where money or lock-in is involved.",
+          "acceptance": "Decision recorded with rationale.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Write the ADR",
+          "brief": "Write the ADR and diagram.",
+          "acceptance": "ADR includes consequences, reversibility and a revisit trigger.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "At least two real options plus 'do nothing' are compared.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Consequences include the negatives of the chosen option.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Reversibility and a revisit trigger are stated.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Drivers are weighted and tied to the owner's constraints.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Dissent from the review is recorded.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "decision-record",
+        "compare-options",
+        "tech-docs",
+        "code-review",
+        "api-integration"
+      ],
+      "example_request": "Should we keep bolting things onto our WordPress site or move the shop to Shopify? I want the reasoning written down so we don't argue about it again in six months.",
+      "typical_departments": [
+        "engineering",
+        "it-security-automation",
+        "product"
+      ],
+      "version": 1
+    },
+    {
+      "id": "tech-docs",
+      "name": "Technical documentation (Diátaxis)",
+      "icon": "📘",
+      "category": "engineering-build",
+      "one_liner": "Tutorials, how-tos, reference and explanation that developers actually use.",
+      "description": "Writes documentation developers actually use, organized by Diátaxis: tutorials that work end to end, task-focused how-to guides, complete reference and explanation of the why. Code samples are run before publishing.",
+      "when": "a system is under-documented, someone is leaving, a new contractor or developer needs to onboard, or an API needs docs",
+      "inputs": [
+        {
+          "id": "system",
+          "label": "Repository, API or system to document",
+          "required": true,
+          "source": "connector",
+          "example": "github: acme/booking-system"
+        },
+        {
+          "id": "readers",
+          "label": "Who will read and what they need to do",
+          "required": true,
+          "source": "owner",
+          "example": "A new contractor who must fix bugs and deploy safely"
+        },
+        {
+          "id": "existing_docs",
+          "label": "Current docs, wiki pages or notes",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "walkthrough",
+          "label": "A recorded walkthrough or notes from the current developer",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Documentation set",
+          "format": "md",
+          "description": "Tutorials, how-to guides, reference and explanation pages in docs-as-code Markdown."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Architecture and flow diagrams",
+          "format": "mermaid",
+          "description": "System overview and key flows."
+        }
+      ],
+      "tools": [
+        "workspace_files",
+        "embeddings_search",
+        "shell",
+        "ask_coworker",
+        "diagram_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "github",
+        "confluence",
+        "notion",
+        "deepwiki"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Read the code, config and existing docs with workspace_files and embeddings_search; note what readers must be able to do. 2. Audit and plan with Diátaxis: which tutorials (learning), how-to guides (tasks), reference (facts) and explanation (understanding) are needed. Keep each page to one type. 3. Write in developer style: second person, present tense, active voice, one task per how-to, prerequisites up front, copy-pasteable commands. 4. Draw system overview and key flows with diagram_generate (C4 container level is usually enough). 5. Run every code sample and command with shell in a clean workspace; fix or remove any that fail. 6. Where UI is involved, list the screenshots needed with callout notes and request annotated captures from a design coworker with ask_coworker (image-edit-retouch); personal data must be redacted. 7. Never include secrets, real credentials or internal URLs that should not be shared; use placeholders. 8. Render with document_generate as docs-as-code Markdown ready to commit. 9. State what could not be verified: steps that need production access and behaviour you could not run.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Read the system",
+          "brief": "Read code, config and existing docs.",
+          "acceptance": "Inventory of components, commands and gaps."
+        },
+        {
+          "activity": "llm",
+          "title": "Diátaxis plan",
+          "brief": "Plan pages by Diátaxis type for the named readers.",
+          "acceptance": "Every planned page has one type and a reader task.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft pages",
+          "brief": "Write tutorials, how-tos, reference and explanation.",
+          "acceptance": "Drafts follow the plan; prerequisites stated.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "command",
+          "title": "Test code samples",
+          "brief": "Run every sample and command in a clean workspace.",
+          "acceptance": "Every sample runs or is removed; results logged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Newcomer walkthrough",
+          "brief": "A reviewer follows the tutorial from scratch.",
+          "acceptance": "First line APPROVED or CHANGES; step where they got stuck noted.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render docs",
+          "brief": "Render final Markdown with diagrams and screenshots.",
+          "acceptance": "Files ready to commit; no secrets present.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Each page is a single Diátaxis type.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every code sample and command has been run successfully.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No secrets, credentials or personal data in docs or screenshots.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The tutorial works end to end from a clean start.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Reference covers every public parameter or endpoint.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "code-change-with-tests",
+        "architecture-decision-record",
+        "api-integration",
+        "kb-article",
+        "sop-writing"
+      ],
+      "example_request": "Our developer is leaving and nobody else knows how the booking system fits together. Can you write docs a new contractor could pick up?",
+      "typical_departments": [
+        "engineering"
+      ],
+      "version": 1
+    },
+    {
+      "id": "web-performance-audit",
+      "name": "Web performance audit",
+      "icon": "⚡",
+      "category": "engineering-build",
+      "one_liner": "Core Web Vitals audit with prioritized fixes.",
+      "description": "Audits Core Web Vitals (LCP, INP, CLS at the 75th percentile) using field data where available and lab runs on key templates, diagnoses the causes (LCP element, long tasks, layout shifts, heavy images, third-party scripts) and delivers fixes prioritized by impact and effort.",
+      "when": "the site feels slow, search tools report poor page experience, or conversion is lower on mobile than it should be",
+      "inputs": [
+        {
+          "id": "site",
+          "label": "Site URL and key templates",
+          "required": true,
+          "source": "owner",
+          "example": "Home, collection, product and checkout pages"
+        },
+        {
+          "id": "platform",
+          "label": "Platform and theme",
+          "required": false,
+          "source": "memory",
+          "example": "WordPress with a page builder"
+        },
+        {
+          "id": "field_data",
+          "label": "Search Console or analytics access",
+          "required": false,
+          "source": "connector"
+        },
+        {
+          "id": "constraints",
+          "label": "What can change (theme, plugins, hosting)",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Performance audit",
+          "format": "md -> pdf",
+          "description": "Field vs lab results per template, causes, prioritized fixes with expected impact, retest plan."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Fix list",
+          "format": "xlsx",
+          "description": "Issue, template, metric affected, evidence, fix, impact, effort, owner."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Metrics chart",
+          "format": "svg",
+          "description": "LCP, INP and CLS per template against thresholds."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "browser",
+        "shell",
+        "vision_describe",
+        "code_interpreter",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-search-console",
+        "google-analytics",
+        "wordpress",
+        "webflow",
+        "shopify",
+        "cloudflare-docs"
+      ],
+      "modalities": [
+        "text",
+        "url",
+        "screen",
+        "image",
+        "file"
+      ],
+      "instructions": "1. Gather field data first: public Chrome UX Report data via web_fetch (PageSpeed Insights API) and, if the owner shares it, the Search Console Core Web Vitals export; use web_search for platform- or theme-specific known issues. Field data at p75 is what users feel. 2. Run lab tests on each key template, mobile with throttling and desktop, in the companion browser or with Lighthouse via shell. Capture the filmstrip and read it with vision_describe. 3. Diagnose each metric against thresholds (LCP 2.5 s or less, INP 200 ms or less, CLS 0.1 or less): identify the LCP element and its delays (server response, render-blocking CSS/JS, image size and format, lazy-loading the hero by mistake); long tasks and heavy handlers for INP; unsized images, injected banners and web fonts for CLS. 4. Audit third-party scripts (chat widgets, trackers, review badges) for cost vs value. 5. Propose fixes naming the exact element or resource: preload the hero, serve AVIF or WebP with srcset, defer non-critical JS, inline critical CSS, reserve space for embeds, cache and CDN settings. Estimate impact per metric and effort; rank. 6. Chart with chart_generate, compute the fix list with code_interpreter and write the audit with document_generate, including a retest plan. 7. Changes are made by the developer or through a separate code-change skill. Test only the owner's own site. 8. State what could not be verified: templates without field data, lab-only findings and third-party impacts that vary by region.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Field data",
+          "brief": "Collect field Core Web Vitals per template from available sources.",
+          "acceptance": "p75 LCP, INP and CLS per template, or 'no field data' stated."
+        },
+        {
+          "activity": "browser",
+          "title": "Lab runs",
+          "brief": "Run throttled mobile and desktop lab tests on key templates.",
+          "acceptance": "Lab report and filmstrip for each template.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Diagnose",
+          "brief": "Identify the causes per metric and template.",
+          "acceptance": "Each failing metric has a named element or resource as cause.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Prioritize fixes",
+          "brief": "Propose and rank fixes by impact and effort.",
+          "acceptance": "Every fix names the element or resource and expected metric impact.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Technical review",
+          "brief": "A front-end reviewer checks diagnoses and fixes.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Audit report",
+          "brief": "Render the audit, fix list and chart.",
+          "acceptance": "Report separates field from lab results and includes a retest plan.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Field and lab data are distinguished; thresholds are applied at p75.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each fix names the specific element or resource and the metric it improves.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Key templates (home, listing, product or service, checkout or contact) are covered.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Third-party scripts are audited for cost vs value.",
+          "severity": "should"
+        },
+        {
+          "criterion": "A retest plan is included.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "ask",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "seo-audit",
+        "code-change-with-tests",
+        "landing-page-cro",
+        "wcag-audit",
+        "build-a-web-page"
+      ],
+      "example_request": "Google says our site is slow on phones and I think it's hurting sales. What's slowing it down and what should the developer fix first?",
+      "typical_departments": [
+        "engineering",
+        "marketing-growth"
+      ],
+      "version": 1
+    },
+    {
+      "id": "connector-setup",
+      "name": "Connector (MCP) setup & test",
+      "icon": "🔗",
+      "category": "engineering-build",
+      "one_liner": "Enable, scope and test a connector with least-privilege access.",
+      "description": "Enables a connector (MCP) with least privilege: proposes the minimum scopes, has the owner authenticate themselves, tests reads on sample records and, only if needed and approved, one reversible test write. Records the scope, data flow and revocation path so access stays understood.",
+      "when": "the owner wants a coworker to read from or write to a business system (accounting, CRM, email, store, files)",
+      "inputs": [
+        {
+          "id": "system",
+          "label": "The system to connect",
+          "required": true,
+          "source": "owner",
+          "example": "QuickBooks Online"
+        },
+        {
+          "id": "purpose",
+          "label": "What coworkers need to do with it",
+          "required": true,
+          "source": "owner",
+          "example": "Read invoices and P&L for finance reports; no changes"
+        },
+        {
+          "id": "access_level",
+          "label": "Read-only or read and write",
+          "required": false,
+          "source": "owner",
+          "example": "Read-only for now"
+        },
+        {
+          "id": "admin",
+          "label": "Who holds the admin account",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "checklist",
+          "name": "Connector test checklist",
+          "format": "md",
+          "description": "Scopes granted, read tests, write test (if any), receipts and results."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Access and data-flow register entry",
+          "format": "md",
+          "description": "System, purpose, scopes, data touched, who approved, revocation steps."
+        },
+        {
+          "artifact_type": "decision_record",
+          "name": "Access decision",
+          "format": "md",
+          "description": "Scope choice with reasons and review date."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "request_owner_decision",
+        "connector_read",
+        "connector_write",
+        "document_generate",
+        "memory_write"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "quickbooks",
+        "xero",
+        "hubspot",
+        "shopify",
+        "slack",
+        "stripe",
+        "notion",
+        "zapier"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "url"
+      ],
+      "instructions": "1. Find the provider's current documentation with web_search and read it with web_fetch: available scopes, what each allows, token lifetime and how to revoke. 2. Propose the minimum scopes for the stated purpose (read-only unless writing is required), with a one-line justification per scope and what is deliberately excluded. 3. Ask the owner to approve the scopes with request_owner_decision. The owner performs the login and consent themselves; the coworker never sees or stores passwords, tokens or keys. 4. Test reads with connector_read on a small sample (for example five recent invoices) and confirm the records and fields match expectations. 5. Only if write access was approved: perform one reversible test write on a test or sandbox record with connector_write, with its own approval, capture the receipt, then reverse it. 6. Record the register entry and decision with document_generate and save the scope summary with memory_write so coworkers know what they may do. 7. Recommend a review date and how to revoke access. Escalate to the lead if the provider only offers broad admin scopes. 8. State what could not be verified: scopes whose effect the documentation leaves unclear, and behaviours only visible at production volume.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Read provider docs",
+          "brief": "Read scopes, token lifetime and revocation for the provider.",
+          "acceptance": "Every proposed scope cites the provider's documentation."
+        },
+        {
+          "activity": "llm",
+          "title": "Propose minimum scopes",
+          "brief": "Propose least-privilege scopes with justifications and exclusions.",
+          "acceptance": "Each scope has a purpose; read-only unless writing is approved.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner authenticates and approves",
+          "brief": "Owner approves scopes and completes the login and consent.",
+          "acceptance": "Approval recorded; credentials never handled by the coworker.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "mcp",
+          "title": "Read test",
+          "brief": "Read a small sample of records.",
+          "acceptance": "Sample returns expected records and fields.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "effect",
+          "title": "Reversible write test (if approved)",
+          "brief": "Create and reverse one test record on a sandbox or test record.",
+          "acceptance": "Receipts for the write and its reversal, or 'skipped: read-only'.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Access review",
+          "brief": "Check scopes match purpose and the register entry is complete.",
+          "acceptance": "First line APPROVED or CHANGES with reasons.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "memory",
+          "title": "Record scope",
+          "brief": "Save the scope summary and revocation path to memory.",
+          "acceptance": "Memory entry visible to coworkers.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Scopes are the minimum needed, each justified.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The owner performs authentication; no credentials are seen or stored by coworkers.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Write tests happen only with separate approval, on test records, and are reversed.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Revocation steps and a review date are recorded.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The scope summary is saved to memory.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "always_ask",
+      "effort": {
+        "typical_minutes": 20,
+        "cost_class": "low"
+      },
+      "pairs_with": [
+        "api-integration",
+        "access-review",
+        "saas-stack-audit",
+        "workflow-automation",
+        "security-baseline"
+      ],
+      "example_request": "Hook up our QuickBooks so the finance team can read invoices, but I don't want anything able to change our books yet.",
+      "typical_departments": [
+        "it-security-automation",
+        "engineering"
+      ],
+      "version": 1
+    }
+  ]
+}

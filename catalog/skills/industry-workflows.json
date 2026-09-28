@@ -1,0 +1,2519 @@
+{
+  "category": "industry-workflows",
+  "version": 1,
+  "skills": [
+    {
+      "id": "menu-engineering",
+      "name": "Menu engineering & recipe costing",
+      "icon": "🍽️",
+      "category": "industry-workflows",
+      "one_liner": "Kasavana-Smith stars, plowhorses, puzzles and dogs, with plate costs and price moves.",
+      "description": "Costs every recipe to the plate, using as-purchased versus edible-portion yields and current invoice prices, then plots the menu on the Kasavana-Smith matrix (stars, plowhorses, puzzles, dogs) from real sales mix and contribution margin. Each item gets a specific action: reprice, re-engineer the recipe, reposition on the menu, or remove.",
+      "when": "food cost is creeping up, the menu is being redesigned or repriced, or the owner does not know which dishes make money",
+      "inputs": [
+        {
+          "id": "sales_mix",
+          "label": "Item sales counts for a representative period",
+          "required": true,
+          "source": "connector",
+          "example": "Toast item sales, last 8 weeks"
+        },
+        {
+          "id": "recipes",
+          "label": "Recipes with ingredient quantities",
+          "required": true,
+          "source": "file",
+          "example": "Recipe binder or spreadsheet"
+        },
+        {
+          "id": "invoices",
+          "label": "Recent supplier invoices or price lists",
+          "required": true,
+          "source": "file",
+          "example": "Photos of this month's produce and meat invoices"
+        },
+        {
+          "id": "menu_prices",
+          "label": "Current menu with prices",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "targets",
+          "label": "Target food cost percentage and constraints",
+          "required": false,
+          "source": "owner",
+          "example": "Under 30 percent; keep the burger under $18"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Recipe costing and menu matrix",
+          "format": "xlsx",
+          "description": "Plate cost per item with yields, food cost %, contribution margin, menu mix % and quadrant, all with formulas."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Menu engineering matrix",
+          "format": "svg",
+          "description": "Popularity versus contribution margin scatter with quadrant lines."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Menu actions",
+          "format": "md -> pdf",
+          "description": "Per item: quadrant, action, new price or recipe change, and expected margin impact."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "vision_describe",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "toast",
+        "square",
+        "quickbooks",
+        "xero"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "image",
+        "connector_data"
+      ],
+      "instructions": "1. Read item sales for a representative period with connector_read (or a POS export), excluding holidays and one-off events. 2. Parse recipes with file_parse and read invoice photos with vision_describe to get current unit prices; convert units and apply yield factors (as-purchased to edible portion) so trim and cooking loss are costed. 3. In code_interpreter compute plate cost, food cost %, and contribution margin (price minus plate cost) per item. 4. Classify with Kasavana-Smith: popularity is high if an item's menu mix is at least 70 percent of an equal share (0.7 / number of items in the category); margin is high if its contribution margin is at least the category's weighted average. Stars are high on both, plowhorses are popular with low margin, puzzles have high margin but low popularity, and dogs are low on both. 5. Recommend actions: stars keep and protect; plowhorses re-engineer the recipe or portion, or make a modest price increase; puzzles reposition, rename, describe better or feature; dogs remove or rework. Model the margin impact of each price move with a conservative volume assumption. 6. Build the costing workbook with spreadsheet_generate, the matrix with chart_generate and the action brief with document_generate. 7. State what could not be verified, such as recipes that are not followed as written or invoice prices that change weekly.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read sales mix",
+          "brief": "Read item-level sales for a representative period.",
+          "acceptance": "Sales mix by item and category, or an export requested."
+        },
+        {
+          "activity": "ingest",
+          "title": "Recipes and invoices",
+          "brief": "Parse recipes and read invoice prices.",
+          "acceptance": "Every menu item has a recipe and every ingredient has a current price, or is flagged.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Cost and classify",
+          "brief": "Compute plate cost with yields, contribution margin and quadrants.",
+          "acceptance": "Formulas shown; every item classified.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Recommend actions",
+          "brief": "Recommend an action and price or recipe change per item with margin impact.",
+          "acceptance": "Every item has an action; impact assumptions stated.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Numbers audit",
+          "brief": "A cost and margin analyst re-derives a sample of plate costs and quadrants.",
+          "acceptance": "First line is APPROVED or CHANGES; costing errors corrected.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render workbook, chart and brief",
+          "brief": "Render the costing workbook, matrix chart and action brief.",
+          "acceptance": "Numbers agree across all three.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Plate costs use current invoice prices and yield factors.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Quadrant thresholds follow Kasavana-Smith (70 percent popularity rule, weighted-average margin).",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every recommendation shows its expected margin impact and assumption.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Holiday and event periods are excluded from the sales mix.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Items are compared within their category (starters with starters).",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "prime-cost-labor",
+        "margin-analysis",
+        "print-collateral",
+        "price-test",
+        "inventory-reorder-plan"
+      ],
+      "example_request": "Our food costs crept up to 36% and I don't know which dishes are killing us. Cost our menu and tell me what to reprice, promote or cut.",
+      "typical_departments": [
+        "industry-specialists",
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "prime-cost-labor",
+      "name": "Prime cost & labor scheduling",
+      "icon": "🧑‍🍳",
+      "category": "industry-workflows",
+      "one_liner": "Prime cost tracking and a labor schedule matched to covers.",
+      "description": "A weekly prime cost tracker (cost of goods from inventory counts plus total labor including taxes and benefits, as a share of sales) and a labor schedule matched to forecast covers by daypart. It uses sales per labor hour and labor standards, flags overtime and scheduling-rule risks, and produces a draft schedule the manager can adjust.",
+      "when": "labor or food cost is out of line, weekday and weekend staffing feel wrong, or the owner wants a weekly cost discipline",
+      "inputs": [
+        {
+          "id": "sales_and_covers",
+          "label": "Sales and covers by day and hour",
+          "required": true,
+          "source": "connector",
+          "example": "Toast and OpenTable, last 12 weeks"
+        },
+        {
+          "id": "labor_data",
+          "label": "Hours, wages and payroll costs",
+          "required": true,
+          "source": "connector",
+          "example": "Gusto payroll and time punches"
+        },
+        {
+          "id": "inventory_counts",
+          "label": "Weekly inventory counts and purchases",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "staff_roster",
+          "label": "Staff, roles, availability and certifications",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "targets_and_rules",
+          "label": "Target prime cost and local scheduling rules",
+          "required": false,
+          "source": "owner",
+          "example": "Prime cost under 62 percent; no clopens"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Prime cost tracker",
+          "format": "xlsx",
+          "description": "Weekly COGS (beginning + purchases - ending inventory), labor with burden, sales, prime cost %."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Draft labor schedule",
+          "format": "xlsx",
+          "description": "Shifts by role and daypart matched to forecast covers, with labor % and SPLH."
+        },
+        {
+          "artifact_type": "brief",
+          "name": "Labor and prime cost memo",
+          "format": "md -> pdf",
+          "description": "Where the money goes, the moves to make, and compliance flags to confirm."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "toast",
+        "opentable",
+        "square",
+        "gusto",
+        "rippling",
+        "quickbooks",
+        "xero"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Read sales, covers, hours and payroll with connector_read; parse inventory counts and purchases with file_parse. 2. Compute weekly prime cost in code_interpreter: COGS (beginning inventory + purchases - ending inventory) plus total labor including payroll taxes and benefits, divided by sales. Show the trend against the owner's target and label any industry benchmark as a benchmark. 3. Forecast covers by weekday and daypart from 12 weeks of history (weekday averages with trend and known events), and show the error range. 4. Set labor standards per role (for example covers per server-hour, and prep hours per 100 covers), then build a draft schedule that matches staffing to forecast, respects availability and certifications, and reports labor % and sales per labor hour per shift. 5. Flag, for the owner to confirm with an HR professional: overtime, break rules, minor labor rules, and predictive-scheduling or fair-workweek ordinances where they apply. 6. Build the tracker and schedule with spreadsheet_generate, charts with chart_generate and the memo with document_generate; ask the owner to approve schedule principles with request_owner_decision. Publishing the schedule to staff is the manager's action. 7. State what could not be verified, such as the accuracy of inventory counts or forecast accuracy during unusual weeks.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read sales, covers and labor",
+          "brief": "Read sales, covers, hours and payroll for 12 weeks.",
+          "acceptance": "Complete weekly data, or gaps listed."
+        },
+        {
+          "activity": "analysis",
+          "title": "Prime cost and forecast",
+          "brief": "Compute weekly prime cost and forecast covers by daypart.",
+          "acceptance": "Prime cost formula shown; forecast includes an error range.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner sets principles",
+          "brief": "Decision card: targets, labor standards and scheduling rules.",
+          "acceptance": "Owner approves or edits standards.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Draft schedule",
+          "brief": "Build the draft schedule to forecast within standards and availability.",
+          "acceptance": "Every shift has a role and reason; labor % per day shown; flags listed.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Operator review",
+          "brief": "An operations reviewer checks feasibility, coverage and fairness of shifts.",
+          "acceptance": "First line is APPROVED or CHANGES; uncovered peaks or unfair patterns flagged.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Tracker, schedule and memo",
+          "brief": "Render the tracker, schedule and memo.",
+          "acceptance": "Numbers agree across files.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Labor cost includes payroll taxes and benefits.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Scheduling-law and overtime risks are flagged for the owner to confirm, never assumed compliant.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The schedule is a draft; publishing it is the manager's action.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Forecasts show an error range.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Benchmarks are labelled as benchmarks.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 75,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "menu-engineering",
+        "capacity-plan",
+        "demand-forecast",
+        "budget-vs-actual",
+        "resource-plan"
+      ],
+      "example_request": "Labor is eating us alive on weeknights but we're slammed on Saturdays. Build a prime cost tracker and a schedule that matches staff to covers.",
+      "typical_departments": [
+        "industry-specialists",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "listing-cma-pack",
+      "name": "Property listing & CMA pack",
+      "icon": "🏘️",
+      "category": "industry-workflows",
+      "one_liner": "Comparative market analysis, listing copy and a fair-housing-aware marketing plan.",
+      "description": "A listing pack for a residential property: a comparative market analysis from recent sold, pending and active comps with explicit adjustments and a suggested range (labelled a CMA, not an appraisal), listing copy that describes the property rather than who should live there, a photo review, and a fair-housing-aware marketing plan, all for the agent's or broker's review.",
+      "when": "an agent or owner is preparing to list a property, preparing a listing presentation, or resetting price on a stale listing",
+      "inputs": [
+        {
+          "id": "subject_property",
+          "label": "Property details, condition and upgrades",
+          "required": true,
+          "source": "owner",
+          "example": "3 bed, 2 bath bungalow, 1,450 sq ft, new roof 2023"
+        },
+        {
+          "id": "comps_export",
+          "label": "MLS export of nearby sold, pending and active listings",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "photos",
+          "label": "Listing photos",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "seller_goals",
+          "label": "Seller timeline and priorities",
+          "required": false,
+          "source": "owner",
+          "example": "Close within 60 days"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "CMA workbook",
+          "format": "xlsx",
+          "description": "Comps, adjustments with rationale, adjusted values and the suggested range."
+        },
+        {
+          "artifact_type": "deck",
+          "name": "Listing presentation",
+          "format": "pptx",
+          "description": "Market snapshot, CMA summary, pricing strategy and marketing plan."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Listing copy and marketing plan",
+          "format": "md -> docx",
+          "description": "MLS remarks within character limits, feature list, channel plan and timeline."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "web_search",
+        "code_interpreter",
+        "vision_describe",
+        "image_edit",
+        "spreadsheet_generate",
+        "deck_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "canva",
+        "meta-business",
+        "docusign"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "image"
+      ],
+      "instructions": "1. Parse the comps export with file_parse. Select comparables: sold within about 3-6 months, same neighborhood or submarket, similar size (about 20 percent either way), bed and bath count, age and condition; use pendings and actives for context and expireds as a warning. 2. In code_interpreter make explicit adjustments (size, bedrooms, bathrooms, garage, lot, condition, upgrades) with a rationale for each, then derive a suggested range. Label it clearly as a comparative market analysis, not an appraisal. 3. Check the local market context (inventory, days on market, list-to-sale ratio) with web_search, and cite it. 4. Review photos with vision_describe for order, gaps and quality. Use image_edit only for honest corrections; any virtual staging must be labelled as such, and permanent features are never altered. 5. Write listing copy that describes the property and its amenities, never who should live there: no references to familial status, religion, race, national origin, sex, disability or other protected characteristics, and no steering language. 6. Plan marketing: channels, launch sequence, open houses and a timeline tied to the seller's goals. 7. Build the CMA with spreadsheet_generate, the presentation with deck_generate and the copy and plan with document_generate, for the agent's or broker's review. Disclosure obligations and contract terms are for the broker and an attorney. 8. State what could not be verified, such as interior condition of comps or concessions not shown in the export.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load comps and photos",
+          "brief": "Parse the comps export and review photos.",
+          "acceptance": "Comps table loaded; photo notes written."
+        },
+        {
+          "activity": "analysis",
+          "title": "CMA",
+          "brief": "Select comps, adjust with rationale and derive a range.",
+          "acceptance": "Each adjustment has a rationale; the range is labelled a CMA, not an appraisal.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "research",
+          "title": "Market context",
+          "brief": "Research local inventory, days on market and list-to-sale ratio.",
+          "acceptance": "At least two cited market indicators."
+        },
+        {
+          "activity": "llm",
+          "title": "Copy and marketing plan",
+          "brief": "Write listing copy and the marketing plan.",
+          "acceptance": "Copy describes the property only; plan has a dated timeline.",
+          "dependsOn": [
+            1,
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Fair-housing and accuracy review",
+          "brief": "A reviewer checks copy and plan for fair-housing risks and the CMA for errors.",
+          "acceptance": "First line is APPROVED or CHANGES; any steering or protected-class language removed.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render pack",
+          "brief": "Render the CMA workbook, listing presentation and copy.",
+          "acceptance": "Pack renders; numbers agree across files.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Listing copy describes the property, never the kind of buyer, and avoids protected-class and steering language.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The price analysis is labelled a CMA, not an appraisal.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Virtual staging or edits are disclosed; permanent features are never altered.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every comp adjustment has a stated rationale.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Market context is cited.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 75,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "location-analysis",
+        "print-collateral",
+        "social-media-plan",
+        "image-edit-retouch",
+        "inclusive-language-review"
+      ],
+      "example_request": "I'm listing a 3-bed bungalow on Maple Street next week. Pull together the CMA from these MLS comps, write the listing and plan the marketing — nothing that'll get me in trouble with fair housing.",
+      "typical_departments": [
+        "industry-specialists"
+      ],
+      "version": 1
+    },
+    {
+      "id": "construction-estimate",
+      "name": "Construction estimate & bid package",
+      "icon": "🏗",
+      "category": "industry-workflows",
+      "one_liner": "Quantity takeoff, cost estimate, bid package and change-order log.",
+      "description": "A bid-ready estimate: quantity takeoff from the drawings by CSI MasterFormat division, unit costs from the contractor's own history and leveled sub or supplier quotes, labor productivity, overhead, profit and contingency markups, and explicit alternates, exclusions and clarifications. It also includes a CPM schedule and a change-order log for the job.",
+      "when": "a contractor is bidding a job from drawings and specs, or needs to price a change order or re-baseline an estimate",
+      "inputs": [
+        {
+          "id": "drawings_and_specs",
+          "label": "Plan set, specs and addenda",
+          "required": true,
+          "source": "file",
+          "example": "Architectural and MEP PDFs for a 2,400 sq ft fit-out"
+        },
+        {
+          "id": "cost_history",
+          "label": "Historical unit costs, crew rates and productivity",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "sub_quotes",
+          "label": "Subcontractor and supplier quotes",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "markups",
+          "label": "Overhead, profit, contingency, bond and insurance rates",
+          "required": true,
+          "source": "owner",
+          "example": "10 percent overhead, 8 percent profit, 5 percent contingency"
+        },
+        {
+          "id": "bid_requirements",
+          "label": "Bid form, due date and instructions",
+          "required": true,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Estimate workbook",
+          "format": "xlsx",
+          "description": "Takeoff, unit costs, labor, subs, markups and summary by division, with formulas."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Bid package",
+          "format": "md -> pdf",
+          "description": "Proposal letter, scope by division, inclusions, exclusions, alternates, clarifications and schedule of values."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "CPM schedule",
+          "format": "mermaid",
+          "description": "Critical-path Gantt of major activities."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Change-order log",
+          "format": "xlsx",
+          "description": "Log with pricing method, status and schedule impact."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "vision_describe",
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "diagram_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "procore",
+        "quickbooks",
+        "xero",
+        "dropbox",
+        "box"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "image",
+        "connector_data"
+      ],
+      "instructions": "1. Parse specs, bid instructions and addenda with file_parse; read plan sheets with vision_describe, confirming the drawing scale on each sheet before measuring. Read project history from Procore with connector_read if enabled. 2. Do the quantity takeoff by CSI MasterFormat division (areas, lengths, counts), with waste factors stated and every quantity referenced to its sheet. 3. Price from the contractor's own unit costs and productivity rates; never invent a unit price. Where no cost exists, mark an allowance for the owner to confirm. 4. Level subcontractor and supplier quotes in a bid tabulation: scope gaps, exclusions and apples-to-apples totals. 5. Apply the owner's markups (overhead, profit, contingency, bond and insurance) in code_interpreter and reconcile totals; list alternates, exclusions and clarifications. 6. Draft a CPM schedule of major activities with diagram_generate, and a change-order log template with pricing method (lump sum, unit price, time and materials) and triggers. 7. Ask the owner to confirm allowances and markups with request_owner_decision, then build the workbook with spreadsheet_generate and the bid package with document_generate. 8. Structural, life-safety and code-compliance questions go to the design professionals of record and the building official; the estimate is not an engineering judgement. State what could not be verified, such as quantities on sheets that were unclear or out of scale.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Read the documents",
+          "brief": "Parse specs and addenda and read plan sheets with their scales.",
+          "acceptance": "Sheet index with scale per sheet and addenda listed."
+        },
+        {
+          "activity": "analysis",
+          "title": "Quantity takeoff",
+          "brief": "Take off quantities by division with waste factors and sheet references.",
+          "acceptance": "Every quantity cites a sheet; waste factors stated.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "analysis",
+          "title": "Price and level bids",
+          "brief": "Price from owner costs, level sub quotes and apply markups.",
+          "acceptance": "No invented unit prices; allowances flagged; totals reconcile.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner confirms allowances and markups",
+          "brief": "Decision card with allowances, markups and bid-level choices.",
+          "acceptance": "Owner confirms or edits.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Schedule and change-order log",
+          "brief": "Draft the CPM schedule and change-order log.",
+          "acceptance": "Critical path identified; log has pricing methods.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Estimator review",
+          "brief": "A second estimator checks quantities, scope gaps and the arithmetic.",
+          "acceptance": "First line is APPROVED or CHANGES; scope gaps and errors listed.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Bid package",
+          "brief": "Render the estimate workbook and bid package.",
+          "acceptance": "Bid package matches the bid form; exclusions and clarifications explicit.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every quantity cites its drawing sheet and the scale was confirmed.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No unit price is invented; missing costs are flagged allowances.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Exclusions, alternates and clarifications are explicit.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Sub quotes are leveled for scope before comparison.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Markups match the owner's confirmed rates.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 180,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "proposal-writing",
+        "timeline-gantt",
+        "change-request",
+        "vendor-rfq",
+        "risk-register"
+      ],
+      "example_request": "We're bidding a 2,400 sq ft restaurant fit-out from these drawings, due in 10 days. Do the takeoff and estimate and put together the bid package with our usual markups.",
+      "typical_departments": [
+        "industry-specialists"
+      ],
+      "version": 1
+    },
+    {
+      "id": "practice-front-desk",
+      "name": "Practice front-desk & no-show playbook",
+      "icon": "🩺",
+      "category": "industry-workflows",
+      "one_liner": "Scheduling templates, reminders and intake flows. Administrative only, no clinical advice.",
+      "description": "Administrative playbook for a healthcare practice front desk: scheduling templates by provider and appointment type, a no-show analysis on de-identified aggregate data, a reminder cadence that reveals no health details, waitlist backfill, a no-show policy draft, intake flow design and front-desk scripts. Anything clinical routes to the practice's clinicians.",
+      "when": "no-shows are high, the phones overwhelm the front desk, schedules have gaps and overbooks, or intake is slow and paper-heavy",
+      "inputs": [
+        {
+          "id": "appointment_data",
+          "label": "De-identified appointment history: type, day, time, lead time, status",
+          "required": true,
+          "source": "connector",
+          "example": "Last 6 months, no names or diagnoses"
+        },
+        {
+          "id": "providers_and_types",
+          "label": "Providers, appointment types and durations",
+          "required": true,
+          "source": "owner",
+          "example": "Three physiotherapists; initial 45 min, follow-up 30 min"
+        },
+        {
+          "id": "current_process",
+          "label": "Current reminders, policies and intake forms",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "clinical_content",
+          "label": "Clinician-approved prep or intake questions, used verbatim",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Scheduling templates",
+          "format": "xlsx",
+          "description": "Weekly templates per provider with slot types, buffers and same-day slots."
+        },
+        {
+          "artifact_type": "sop",
+          "name": "Front-desk playbook",
+          "format": "md -> docx",
+          "description": "Reminder cadence, waitlist backfill, scripts, escalation rules and a no-show policy draft."
+        },
+        {
+          "artifact_type": "form",
+          "name": "Intake form design",
+          "format": "html",
+          "description": "Administrative intake flow with clinician-supplied questions inserted verbatim."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Patient flow",
+          "format": "mermaid",
+          "description": "From booking to check-out, with handoffs."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "web_page_generate",
+        "diagram_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "calendly",
+        "square",
+        "mindbody",
+        "twilio",
+        "google-workspace"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file",
+        "web_page"
+      ],
+      "instructions": "1. Read appointment history with connector_read in de-identified, aggregate form (type, day, time, lead time, reminder status, outcome); never pull names, diagnoses or clinical notes. 2. In code_interpreter find no-show drivers by day, time, lead time, appointment type and reminder status, and estimate the revenue lost. 3. Design scheduling templates per provider: slot types and durations, buffers, same-day slots, and a controlled overbook only where the data supports it. 4. Set a reminder cadence (for example 72 hours, 24 hours and 2 hours, with confirm or reschedule links) whose messages include date, time, location and provider only, with no diagnosis, procedure or other health detail. Add waitlist backfill for cancellations. 5. Draft the no-show and cancellation policy, and front-desk scripts for booking and rescheduling. Any clinical question, symptom or medication question is routed to the clinical team; urgent symptoms get the practice's emergency instruction. 6. Design the intake flow with web_page_generate using only clinician-supplied clinical questions, verbatim; draw the patient flow with diagram_generate; build templates with spreadsheet_generate and the playbook with document_generate. 7. Regulated domain (medical_clinical): Administrative and non-clinical work only. No diagnosis, treatment, triage or dosing guidance; route anything clinical to the practice's clinicians; minimize protected health information. Escalate to a licensed clinician (licensed review) before anything leaves the workspace; never present the output as professional advice and never imply a licence you do not hold. 8. Ask the owner with request_owner_decision to have a clinician approve any patient-facing text with clinical content, and to confirm privacy and consent requirements for texting. State what could not be verified.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read de-identified appointment data",
+          "brief": "Read aggregate appointment history without names or clinical details.",
+          "acceptance": "Dataset contains no names, diagnoses or notes."
+        },
+        {
+          "activity": "analysis",
+          "title": "No-show drivers",
+          "brief": "Analyse no-shows by day, time, lead time, type and reminder status.",
+          "acceptance": "Drivers ranked with counts and lost revenue estimate.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Templates, reminders and scripts",
+          "brief": "Design templates, reminder cadence, backfill, policy and scripts.",
+          "acceptance": "Reminders contain no health details; clinical questions route to clinicians.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render templates, playbook, form and flow",
+          "brief": "Render the templates, playbook, intake form and patient flow.",
+          "acceptance": "All outputs render; intake form uses clinician text verbatim.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Privacy and operations review",
+          "brief": "A privacy-minded reviewer checks minimum-necessary data and message content; an operations reviewer checks feasibility.",
+          "acceptance": "First line is APPROVED or CHANGES; any health detail in messages removed.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review",
+          "brief": "Raise a decision card (request_owner_decision) asking the owner to route the draft to a licensed clinician. The clinician approves all patient-facing text with clinical content; the owner confirms texting consent requirements.",
+          "acceptance": "Owner confirms the licensed reviewer has approved, or returns their changes; nothing external happens before this step completes.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The medical_clinical rule is restated and the work is routed to a licensed clinician for licensed review before anything is sent, signed or published.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No names, diagnoses or clinical notes are used in the analysis.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Reminder messages contain no diagnosis, procedure or other health detail.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Front-desk scripts route every clinical question to the clinical team.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Templates are based on the practice's own no-show and demand data.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "sop-writing",
+        "process-map",
+        "customer-onboarding-plan",
+        "capacity-plan",
+        "privacy-notice-draft"
+      ],
+      "example_request": "Our physio clinic has a 14% no-show rate and the front desk is drowning in phone calls. Fix our scheduling templates, reminders and intake so the day runs smoothly.",
+      "regulated_domains": [
+        "medical_clinical"
+      ],
+      "typical_departments": [
+        "industry-specialists",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "legal-intake-workflow",
+      "name": "Law firm intake & conflict-check workflow",
+      "icon": "⚖",
+      "category": "industry-workflows",
+      "one_liner": "Intake form, conflict-check steps and engagement hand-off. Operations only.",
+      "description": "Operations design for a law firm's front door: an intake form and practice-area triage, a conflict-check procedure (every party, alias and entity checked against firm records, then cleared by an attorney), intake scripts that give no legal advice, attorney-approved engagement and declination hand-offs, and speed-to-lead and conversion metrics.",
+      "when": "a firm loses leads to slow or messy intake, conflicts are checked inconsistently, or the firm is setting up a practice-management tool",
+      "inputs": [
+        {
+          "id": "practice_areas",
+          "label": "Practice areas and matters the firm takes or declines",
+          "required": true,
+          "source": "owner",
+          "example": "Family law and estate planning; no criminal matters"
+        },
+        {
+          "id": "current_process",
+          "label": "How intake and conflict checks happen now",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "matter_system",
+          "label": "Practice-management system",
+          "required": false,
+          "source": "connector",
+          "example": "Clio"
+        },
+        {
+          "id": "firm_templates",
+          "label": "Existing engagement and declination templates",
+          "required": false,
+          "source": "file"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "form",
+          "name": "Intake form",
+          "format": "html + json",
+          "description": "Prospect details, matter type, all parties and aliases, key dates mentioned, and how they heard of the firm."
+        },
+        {
+          "artifact_type": "sop",
+          "name": "Intake and conflict-check SOP",
+          "format": "md -> docx",
+          "description": "Steps, owners, timings, attorney sign-off points and records to keep."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Intake workflow",
+          "format": "mermaid",
+          "description": "From first contact to engagement or declination."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Scripts and hand-off templates",
+          "format": "md -> docx",
+          "description": "Intake scripts and engagement or declination templates marked for attorney approval."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "web_page_generate",
+        "diagram_generate",
+        "document_generate",
+        "spreadsheet_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "clio",
+        "calendly",
+        "docusign",
+        "google-workspace",
+        "microsoft-365"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file",
+        "web_page"
+      ],
+      "instructions": "1. Map the current process and read how matters and contacts are structured in the practice-management system with connector_read if enabled; parse existing templates with file_parse. 2. Design the intake form with web_page_generate: prospect, matter type, all adverse and related parties with aliases and entity names, key dates the prospect mentions (flagged for an attorney, never calculated as deadlines), referral source, and consent to be contacted. Collect only what intake needs. 3. Write the conflict-check procedure: search every party and alias against clients, matters and past prospects; record results; an attorney clears or declines; no substantive discussion before clearance. 4. Write intake scripts that gather facts without giving legal advice or evaluating the case, and route urgent matters to an attorney promptly. 5. Draft engagement and declination hand-off templates marked for attorney approval, and draw the workflow with diagram_generate. 6. Define metrics (speed to first response, consult-booked rate, conversion, conflicts found) in a tracker built with spreadsheet_generate, and render the SOP with document_generate. 7. Regulated domain (legal): Drafts, issue lists and research only. Never state a legal conclusion as certain, never say it is legal advice, flag jurisdiction assumptions, and add an attorney-review step before anything is signed or sent. Escalate to a licensed attorney in the relevant jurisdiction (licensed review) before anything leaves the workspace; never present the output as professional advice and never imply a licence you do not hold. 8. Ask the owner with request_owner_decision to route the SOP and templates to the firm's supervising attorney. State what could not be verified, such as how the firm's system matches names and aliases.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Map current system",
+          "brief": "Read matter and contact structures and parse existing templates.",
+          "acceptance": "Current fields and gaps listed."
+        },
+        {
+          "activity": "llm",
+          "title": "Design intake and conflict procedure",
+          "brief": "Design the form, conflict-check steps, scripts and templates.",
+          "acceptance": "Conflict check covers all parties and aliases; scripts contain no legal advice.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render form, SOP, workflow and tracker",
+          "brief": "Render the intake form, SOP, workflow diagram and metrics tracker.",
+          "acceptance": "Every attorney sign-off point is marked.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Legal operations review",
+          "brief": "A legal operations reviewer checks completeness, data minimization and sign-off points.",
+          "acceptance": "First line is APPROVED or CHANGES; missing sign-offs flagged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Licensed review",
+          "brief": "Raise a decision card (request_owner_decision) asking the owner to route the draft to a licensed attorney in the relevant jurisdiction. The supervising attorney approves the conflict procedure, scripts and templates.",
+          "acceptance": "Owner confirms the licensed reviewer has approved, or returns their changes; nothing external happens before this step completes.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The legal rule is restated and the work is routed to a licensed attorney in the relevant jurisdiction for licensed review before anything is sent, signed or published.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Intake scripts never give legal advice or evaluate the merits of a case.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Conflicts are cleared by an attorney before any substantive discussion.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Deadlines mentioned by prospects are flagged for an attorney, never calculated.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The form collects only what intake needs.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 75,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "process-map",
+        "sop-writing",
+        "clause-library",
+        "compliance-calendar",
+        "workflow-automation"
+      ],
+      "example_request": "Our small family-law firm loses leads because intake is a mess of sticky notes, and we nearly missed a conflict last month. Design an intake and conflict-check workflow for Clio.",
+      "regulated_domains": [
+        "legal"
+      ],
+      "typical_departments": [
+        "industry-specialists",
+        "legal-compliance"
+      ],
+      "version": 1
+    },
+    {
+      "id": "agency-sow-scope",
+      "name": "Agency SOW & scope guardrails",
+      "icon": "📐",
+      "category": "industry-workflows",
+      "one_liner": "Scoped SOW, assumptions, change-order triggers and retainer health checks.",
+      "description": "A tightly scoped statement of work: objectives, in and out of scope, deliverables with acceptance criteria, an estimate built from the work breakdown, assumptions and client responsibilities, revision rounds, milestones and explicit change-order triggers. It adds a retainer health check (utilization, realization, effective hourly rate, burn versus plan) so scope creep shows up in numbers.",
+      "when": "an agency or consultancy is scoping a new project or retainer, or existing retainers feel like unlimited work",
+      "inputs": [
+        {
+          "id": "client_brief",
+          "label": "Client brief or discovery notes",
+          "required": true,
+          "source": "file"
+        },
+        {
+          "id": "rates_and_roles",
+          "label": "Roles, rates and capacity",
+          "required": true,
+          "source": "owner",
+          "example": "Designer $110/h, strategist $150/h"
+        },
+        {
+          "id": "past_sows_and_actuals",
+          "label": "Past SOWs and time actuals",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "time_data",
+          "label": "Time tracking and billing for current retainers",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "contract_draft",
+          "name": "Statement of work draft",
+          "format": "md -> docx",
+          "description": "Scope, deliverables, acceptance, assumptions, timeline, change triggers, fees; marked for the owner's attorney before signing."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Estimate and retainer health",
+          "format": "xlsx",
+          "description": "WBS hours by role, fees, and retainer utilization, realization, effective rate and burn."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Change-order triggers",
+          "format": "md",
+          "description": "What counts as out of scope and the change-order process."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "hubspot",
+        "asana",
+        "clickup",
+        "monday",
+        "quickbooks",
+        "xero",
+        "docusign"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "connector_data"
+      ],
+      "instructions": "1. Parse the brief and past SOWs with file_parse; read time and billing data with connector_read if enabled. 2. Build a work breakdown structure to deliverables, estimate hours by role from past actuals (not optimism), and add a stated contingency. 3. Write the SOW: objectives, in scope, explicitly out of scope, deliverables with acceptance criteria, number of revision rounds, client responsibilities and feedback turnaround, milestones, assumptions, fees and payment terms. 4. Define change-order triggers (new deliverables, extra rounds, late client inputs, changed requirements) and a simple change-order process. 5. For existing retainers, compute in code_interpreter utilization (billable over available hours), realization (billed over standard value), effective hourly rate and burn versus plan, and flag unprofitable retainers. 6. Ask the owner to confirm fees and scope boundaries with request_owner_decision, then build the workbook with spreadsheet_generate and the SOW with document_generate. Terms with legal effect go to the owner's attorney before signing. 7. State what could not be verified, such as time data that is incomplete or estimates for work the agency has not done before.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Read brief and history",
+          "brief": "Parse the brief, past SOWs and actuals.",
+          "acceptance": "Brief requirements listed; historical hours by deliverable type extracted."
+        },
+        {
+          "activity": "analysis",
+          "title": "WBS and estimate",
+          "brief": "Build the WBS and estimate hours and fees from actuals.",
+          "acceptance": "Every deliverable has hours by role; contingency stated.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "mcp",
+          "title": "Retainer data",
+          "brief": "Read time and billing for current retainers.",
+          "acceptance": "Data per retainer, or marked unavailable."
+        },
+        {
+          "activity": "analysis",
+          "title": "Retainer health",
+          "brief": "Compute utilization, realization, effective rate and burn.",
+          "acceptance": "Every retainer scored; unprofitable ones flagged.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft SOW and triggers",
+          "brief": "Draft the SOW and change-order triggers.",
+          "acceptance": "Out-of-scope list and acceptance criteria are explicit.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Sceptic review",
+          "brief": "Challenge vague scope, optimistic hours and missing client responsibilities.",
+          "acceptance": "First line is APPROVED or CHANGES; vague lines rewritten.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner confirms fees and scope",
+          "brief": "Decision card with fees, scope boundaries and retainer findings.",
+          "acceptance": "Owner confirms or edits.",
+          "dependsOn": [
+            3,
+            5
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render SOW and workbook",
+          "brief": "Render the SOW draft, workbook and trigger checklist.",
+          "acceptance": "SOW marked for attorney review before signing.",
+          "dependsOn": [
+            6
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Out-of-scope items and change-order triggers are explicit.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every deliverable has acceptance criteria.",
+          "severity": "must"
+        },
+        {
+          "criterion": "SOW terms are marked for the owner's attorney before signing.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Estimates are based on historical actuals where available.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Retainer health uses utilization, realization and effective hourly rate.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "proposal-writing",
+        "change-request",
+        "contract-issue-list",
+        "margin-analysis",
+        "resource-plan"
+      ],
+      "example_request": "We're a 6-person design agency and every retainer turns into unlimited work. Write a tight SOW for our new client and show me which current retainers are losing money.",
+      "typical_departments": [
+        "industry-specialists"
+      ],
+      "version": 1
+    },
+    {
+      "id": "grant-proposal",
+      "name": "Grant proposal (logic model)",
+      "icon": "🎗️",
+      "category": "industry-workflows",
+      "one_liner": "Funder-matched proposal with need statement, logic model, budget and evaluation.",
+      "description": "A funder-matched grant proposal: funder research and fit, a compliance matrix against the request for proposals, a need statement with cited data, a logic model (inputs, activities, outputs, outcomes) and theory of change, SMART objectives, an evaluation plan, and a budget with justification. Nothing is fabricated, and the owner submits it.",
+      "when": "a nonprofit or social enterprise is applying for a grant, or wants a reusable proposal core for several funders",
+      "inputs": [
+        {
+          "id": "rfp",
+          "label": "Funder guidelines or request for proposals",
+          "required": true,
+          "source": "file",
+          "example": "Community foundation youth literacy RFP"
+        },
+        {
+          "id": "program_info",
+          "label": "Program description, history and results",
+          "required": true,
+          "source": "file",
+          "example": "Annual report, program data"
+        },
+        {
+          "id": "budget_data",
+          "label": "Program costs and other funding",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "deadline",
+          "label": "Due date and submission method",
+          "required": true,
+          "source": "owner",
+          "example": "March 1, online portal"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "document",
+          "name": "Grant proposal draft",
+          "format": "md -> docx",
+          "description": "All required sections in the funder's order and limits."
+        },
+        {
+          "artifact_type": "diagram",
+          "name": "Logic model",
+          "format": "mermaid + svg",
+          "description": "Inputs, activities, outputs, and short, medium and long-term outcomes."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Budget and justification",
+          "format": "xlsx",
+          "description": "Line items, direct and indirect costs, match, and justification notes."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Compliance matrix",
+          "format": "md",
+          "description": "Every RFP requirement mapped to where it is met."
+        }
+      ],
+      "tools": [
+        "web_search",
+        "web_fetch",
+        "file_parse",
+        "embeddings_search",
+        "diagram_generate",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "salesforce",
+        "hubspot",
+        "dropbox"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "url"
+      ],
+      "instructions": "1. Parse the RFP with file_parse and build a compliance matrix: every requirement, word limit, attachment and scoring criterion. 2. Research the funder with web_search and web_fetch (mission, priorities, typical grant size, past grantees from public filings or grant databases) and summarize fit and any red flags. 3. Write the need statement with current, cited local data, and find program evidence in the owner's documents with embeddings_search. 4. Build the logic model (inputs, activities, outputs, short, medium and long-term outcomes) and a short theory of change; draw it with diagram_generate. Write SMART objectives. 5. Write the evaluation plan: indicators, data sources, collection timing and who is responsible. 6. Build the budget and justification with spreadsheet_generate: direct and indirect costs within the funder's rules, and the match. Never fabricate numbers, outcomes, partners or letters of support. 7. Draft all sections in the funder's order and limits with document_generate, and ask the owner to confirm budget figures and claims with request_owner_decision. The owner submits. 8. State what could not be verified, such as outcome data the program has not yet measured.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Parse the RFP",
+          "brief": "Build the compliance matrix from the RFP.",
+          "acceptance": "Every requirement, limit and scoring criterion listed."
+        },
+        {
+          "activity": "research",
+          "title": "Funder fit and need data",
+          "brief": "Research the funder and cite need-statement data.",
+          "acceptance": "Funder fit summary and cited data points."
+        },
+        {
+          "activity": "llm",
+          "title": "Logic model and objectives",
+          "brief": "Build the logic model, theory of change, SMART objectives and evaluation plan.",
+          "acceptance": "Every outcome has an indicator and data source.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Budget",
+          "brief": "Build the budget and justification.",
+          "acceptance": "Budget totals reconcile; indirect rate within funder rules.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Draft proposal",
+          "brief": "Draft all sections within limits.",
+          "acceptance": "Compliance matrix shows every requirement met.",
+          "dependsOn": [
+            2,
+            3
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Funder-lens review",
+          "brief": "A reviewer scores the draft against the funder's criteria and checks every claim.",
+          "acceptance": "First line is APPROVED or CHANGES; unsupported claims removed.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner confirms figures",
+          "brief": "Decision card to confirm budget, outcomes and claims.",
+          "acceptance": "Owner confirms every figure.",
+          "dependsOn": [
+            5
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Final package",
+          "brief": "Render the proposal, logic model, budget and matrix.",
+          "acceptance": "Package complete for the owner to submit.",
+          "dependsOn": [
+            6
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "No fabricated statistics, outcomes, partners or endorsements.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every RFP requirement is mapped in the compliance matrix.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Section lengths respect the funder's limits.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Every outcome in the logic model has an indicator.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Need data is current and cited.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 180,
+        "cost_class": "high"
+      },
+      "pairs_with": [
+        "donor-stewardship",
+        "research-and-cite",
+        "annual-budget",
+        "write-a-report",
+        "editorial-review"
+      ],
+      "example_request": "There's a $50k community foundation grant for youth literacy due March 1. Here's the RFP and our last annual report — draft the proposal and budget.",
+      "typical_departments": [
+        "industry-specialists"
+      ],
+      "version": 1
+    },
+    {
+      "id": "donor-stewardship",
+      "name": "Donor stewardship plan",
+      "icon": "💝",
+      "category": "industry-workflows",
+      "one_liner": "Moves-management plan: identify, cultivate, solicit and steward.",
+      "description": "A moves-management plan (identify, qualify, cultivate, solicit, steward) built from the organization's own giving data. It segments donors by level and recency, including those who gave last year or some years but not this year, and sets retention targets, prompt thank-yous, impact updates, a touchpoint calendar sized to staff time, and personalized next asks based on giving history.",
+      "when": "donor retention is low, gifts go unacknowledged for days, or a small development team needs a system for who to contact when",
+      "inputs": [
+        {
+          "id": "giving_data",
+          "label": "Donor and gift history",
+          "required": true,
+          "source": "connector",
+          "example": "Donor CRM or payment export"
+        },
+        {
+          "id": "staff_capacity",
+          "label": "Hours available for stewardship",
+          "required": true,
+          "source": "owner",
+          "example": "Development lead, 10 hours a week"
+        },
+        {
+          "id": "impact_stories",
+          "label": "Program results and stories with permission",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "communication_preferences",
+          "label": "Donor channel preferences and opt-outs",
+          "required": false,
+          "source": "connector"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Donor portfolio and segments",
+          "format": "xlsx",
+          "description": "Segments, retention rates, portfolio assignments and next action per major donor."
+        },
+        {
+          "artifact_type": "plan",
+          "name": "Stewardship calendar",
+          "format": "xlsx",
+          "description": "Touchpoints by segment across the year, sized to capacity."
+        },
+        {
+          "artifact_type": "email_draft",
+          "name": "Acknowledgement and impact templates",
+          "format": "md",
+          "description": "Thank-you, impact update and renewal templates."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Stewardship plan",
+          "format": "md -> docx",
+          "description": "Moves-management stages, standards and targets."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "salesforce",
+        "hubspot",
+        "mailchimp",
+        "stripe",
+        "paypal",
+        "quickbooks"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Read gift history and communication preferences with connector_read. Use only the organization's own donor records: no wealth screening or compiling personal data from outside sources. 2. In code_interpreter compute donor and dollar retention, identify lapsed segments (gave last year but not this year, or some years but not this year) and segment by giving level and recency. 3. Assign the top donors to a portfolio sized to staff capacity and set each one's stage (identify, qualify, cultivate, solicit, steward) and next action. 4. Set standards: thank-you within 48 hours, a personal call for first and major gifts, impact updates before the next ask, and recognition that respects preferences. 5. Base next ask amounts on each donor's own giving history, and honor opt-outs and channel preferences. 6. Draft templates (thank-you, impact update, renewal) using impact stories only with permission. Gift receipt wording and any tax-deductibility statements are confirmed by the organization's accountant. 7. Build the portfolio and calendar with spreadsheet_generate and the plan with document_generate, and ask the owner to approve targets with request_owner_decision. 8. State what could not be verified, such as gifts recorded outside the connected system.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read giving data",
+          "brief": "Read donors, gifts and preferences.",
+          "acceptance": "Complete gift history, or gaps listed."
+        },
+        {
+          "activity": "analysis",
+          "title": "Retention and segments",
+          "brief": "Compute retention, lapsed segments and giving tiers.",
+          "acceptance": "Retention rates shown with formulas; segments defined.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Portfolio and standards",
+          "brief": "Assign portfolio stages and next actions; set standards and ask logic.",
+          "acceptance": "Portfolio fits the stated capacity; each major donor has a next action.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Templates",
+          "brief": "Draft thank-you, impact and renewal templates.",
+          "acceptance": "Templates use only stories with permission.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Privacy and donor-experience review",
+          "brief": "Check data use stays within the organization's own records and preferences are honored.",
+          "acceptance": "First line is APPROVED or CHANGES; any external data compilation removed.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves targets",
+          "brief": "Decision card with retention targets and portfolio.",
+          "acceptance": "Owner approves or edits.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render plan and calendar",
+          "brief": "Render the portfolio, calendar, templates and plan.",
+          "acceptance": "Calendar hours fit capacity.",
+          "dependsOn": [
+            5
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Only the organization's own donor records are used; no outside wealth screening or data compilation.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Opt-outs and channel preferences are honored.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Receipt and tax-deductibility wording is flagged for the accountant to confirm.",
+          "severity": "must"
+        },
+        {
+          "criterion": "The plan fits staff capacity.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Thank-you standard is within 48 hours.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "grant-proposal",
+        "rfm-segmentation",
+        "newsletter-issue",
+        "email-copy",
+        "cohort-analysis"
+      ],
+      "example_request": "We have 600 donors but only 30% gave again last year. Build a stewardship plan so people feel thanked and give again — our development person has 10 hours a week.",
+      "typical_departments": [
+        "industry-specialists"
+      ],
+      "version": 1
+    },
+    {
+      "id": "saas-metrics-pack",
+      "name": "SaaS metrics pack",
+      "icon": "📈",
+      "category": "industry-workflows",
+      "one_liner": "MRR movements, NRR, churn, CAC payback and burn multiple.",
+      "description": "A consistent SaaS metrics pack from billing and accounting data: an MRR bridge (new, expansion, contraction, churn, reactivation), ARR, logo and revenue churn, gross and net revenue retention, ARPA, cohort retention curves, CAC payback, burn multiple and Rule of 40. It includes a definitions sheet so the numbers mean the same thing every month.",
+      "when": "a board meeting, investor update or planning cycle needs metrics, or the founder is calculating MRR by hand",
+      "inputs": [
+        {
+          "id": "billing_data",
+          "label": "Subscription and invoice data",
+          "required": true,
+          "source": "connector",
+          "example": "Stripe subscriptions and invoices"
+        },
+        {
+          "id": "financials",
+          "label": "P&L and cash for burn and sales and marketing spend",
+          "required": true,
+          "source": "connector",
+          "example": "QuickBooks or Xero"
+        },
+        {
+          "id": "definitions",
+          "label": "Existing metric definitions, if any",
+          "required": false,
+          "source": "memory"
+        },
+        {
+          "id": "period",
+          "label": "Months to cover",
+          "required": true,
+          "source": "owner",
+          "example": "Last 18 months"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Metrics workbook",
+          "format": "xlsx",
+          "description": "Monthly MRR bridge, retention, cohorts, CAC payback, burn multiple, with formulas and a definitions sheet."
+        },
+        {
+          "artifact_type": "deck",
+          "name": "Board metrics slides",
+          "format": "pptx",
+          "description": "One metric per slide with chart and a so-what line."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Cohort and MRR charts",
+          "format": "svg",
+          "description": "MRR bridge waterfall and cohort retention curves."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "file_parse",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "deck_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "stripe",
+        "quickbooks",
+        "xero",
+        "hubspot",
+        "salesforce",
+        "paypal"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "file"
+      ],
+      "instructions": "1. Read subscriptions and invoices with connector_read (or parse exports with file_parse) and financials for burn and sales and marketing spend. 2. Write the definitions first with document_generate: MRR (normalized recurring revenue, excluding one-off fees), what counts as churn, expansion and reactivation, and whether discounts and annual plans are normalized. 3. In code_interpreter build the monthly MRR bridge (starting + new + expansion - contraction - churn + reactivation = ending) and reconcile it to billing. 4. Compute logo churn, gross and net revenue retention, ARPA, cohort retention curves, CAC (sales and marketing spend over new customers), CAC payback in months (CAC over ARPA times gross margin), burn multiple (net burn over net new ARR) and Rule of 40. 5. Build the workbook with spreadsheet_generate, charts with chart_generate and board slides with deck_generate, each with a so-what line. 6. The pack reports the company's own metrics; it is not investment advice. 7. State what could not be verified, such as revenue billed outside the billing system or the gross margin estimate.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read billing and financials",
+          "brief": "Read subscriptions, invoices and financials.",
+          "acceptance": "Data covers the whole period, or gaps listed."
+        },
+        {
+          "activity": "llm",
+          "title": "Definitions",
+          "brief": "Write metric definitions before computing.",
+          "acceptance": "Every metric has a written definition."
+        },
+        {
+          "activity": "analysis",
+          "title": "Compute metrics",
+          "brief": "Build the MRR bridge, retention, cohorts, CAC payback and burn multiple.",
+          "acceptance": "MRR bridge reconciles to billing each month.",
+          "dependsOn": [
+            0,
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Numbers audit",
+          "brief": "A finance analyst re-derives three months of the bridge and the headline ratios.",
+          "acceptance": "First line is APPROVED or CHANGES; discrepancies explained.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Workbook, charts and slides",
+          "brief": "Render the workbook, charts and board slides.",
+          "acceptance": "Numbers agree across outputs.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "The MRR bridge reconciles to billing data every month.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Definitions are written and applied consistently.",
+          "severity": "must"
+        },
+        {
+          "criterion": "One-off fees are excluded from MRR.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Each chart has a so-what line.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Cohort curves are shown alongside averages.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "investor-update",
+        "cohort-analysis",
+        "unit-economics",
+        "dashboard-build",
+        "three-statement-model"
+      ],
+      "example_request": "Our board meeting is in two weeks and I've been hand-calculating MRR from Stripe. Build a proper SaaS metrics pack — MRR movements, NRR, churn, CAC payback, burn multiple.",
+      "typical_departments": [
+        "industry-specialists",
+        "finance-accounting"
+      ],
+      "version": 1
+    },
+    {
+      "id": "oee-improvement",
+      "name": "OEE & changeover improvement",
+      "icon": "🏭",
+      "category": "industry-workflows",
+      "one_liner": "OEE baseline, loss tree and a SMED plan to cut changeover time.",
+      "description": "Measures OEE (availability x performance x quality) from production logs, breaks losses into a loss tree using the TPM six big losses, and attacks the biggest one: usually changeovers, with a SMED study built from a phone video of a real changeover. Internal steps are separated from external ones, internal work is converted to external, and the result is standard work and a pilot plan.",
+      "when": "a line or machine underperforms, changeovers are long, or the owner needs capacity without buying equipment",
+      "inputs": [
+        {
+          "id": "production_logs",
+          "label": "Production logs: planned time, downtime, counts, rejects",
+          "required": true,
+          "source": "file",
+          "example": "MES or spreadsheet export, 8 weeks"
+        },
+        {
+          "id": "changeover_video",
+          "label": "Video or photos of a real changeover",
+          "required": false,
+          "source": "file",
+          "example": "Phone video of the last Line 2 changeover"
+        },
+        {
+          "id": "ideal_rates",
+          "label": "Ideal cycle time per product",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "safety_constraints",
+          "label": "Lockout/tagout and guarding rules",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "OEE workbook",
+          "format": "xlsx",
+          "description": "OEE by shift, product and machine with a six-big-losses breakdown."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "OEE loss waterfall",
+          "format": "svg",
+          "description": "From planned time to good output, loss by loss."
+        },
+        {
+          "artifact_type": "document",
+          "name": "SMED study and plan",
+          "format": "md -> docx",
+          "description": "Changeover elements, internal versus external, conversions, standard work and a pilot plan."
+        },
+        {
+          "artifact_type": "checklist",
+          "name": "Changeover standard work",
+          "format": "md -> pdf",
+          "description": "Pre-changeover, changeover and restart checklists."
+        }
+      ],
+      "tools": [
+        "file_parse",
+        "vision_describe",
+        "stt",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "google-workspace",
+        "microsoft-365",
+        "airtable"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "video",
+        "camera",
+        "image",
+        "audio"
+      ],
+      "instructions": "1. Parse production logs with file_parse and compute in code_interpreter: availability (run time over planned time), performance (ideal cycle time times count over run time), quality (good over total), and OEE, by shift, product and machine. 2. Build a loss tree with the six big losses (breakdowns, setups and adjustments, small stops, reduced speed, startup rejects, production rejects) and a waterfall with chart_generate. 3. For the changeover study, review the video frame by frame with vision_describe (and transcribe operator narration with stt if present); list every element with its duration. 4. Classify each element as internal (machine stopped) or external (can be done while running); convert internal to external (pre-staging tools and materials, preset settings), then streamline the rest (quick-release fasteners, standard heights, parallel work, eliminating adjustments). 5. Write standard work checklists and a pilot plan with a target time and how it will be measured. 6. Never bypass lockout/tagout, guarding or other safety controls; changes to guarding or energy isolation go to the site's safety lead. 7. Build the workbook with spreadsheet_generate and the study with document_generate, and state what could not be verified, such as ideal cycle times the owner estimated or steps hidden from the camera.",
+      "workflow": [
+        {
+          "activity": "ingest",
+          "title": "Load logs",
+          "brief": "Parse production logs.",
+          "acceptance": "Planned time, downtime reasons, counts and rejects loaded."
+        },
+        {
+          "activity": "analysis",
+          "title": "OEE and loss tree",
+          "brief": "Compute OEE and break losses into the six big losses.",
+          "acceptance": "Formulas shown; the largest loss identified.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "ingest",
+          "title": "Study the changeover",
+          "brief": "Review the changeover video and narration; list elements with durations.",
+          "acceptance": "Element list with durations totals the observed changeover time."
+        },
+        {
+          "activity": "llm",
+          "title": "SMED redesign",
+          "brief": "Separate internal and external, convert and streamline; write standard work.",
+          "acceptance": "Each change shows expected time saved; no safety control bypassed.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Safety and operations review",
+          "brief": "A quality or operations reviewer checks feasibility and safety.",
+          "acceptance": "First line is APPROVED or CHANGES; unsafe steps removed.",
+          "dependsOn": [
+            1,
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Workbook, study and checklists",
+          "brief": "Render the OEE workbook, waterfall, SMED study and checklists.",
+          "acceptance": "Pilot plan has a target and measurement method.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "OEE is computed as availability x performance x quality with the formulas shown.",
+          "severity": "must"
+        },
+        {
+          "criterion": "No recommendation bypasses lockout/tagout, guarding or other safety controls.",
+          "severity": "must"
+        },
+        {
+          "criterion": "SMED separates internal and external elements with durations.",
+          "severity": "should"
+        },
+        {
+          "criterion": "The pilot plan has a target time and a measurement method.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "inert",
+      "effort": {
+        "typical_minutes": 90,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "value-stream-map",
+        "root-cause-analysis",
+        "quality-control-plan",
+        "capacity-plan",
+        "sop-writing"
+      ],
+      "example_request": "Line 2's changeovers take 90 minutes and our OEE is probably awful. Here's a phone video of the last changeover and our production log — find the losses and cut the changeover time.",
+      "typical_departments": [
+        "industry-specialists",
+        "operations-supply-chain"
+      ],
+      "version": 1
+    },
+    {
+      "id": "membership-retention",
+      "name": "Membership retention playbook",
+      "icon": "🏋️",
+      "category": "industry-workflows",
+      "one_liner": "Fitness or wellness member journey, at-risk signals and win-back plays. Non-medical.",
+      "description": "A retention playbook for a fitness or wellness studio: the member journey from joining through the first 90 days, at-risk signals from visit and booking data (falling frequency, missed classes, freezes, failed payments), cohort survival curves, and save and win-back plays with message drafts. Cancellation stays easy, and the playbook is non-medical throughout.",
+      "when": "new members join but leave within months, churn is rising, or the studio wants to know who is about to quit",
+      "inputs": [
+        {
+          "id": "member_data",
+          "label": "Memberships, visits, bookings and payment status",
+          "required": true,
+          "source": "connector",
+          "example": "Mindbody and Stripe"
+        },
+        {
+          "id": "offers",
+          "label": "Available save offers",
+          "required": false,
+          "source": "owner",
+          "example": "Freeze up to 2 months; downgrade to 4 classes a month"
+        },
+        {
+          "id": "capacity",
+          "label": "Staff time for outreach",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "brand_voice",
+          "label": "Studio voice",
+          "required": false,
+          "source": "memory"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Retention analysis",
+          "format": "xlsx",
+          "description": "Cohort survival, at-risk scores and member lists by play."
+        },
+        {
+          "artifact_type": "chart",
+          "name": "Cohort survival curves",
+          "format": "svg",
+          "description": "Retention by join month."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Retention playbook",
+          "format": "md -> docx",
+          "description": "Journey, signals, plays, owners and cadence."
+        },
+        {
+          "artifact_type": "message_draft",
+          "name": "Outreach drafts",
+          "format": "md",
+          "description": "Onboarding, check-in, save and win-back messages."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "spreadsheet_generate",
+        "chart_generate",
+        "document_generate",
+        "request_owner_decision"
+      ],
+      "connectors_optional": [
+        "mindbody",
+        "stripe",
+        "square",
+        "klaviyo",
+        "mailchimp",
+        "twilio"
+      ],
+      "modalities": [
+        "text",
+        "connector_data"
+      ],
+      "instructions": "1. Read memberships, visits, bookings and payment status with connector_read. 2. In code_interpreter build cohort survival curves by join month and test, on this studio's own data, which early behaviours predict staying (for example visits in the first 30 days). Treat industry rules of thumb as hypotheses. 3. Score at-risk members from signals: visit frequency down against their own baseline, missed booked classes, freeze requests, failed payments and upcoming renewal. 4. Design the journey and plays: first-30-day onboarding (a booked first class, a check-in after visit two, a habit goal), mid-life check-ins, save offers (freeze or downgrade) and win-back at 30, 60 and 90 days. 5. Keep cancellation simple and honest; auto-renewal and cancellation rules vary by place and are flagged for the owner to confirm with counsel. 6. Keep everything non-medical: no health, injury, nutrition or medical advice; route such questions to qualified professionals. 7. Draft messages in the studio's voice, build the analysis with spreadsheet_generate and charts with chart_generate, write the playbook with document_generate, and ask the owner to approve offers and outreach with request_owner_decision. Staff send the messages. 8. State what could not be verified, such as visits not recorded in the system.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read member data",
+          "brief": "Read memberships, visits, bookings and payments.",
+          "acceptance": "Data covers at least 12 months, or gaps listed."
+        },
+        {
+          "activity": "analysis",
+          "title": "Cohorts and at-risk scoring",
+          "brief": "Build survival curves, test early predictors and score at-risk members.",
+          "acceptance": "Predictors tested on the studio's own data; scores explained.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Journey and plays",
+          "brief": "Design the journey, plays and message drafts.",
+          "acceptance": "Every play has a trigger, owner, message and timing.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Member-experience review",
+          "brief": "A retention reviewer checks tone, easy cancellation and non-medical boundaries.",
+          "acceptance": "First line is APPROVED or CHANGES; any health advice or cancellation friction removed.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "human",
+          "title": "Owner approves offers",
+          "brief": "Decision card with save offers and outreach plan.",
+          "acceptance": "Owner approves or edits.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Render playbook and lists",
+          "brief": "Render the playbook, analysis, charts and drafts.",
+          "acceptance": "Member lists match the scoring.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "No health, injury, nutrition or medical advice in any message or play.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Cancellation stays simple; no dark patterns.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Outreach is sent by staff after owner approval, not by coworkers.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Predictors are validated on the studio's own data.",
+          "severity": "should"
+        },
+        {
+          "criterion": "At-risk scores are explainable per member.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "cohort-analysis",
+        "churn-risk-review",
+        "cancellation-flow",
+        "loyalty-program",
+        "email-flow-design"
+      ],
+      "example_request": "We sign up 40 new members a month at the studio but lose almost as many. Figure out who's about to quit and give us plays to keep them.",
+      "typical_departments": [
+        "industry-specialists",
+        "customer-success-support"
+      ],
+      "version": 1
+    },
+    {
+      "id": "course-curriculum",
+      "name": "Course curriculum (backward design)",
+      "icon": "🧑‍🏫",
+      "category": "industry-workflows",
+      "one_liner": "Outcomes, assessments and lessons designed backward from what learners must do.",
+      "description": "Designs a course or cohort program backwards with Understanding by Design. It starts from what learners must be able to do (transfer goals, measurable outcomes with Bloom's verbs), then sets the evidence (performance tasks and rubrics), then the lessons (practice, spaced retrieval, feedback), with a curriculum map, a sample lesson with slides and audio, and cohort operations.",
+      "when": "a coach, educator or expert is turning know-how into a course, cohort program or workshop series, or an existing course has poor completion or results",
+      "inputs": [
+        {
+          "id": "learner_and_goal",
+          "label": "Who the learners are and what they must be able to do",
+          "required": true,
+          "source": "owner",
+          "example": "New bakery owners; price, plan and staff a bakery"
+        },
+        {
+          "id": "format",
+          "label": "Format, length and delivery",
+          "required": true,
+          "source": "owner",
+          "example": "6-week cohort, weekly live call plus self-paced lessons"
+        },
+        {
+          "id": "existing_material",
+          "label": "Existing notes, slides or recordings",
+          "required": false,
+          "source": "file"
+        },
+        {
+          "id": "market_context",
+          "label": "Comparable courses and prices",
+          "required": false,
+          "source": "web"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "plan",
+          "name": "Curriculum map",
+          "format": "xlsx",
+          "description": "Outcomes, assessments and lessons aligned week by week."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Course design",
+          "format": "md -> docx",
+          "description": "Transfer goals, outcomes, performance tasks, rubrics, lesson outlines and cohort operations."
+        },
+        {
+          "artifact_type": "deck",
+          "name": "Sample lesson slides",
+          "format": "pptx",
+          "description": "One full lesson with practice activities and speaker notes."
+        },
+        {
+          "artifact_type": "audio_briefing",
+          "name": "Sample lesson audio",
+          "format": "mp3",
+          "description": "An audio version of the sample lesson."
+        }
+      ],
+      "tools": [
+        "memory_recall",
+        "file_parse",
+        "web_search",
+        "spreadsheet_generate",
+        "document_generate",
+        "deck_generate",
+        "tts"
+      ],
+      "connectors_optional": [
+        "kajabi",
+        "google-workspace",
+        "zoom",
+        "calendly"
+      ],
+      "modalities": [
+        "text",
+        "file",
+        "audio",
+        "url"
+      ],
+      "instructions": "1. Recall the owner's expertise and audience with memory_recall and parse existing material with file_parse; scan comparable courses with web_search for format and price context, and cite them. 2. Stage 1, desired results: write transfer goals (what learners do on their own afterwards), enduring understandings, essential questions, and 5-8 measurable outcomes with Bloom's revised verbs. 3. Stage 2, evidence: design performance tasks (using GRASPS: goal, role, audience, situation, product, standards) with analytic rubrics, plus quick formative checks each week. 4. Stage 3, learning plan: sequence lessons so each outcome gets instruction, practice with feedback and spaced retrieval; balance live and self-paced time. 5. Plan cohort operations (schedule, community norms, office hours, completion nudges) and accessibility (captions, transcripts, alt text, readable slides). 6. Build the curriculum map with spreadsheet_generate, the design with document_generate, a sample lesson with deck_generate and its audio with tts. 7. State what could not be verified, such as learner prior knowledge before a pilot cohort.",
+      "workflow": [
+        {
+          "activity": "research",
+          "title": "Context and comparables",
+          "brief": "Review existing material and comparable courses.",
+          "acceptance": "At least three cited comparables and a list of reusable material."
+        },
+        {
+          "activity": "llm",
+          "title": "Desired results",
+          "brief": "Write transfer goals, understandings, questions and measurable outcomes.",
+          "acceptance": "5-8 outcomes, each with a Bloom's verb and a condition.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Evidence",
+          "brief": "Design performance tasks, rubrics and formative checks.",
+          "acceptance": "Every outcome is assessed by at least one task.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Learning plan and map",
+          "brief": "Sequence lessons and build the curriculum map.",
+          "acceptance": "Map shows outcome, assessment and lesson alignment each week.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Sample lesson",
+          "brief": "Build one full lesson with slides.",
+          "acceptance": "Lesson includes practice and a formative check.",
+          "dependsOn": [
+            3
+          ]
+        },
+        {
+          "activity": "tts",
+          "title": "Sample lesson audio",
+          "brief": "Render the sample lesson as audio.",
+          "acceptance": "Audio matches the lesson script.",
+          "dependsOn": [
+            4
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Learning design review",
+          "brief": "An education program designer checks alignment and learner load.",
+          "acceptance": "First line is APPROVED or CHANGES; misaligned outcomes flagged.",
+          "dependsOn": [
+            4
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every outcome is measurable and assessed by a task.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Lessons align to outcomes; no orphan content.",
+          "severity": "must"
+        },
+        {
+          "criterion": "At least half of learner time is practice or application.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Accessibility is planned: captions, transcripts, alt text.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 120,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "training-module",
+        "pricing-and-packaging",
+        "launch-checklist",
+        "newsletter-issue",
+        "podcast-episode"
+      ],
+      "example_request": "I coach new bakery owners one-on-one and want to turn it into a 6-week cohort course. Design the curriculum so people actually leave able to price, plan and staff their bakery.",
+      "typical_departments": [
+        "industry-specialists",
+        "people-culture"
+      ],
+      "version": 1
+    },
+    {
+      "id": "creator-media-kit",
+      "name": "Creator media kit & rate card",
+      "icon": "🌟",
+      "category": "industry-workflows",
+      "one_liner": "Audience stats, packages, rates and case studies for sponsors.",
+      "description": "A sponsor-ready media kit and rate card from the creator's real analytics: audience, 90-day median views, engagement, platform-reported demographics, content pillars and past results shared with permission. Rates are view-based with adders for usage rights, whitelisting, exclusivity and rush, delivered as a one-page web kit and a PDF deck.",
+      "when": "brands ask for rates, the creator is pitching sponsors, or rates were set by guesswork",
+      "inputs": [
+        {
+          "id": "analytics",
+          "label": "Channel analytics for the last 90 days",
+          "required": true,
+          "source": "connector",
+          "example": "YouTube and Instagram insights"
+        },
+        {
+          "id": "past_deals",
+          "label": "Past sponsorships, results and permission to share",
+          "required": false,
+          "source": "owner"
+        },
+        {
+          "id": "content_pillars",
+          "label": "What the channel is about and who watches",
+          "required": true,
+          "source": "owner"
+        },
+        {
+          "id": "rate_goals",
+          "label": "Current rates or income goals",
+          "required": false,
+          "source": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "artifact_type": "deck",
+          "name": "Media kit",
+          "format": "pdf",
+          "description": "Audience, content, results, packages and contact."
+        },
+        {
+          "artifact_type": "web_page",
+          "name": "One-page media kit",
+          "format": "html",
+          "description": "Shareable page with dated stats."
+        },
+        {
+          "artifact_type": "spreadsheet",
+          "name": "Rate card calculator",
+          "format": "xlsx",
+          "description": "View-based pricing with adders for usage rights, whitelisting, exclusivity and rush."
+        },
+        {
+          "artifact_type": "document",
+          "name": "Partnership terms",
+          "format": "md",
+          "description": "Deliverables, revisions, disclosure, usage and payment terms, for the creator's contract."
+        }
+      ],
+      "tools": [
+        "connector_read",
+        "code_interpreter",
+        "chart_generate",
+        "deck_generate",
+        "web_page_generate",
+        "spreadsheet_generate",
+        "document_generate"
+      ],
+      "connectors_optional": [
+        "youtube",
+        "meta-business",
+        "linkedin",
+        "kajabi",
+        "stripe",
+        "docusign"
+      ],
+      "modalities": [
+        "text",
+        "connector_data",
+        "web_page",
+        "image"
+      ],
+      "instructions": "1. Read the last 90 days of analytics with connector_read: followers or subscribers, average views per video or post (median as well as mean), engagement rate, and platform-reported demographics and geography. 2. In code_interpreter compute stable figures (median views, typical reach per format) and date-stamp every stat; never inflate, round up aggressively, or present lifetime peaks as typical. 3. Summarize content pillars and past partnership results, sharing brand names and results only with permission. 4. Design packages (dedicated video, integration, short-form, stories, bundles) and build a rate calculator with spreadsheet_generate: expected views divided by 1,000 times a CPM range, with adders for usage rights, paid whitelisting, exclusivity and rush, and label benchmark CPMs as benchmarks. 5. Draft partnership terms: deliverables, revision rounds, disclosure requirements (clear paid-partnership labels), usage duration, payment terms and cancellation, marked for the creator's own contract review. 6. Build charts with chart_generate, the PDF kit with deck_generate, the one-page kit with web_page_generate and terms with document_generate. 7. State what could not be verified, such as demographic data the platforms estimate.",
+      "workflow": [
+        {
+          "activity": "mcp",
+          "title": "Read analytics",
+          "brief": "Read 90 days of analytics per platform.",
+          "acceptance": "Stats per platform with date range."
+        },
+        {
+          "activity": "analysis",
+          "title": "Compute stable stats and rates",
+          "brief": "Compute median views, engagement and view-based rates with adders.",
+          "acceptance": "Every stat dated; rates show the formula.",
+          "dependsOn": [
+            0
+          ]
+        },
+        {
+          "activity": "llm",
+          "title": "Packages and terms",
+          "brief": "Design packages and draft partnership terms.",
+          "acceptance": "Packages priced; terms cover disclosure and usage.",
+          "dependsOn": [
+            1
+          ]
+        },
+        {
+          "activity": "document",
+          "title": "Build the kit",
+          "brief": "Build the PDF kit, one-page web kit and rate calculator.",
+          "acceptance": "Stats identical across the kit, page and calculator.",
+          "dependsOn": [
+            2
+          ]
+        },
+        {
+          "activity": "review",
+          "title": "Honesty review",
+          "brief": "A reviewer checks that no stat is inflated or undated and past results are shared with permission.",
+          "acceptance": "First line is APPROVED or CHANGES; inflated or undated stats corrected.",
+          "dependsOn": [
+            3
+          ]
+        }
+      ],
+      "quality_checks": [
+        {
+          "criterion": "Every stat is dated and drawn from the creator's own analytics.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Past brand results are shared only with permission.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Disclosure requirements are included in the terms.",
+          "severity": "must"
+        },
+        {
+          "criterion": "Median views are shown, not only averages or peaks.",
+          "severity": "should"
+        },
+        {
+          "criterion": "Rates include usage-rights and exclusivity adders.",
+          "severity": "should"
+        }
+      ],
+      "approval_tier": "draft",
+      "effort": {
+        "typical_minutes": 60,
+        "cost_class": "med"
+      },
+      "pairs_with": [
+        "thumbnail-title-pack",
+        "ugc-ad-brief",
+        "pricing-and-packaging",
+        "partner-program-design",
+        "social-media-plan"
+      ],
+      "example_request": "Brands keep DMing me asking for my rates and I just make numbers up. Build me a media kit and rate card from my real YouTube and Instagram stats.",
+      "typical_departments": [
+        "industry-specialists",
+        "marketing-growth"
+      ],
+      "version": 1
+    }
+  ]
+}
