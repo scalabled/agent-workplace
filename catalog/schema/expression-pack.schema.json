@@ -1,0 +1,748 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-workplace.local/catalog/schema/expression-pack.schema.json",
+  "title": "Expression catalog (living workforce)",
+  "description": "Every file under catalog/expressions/ validates against this schema; the top-level `kind` picks the shape. archetype_pack = packs/<archetype-id>.json (shared lines per intent). signature_file = personas/<department-id>.json or leads.json (one signature pack per persona or lead; signatures/<group>.json is also accepted). intents = intents.json (the intent taxonomy, timing, channels, slots, contexts, ambience). archetypes = archetypes.json (voice archetypes and how personas map onto them). Spec: docs/LIVING-WORKFORCE.md §3-§5. Cross-file checks (line-id uniqueness, slot/placeholder agreement, readable(tags.xai) == text, persona ids, enum parity with intents.json and archetypes.json) run in catalog/scripts/validate-expressions.mjs.",
+  "oneOf": [
+    { "$ref": "#/$defs/archetype_pack" },
+    { "$ref": "#/$defs/signature_file" },
+    { "$ref": "#/$defs/intents_file" },
+    { "$ref": "#/$defs/archetypes_file" }
+  ],
+  "$defs": {
+    "record_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+      "maxLength": 48,
+      "description": "kebab-case catalog id (persona id, lead id, department id)"
+    },
+    "intent_id": {
+      "type": "string",
+      "enum": [
+        "backchannel",
+        "acknowledge",
+        "thinking_filler",
+        "holding_filler",
+        "deferral",
+        "laugh",
+        "surprise",
+        "delight",
+        "concern",
+        "sympathy",
+        "encouragement",
+        "gratitude_reply",
+        "apology",
+        "yield_floor",
+        "juggling",
+        "back_with_you",
+        "greeting",
+        "passing_by",
+        "micro_status",
+        "quip",
+        "sign_off",
+        "handoff_give",
+        "handoff_take",
+        "ask_coworker",
+        "answer_coworker",
+        "share_result",
+        "review_approve",
+        "review_changes",
+        "sidetalk_reply",
+        "celebrate",
+        "blocked",
+        "unblocked",
+        "oops"
+      ],
+      "description": "The 33 intents; mirrors catalog/expressions/intents.json (checked by the validator)."
+    },
+    "archetype_id": {
+      "type": "string",
+      "enum": [
+        "warm",
+        "dry-wit",
+        "energetic",
+        "calm-steady",
+        "blunt",
+        "playful",
+        "meticulous",
+        "gentle",
+        "hustler",
+        "visionary",
+        "analytical",
+        "veteran"
+      ],
+      "description": "The 12 voice archetypes; mirrors catalog/expressions/archetypes.json."
+    },
+    "slot_id": {
+      "type": "string",
+      "enum": [
+        "owner_name",
+        "chief_name",
+        "self_name",
+        "coworker",
+        "project",
+        "client",
+        "step_label",
+        "artifact",
+        "done",
+        "total",
+        "eta",
+        "other_thread",
+        "blocker",
+        "finding_count",
+        "weekday",
+        "part_of_day",
+        "gist"
+      ],
+      "description": "Slot vocabulary; resolvers and value rules live in intents.json `slots`. Written in text as {slot_id}."
+    },
+    "context_tag": {
+      "type": "string",
+      "pattern": "^!?[a-z][a-z0-9_]*(:[a-z0-9_-]+)?$",
+      "maxLength": 48,
+      "description": "A context the line requires (all listed must hold); a leading ! means the context must NOT hold. Vocabulary in intents.json `contexts`; parameterised forms like part_of_day:morning or activity:analysis."
+    },
+    "line_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*\\.[a-z][a-z0-9_]*\\.[0-9]{2,3}$",
+      "maxLength": 96,
+      "description": "<pack>.<intent|catch>.<nn>: pack is the archetype id, persona/lead id, or ex-<archetype> for exemplars. Globally unique across all expression files."
+    },
+    "unit": {
+      "type": "number",
+      "minimum": -1,
+      "maximum": 1
+    },
+    "max_per_week": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60,
+      "description": "Cap per agent over the last 7 owner-local days (E1). Quips and catchphrases default to max(2, max_per_day)."
+    },
+    "family_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,31}$",
+      "description": "Phrase family (E21): a tic spread over several lines ('copy', 'kia-ora', 'boring'). Capped per agent per day as a family: the pack's family_max_per_day, else defaults.family_max_per_day."
+    },
+    "lang_tag": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$",
+      "description": "BCP-47 language of non-English words in the line (E17). Such lines default to max_per_day 1, need a gloss, and are voiced only with OpenAI pronunciation instructions or a clip marked pronunciation_checked."
+    },
+    "gloss": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 80,
+      "description": "English gloss of the non-English words, shown beside the caption and never spoken (E17)."
+    },
+    "mood_fit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["valence", "energy"],
+      "properties": {
+        "valence": { "$ref": "#/$defs/unit", "description": "-1 low (worried, deflated) … +1 high (pleased, bright)" },
+        "energy": { "$ref": "#/$defs/unit", "description": "-1 low (quiet, slow) … +1 high (animated, quick)" },
+        "spread": { "type": "number", "minimum": 0.2, "maximum": 2, "description": "Tolerance (sigma) of the fit; default 0.6. Larger = fits more moods." }
+      },
+      "description": "The mood this line suits best. Omit for mood-neutral lines."
+    },
+    "delivery_tags": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "xai": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 280,
+          "description": "The line as xAI TTS input with inline expressive tags ([pause] [long-pause] [laugh] [sigh] [breath] [sharp-breath]) and balanced wrappers (<whisper> <soft> <loud> <slow> <fast>). readable(xai) must equal text, except for nonverbal lines. [cough] and [yawn] are not allowed in packs."
+        },
+        "openai": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "instructions": { "type": "string", "minLength": 3, "maxLength": 300, "description": "gpt-4o-mini-tts style instructions for this line, appended to the persona's tts_instructions." },
+            "say": { "type": "string", "minLength": 1, "maxLength": 200, "description": "What OpenAI TTS should read instead of text (nonverbal lines: e.g. 'Heh.'). Must keep the same slots as text." }
+          }
+        }
+      }
+    },
+    "line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text"],
+      "properties": {
+        "id": { "$ref": "#/$defs/line_id" },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "The words exactly as captioned, with {slot} placeholders. No markup. Nonverbal lines give the caption in parentheses, e.g. '(chuckles)'."
+        },
+        "nonverbal": { "type": "boolean", "description": "A laugh, sigh or breath with no words. Captioned as text; browser speech never voices it (face only)." },
+        "tags": { "$ref": "#/$defs/delivery_tags" },
+        "slots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/slot_id" },
+          "uniqueItems": true,
+          "maxItems": 4,
+          "description": "Every {slot} in text, and only those."
+        },
+        "mood": { "$ref": "#/$defs/mood_fit" },
+        "weight": { "type": "number", "minimum": 0.1, "maximum": 5, "description": "Prior weight; default 1." },
+        "context": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/context_tag" },
+          "uniqueItems": true,
+          "maxItems": 6
+        },
+        "max_per_day": { "type": "integer", "minimum": 1, "maximum": 20, "description": "Cap per agent per owner-local day (signature bits that wear out). Quips, catchphrases and lines with lang default to 1." },
+        "max_per_week": { "$ref": "#/$defs/max_per_week" },
+        "family": { "$ref": "#/$defs/family_id" },
+        "solicits": { "type": "boolean", "description": "An idle line that asks the owner for work ('Got anything for me?'). At most one per solicit_gap_ms across the Floor (E25)." },
+        "lang": { "$ref": "#/$defs/lang_tag" },
+        "gloss": { "$ref": "#/$defs/gloss" },
+        "note": { "type": "string", "maxLength": 240, "description": "Author note; never shown or voiced." }
+      }
+    },
+    "catchphrase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "intents"],
+      "properties": {
+        "id": { "$ref": "#/$defs/line_id" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "nonverbal": { "type": "boolean" },
+        "tags": { "$ref": "#/$defs/delivery_tags" },
+        "slots": { "type": "array", "items": { "$ref": "#/$defs/slot_id" }, "uniqueItems": true, "maxItems": 4 },
+        "mood": { "$ref": "#/$defs/mood_fit" },
+        "weight": { "type": "number", "minimum": 0.1, "maximum": 5 },
+        "context": { "type": "array", "items": { "$ref": "#/$defs/context_tag" }, "uniqueItems": true, "maxItems": 6 },
+        "max_per_day": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "max_per_week": { "$ref": "#/$defs/max_per_week" },
+        "family": { "$ref": "#/$defs/family_id" },
+        "solicits": { "type": "boolean" },
+        "lang": { "$ref": "#/$defs/lang_tag" },
+        "gloss": { "$ref": "#/$defs/gloss" },
+        "note": { "type": "string", "maxLength": 240 },
+        "intents": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/intent_id" },
+          "minItems": 1,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "description": "Intents in which this catchphrase may be picked (it joins their candidate sets)."
+        }
+      }
+    },
+    "lines_by_intent": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/intent_id" },
+      "additionalProperties": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/line" },
+        "minItems": 1,
+        "maxItems": 60
+      }
+    },
+    "laugh_style": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "intensity", "readiness", "caption"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["chuckle", "warm_laugh", "belly_laugh", "giggle", "snort", "breathy", "dry_huff", "silent_smile"],
+          "description": "silent_smile = face only, never voiced."
+        },
+        "intensity": { "type": "number", "minimum": 0, "maximum": 1, "description": "How big the laugh is; Quiet ambience caps it at 0.4." },
+        "readiness": { "type": "number", "minimum": 0, "maximum": 1, "description": "How readily they laugh; multiplies the laugh intent's probability." },
+        "caption": { "type": "string", "minLength": 3, "maxLength": 40, "description": "e.g. '(chuckles)'" },
+        "xai": { "type": "string", "minLength": 3, "maxLength": 80, "description": "Tag rendering, e.g. '<soft>[laugh]</soft>'" },
+        "openai": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["say"],
+          "properties": {
+            "say": { "type": "string", "minLength": 1, "maxLength": 40 },
+            "instructions": { "type": "string", "minLength": 3, "maxLength": 200 }
+          }
+        }
+      }
+    },
+    "blend": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/archetype_id" },
+      "additionalProperties": { "type": "number", "minimum": 0.05, "maximum": 1 },
+      "minProperties": 1,
+      "maxProperties": 4,
+      "description": "Archetype blend weights; they sum to 1 (±0.01, checked by the validator)."
+    },
+    "intent_multipliers": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/intent_id" },
+      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 3 }
+    },
+    "archetype_pack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "version", "intents"],
+      "properties": {
+        "$schema": { "type": "string" },
+        "kind": { "const": "archetype_pack" },
+        "id": { "$ref": "#/$defs/archetype_id" },
+        "version": { "type": "integer", "minimum": 1 },
+        "intents": { "$ref": "#/$defs/lines_by_intent" }
+      }
+    },
+    "signature_pack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["persona_id", "archetypes", "laugh_style", "lines", "catchphrases", "never_says"],
+      "properties": {
+        "persona_id": { "$ref": "#/$defs/record_id", "description": "A catalog persona id or lead id." },
+        "archetypes": { "$ref": "#/$defs/blend" },
+        "laugh_style": { "$ref": "#/$defs/laugh_style" },
+        "lines": { "$ref": "#/$defs/lines_by_intent" },
+        "catchphrases": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/catchphrase" },
+          "maxItems": 10
+        },
+        "never_says": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 2, "maxLength": 60 },
+          "minItems": 1,
+          "maxItems": 24,
+          "uniqueItems": true,
+          "description": "Words or phrases this persona never says (case-insensitive, whole-word). Filters archetype lines too. Leads seed it from communication.words_they_avoid."
+        },
+        "intent_weights": { "$ref": "#/$defs/intent_multipliers" },
+        "disabled_intents": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/intent_id" },
+          "uniqueItems": true,
+          "maxItems": 8
+        },
+        "voice_notes": { "type": "string", "maxLength": 400 },
+        "version": { "type": "integer", "minimum": 1 },
+        "topics": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_-]*$" },
+          "additionalProperties": { "type": "array", "items": { "type": "string", "minLength": 2, "maxLength": 40 }, "minItems": 1, "maxItems": 40, "uniqueItems": true },
+          "maxProperties": 4,
+          "description": "Topic id → keywords matched against the owner's turn (E19). A match sets topic:<id>; domain-flavoured reactions require it."
+        },
+        "family_max_per_day": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/family_id" },
+          "additionalProperties": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "description": "Per-day cap of each phrase family for this persona (E21)."
+        }
+      }
+    },
+    "signature_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "group", "version", "packs"],
+      "properties": {
+        "$schema": { "type": "string" },
+        "kind": { "const": "signature_file" },
+        "group": { "$ref": "#/$defs/record_id", "description": "A department id, or 'leads'." },
+        "version": { "type": "integer", "minimum": 1 },
+        "packs": { "type": "array", "items": { "$ref": "#/$defs/signature_pack" }, "minItems": 1, "maxItems": 40 }
+      }
+    },
+    "ms_range": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 0, "maximum": 600000 },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "ambience_level": {
+      "type": "string",
+      "enum": ["off", "face", "bubble", "full"],
+      "description": "off = never; face = face cue only; bubble = face + text bubble/caption, never voiced; full = every channel the intent allows."
+    },
+    "face_gesture": {
+      "type": "string",
+      "enum": ["none", "nod", "double_nod", "look_up", "brow_flash", "head_tilt", "smile", "wince", "exhale", "glance", "still"]
+    },
+    "palette_state": {
+      "type": "string",
+      "enum": ["resting", "thinking", "delighted", "concerned"]
+    },
+    "intent_def": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "family", "summary", "audience", "budget", "latency", "triggers", "timing", "channels", "max_chars", "max_ms", "slots", "requires", "ambience", "prevoice", "priority", "quota", "honesty", "examples"],
+      "properties": {
+        "id": { "$ref": "#/$defs/intent_id" },
+        "family": { "type": "string", "enum": ["conversation", "presence", "sidetalk", "work"] },
+        "summary": { "type": "string", "minLength": 10, "maxLength": 300 },
+        "audience": { "type": "string", "enum": ["owner", "coworker", "owner_or_room"] },
+        "budget": { "type": "string", "enum": ["exempt", "chatter"], "description": "exempt = owner-directed, never spends the chatter budget; chatter = spends it (Ambience)." },
+        "latency": { "type": "string", "enum": ["reflex", "quick", "relaxed"], "description": "reflex: audible within 200 ms, instant clips only; quick: within 600 ms, a pre-voiced prefix may cover runtime TTS; relaxed: within 1.5 s." },
+        "triggers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["on", "when"],
+            "properties": {
+              "on": { "type": "string", "pattern": "^[a-z][a-z_]*(\\.[a-z_]+)*$" },
+              "when": { "type": "string", "minLength": 5, "maxLength": 300 },
+              "context": { "type": "array", "items": { "$ref": "#/$defs/context_tag" }, "uniqueItems": true, "maxItems": 3 }
+            }
+          }
+        },
+        "timing": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["delay_ms", "ttl_ms"],
+          "properties": {
+            "delay_ms": { "$ref": "#/$defs/ms_range", "description": "Uniform jitter after the trigger (humans are not metronomes)." },
+            "ttl_ms": { "type": "integer", "minimum": 50, "maximum": 60000, "description": "Drop if it cannot start within this long of the trigger." },
+            "min_gap_ms": { "type": "integer", "minimum": 0, "maximum": 3600000, "description": "Minimum time between two of this intent from the same agent." },
+            "agent_cooldown_ms": { "type": "integer", "minimum": 0, "maximum": 86400000, "description": "Cooldown per agent per surface (overridden per ambience where noted)." },
+            "global_gap_ms": { "type": "integer", "minimum": 0, "maximum": 3600000, "description": "Minimum time between two of this intent across all agents for one viewer." },
+            "max_per_turn": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "max_per_hour": { "type": "integer", "minimum": 1, "maximum": 120 },
+            "probability": { "type": "number", "minimum": 0, "maximum": 1, "description": "Base chance of firing when every gate passes (scaled by ambience, archetype and laugh readiness)." },
+            "not_before_ms": { "type": "integer", "minimum": 0, "maximum": 60000, "description": "Not in the first N ms of the owner's utterance/visit." }
+          }
+        },
+        "channels": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["voice", "bubble", "face", "caption"],
+          "properties": {
+            "voice": { "type": "string", "enum": ["owner_audio", "stage", "listening", "never"], "description": "owner_audio: voiced when the owner's audio is armed, voice is on and the owner is in a voice exchange with this agent; stage: only while the owner is at this agent's stage (Talk or desk); listening: only for an audio observer (listen-in, or Buzzing Floor audio); never." },
+            "bubble": { "type": "string", "enum": ["never", "text_mode", "floor", "always"], "description": "text_mode: an ephemeral caption bubble under the face when the exchange is text; floor: a bubble on the desk tile; always: both." },
+            "face": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["gesture", "hold_ms"],
+              "properties": {
+                "gesture": { "$ref": "#/$defs/face_gesture" },
+                "expression": { "$ref": "#/$defs/palette_state" },
+                "hold_ms": { "type": "integer", "minimum": 0, "maximum": 10000 }
+              }
+            },
+            "caption": { "type": "string", "enum": ["line", "reaction", "none"], "description": "reaction = captioned in the lighter reaction style." }
+          }
+        },
+        "gain_db": { "type": "number", "minimum": -18, "maximum": 0 },
+        "max_chars": { "type": "integer", "minimum": 4, "maximum": 200 },
+        "max_ms": { "type": "integer", "minimum": 200, "maximum": 8000 },
+        "slots": { "type": "array", "items": { "$ref": "#/$defs/slot_id" }, "uniqueItems": true },
+        "requires": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z_]*(:[a-z0-9_.|]+)?$" },
+          "uniqueItems": true,
+          "description": "Grounding the trigger must carry (cause:<event>, contention, route:background, owner_at_stage…)."
+        },
+        "ambience": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["quiet", "lively", "buzzing"],
+          "properties": {
+            "quiet": { "$ref": "#/$defs/ambience_level" },
+            "lively": { "$ref": "#/$defs/ambience_level" },
+            "buzzing": { "$ref": "#/$defs/ambience_level" }
+          }
+        },
+        "prevoice": { "type": "string", "enum": ["p0", "p1", "p2", "runtime"] },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 6, "description": "Client audio priority class, 0 highest (see LIVING-WORKFORCE §2.3)." },
+        "quota": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["archetype", "signature"],
+          "properties": {
+            "archetype": { "type": "integer", "minimum": 0, "maximum": 40, "description": "Minimum lines per archetype pack." },
+            "signature": { "type": "integer", "minimum": 0, "maximum": 20, "description": "Minimum signature lines per persona (leads: double)." }
+          }
+        },
+        "honesty": { "type": "array", "items": { "type": "string", "minLength": 5, "maxLength": 300 }, "maxItems": 6 },
+        "examples": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 200 }, "minItems": 1, "maxItems": 8 },
+        "max_ms_by_context": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/context_tag" },
+          "additionalProperties": { "type": "integer", "minimum": 200, "maximum": 8000 },
+          "description": "A longer duration budget for lines that require one of these contexts (E6), e.g. acknowledge steer_queued 2400. It also overrides the runner's latency cap."
+        },
+        "signature_weight": {
+          "type": "number",
+          "minimum": 0.5,
+          "maximum": 3,
+          "description": "Prior multiplier for signature lines in this intent (E3); defaults.signature_source_weight otherwise. 1 in high-frequency reflexes so a few distinctive lines never take most picks."
+        },
+        "context_first": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]*(:[a-z0-9_*-]+)?$" },
+          "uniqueItems": true,
+          "maxItems": 8,
+          "description": "Contexts that, when they hold, restrict the pool to lines requiring them (E5), on top of defaults.context_first."
+        }
+      }
+    },
+    "intents_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "version", "about", "defaults", "trigger_events", "ambience", "slots", "contexts", "affect_lexicon", "intents"],
+      "properties": {
+        "$schema": { "type": "string" },
+        "kind": { "const": "intents" },
+        "version": { "type": "integer", "minimum": 1 },
+        "about": { "type": "string" },
+        "defaults": { "type": "object", "additionalProperties": { "type": ["number", "string", "boolean", "array"] } },
+        "trigger_events": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][a-z_]*(\\.[a-z_]+)*$" },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "description"],
+            "properties": {
+              "source": { "type": "string", "enum": ["client", "server", "either"] },
+              "description": { "type": "string", "minLength": 5, "maxLength": 300 },
+              "increment": { "type": "string", "pattern": "^(0\\.5|[1-8])$" }
+            }
+          }
+        },
+        "ambience": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["quiet", "lively", "buzzing"],
+          "properties": {
+            "quiet": { "$ref": "#/$defs/ambience_profile" },
+            "lively": { "$ref": "#/$defs/ambience_profile" },
+            "buzzing": { "$ref": "#/$defs/ambience_profile" }
+          }
+        },
+        "slots": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/slot_id" },
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source", "max_chars", "prevoice", "description"],
+            "properties": {
+              "source": { "type": "string", "minLength": 3, "maxLength": 200 },
+              "max_chars": { "type": "integer", "minimum": 1, "maximum": 80 },
+              "prevoice": { "type": "string", "enum": ["fixed", "finite", "team", "runtime"], "description": "fixed: one value per agent/workspace (pre-voiced); finite: a small closed set (all pre-voiced); team: one value per teammate or active project (pre-voiced lazily); runtime: rendered on demand." },
+              "domain": { "type": "array", "items": { "type": "string" }, "maxItems": 20 },
+              "description": { "type": "string", "minLength": 5, "maxLength": 300 }
+            }
+          }
+        },
+        "contexts": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][a-z0-9_]*(:\\*)?$" },
+          "additionalProperties": { "type": "string", "minLength": 5, "maxLength": 300 }
+        },
+        "affect_lexicon": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1, "maxLength": 40 },
+            "minItems": 1
+          }
+        },
+        "intents": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/intent_def" },
+          "minItems": 33,
+          "maxItems": 33
+        }
+      }
+    },
+    "ambience_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "chatter_per_min", "chatter_burst", "ambient_voice_s_per_10min", "max_visible_bubbles", "passing_by", "sidetalk", "quip", "backchannel_factor", "laugh_intensity_cap"],
+      "properties": {
+        "summary": { "type": "string", "minLength": 10, "maxLength": 300 },
+        "chatter_per_min": { "type": "number", "minimum": 0, "maximum": 20 },
+        "chatter_burst": { "type": "integer", "minimum": 0, "maximum": 20 },
+        "ambient_voice_s_per_10min": { "type": "integer", "minimum": 0, "maximum": 600 },
+        "max_visible_bubbles": { "type": "integer", "minimum": 0, "maximum": 6 },
+        "passing_by": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["agent_cooldown_ms", "global_gap_ms", "voice"],
+          "properties": {
+            "agent_cooldown_ms": { "type": "integer", "minimum": 0 },
+            "global_gap_ms": { "type": "integer", "minimum": 0 },
+            "voice": { "type": "boolean" }
+          }
+        },
+        "sidetalk": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "voice", "pod_gap_ms", "agent_gap_ms", "max_chain"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "voice": { "type": "string", "enum": ["never", "listen_in", "floor_audio"] },
+            "pod_gap_ms": { "type": "integer", "minimum": 0 },
+            "agent_gap_ms": { "type": "integer", "minimum": 0 },
+            "max_chain": { "type": "integer", "minimum": 0, "maximum": 4 }
+          }
+        },
+        "quip": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["probability", "max_per_hour"],
+          "properties": {
+            "probability": { "type": "number", "minimum": 0, "maximum": 1 },
+            "max_per_hour": { "type": "integer", "minimum": 0, "maximum": 60 }
+          }
+        },
+        "backchannel_factor": { "type": "number", "minimum": 0, "maximum": 2 },
+        "laugh_intensity_cap": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "archetype_def": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "summary", "sounds_like", "mapping", "mood_bias", "intent_weights", "delivery", "laugh", "exemplars"],
+      "properties": {
+        "id": { "$ref": "#/$defs/archetype_id" },
+        "name": { "type": "string", "minLength": 3, "maxLength": 40 },
+        "summary": { "type": "string", "minLength": 20, "maxLength": 400 },
+        "sounds_like": { "type": "string", "minLength": 20, "maxLength": 400 },
+        "mapping": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sliders", "traits"],
+          "properties": {
+            "sliders": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "warmth": { "$ref": "#/$defs/unit" },
+                "directness": { "$ref": "#/$defs/unit" },
+                "formality": { "$ref": "#/$defs/unit" },
+                "humor": { "$ref": "#/$defs/unit" },
+                "risk_appetite": { "$ref": "#/$defs/unit" },
+                "detail": { "$ref": "#/$defs/unit" },
+                "pace": { "$ref": "#/$defs/unit" }
+              },
+              "minProperties": 2
+            },
+            "traits": {
+              "type": "object",
+              "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 },
+              "minProperties": 3
+            },
+            "roles": {
+              "type": "object",
+              "propertyNames": { "enum": ["lead", "co_owner", "reviewer", "sceptic", "facilitator", "specialist"] },
+              "additionalProperties": { "type": "number", "minimum": -1, "maximum": 1 }
+            },
+            "seniority": {
+              "type": "object",
+              "propertyNames": { "enum": ["specialist", "senior", "lead", "principal"] },
+              "additionalProperties": { "type": "number", "minimum": -1, "maximum": 1 }
+            }
+          }
+        },
+        "mood_bias": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["valence", "energy"],
+          "properties": {
+            "valence": { "type": "number", "minimum": -0.3, "maximum": 0.3 },
+            "energy": { "type": "number", "minimum": -0.3, "maximum": 0.3 }
+          }
+        },
+        "intent_weights": { "$ref": "#/$defs/intent_multipliers" },
+        "delivery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pace", "tag_budget", "preferred_tags", "avoid_tags", "openai_instructions", "backchannel", "filler", "avoid"],
+          "properties": {
+            "pace": { "type": "string", "enum": ["slow", "measured", "brisk", "quick"] },
+            "tag_budget": { "type": "integer", "minimum": 0, "maximum": 3, "description": "Max expressive tags per line." },
+            "preferred_tags": { "type": "array", "items": { "$ref": "#/$defs/xai_tag" }, "uniqueItems": true },
+            "avoid_tags": { "type": "array", "items": { "$ref": "#/$defs/xai_tag" }, "uniqueItems": true },
+            "openai_instructions": { "type": "string", "minLength": 20, "maxLength": 300 },
+            "backchannel": { "type": "string", "minLength": 5, "maxLength": 200 },
+            "filler": { "type": "string", "minLength": 5, "maxLength": 200 },
+            "avoid": { "type": "array", "items": { "type": "string", "minLength": 3, "maxLength": 120 }, "minItems": 1, "maxItems": 8 }
+          }
+        },
+        "laugh": { "$ref": "#/$defs/laugh_style" },
+        "exemplars": { "$ref": "#/$defs/lines_by_intent" }
+      }
+    },
+    "xai_tag": {
+      "type": "string",
+      "enum": ["[pause]", "[long-pause]", "[laugh]", "[sigh]", "[breath]", "[sharp-breath]", "<whisper>", "<soft>", "<loud>", "<slow>", "<fast>"]
+    },
+    "archetypes_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "version", "about", "normalization", "blend_rule", "archetypes", "lead_blends"],
+      "properties": {
+        "$schema": { "type": "string" },
+        "kind": { "const": "archetypes" },
+        "version": { "type": "integer", "minimum": 1 },
+        "about": { "type": "string" },
+        "normalization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["method", "clip", "mean", "std", "computed_over"],
+          "properties": {
+            "method": { "const": "zscore_over_catalog" },
+            "clip": { "type": "number", "minimum": 1, "maximum": 4 },
+            "computed_over": { "type": "string" },
+            "mean": { "$ref": "#/$defs/slider_numbers" },
+            "std": { "$ref": "#/$defs/slider_numbers" }
+          }
+        },
+        "blend_rule": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["top_k", "temperature", "min_weight", "trait_bonus_cap", "trait_match", "precedence"],
+          "properties": {
+            "top_k": { "type": "integer", "minimum": 1, "maximum": 4 },
+            "temperature": { "type": "number", "minimum": 0.1, "maximum": 3 },
+            "min_weight": { "type": "number", "minimum": 0, "maximum": 0.5 },
+            "trait_bonus_cap": { "type": "number", "minimum": 0, "maximum": 3 },
+            "trait_match": { "type": "string", "enum": ["exact_lowercase"] },
+            "precedence": { "type": "array", "items": { "type": "string" }, "minItems": 2 }
+          }
+        },
+        "archetypes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/archetype_def" },
+          "minItems": 10,
+          "maxItems": 12
+        },
+        "lead_blends": {
+          "type": "object",
+          "propertyNames": { "pattern": "^lead-[a-z0-9]+(-[a-z0-9]+)*$" },
+          "additionalProperties": { "$ref": "#/$defs/blend" }
+        }
+      }
+    },
+    "slider_numbers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["warmth", "directness", "formality", "humor", "risk_appetite", "detail", "pace"],
+      "properties": {
+        "warmth": { "type": "number" },
+        "directness": { "type": "number" },
+        "formality": { "type": "number" },
+        "humor": { "type": "number" },
+        "risk_appetite": { "type": "number" },
+        "detail": { "type": "number" },
+        "pace": { "type": "number" }
+      }
+    }
+  }
+}

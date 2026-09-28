@@ -1,5 +1,7 @@
 # Living Workforce: content and timing critique
 
+> **Names changed after this review (catalog 2.0.0, 28 September 2026).** Owner directive D3 re-cast every lead and coworker: new names, handles, ages and looks; ids did not change. This critique is kept as written, so it uses the old names (for example Dominic is now Paolo, Sasha is Sevan, Kadri is Grete). Every old and new name is in [`catalog/renames.json`](../../catalog/renames.json).
+
 > **Status.** Review of E1 (engine) and E2 (content) for LIVING-WORKFORCE Inc 0.5, 28 September 2026. No catalog or engine files were changed; every fix below is a proposal.
 >
 > **Reviewer's lens.** A sitcom writer's ear (does this sound like a person?), a conversation designer's rigour (does the line fit what was actually said and what is actually true?) and a UX researcher's fear of annoying users (would this still be charming in week three?).
