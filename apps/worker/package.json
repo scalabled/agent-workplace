@@ -1,0 +1,25 @@
+{
+  "name": "@headcount/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloudflare Worker + WorkspaceDO / ProjectDO / RoomDO / RunDO, D1, R2.",
+  "scripts": {
+    "dev": "wrangler dev --port 8787 --ip 127.0.0.1",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "migrate:local": "wrangler d1 migrations apply DB --local",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@headcount/agent-loop": "workspace:*",
+    "@headcount/catalog": "workspace:*",
+    "@headcount/models": "workspace:*",
+    "@headcount/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260928.1",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.143.0"
+  }
+}

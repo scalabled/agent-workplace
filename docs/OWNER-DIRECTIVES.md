@@ -36,6 +36,28 @@ The owner can text, talk (push-to-talk or voice notes) or hold a live voice conv
 - **Zero-config start.** Onboarding is a conversation with the chosen lead plus the match quiz. The app works keyless with the mock provider or local Ollama, and adding a provider key is one step.
 - **Obvious next action.** Every screen has one clear primary action. Advanced controls (grants, budgets, model policy) sit behind "More" or Settings.
 
+## D5. A living workforce: asynchronous, multitasking, full of small talk
+
+Agents should feel like real people who multitask, not request/response bots. Processing is asynchronous everywhere, and the workforce feels alive: the owner can engage with their Headcount casually, not only through tasks.
+
+- **Three speeds of thought per agent, all running at once:**
+  - **Reflex (under 200 ms):** retrieved micro-utterances, no LLM needed. These are backchannels ("mm-hm", "right"), fillers ("ooh, good question, give me a sec"), canned expressions, laughs and chuckles, sighs, reactions and quips.
+  - **Conversation (about 1 s):** fast-model replies.
+  - **Work (minutes):** background loops.
+
+  A reflex covers the latency of the conversation layer, and the conversation layer never waits on the work layer.
+- **Expression library per persona.** It builds on shared archetype packs and has short, personality-true lines in about 30 intents: greetings, passing-by hellos, acknowledgements, thinking fillers, backchannels, laughs, surprise, delight, concern, sympathy, encouragement, celebration, apology, hand-offs, micro status updates, "wrapping a thought, back in a sec", sign-offs, side-talk openers and replies, and quips about their work.
+  - Lines carry slots filled from live state (owner name, project, coworker, progress) and expressive delivery tags (for example `[laugh]`, `[sigh]`, `<whisper>`).
+  - Selection is fast, anti-repetitive and weighted by mood.
+- **Pre-voiced for instant playback.** Each line is rendered once in the persona's own voice, then cached (R2 plus the browser cache) along with its lip-sync timing. Reflexes therefore play instantly, with lip sync.
+- **Passing-by conversation.** When the owner moves past or hovers over a desk on the Floor, the coworker may look up and say a short line grounded in what they are actually doing. The owner can answer inline in a quick side thread without opening a full conversation.
+- **Side-talk.** Brief coworker-to-coworker banter appears on the Floor as bubbles. It is derived from real hand-offs, asks and results, and is voiced only if someone is listening.
+- **Human-like multitasking.** An agent can hold several attention threads at once: a 1:1 with the owner, a meeting and its background work. It says so naturally ("hang on, finishing a thought in the review — back in ten seconds"). Each agent is an actor with prioritized mailboxes, and communication with the owner always has the highest priority.
+- **Mood.** A light mood model (energy, valence) changes with real events: wins lift it, blockers weigh on it. Mood shapes both expression choice and the avatar's expression palette.
+- **Honest and never annoying.**
+  - Micro-talk never claims work that was not done. Side-talk is grounded in real events. Laughter never mocks the owner.
+  - One Ambience setting (Quiet, Lively or Buzzing) and the interruption budget govern chatter volume. Owner-directed replies are always exempt from the budget.
+
 ## D4. Deliver an MVP early and iterate
 
 - Build a runnable MVP quickly and show it early. Then integrate the remaining features in small, demoable increments, each one runnable and reviewed with the owner.

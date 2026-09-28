@@ -1,0 +1,102 @@
+// Typed HTTP client for the worker API (same origin; Vite proxies /api in dev). Owned by `web`.
+import {
+  ids,
+  routePath,
+  type ApiErrorBody,
+  type CancelJobAccepted,
+  type CapabilitiesResponse,
+  type ErrorCode,
+  type FaceLandmarks,
+  type HealthResponse,
+  type JobResponse,
+  type JobsResponse,
+  type LandmarksResponse,
+  type PortraitGenerateResponse,
+  type PortraitListResponse,
+  type SteerJobAccepted,
+  type SttResponse,
+  type TalkAccepted,
+  type TtsRequest,
+  type UpdateWorkspaceRequest,
+  type WorkspaceResponse,
+} from '@headcount/protocol';
+import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcount/protocol/ext/media';
+
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    readonly code: ErrorCode,
+    message: string,
+    readonly missingKeys: string[] = [],
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(path, init);
+  if (!res.ok) throw await toApiError(res);
+  return (await res.json()) as T;
+}
+
+async function toApiError(res: Response): Promise<ApiError> {
+  try {
+    const body = (await res.json()) as ApiErrorBody;
+    return new ApiError(res.status, body.error.code, body.error.message, body.error.missingKeys);
+  } catch {
+    return new ApiError(res.status, 'internal', `Request failed (${res.status}).`);
+  }
+}
+
+const jsonInit = (method: string, body: unknown): RequestInit => ({ method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
+export const api = {
+  health: () => request<HealthResponse>(routePath('health')),
+  capabilities: () => request<CapabilitiesResponse>(routePath('capabilities')),
+  getWorkspace: () => request<WorkspaceResponse>(routePath('getWorkspace')),
+  putWorkspace: (patch: UpdateWorkspaceRequest) => request<WorkspaceResponse>(routePath('putWorkspace'), jsonInit('PUT', patch)),
+  /** 202: the reply arrives on the socket as talk.* frames with this opId. */
+  talk: (text: string, via: 'text' | 'voice' = 'text', opId: string = ids.op()) => request<TalkAccepted>(routePath('talk'), jsonInit('POST', { text, opId, via })),
+  listJobs: (limit = 20) => request<JobsResponse>(`${routePath('listJobs')}?limit=${limit}`),
+  getJob: (id: string) => request<JobResponse>(routePath('getJob', { id })),
+  steerJob: (id: string, text: string, opId: string = ids.op()) => request<SteerJobAccepted>(routePath('steerJob', { id }), jsonInit('POST', { text, opId })),
+  cancelJob: (id: string) => request<CancelJobAccepted>(routePath('cancelJob', { id }), { method: 'POST' }),
+  /** Raw audio response (Content-Type audio/*). Throws ApiError not_configured when no TTS provider. */
+  async tts(req: TtsRequest, signal?: AbortSignal): Promise<Response> {
+    const res = await fetch(routePath('tts'), { ...jsonInit('POST', req), ...(signal ? { signal } : {}) });
+    if (!res.ok) throw await toApiError(res);
+    return res;
+  },
+  /** TTS for one sentence → encoded audio bytes (mp3 unless the provider says otherwise). */
+  async ttsAudio(req: TtsRequest, signal?: AbortSignal): Promise<{ audio: ArrayBuffer; mime: string }> {
+    const res = await api.tts(req, signal);
+    return { audio: await res.arrayBuffer(), mime: res.headers.get('content-type')?.split(';')[0] || 'audio/mpeg' };
+  },
+  stt: (audio: Blob) => request<SttResponse>(routePath('stt'), { method: 'POST', headers: { 'content-type': audio.type || 'audio/webm' }, body: audio }),
+  generatePortrait: (personaId: string) => request<PortraitGenerateResponse>(routePath('generatePortrait', { personaId }), { method: 'POST' }),
+  /** Which faces have a stored portrait (one call instead of a probe per face). */
+  listPortraits: () => request<PortraitListResponse>(routePath('listPortraits')),
+  portraitUrl: (personaId: string) => routePath('getPortrait', { personaId }),
+  /** The stored portrait and its version (X-Portrait-Version), or null when there is none yet (404). */
+  async portraitImage(personaId: string, signal?: AbortSignal): Promise<{ blob: Blob; version: string | null } | null> {
+    const res = await fetch(routePath('getPortrait', { personaId }), signal ? { signal } : {});
+    if (!res.ok || !(res.headers.get('content-type') ?? '').startsWith('image/')) return null;
+    return { blob: await res.blob(), version: res.headers.get(PORTRAIT_HEADERS.version) };
+  },
+  /** The stored portrait, or null when there is none yet (404) or the route is not available. */
+  async portraitBlob(personaId: string, signal?: AbortSignal): Promise<Blob | null> {
+    return (await api.portraitImage(personaId, signal))?.blob ?? null;
+  },
+  getLandmarks: (personaId: string) => request<LandmarksResponse>(routePath('getLandmarks', { personaId })),
+  /** Stored landmarks and the portrait version they belong to (X-Portrait-Version on the landmarks response). */
+  async landmarksFor(personaId: string, signal?: AbortSignal): Promise<{ landmarks: FaceLandmarks | null; version: string | null }> {
+    const res = await fetch(routePath('getLandmarks', { personaId }), signal ? { signal } : {});
+    if (!res.ok) throw await toApiError(res);
+    const body = (await res.json()) as LandmarksResponse;
+    return { landmarks: body.landmarks ?? null, version: res.headers.get(PORTRAIT_HEADERS.version) };
+  },
+  /** First valid write wins. `portraitVersion` (from X-Portrait-Version) makes a replaced image answer 409, not store stale geometry. */
+  putLandmarks: (personaId: string, landmarks: FaceLandmarks, portraitVersion?: string | null) =>
+    request<LandmarksResponse>(routePath('putLandmarks', { personaId }), jsonInit('PUT', { landmarks, ...(portraitVersion ? { portraitVersion } : {}) } satisfies PutLandmarksRequestWithVersion)),
+};

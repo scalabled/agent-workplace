@@ -1,0 +1,44 @@
+import { describe, expect, it } from 'vitest';
+import { filterItems, type PaletteItem } from '../components/Palette';
+import { renderMarkdown } from './markdown';
+import { ago, elapsed } from './time';
+
+describe('renderMarkdown', () => {
+  // Real browsers sanitise; a DOM where the sanitiser misbehaves (happy-dom) gets escaped text. Either way
+  // nothing executable is ever emitted.
+  it('never emits executable markup', () => {
+    const html = renderMarkdown('**Bold** [site](https://example.com) <img src=x onerror=alert(1)><script>alert(1)</script> [js](javascript:alert(1))');
+    expect(html).not.toMatch(/<img|<script|<[^>]*\sonerror=|href="javascript:/i);
+    if (html.includes('<a ')) {
+      expect(html).toContain('<strong>Bold</strong>');
+      expect(html).toContain('rel="noopener noreferrer"');
+      expect(html).toContain('target="_blank"');
+    } else {
+      expect(html).toContain('&#60;script&#62;');
+    }
+  });
+});
+
+describe('palette filter', () => {
+  const item = (label: string, group: PaletteItem['group'], hint = '', keywords = ''): PaletteItem => ({ id: label, label, hint, keywords, group, icon: 'user', run: () => undefined });
+  const items = [item('Talk', 'Places'), item('Floor', 'Places', 'Directory'), item('Zainab Qureshi', 'Coworkers', 'Pricing strategist'), item('Omar Aziz', 'Coworkers', 'Pricing & promotions analyst'), item('Priya Nair', 'Coworkers', 'Bookkeeper')];
+
+  it('shows places and settings, not the whole staff, before typing', () => {
+    expect(filterItems(items, '').map((i) => i.label)).toEqual(['Talk', 'Floor']);
+  });
+
+  it('ranks name prefixes first, then word prefixes, then hints', () => {
+    expect(filterItems(items, 'pri').map((i) => i.label)).toEqual(['Priya Nair', 'Omar Aziz', 'Zainab Qureshi']);
+    expect(filterItems(items, 'qur').map((i) => i.label)).toEqual(['Zainab Qureshi']);
+    expect(filterItems(items, 'directory').map((i) => i.label)).toEqual(['Floor']);
+  });
+});
+
+describe('time', () => {
+  it('reads elapsed time in plain words', () => {
+    const now = Date.parse('2026-09-28T12:00:00Z');
+    expect(elapsed('2026-09-28T11:59:40Z', now)).toBe('just now');
+    expect(ago('2026-09-28T11:56:00Z', now)).toBe('4 min ago');
+    expect(elapsed('2026-09-28T09:00:00Z', now)).toBe('3 h');
+  });
+});

@@ -59,6 +59,17 @@ Each increment ends with a demo script that you run, or that I run and show you,
 - **Faces.** Procedural illustrated faces are generated from each persona's catalog `appearance` fields: blink, idle sway, and a lip-synced mouth. They need no keys and load instantly.
 - **Built from:** the models package (mock, ollama, openai, anthropic, xai, gemini), the WorkspaceDO and a minimal ProjectDO, the event stream with `?since` replay, the Preact shell, and the procedural avatar with audio.
 
+### Inc 0.5 · The living workforce (D5, built in parallel with Inc 0 and integrated right after it)
+
+- **Reflex layer.** A `packages/expressions` engine selects instant micro-utterances by intent, persona, mood and live state. It avoids repetition and fills slots only when they are grounded in real state. It is governed by the Ambience setting (Quiet, Lively or Buzzing) and the interruption budget.
+- **Expression content.** Shared archetype packs plus a signature pack for every lead and coworker (`catalog/expressions/`), covering about 30 intents, with expressive delivery tags.
+- **Pre-voicing.** Lines are rendered once in each persona's voice, cached in R2 and the browser with lip-sync timing, so reflexes play instantly.
+- **In the app:**
+  - Talk: fillers cover model latency, backchannels play while the owner speaks, laughs and reactions fit the moment, and the Chief of Staff can say "I'm juggling two things, back in a sec".
+  - Floor: passing-by lines when the owner hovers over a desk, with an inline quick reply, and side-talk bubbles derived from real events.
+  - Faces: the mood model drives the avatar's expression palette.
+- **Asynchronous actors.** Every agent gets prioritized mailboxes and multiple attention threads, and owner communication always goes first.
+
 ### Inc 1 · Hire a team in a sentence
 
 - **Routes.** The Chief of Staff chooses a route: answer, ask a coworker, delegate, or start a project. Routes are stored as a data table, and each has a running and a finished sentence [OC orchestrator + BB bizbot].

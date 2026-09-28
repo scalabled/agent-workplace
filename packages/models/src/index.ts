@@ -1,0 +1,23 @@
+// @headcount/models — provider fabric (owned by the `models` builder).
+export * from './types';
+export * from './errors';
+export * from './descriptors';
+export * from './registry';
+export * from './health';
+export * from './mock';
+export * from './collect';
+export * from './schema-fill';
+export * from './wav';
+export * from './model-catalog';
+export { deadlineSignal, setProviderDeadline, providerDeadlineMs, isDeadline, redact, fetchWithRetry, PROVIDER_TIMEOUT_MS, PROVIDER_STREAM_TIMEOUT_MS, PROVIDER_RETRIES } from './lib/http';
+export { parseSSE, parseNDJSON, sseResponse, type SseRecord, type SseProducer } from './lib/sse';
+export { parseLenientJson, readJson, tokenizeJson } from './lib/lenient-json';
+export { ToolNames, normalizeArguments, IndexedToolCalls, TOOL_NAME_RE } from './lib/tools';
+export { guardStream } from './lib/stream';
+export { ThinkSplitter } from './lib/think';
+export { createAnthropicProvider } from './adapters/anthropic';
+export { createOpenAIProvider } from './adapters/openai';
+export { createXaiProvider, xaiAlignment } from './adapters/xai';
+export { createGeminiProvider, toGeminiSchema } from './adapters/gemini';
+export { createOllamaProvider } from './adapters/ollama';
+export { createOpenAICompatibleProvider } from './adapters/openai-compatible';

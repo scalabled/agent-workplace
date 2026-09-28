@@ -1,0 +1,483 @@
+/* Talk: one calm column. The face and state stay in view; the composer docks at the bottom. */
+.shell[data-route='talk'] .main {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.talk {
+  max-width: 740px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.talk-head {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6) 0 var(--space-4);
+  background: var(--surface);
+}
+
+/* A short fade under the header so the thread slides away softly. */
+.talk-head::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: var(--space-5);
+  background: linear-gradient(var(--surface), color-mix(in srgb, var(--surface) 0%, transparent));
+  pointer-events: none;
+}
+
+.talk-face-button {
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition:
+    transform var(--dur-state) var(--ease-out),
+    box-shadow var(--dur-state) var(--ease-out);
+}
+
+.talk-face-button[data-listening] {
+  transform: scale(1.05);
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 0 0 5px var(--state-listening);
+}
+
+/* .talk-head raises specificity over .face-hero's rounded square: the face matches its circular ring everywhere. */
+.talk-head .talk-face {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+}
+
+.talk-id {
+  display: grid;
+  /* minmax(0, 1fr): a long running sentence ellipsizes instead of widening the page. */
+  grid-template-columns: minmax(0, 1fr);
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+}
+
+.talk-id h1 {
+  font-size: var(--text-xl);
+}
+
+.talk-state {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.talk-state > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.talk-voice {
+  margin-left: auto;
+}
+
+/* State glyphs: a shape and words, never colour alone (EXPERIENCE §10.3). */
+.state-glyph {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--faint);
+}
+
+.state-glyph[data-state='speaking'] {
+  border: 0;
+  width: 12px;
+  height: 10px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, var(--lamp) 0 2px, transparent 2px 5px, var(--lamp) 5px 7px, transparent 7px 10px, var(--lamp) 10px 12px);
+}
+
+.state-glyph[data-state='listening'] {
+  border-color: var(--hand);
+  background: var(--hand);
+}
+
+.state-glyph[data-state='thinking'] {
+  border-style: dotted;
+  border-color: var(--muted);
+  animation: breathe 1.6s var(--ease-in-out) infinite;
+}
+
+.state-glyph[data-state='working'] {
+  border-color: var(--lamp);
+}
+
+.state-glyph[data-state='raised_hand'] {
+  border-color: var(--hand);
+}
+
+/* ── thread ─────────────────────────────────────────────── */
+.thread-wrap {
+  flex: 1;
+  padding: var(--space-2) 0 var(--space-5);
+}
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.msg {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.msg-chief {
+  align-self: flex-start;
+  width: 100%;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.msg-chief + .msg-chief {
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.msg-from {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--muted);
+}
+
+.msg-time {
+  font-weight: var(--weight-regular);
+}
+
+/* An announcement starts its own block (they started the conversation), never a continuation of a reply. */
+.msg-chief + .msg-chief[data-kind='announcement'] {
+  margin-top: var(--space-2);
+}
+
+.msg-body {
+  line-height: 1.6;
+}
+
+.msg-chief[data-kind='announcement'] > .msg-body,
+.msg-chief[data-kind='status'] > .msg-body {
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--lamp);
+}
+
+.msg-chief[data-streaming] .md > :last-child::after {
+  content: '';
+  display: inline-block;
+  width: 0.45em;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.12em;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.25;
+}
+
+.msg-owner {
+  align-self: flex-end;
+  max-width: min(85%, 560px);
+  padding: 10px var(--space-4);
+  border-radius: 18px 18px 6px 18px;
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  position: relative;
+}
+
+.msg-owner[data-status='pending'] {
+  opacity: 0.7;
+}
+
+.msg-owner[data-status='failed'] {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--blocked) 50%, transparent);
+}
+
+.msg-via {
+  position: absolute;
+  left: -22px;
+  bottom: 12px;
+  color: var(--faint);
+}
+
+.msg-note {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  white-space: normal;
+}
+
+.msg-failed {
+  color: var(--blocked);
+}
+
+.msg-failed .link-button {
+  color: var(--blocked);
+  font-size: var(--text-xs);
+}
+
+.msg-system {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--blocked) 7%, var(--panel));
+  font-size: var(--text-sm);
+}
+
+.msg-system p {
+  flex: 1;
+  padding-top: 6px;
+}
+
+.msg-sys-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 12px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: var(--blocked);
+}
+
+.msg-keys {
+  color: var(--muted);
+}
+
+.msg-typing {
+  min-height: 24px;
+}
+
+.typing {
+  display: inline-flex;
+  gap: 5px;
+  padding: 8px 0;
+}
+
+.typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  opacity: 0.35;
+  animation: typing 1.2s var(--ease-in-out) infinite;
+}
+
+.typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes typing {
+  30% {
+    opacity: 0.9;
+    transform: translateY(-2px);
+  }
+}
+
+.starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+.starter {
+  min-height: var(--hit);
+  padding: 6px var(--space-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  text-align: left;
+  transition: border-color var(--dur-state) var(--ease-out);
+}
+
+.starter:hover {
+  border-color: var(--muted);
+}
+
+.talk-offline {
+  margin-top: var(--space-5);
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* ── dock: Activity rows + composer ─────────────────────── */
+.talk-dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) 0 var(--space-5);
+  background: linear-gradient(color-mix(in srgb, var(--surface) 0%, transparent), var(--surface) 20px);
+}
+
+.activity {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 42vh;
+  overflow-y: auto;
+  padding: 2px;
+  margin: -2px;
+}
+
+.activity-row {
+  position: relative;
+}
+
+.activity-dismiss {
+  position: absolute;
+  top: 6px;
+  right: 40px;
+}
+
+/* Room for the dismiss button beside the chevron on finished rows. */
+.activity-row[data-finished] .job-meta {
+  margin-right: 36px;
+}
+
+.composer {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.composer-notice {
+  padding: 0 var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.composer-notice[data-tone='error'] {
+  color: var(--blocked);
+}
+
+.composer-box {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-1);
+  padding: 6px;
+  padding-left: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+  transition: border-color var(--dur-state) var(--ease-out);
+}
+
+/* A visible focus ring, like every other control (EXPERIENCE §9.2): the textarea itself draws none. */
+.composer-box:focus-within {
+  border-color: var(--line-strong);
+  box-shadow:
+    0 0 0 2px var(--focus),
+    var(--shadow-soft);
+}
+
+.composer-box textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--hit);
+  max-height: 168px;
+  padding: 10px 0;
+  border: 0;
+  background: none;
+  resize: none;
+  line-height: 1.5;
+  outline: none;
+}
+
+.composer-box textarea::placeholder {
+  color: var(--muted);
+}
+
+.composer-mic {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.composer-mic[data-active] {
+  color: var(--hand);
+  background: color-mix(in srgb, var(--hand) 14%, transparent);
+}
+
+.composer-send {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--hit);
+  height: var(--hit);
+  border: 0;
+  border-radius: 50%;
+  background: var(--lamp);
+  color: var(--lamp-ink);
+  transition: filter var(--dur-state) var(--ease-out);
+}
+
+.composer-send:hover {
+  filter: brightness(1.05);
+}
+
+@media (max-width: 767px) {
+  .talk-head {
+    padding-top: var(--space-4);
+    padding-bottom: var(--space-3);
+  }
+  .talk-head .talk-face {
+    width: 52px;
+    height: 52px;
+  }
+  .talk-dock {
+    bottom: calc(var(--bottom-tabs-height) + env(safe-area-inset-bottom));
+    padding-bottom: var(--space-3);
+  }
+  .shell[data-route='talk'] .main {
+    padding-bottom: calc(var(--bottom-tabs-height) + env(safe-area-inset-bottom));
+  }
+  .msg-owner {
+    max-width: 88%;
+  }
+  .msg-via {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing span,
+  .state-glyph[data-state='thinking'] {
+    animation: none;
+  }
+}

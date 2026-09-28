@@ -1,0 +1,129 @@
+// Coworker profile (from the Floor): hero face, intro line, story, signature methods, voice sample.
+import { useEffect } from 'preact/hooks';
+import { coworkerAgentId } from '@headcount/protocol';
+import { firstName, personaVoiceRef, type PersonaSlim, type SkillIndexEntry } from '@headcount/catalog';
+import { catalog, loadCatalog } from '../catalog';
+import { chiefName } from '../chief';
+import { Face, personaSubject } from '../components/Face';
+import { Icon } from '../components/Icon';
+import { Link } from '../components/Link';
+import { useSampleSpeaker, VoiceSample } from '../components/VoiceSample';
+import { navigate, paths } from '../router';
+import { localPresence, onboarded } from '../store';
+import { prefillComposer } from '../talk/draft';
+import './floor.css';
+
+const SENIORITY: Record<PersonaSlim['seniority'], string> = { specialist: 'Specialist', senior: 'Senior', lead: 'Lead', principal: 'Principal' };
+
+export function CoworkerProfile({ personaId }: { personaId: string }) {
+  useEffect(() => void loadCatalog(), []);
+  useEffect(() => window.scrollTo?.(0, 0), [personaId]);
+  const c = catalog.value;
+  const p = c?.persona(personaId);
+  if (!c)
+    return (
+      <section class="page" aria-busy="true">
+        <p class="page-lede">Loading…</p>
+      </section>
+    );
+  if (!p)
+    return (
+      <section class="page" aria-labelledby="profile-missing">
+        <BackToFloor />
+        <h1 id="profile-missing">Not in the directory</h1>
+        <p class="page-lede">That coworker is not in the directory. Find someone on the Floor.</p>
+      </section>
+    );
+  return <Profile persona={p} />;
+}
+
+function BackToFloor() {
+  return (
+    <Link href={paths.floor} class="back-link">
+      <Icon name="chevronLeft" size={18} /> Floor
+    </Link>
+  );
+}
+
+function Profile({ persona: p }: { persona: PersonaSlim }) {
+  const c = catalog.value!;
+  const first = firstName(p.name);
+  const speaker = useSampleSpeaker(coworkerAgentId(p.id), personaVoiceRef(p));
+  const speaking = Boolean(localPresence.value[speaker.speakerId]?.speaking);
+  const dept = c.department(p.department);
+  const skills = new Map(c.catalog.skills.map((s) => [s.id, s]));
+  const known = (ids: string[]) => ids.map((id) => skills.get(id)).filter((s): s is SkillIndexEntry => !!s);
+  const primary = known(p.skills.primary);
+  const secondary = known(p.skills.secondary);
+
+  return (
+    <article class="page profile" aria-labelledby="profile-title" style={{ '--accent': p.avatar.accent_color }}>
+      <BackToFloor />
+      <header class="profile-hero">
+        <Face subject={personaSubject(p)} tier="hero" state={speaking ? 'speaking' : 'idle'} sampler={speaker.mouth} label={`${p.name}, ${p.title}`} class="profile-face" />
+        <div class="profile-id">
+          <p class="profile-dept">
+            {dept?.name ?? p.department} · {SENIORITY[p.seniority]}
+          </p>
+          <h1 id="profile-title">{p.name}</h1>
+          <p class="profile-title">{p.title}</p>
+          <p class="profile-line">{p.one_liner}</p>
+          <div class="profile-actions">
+            {onboarded.value && (
+              <button
+                type="button"
+                class="button-primary"
+                onClick={() => {
+                  // The one obvious next action (D3): bring them up with the Chief of Staff, who staffs the work.
+                  prefillComposer(`What could ${p.name} do for us?`);
+                  navigate(paths.talk);
+                }}
+              >
+                Ask {chiefName.value} about {first}
+              </button>
+            )}
+            <VoiceSample speaker={speaker} text={p.intro_line} name={first} />
+          </div>
+        </div>
+      </header>
+
+      <blockquote class="profile-intro">
+        <p>{p.intro_line}</p>
+      </blockquote>
+
+      <section class="profile-block" aria-labelledby="story-title">
+        <h2 id="story-title">Story</h2>
+        <p class="profile-story">{p.backstory}</p>
+        <p class="profile-note">
+          {first} is an AI coworker. The story is character lore, not real events.
+        </p>
+      </section>
+
+      {primary.length > 0 && (
+        <section class="profile-block" aria-labelledby="methods-title">
+          <h2 id="methods-title">Signature methods</h2>
+          <ul class="methods">
+            {primary.map((s) => (
+              <li key={s.id}>
+                <span class="method-name">{s.name}</span>
+                <span class="method-line">{s.one_liner}</span>
+              </li>
+            ))}
+          </ul>
+          {secondary.length > 0 && (
+            <>
+              <h3 class="profile-sub">Also works with</h3>
+              <ul class="chips">
+                {secondary.map((s) => (
+                  <li key={s.id} class="chip" title={s.one_liner}>
+                    {s.name}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
+    </article>
+  );
+}

@@ -1,0 +1,326 @@
+// Client store (signals): normalised state fed by owner-feed frames and optimistic commands.
+import { computed, signal } from '@preact/signals';
+import {
+  CHIEF_ID,
+  mergePresence,
+  type AgentId,
+  type CapabilitiesResponse,
+  type Frame,
+  type JobId,
+  type JobSnapshot,
+  type Modality,
+  type OpId,
+  type PresenceData,
+  type PresenceState,
+  type TalkAccepted,
+  type TurnId,
+  type WorkspaceSettings,
+} from '@headcount/protocol';
+import type { FeedStatus } from '../api/ws';
+
+export type ThreadFrom = 'owner' | AgentId | 'system';
+
+export interface ThreadItem {
+  /** Server MessageId, or `local:<opId>` for an owner message not yet accepted. */
+  messageId: string;
+  turnId: TurnId | null;
+  from: ThreadFrom;
+  text: string;
+  /** True while talk.delta frames are still arriving. */
+  streaming: boolean;
+  kind?: 'reply' | 'announcement' | 'status' | 'error';
+  jobId?: JobId;
+  via?: 'text' | 'voice';
+  opId?: OpId;
+  /** Owner messages only: pending until accepted, failed when the send failed (text is never lost). */
+  status?: 'pending' | 'failed';
+  error?: string;
+  missingKeys?: string[];
+  /** The turn was cancelled (barge-in or a newer turn) before it finished. */
+  interrupted?: boolean;
+  ts: string;
+}
+
+export const settings = signal<WorkspaceSettings | null>(null);
+export const capabilities = signal<CapabilitiesResponse | null>(null);
+export const connection = signal<FeedStatus>('connecting');
+/** Highest persisted seq applied from the owner feed. */
+export const lastSeq = signal(0);
+/** Persisted seq at the last `ready` frame: frames at or below it are replay, not live. */
+export const replayThrough = signal(0);
+export const thread = signal<ThreadItem[]>([]);
+export const jobs = signal<Record<string, JobSnapshot>>({});
+/** Server presence claims (thinking, working, …), per agent. */
+export const presence = signal<Record<string, PresenceData>>({});
+/** Client-local claims: `speaking` from the audio actually playing here, `listening` while the owner holds to talk. */
+export const localPresence = signal<Record<string, { speaking?: boolean; listening?: boolean }>>({});
+
+export const onboarded = computed(() => Boolean(settings.value?.leadId));
+export const activeJobs = computed(() => Object.values(jobs.value).filter((j) => j.status === 'queued' || j.status === 'running'));
+/** Every job, newest first. */
+export const jobList = computed(() => Object.values(jobs.value).sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0)));
+/** Raised hands waiting in the Inbox (none exist in Inc 0; the count can reach zero, X1). */
+export const raisedHands = computed(() => 0);
+
+/**
+ * Settings only move forward: a copy older than the one held (a slow GET, a stale frame) is ignored, so the app
+ * never flips back to an earlier Chief of Staff or name. Returns whether it was applied.
+ */
+export function acceptSettings(next: WorkspaceSettings): boolean {
+  const cur = settings.value;
+  if (cur && next.updatedAt < cur.updatedAt) return false;
+  settings.value = next;
+  return true;
+}
+
+/** Is a capability usable? Mock-only TTS/STT/image report unavailable, so they stay hidden (X8). */
+export function can(m: Modality): boolean {
+  return capabilities.value?.modalities[m]?.available === true;
+}
+
+// ── presence ────────────────────────────────────────────────────────────────────
+export interface ShownPresence {
+  state: PresenceState;
+  label: string;
+}
+
+const DEFAULT_LABELS: Record<PresenceState, string> = {
+  idle: 'Available',
+  listening: 'Listening',
+  thinking: 'Thinking',
+  speaking: 'Speaking',
+  working: 'Working',
+  raised_hand: 'Waiting on you',
+};
+
+/** Merge server claims with local ones by PRESENCE_PRIORITY (speaking > raised hand > listening > …). */
+export function presenceFor(agentId: string): ShownPresence {
+  const claims: ShownPresence[] = [];
+  const local = localPresence.value[agentId];
+  if (local?.speaking) claims.push({ state: 'speaking', label: DEFAULT_LABELS.speaking });
+  if (local?.listening) claims.push({ state: 'listening', label: DEFAULT_LABELS.listening });
+  const server = presence.value[agentId];
+  if (server) claims.push({ state: server.state, label: server.label || DEFAULT_LABELS[server.state] });
+  return mergePresence(claims) ?? { state: 'idle', label: DEFAULT_LABELS.idle };
+}
+
+export const chiefPresence = computed(() => presenceFor(CHIEF_ID));
+
+export function setLocalPresence(agentId: string, claim: 'speaking' | 'listening', on: boolean): void {
+  const cur = localPresence.value[agentId] ?? {};
+  if (Boolean(cur[claim]) === on) return;
+  localPresence.value = { ...localPresence.value, [agentId]: { ...cur, [claim]: on } };
+}
+
+/** Presence is ephemeral: when the feed drops, stale claims must not keep animating. */
+export function clearServerPresence(): void {
+  if (Object.keys(presence.value).length) presence.value = {};
+}
+
+// ── thread helpers ──────────────────────────────────────────────────────────────
+function upsertThread(item: ThreadItem, match?: (m: ThreadItem) => boolean) {
+  const list = thread.value;
+  const i = list.findIndex((m) => m.messageId === item.messageId || (match?.(m) ?? false));
+  thread.value = i < 0 ? [...list, item] : list.map((m, j) => (j === i ? { ...m, ...item } : m));
+}
+
+function patchThread(messageId: string, patch: Partial<ThreadItem>) {
+  thread.value = thread.value.map((m) => (m.messageId === messageId ? { ...m, ...patch } : m));
+}
+
+const localId = (opId: OpId) => `local:${opId}`;
+
+/** Optimistic owner message (shown at once, reconciled by opId when the echo arrives). */
+export function addPendingOwner(opId: OpId, text: string, via: 'text' | 'voice'): void {
+  upsertThread({ messageId: localId(opId), turnId: null, from: 'owner', text, streaming: false, via, opId, status: 'pending', ts: new Date().toISOString() });
+}
+
+/** 202 from POST /api/talk: re-key the optimistic item to the server's ids (the echo may already have replaced it). */
+export function markOwnerAccepted(accepted: TalkAccepted): void {
+  const item = thread.value.find((m) => m.messageId === localId(accepted.opId));
+  if (!item) return;
+  const already = thread.value.some((m) => m.messageId === accepted.messageId);
+  if (already) thread.value = thread.value.filter((m) => m !== item);
+  else patchThread(item.messageId, { messageId: accepted.messageId, turnId: accepted.turnId, status: undefined, error: undefined });
+}
+
+export function markOwnerFailed(opId: OpId, message: string): void {
+  const item = thread.value.find((m) => m.opId === opId && m.from === 'owner' && m.status !== undefined);
+  if (item) patchThread(item.messageId, { status: 'failed', error: message });
+}
+
+export function markOwnerRetrying(opId: OpId): void {
+  const item = thread.value.find((m) => m.opId === opId && m.from === 'owner');
+  if (item) patchThread(item.messageId, { status: 'pending', error: undefined });
+}
+
+export function dismissThreadItem(messageId: string): void {
+  thread.value = thread.value.filter((m) => m.messageId !== messageId);
+}
+
+/**
+ * Merge job snapshots from GET /api/jobs (after a reload or reconnect). A snapshot replaces the local copy only
+ * when it is newer, so frames applied meanwhile are never rolled back.
+ */
+export function mergeJobs(snapshots: JobSnapshot[]): void {
+  let next: Record<string, JobSnapshot> | null = null;
+  for (const job of snapshots) {
+    const cur = (next ?? jobs.value)[job.jobId];
+    if (cur && cur.updatedAt >= job.updatedAt) continue;
+    next ??= { ...jobs.value };
+    next[job.jobId] = cur ? { ...cur, ...job } : job;
+  }
+  if (next) jobs.value = next;
+}
+
+function patchJob(jobId: string, patch: Partial<JobSnapshot>, ts: string) {
+  const prev = jobs.value[jobId];
+  if (prev) jobs.value = { ...jobs.value, [jobId]: { ...prev, ...patch, updatedAt: ts } };
+}
+
+// ── frame listeners (voice, announcements) ──────────────────────────────────────
+export interface FrameInfo {
+  /** False for frames replayed on (re)connect: never speak or animate those. */
+  live: boolean;
+}
+type FrameListener = (frame: Frame, info: FrameInfo) => void;
+const listeners = new Set<FrameListener>();
+
+/** Subscribe to frames after they are applied to the store. */
+export function onFrame(cb: FrameListener): () => void {
+  listeners.add(cb);
+  return () => listeners.delete(cb);
+}
+
+/** Forget everything the feed produced (the server ledger was reset). */
+export function resetFeedState(): void {
+  lastSeq.value = 0;
+  replayThrough.value = 0;
+  thread.value = thread.value.filter((m) => m.from === 'owner' && m.status !== undefined);
+  jobs.value = {};
+  presence.value = {};
+}
+
+export type ApplyResult = 'applied' | 'ignored' | 'resync';
+
+/**
+ * Apply one feed frame. Persisted frames at or below lastSeq are ignored (replay overlap).
+ * Returns 'resync' when the server's ledger is behind our cursor (fresh server state): the caller
+ * reconnects with since=0 after the store was reset.
+ */
+export function applyFrame(frame: Frame): ApplyResult {
+  if (frame.type === 'ready') {
+    if (frame.data.lastSeq < lastSeq.value) {
+      resetFeedState();
+      return 'resync';
+    }
+    replayThrough.value = frame.data.lastSeq;
+    return 'applied';
+  }
+  if (frame.seq !== undefined) {
+    if (frame.seq <= lastSeq.value) return 'ignored';
+    lastSeq.value = frame.seq;
+  }
+  const live = frame.seq === undefined || frame.seq > replayThrough.value;
+  reduce(frame, live);
+  for (const cb of listeners) {
+    try {
+      cb(frame, { live });
+    } catch (err) {
+      console.error('frame listener failed', err);
+    }
+  }
+  return 'applied';
+}
+
+function reduce(frame: Frame, live: boolean): void {
+  switch (frame.type) {
+    case 'talk.owner':
+      upsertThread(
+        { messageId: frame.data.messageId, turnId: frame.data.turnId, from: 'owner', text: frame.data.text, streaming: false, via: frame.data.via, ...(frame.opId ? { opId: frame.opId } : {}), status: undefined, error: undefined, ts: frame.ts },
+        (m) => !!frame.opId && m.opId === frame.opId && m.from === 'owner',
+      );
+      break;
+    case 'talk.delta': {
+      const cur = thread.value.find((m) => m.messageId === frame.data.messageId);
+      if (cur && !cur.streaming) break; // the complete message already arrived
+      upsertThread({ messageId: frame.data.messageId, turnId: frame.data.turnId, from: frame.data.agentId, text: (cur?.text ?? '') + frame.data.delta, streaming: true, kind: 'reply', ts: cur?.ts ?? frame.ts });
+      break;
+    }
+    case 'talk.message':
+      upsertThread({
+        messageId: frame.data.messageId,
+        turnId: frame.data.turnId,
+        from: frame.data.agentId,
+        text: frame.data.text,
+        streaming: false,
+        kind: frame.data.kind,
+        ...(frame.data.jobId ? { jobId: frame.data.jobId } : {}),
+        ts: frame.ts,
+      });
+      break;
+    case 'talk.done': {
+      const id = frame.data.messageId;
+      if (id) patchThread(id, { streaming: false, ...(frame.data.finish === 'cancelled' ? { interrupted: true } : {}) });
+      // Any other half-streamed message of this turn stops streaming too.
+      thread.value = thread.value.map((m) => (m.turnId === frame.data.turnId && m.streaming ? { ...m, streaming: false, interrupted: frame.data.finish === 'cancelled' || m.interrupted } : m));
+      const chief = presence.value[CHIEF_ID];
+      if (chief?.state === 'thinking') presence.value = { ...presence.value, [CHIEF_ID]: { ...chief, state: 'idle', label: '' } };
+      break;
+    }
+    case 'job.started':
+      jobs.value = { ...jobs.value, [frame.data.job.jobId]: frame.data.job };
+      break;
+    case 'job.progress':
+      patchJob(frame.data.jobId, { status: 'running', label: frame.data.label, step: frame.data.step, of: frame.data.of, ...(frame.data.partial ? { partial: frame.data.partial } : {}) }, frame.ts);
+      break;
+    case 'job.steered': {
+      const job = jobs.value[frame.data.jobId];
+      if (job) {
+        const prev = job.steers.find((s) => s.steerId === frame.data.steerId);
+        const others = job.steers.filter((s) => s.steerId !== frame.data.steerId);
+        const steer = { steerId: frame.data.steerId, text: frame.data.text, status: frame.data.status, at: prev?.at ?? frame.ts, ...(frame.data.status === 'applied' ? { appliedAt: frame.ts } : {}) };
+        patchJob(frame.data.jobId, { steers: [...others, steer].sort((a, b) => (a.at < b.at ? -1 : 1)) }, frame.ts);
+      }
+      break;
+    }
+    case 'job.done':
+      patchJob(frame.data.jobId, { status: 'done', summary: frame.data.summary, result: frame.data.result, label: frame.data.finishedText, finishedAt: frame.ts }, frame.ts);
+      break;
+    case 'job.failed':
+      patchJob(frame.data.jobId, { status: 'failed', error: { code: frame.data.code, message: frame.data.message }, finishedAt: frame.ts }, frame.ts);
+      break;
+    case 'job.cancelled':
+      patchJob(frame.data.jobId, { status: 'cancelled', finishedAt: frame.ts }, frame.ts);
+      break;
+    case 'presence':
+      presence.value = { ...presence.value, [frame.data.agentId]: frame.data };
+      break;
+    case 'workspace.updated':
+      // Replayed history holds every earlier version (an earlier lead, no lead at all): only live changes (another
+      // tab) apply. Current settings come from GET /api/workspace.
+      if (live) acceptSettings(frame.data.settings);
+      break;
+    case 'error': {
+      const d = frame.data;
+      const owner = d.opId ? thread.value.find((m) => m.from === 'owner' && m.opId === d.opId && m.status !== undefined) : undefined;
+      if (owner) {
+        patchThread(owner.messageId, { status: 'failed', error: d.message });
+        break;
+      }
+      upsertThread({
+        messageId: `error:${d.turnId ?? d.opId ?? frame.ts}`,
+        turnId: d.turnId ?? null,
+        from: 'system',
+        text: d.message,
+        streaming: false,
+        kind: 'error',
+        ...(d.missingKeys?.length ? { missingKeys: d.missingKeys } : {}),
+        ts: frame.ts,
+      });
+      break;
+    }
+    case 'ready':
+      break;
+  }
+}

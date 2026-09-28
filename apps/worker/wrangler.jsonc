@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Headcount worker: API + four Durable Object classes. `pnpm dev` runs it locally on :8787.
+  "name": "headcount",
+  "main": "src/index.ts",
+  // Verified against the installed wrangler/workerd (see docs/dev/CONTRACTS.md §Conventions).
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "WORKSPACE", "class_name": "WorkspaceDO" },
+      { "name": "PROJECT", "class_name": "ProjectDO" },
+      { "name": "ROOM", "class_name": "RoomDO" },
+      { "name": "RUN", "class_name": "RunDO" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WorkspaceDO", "ProjectDO", "RoomDO", "RunDO"] }],
+
+  // Local-only for Inc 0; database_id is replaced when a remote database exists.
+  "d1_databases": [
+    { "binding": "DB", "database_name": "headcount", "database_id": "00000000-0000-4000-8000-000000000000", "migrations_dir": "migrations" }
+  ],
+  "r2_buckets": [{ "binding": "BLOBS", "bucket_name": "headcount-blobs" }],
+
+  // Non-secret defaults so a fresh checkout works keyless. Keys go ONLY in .dev.vars (see .dev.vars.example),
+  // which overrides these locally.
+  "vars": {
+    "WORKSPACE_ID": "local",
+    "APP_VERSION": "0.0.0-inc0",
+    "ENABLE_MOCK": "true",
+    "DEFAULT_CHAT": "auto",
+    "MOCK_DELAY_MS": "15",
+    "MOCK_MEDIA": "false",
+    // Origins allowed to call /api and open the feed (pnpm dev passes the ports it uses).
+    "ALLOWED_ORIGINS": "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8787,http://127.0.0.1:8787",
+    "OLLAMA_BASE_URL": "http://127.0.0.1:11434",
+    "OLLAMA_CHAT_MODEL": "qwen3:32b",
+    "OLLAMA_EMBED_MODEL": "nomic-embed-text"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "headcount",
+  "private": true,
+  "description": "Headcount — the AI Office",
+  "type": "module",
+  "packageManager": "pnpm@10.6.5",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "postinstall": "node packages/catalog/scripts/build-catalog.mjs --quiet",
+    "dev": "node scripts/dev.mjs",
+    "build": "pnpm catalog:build && pnpm -r --if-present run build",
+    "test": "pnpm catalog:build --quiet && vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm catalog:build --quiet && pnpm -r --workspace-concurrency=4 run typecheck && tsc -p tsconfig.json",
+    "e2e": "pnpm catalog:build --quiet && playwright test",
+    "e2e:screens": "pnpm catalog:build --quiet && HEADCOUNT_SCREENS=1 playwright test e2e/screens.spec.ts",
+    "catalog:build": "node packages/catalog/scripts/build-catalog.mjs",
+    "portraits:generate": "node scripts/portraits-generate.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.4",
+    "happy-dom": "^20.14.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.2"
+  }
+}
