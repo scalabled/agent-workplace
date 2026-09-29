@@ -10,8 +10,8 @@
 
 | Resource | State |
 |---|---|
-| Worker `headcount` | **Deployed:** the real app, version `1124bc4b` (commit `e1b5fdf`, 2026-09-29: admin, roles, usage metering, links and side chats, team and second brain, the everyday cast), at https://headcount.greg-371.workers.dev, with Google sign-in required. The first real deploy (`0c0efa43`) replaced the placeholder (`apps/worker/placeholder/`). |
-| Secrets on `headcount` | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `XAI_API_KEY`, uploaded from `.dev.vars` (API keys only, never printed). The owner set `GOOGLE_CLIENT_SECRET` and `OWNER_EMAILS`. |
+| Worker `headcount` | **Deployed:** the real app, version `271d5e19` (commit `895a5ed`, 2026-09-29: pictures, files and screen or camera snapshots shown to the Chief, and portraits on profiles). The version before was `1124bc4b` (commit `e1b5fdf`: admin, roles, usage metering, links and side chats, team and second brain, the everyday cast). It runs at https://headcount.greg-371.workers.dev, with Google sign-in required. The first real deploy (`0c0efa43`) replaced the placeholder (`apps/worker/placeholder/`). |
+| Secrets on `headcount` | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `XAI_API_KEY`, uploaded from `.dev.vars` (API keys only, never printed). The owner set `GOOGLE_CLIENT_SECRET`, `OWNER_EMAILS` and `CONNECTOR_SECRET`. |
 | D1 `headcount` | `080a0f85-f9fe-4aa5-9dc5-08e025f0e951` (ENAM). Migrations 0001–0004 are applied (0004: members, admin settings, token usage, prices). |
 | R2 `headcount-blobs` | Private. It holds the migrated data. |
 | Migrated data | 1,376 objects (72.5 MiB): 176 portraits, 1,198 clips and 2 workspace clips, all with customMetadata. D1 has 176 portrait rows, all with landmarks. |
@@ -28,11 +28,15 @@
 - `/api/auth/google` sends a 302 to Google with the right client id, the callback URL and PKCE S256. The state cookie is `Secure; HttpOnly`.
 - Security headers are present, with the CSP report-only. `/assets/*` is served immutable. Worker startup takes 59 ms.
 
-**Owner step open since the 2026-09-29 (evening) deploy:** set `CONNECTOR_SECRET` (a long random string, e.g. from
-`openssl rand -base64 32`): `npx wrangler secret put CONNECTOR_SECRET -c wrangler.deploy.jsonc` from `apps/worker`.
-Without it the deployed worker cannot store connector keys or provider keys saved on the Admin page (Admin shows
-"Keys can be saved here once the deployment has an encryption secret"). Invite contributors and readers on
-Admin → People; `OWNER_EMAILS` stay owners.
+**Keys saved on the Admin page** are sealed with `CONNECTOR_SECRET`, which is set as of the `271d5e19` deploy. Keep
+that secret: replacing it makes the connector and provider keys saved so far unreadable, and they must be entered
+again. Invite contributors and readers on Admin → People; `OWNER_EMAILS` stay owners.
+
+**Smoke test after the `271d5e19` deploy:**
+- Health reports `895a5ed`. The landing page, `/app/talk` and `/app/team` return 200, and all 176 portraits are listed.
+- Without a session, `/api/workspace`, `/api/cards`, `/api/cards/:id/file` and `/api/admin/settings` return 401. A
+  cross-site `POST /api/talk` returns 403, and Google sign-in sends a 302.
+- `Permissions-Policy` allows `camera`, `display-capture` and the microphone for the app itself.
 
 **Owner steps left (historical; done as of this deploy except the plan upgrade):**
 1. Set these secrets: `wrangler secret put GOOGLE_CLIENT_SECRET --name headcount` and `wrangler secret put OWNER_EMAILS --name headcount`.
