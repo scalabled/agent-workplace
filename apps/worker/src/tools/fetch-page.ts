@@ -138,7 +138,8 @@ export const dohResolver =
     return out;
   };
 
-async function assertPublicHost(u: URL, resolve: Resolver | null, signal: AbortSignal): Promise<void> {
+/** Every address a name resolves to must be public (a DNS rebind to a private range is refused). */
+export async function assertPublicHost(u: URL, resolve: Resolver | null, signal: AbortSignal): Promise<void> {
   const host = u.hostname.replace(/^\[|\]$/g, '');
   if (!resolve || v4(host) || v6(host)) return;
   const ips = await resolve(host, signal);

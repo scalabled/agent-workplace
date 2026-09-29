@@ -51,6 +51,13 @@ export const ROUTES = {
   projectChannel: { method: 'GET', path: '/api/projects/:id/channel', auth: 'owner' },
   postChannel: { method: 'POST', path: '/api/projects/:id/channel', auth: 'owner', body: 'json', bodyCap: 8 * 1024 },
   discuss: { method: 'POST', path: '/api/projects/:id/discuss', auth: 'owner', body: 'json', bodyCap: 4 * 1024 },
+  // Parity stage 5: MCP connectors (ext/connectors.ts).
+  listConnectors: { method: 'GET', path: '/api/connectors', auth: 'owner' },
+  addConnector: { method: 'POST', path: '/api/connectors', auth: 'owner', body: 'json', bodyCap: 8 * 1024 },
+  patchConnector: { method: 'PUT', path: '/api/connectors/:id', auth: 'owner', body: 'json', bodyCap: 8 * 1024 },
+  removeConnector: { method: 'DELETE', path: '/api/connectors/:id', auth: 'owner' },
+  testConnector: { method: 'POST', path: '/api/connectors/:id/test', auth: 'owner', bodyCap: 1024 },
+  revokeConnectorGrant: { method: 'DELETE', path: '/api/connectors/:id/grants/:grantId', auth: 'owner' },
   // Parity stage 2: agent configuration and transparency (ext/agents.ts).
   getAgent: { method: 'GET', path: '/api/agents/:personaId', auth: 'owner' },
   putAgent: { method: 'PUT', path: '/api/agents/:personaId', auth: 'owner', body: 'json', bodyCap: 24 * 1024 },

@@ -99,6 +99,49 @@ export function AgentSettings({ view, onChange }: { view: AgentView; onChange: (
         </ul>
       </section>
 
+      <section class="profile-block" aria-labelledby="connectors-title">
+        <h2 id="connectors-title">Connectors</h2>
+        {!view.connectors?.length ? (
+          <p class="profile-note">
+            No services are connected yet. <Link href={paths.connectors}>Connect one</Link> (GitHub, Notion, docs servers…) and {first} can use it in project work.
+          </p>
+        ) : (
+          <>
+            <p class="profile-note">
+              Services {first} may use in project work. Calls that change things wait for your OK. <Link href={paths.connectors}>All connectors</Link>
+            </p>
+            <ul class="grant-list">
+              {view.connectors.map((c) => (
+                <li key={c.connectorId} class="grant">
+                  <label class="grant-label">
+                    <input
+                      type="checkbox"
+                      checked={c.granted}
+                      disabled={busy || c.everyone}
+                      onChange={(e) => {
+                        const on = (e.target as HTMLInputElement).checked;
+                        const next = new Set(view.config.connectors ?? []);
+                        if (on) next.add(c.connectorId);
+                        else next.delete(c.connectorId);
+                        void patch(`${c.name}: ${on ? 'on' : 'off'}.`, { connectors: [...next] });
+                      }}
+                    />
+                    <span>
+                      <span class="grant-name">{c.name}</span>
+                      <span class="grant-desc">
+                        {c.tools} {c.tools === 1 ? 'tool' : 'tools'}
+                        {c.everyone ? ' · every coworker may use it' : ''}
+                        {c.status !== 'ready' ? ' · not ready' : ''}
+                      </span>
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+
       <section class="profile-block" aria-labelledby="model-title">
         <h2 id="model-title">Model</h2>
         <p class="profile-note">

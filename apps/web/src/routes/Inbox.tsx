@@ -1,5 +1,6 @@
 // Inbox: raised hands only (decisions), so it can reach zero (X1): plans to approve, teammates' questions, review
-// issues and deliverables that need the owner's call, and spent budgets. Updates stay in Talk.
+// issues and deliverables that need the owner's call, spent budgets, and connector calls waiting for an OK. Updates
+// stay in Talk.
 import { useEffect } from 'preact/hooks';
 import { loadCatalog } from '../catalog';
 import { chiefName } from '../chief';
@@ -13,6 +14,8 @@ export function Inbox() {
   const decisions = decisionList.value;
   const name = chiefName.value;
   const questions = decisions.some((d) => d.kind === 'input');
+  // Permissions for connector calls are the owner's alone; the Chief relays everything else.
+  const relayable = decisions.some((d) => d.kind !== 'connector');
   return (
     <section class="page inbox" aria-labelledby="inbox-title">
       <header class="page-head">
@@ -31,7 +34,7 @@ export function Inbox() {
           <DecisionCard key={d.decisionId} decision={d} />
         ))}
       </div>
-      {decisions.length > 0 && <p class="page-fine">{questions ? `You can also just answer ${name} in Talk.` : `You can also just tell ${name} “go ahead”.`}</p>}
+      {relayable && <p class="page-fine">{questions ? `You can also just answer ${name} in Talk.` : `You can also just tell ${name} “go ahead”.`}</p>}
     </section>
   );
 }

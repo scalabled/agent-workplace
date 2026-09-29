@@ -36,6 +36,10 @@ export interface Env extends ProviderEnv {
   MAX_ACTIVE_PROJECTS?: string;
   /** Tokens a team project may spend before it pauses and asks (default 1,500,000). */
   PROJECT_TOKEN_BUDGET?: string;
+  /** Encrypts connector keys at rest (a Worker secret, 16+ characters; local mode falls back to a development key). */
+  CONNECTOR_SECRET?: string;
+  /** Connector (MCP) tool calls per day (default 500). */
+  CONNECTOR_DAILY_LIMIT?: string;
   /** "off": teams skip the kickoff discussion (default on for teams of three or more). */
   KICKOFF?: string;
   /** Background jobs that may run at once (default 3). */

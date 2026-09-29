@@ -8,6 +8,7 @@ import type { Registry } from '@headcount/models';
 import { chiefDisplayName } from '@headcount/catalog';
 import { coworkerAgentId, ownerFirstNameOf, type WorkspaceSettings } from '@headcount/protocol';
 import type { AgentView, GrantView, InstructionVersion, PromptSection, PromptView, ToolView } from '@headcount/protocol/ext/agents';
+import type { ConnectorView } from '@headcount/protocol/ext/connectors';
 import type { StaffingContext } from '@headcount/protocol/ext/projects';
 import { buildDeskSystemPrompt } from '../desk/desk';
 import { buildRoomSystemPrompt, roomMember } from '../rooms/prompt';
@@ -15,6 +16,7 @@ import { researchTools } from '../tools/research';
 import { SourceCollector } from '../tools/web-search';
 import { agentOf, resolveAgentModel, type Agent } from './agent';
 import { coworkerSections, joinSections } from './prompt';
+import { connectorTools } from '../connectors/tools';
 import { useSkillTool } from './skills';
 import type { AgentSetup } from './store';
 
@@ -53,6 +55,8 @@ export interface ViewInput {
   staffing: StaffingContext[];
   registry: Registry;
   webTools: boolean;
+  /** The workspace's connectors (Stage 5): the owner grants them per coworker here. */
+  connectors?: readonly ConnectorView[];
 }
 
 export function agentView(i: ViewInput): AgentView {
@@ -83,14 +87,16 @@ export function agentView(i: ViewInput): AgentView {
   const chief = chiefDisplayName(i.settings.leadId ? fullIndex.lead(i.settings.leadId) : undefined, i.settings.chiefName);
   const staffed = i.staffing[0];
   const project = { title: staffed?.title ?? '(the project they are on)', team: [], chiefName: chief };
-  const workSections = coworkerSections({ persona: i.persona, instructions: agent.instructions, edited: agent.edited, skills: agent.skills, research: kit.describe, project, collaborate: 'If a decision, permission or input only the owner can give is missing, call request_owner_input (one specific question); continue with reasonable, stated assumptions for anything that does not block you.' }, 'work');
+  // Connector tools as the work turn sees them (the view never calls them).
+  const conn = connectorTools(i.setup.connectors?.[i.persona.id] ?? [], { call: async () => ({ status: 'error', message: 'Preview only.' }) }, { subject: i.persona.id, mode: () => ({ kind: 'note' }) });
+  const workSections = coworkerSections({ persona: i.persona, instructions: agent.instructions, edited: agent.edited, skills: agent.skills, research: kit.describe, project, collaborate: ['If a decision, permission or input only the owner can give is missing, call request_owner_input (one specific question); continue with reasonable, stated assumptions for anything that does not block you.', conn.describe].filter(Boolean).join(' ') }, 'work');
   const reviewSections = coworkerSections({ persona: i.persona, instructions: agent.instructions, edited: agent.edited, skills: agent.skills, research: kit.describe, project }, 'review');
   const extras = [...kit.tools, ...(skill ? [skill] : [])];
   const desk = buildDeskSystemPrompt(i.persona, chief, ownerFirstNameOf(i.settings), i.staffing);
   const self = roomMember(coworkerAgentId(i.persona.id), i.settings);
   const room = self ? buildRoomSystemPrompt({ roomId: 'skyline', self, others: [], ownerFirst: ownerFirstNameOf(i.settings), chiefName: chief }) : '';
   const prompts: PromptView[] = [
-    { surface: 'work', label: 'Project work', when: 'When they do a step of a team project (and when they revise it).', sections: workSections, text: joinSections(workSections), tools: [ASK_OWNER, SUBMIT_WORK, ...toolViews(extras, kit.hosted)] },
+    { surface: 'work', label: 'Project work', when: 'When they do a step of a team project (and when they revise it).', sections: workSections, text: joinSections(workSections), tools: [ASK_OWNER, SUBMIT_WORK, ...toolViews([...extras, ...conn.tools], kit.hosted)] },
     { surface: 'review', label: 'Reviewing', when: 'When they review a teammate’s step.', sections: reviewSections, text: joinSections(reviewSections), tools: [SUBMIT_REVIEW, ...toolViews(extras, kit.hosted)] },
     {
       surface: 'desk',
@@ -119,6 +125,7 @@ export function agentView(i: ViewInput): AgentView {
       resolved,
     },
     prompts,
+    ...(i.connectors ? { connectors: i.connectors.map((c) => ({ connectorId: c.connectorId, name: c.name, tools: c.tools.length, status: c.status, everyone: c.everyone, granted: c.everyone || (config.connectors ?? []).includes(c.connectorId) })) } : {}),
   };
 }
 

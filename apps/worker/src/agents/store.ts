@@ -4,6 +4,7 @@
 import { fullIndex } from '@headcount/catalog/full';
 import { PROVIDERS } from '@headcount/models';
 import { INSTRUCTIONS_MAX, TOOL_GRANT_IDS, type AgentConfig, type AgentConfigPatch, type InstructionVersion, type ReasoningChoice, type SkillVersion } from '@headcount/protocol/ext/agents';
+import type { ConnectorKit } from '../connectors/store';
 import { catalogSkill, type SkillOverride } from './skills';
 
 export const AGENT_SCHEMA = [
@@ -26,6 +27,8 @@ export class AgentConfigError extends Error {
 export interface AgentSetup {
   configs: Record<string, AgentConfig>;
   skills: Record<string, SkillOverride>;
+  /** The connectors each coworker may use now, with their tools (Stage 5; absent: none). */
+  connectors?: Record<string, ConnectorKit[]>;
 }
 
 type Row = { persona_id: string; config: string; history: string; updated_at: string };
@@ -64,6 +67,15 @@ export class AgentStore {
     return { configs, skills };
   }
 
+  /** Coworkers granted a connector one by one. */
+  grantedTo(connectorId: string): string[] {
+    return this.sql
+      .exec<Pick<Row, 'persona_id' | 'config'>>('SELECT persona_id, config FROM agent_config')
+      .toArray()
+      .filter((r) => (JSON.parse(r.config) as AgentConfig).connectors?.includes(connectorId))
+      .map((r) => r.persona_id);
+  }
+
   /** Apply the owner's change (validated); the previous instructions go to the history. */
   patch(personaId: string, patch: AgentConfigPatch, at: string): AgentConfig {
     const persona = fullIndex.persona(personaId);
@@ -97,7 +109,7 @@ export class AgentStore {
       next.tools = tools;
     }
     if (patch.connectors !== undefined) {
-      if (!Array.isArray(patch.connectors) || patch.connectors.length > 40 || patch.connectors.some((c) => typeof c !== 'string' || !/^[a-z0-9][a-z0-9-]{0,62}$/.test(c))) throw new AgentConfigError('Connectors are a list of connector ids.');
+      if (!Array.isArray(patch.connectors) || patch.connectors.length > 40 || patch.connectors.some((c) => typeof c !== 'string' || !/^[a-z0-9][a-z0-9_-]{0,62}$/.test(c))) throw new AgentConfigError('Connectors are a list of connector ids.');
       if (patch.connectors.length) next.connectors = [...new Set(patch.connectors)];
       else delete next.connectors;
     }

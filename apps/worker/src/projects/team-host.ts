@@ -48,7 +48,10 @@ import { chooseRecipe, consultCoworker, discussionTurn, doStepWork, planProject,
 import { TeamChannel, mentionsIn } from './channel';
 import { MAX_ADDED_SPECIALISTS, MAX_TEAM, collabTools, type CollabHost } from './collab';
 import { words } from './staffing';
-import type { ChannelEntry } from '@headcount/protocol/ext/projects';
+import type { ChannelEntry, ConnectorScope } from '@headcount/protocol/ext/projects';
+import type { ConnectorAsk } from '@headcount/protocol/ext/connectors';
+import type { ConnectorCallRequest, ConnectorCallResult, ConnectorGrantRequest } from '../connectors/store';
+import { connectorTools, type ApprovalMode } from '../connectors/tools';
 
 export const MAX_PARALLEL = 3;
 export const MAX_ACTIVE_PROJECTS_DEFAULT = 2;
@@ -89,6 +92,11 @@ export interface TeamHostPorts {
   agents?(personaIds: string[]): Promise<AgentSetup>;
   /** Keep work alive after the request that started it answered (ctx.waitUntil). */
   background?(work: Promise<unknown>): void;
+  /** Connector calls and the owner's grants run in the WorkspaceDO, where the keys are (Stage 5). */
+  connectors?: {
+    call(req: ConnectorCallRequest): Promise<ConnectorCallResult>;
+    grant(req: ConnectorGrantRequest): Promise<void>;
+  };
 }
 
 type ProjectRow = {
@@ -153,7 +161,7 @@ type StepRow = {
   revisions: number | null;
 };
 type NoteRow = { note_id: string; project_id: string; op_id: string | null; to_id: string | null; via: string; text: string; status: string; at: string; applied_at: string | null; applied_step: string | null; from_id: string | null };
-type DecisionRow = { decision_id: string; kind: string; project_id: string; title: string; body: string; status: string; created_at: string; resolved_at: string | null; step_id: string | null; from_id: string | null; answer: string | null };
+type DecisionRow = { decision_id: string; kind: string; project_id: string; title: string; body: string; status: string; created_at: string; resolved_at: string | null; step_id: string | null; from_id: string | null; answer: string | null; meta: string | null; scope: string | null };
 type RunRow = { run_id: string; project_id: string; step_id: string | null; phase: string; persona_id: string; at: string; in_tokens: number; out_tokens: number; usd: number | null; data: string };
 
 export const TEAM_SCHEMA = [
@@ -204,6 +212,8 @@ const TEAM_MIGRATIONS = [
   'ALTER TABLE tdecisions ADD COLUMN step_id TEXT',
   'ALTER TABLE tdecisions ADD COLUMN from_id TEXT',
   'ALTER TABLE tdecisions ADD COLUMN answer TEXT',
+  'ALTER TABLE tdecisions ADD COLUMN meta TEXT',
+  'ALTER TABLE tdecisions ADD COLUMN scope TEXT',
   'ALTER TABLE tprojects ADD COLUMN kickoff TEXT',
   'ALTER TABLE tprojects ADD COLUMN pending_discussion TEXT',
   'ALTER TABLE tprojects ADD COLUMN discussion_state TEXT',
@@ -239,6 +249,9 @@ function maxActiveProjects(env: Env): number {
   const n = Number(env.MAX_ACTIVE_PROJECTS);
   return env.MAX_ACTIVE_PROJECTS && Number.isInteger(n) && n >= 0 ? n : MAX_ACTIVE_PROJECTS_DEFAULT;
 }
+
+const scopeOf = (v: unknown): ConnectorScope => (v === 'project' || v === 'always' ? v : 'once');
+const SCOPE_WORDS: Record<ConnectorScope, string> = { once: 'Allowed once.', project: 'Allowed for this project.', always: 'Always allowed.' };
 
 function tokenBudget(env: Env): number {
   const n = Number(env.PROJECT_TOKEN_BUDGET);
@@ -440,10 +453,12 @@ export class TeamProjects {
   }
 
   /** The owner answers a raised hand: approve, decline, or words (an answer, or direction). */
-  async answer(decisionId: string, a: DecisionAnswer): Promise<{ accepted: true; decision: Decision; project: TeamProjectSnapshot } | ProjectRefusal> {
+  async answer(decisionId: string, a: DecisionAnswer): Promise<{ accepted: true; decision: Decision; project?: TeamProjectSnapshot } | ProjectRefusal> {
     const d = this.sql.exec<DecisionRow>('SELECT * FROM tdecisions WHERE decision_id = ?', decisionId).toArray()[0];
     if (!d) return { accepted: false, code: 'not_found', message: 'No such decision.' };
     if (d.status !== 'open') return { accepted: false, code: 'conflict', message: 'That was already decided.' };
+    const kind0 = d.kind as DecisionKind;
+    if (kind0 === 'connector' && !d.project_id) return this.answerChief(d, a);
     if (!this.row(d.project_id)) return { accepted: false, code: 'not_found', message: 'No such project.' };
     if (!['approve', 'decline', 'answer'].includes(a.action)) return { accepted: false, code: 'bad_request', message: 'Approve, decline or answer.' };
     const text = (a.text ?? '').trim().slice(0, DECISION_ANSWER_MAX);
@@ -466,16 +481,32 @@ export class TeamProjects {
     } else if (kind === 'deliverable') {
       if (a.action === 'answer') this.sql.exec(`UPDATE tprojects SET status = 'running', final_direction = ?, next_at = ? WHERE project_id = ?`, text, runtime.now(), d.project_id);
       else this.sql.exec(`UPDATE tprojects SET status = ?, finished_at = ? WHERE project_id = ?`, this.endStatus(d.project_id), at, d.project_id);
+    } else if (kind === 'connector') {
+      const ask = JSON.parse(d.meta ?? '{}') as ConnectorAsk;
+      const scope = scopeOf(a.scope);
+      if (a.action === 'approve') await this.p.connectors?.grant({ connectorId: ask.connectorId, tool: ask.tool, scope, subject: ask.subject, projectId: d.project_id });
+      if (step) {
+        const answer =
+          a.action === 'approve'
+            ? `The owner allowed ${ask.name} → ${ask.tool}${scope === 'once' ? ' for this call' : scope === 'project' ? ' for this project' : ''}. Call it again now and carry on.`
+            : a.action === 'answer'
+              ? `The owner did not allow ${ask.name} → ${ask.tool} and said: ${text}`
+              : `The owner did not allow ${ask.name} → ${ask.tool}. Carry on without it and say what is missing.`;
+        this.sql.exec(`UPDATE tsteps SET status = 'waiting', answer = ?, question = NULL, draft = NULL WHERE project_id = ? AND step_id = ?`, answer, d.project_id, d.step_id);
+      }
     } else if (kind === 'budget' && a.action === 'approve') {
       this.sql.exec(`UPDATE tprojects SET budget_tokens = COALESCE(budget_tokens, ?) + ?, status = 'running', next_at = ? WHERE project_id = ?`, tokenBudget(this.p.env), tokenBudget(this.p.env), runtime.now(), d.project_id);
     }
-    this.sql.exec(`UPDATE tdecisions SET status = ?, resolved_at = ?, answer = ? WHERE decision_id = ?`, a.action === 'answer' ? 'answered' : a.action === 'approve' ? 'approved' : 'declined', at, a.action === 'answer' ? text : null, decisionId);
+    this.sql.exec(
+      `UPDATE tdecisions SET status = ?, resolved_at = ?, answer = ?, scope = ? WHERE decision_id = ?`,
+      a.action === 'answer' ? 'answered' : a.action === 'approve' ? 'approved' : 'declined', at, a.action === 'answer' ? text : null, kind === 'connector' && a.action === 'approve' ? scopeOf(a.scope) : null, decisionId,
+    );
     this.channel.add(d.project_id, {
       kind: 'decision',
       fromId: 'owner',
       ...(d.from_id ? { toId: d.from_id } : {}),
       ...(d.step_id ? { stepId: d.step_id } : {}),
-      text: `${d.title} — ${a.action === 'answer' ? text : a.action === 'approve' ? (kind === 'budget' ? 'Raised the budget.' : kind === 'input' ? 'Go with your recommendation.' : 'Accepted as it is.') : kind === 'budget' ? 'Kept it paused.' : 'Declined.'}`,
+      text: `${d.title} — ${a.action === 'answer' ? text : a.action === 'approve' ? (kind === 'budget' ? 'Raised the budget.' : kind === 'input' ? 'Go with your recommendation.' : kind === 'connector' ? SCOPE_WORDS[scopeOf(a.scope)] : 'Accepted as it is.') : kind === 'budget' ? 'Kept it paused.' : kind === 'connector' ? 'Not allowed.' : 'Declined.'}`,
     });
     this.sql.exec(`UPDATE tprojects SET updated_at = ? WHERE project_id = ?`, at, d.project_id);
     const resolved = this.decision(decisionId)!;
@@ -488,6 +519,24 @@ export class TeamProjects {
     this.emit(d.project_id);
     void this.p.flush();
     return { accepted: true, decision: resolved, project: this.snapshot(this.row(d.project_id)!) };
+  }
+
+  /** The owner answers the Chief of Staff's connector ask: a grant (once or always), or no. */
+  private async answerChief(d: DecisionRow, a: DecisionAnswer): Promise<{ accepted: true; decision: Decision } | ProjectRefusal> {
+    if (!['approve', 'decline', 'answer'].includes(a.action)) return { accepted: false, code: 'bad_request', message: 'Allow or decline.' };
+    const ask = JSON.parse(d.meta ?? '{}') as ConnectorAsk;
+    // No project: "for this project" means this call.
+    const scope = a.scope === 'always' ? 'always' : 'once';
+    if (a.action === 'approve') await this.p.connectors?.grant({ connectorId: ask.connectorId, tool: ask.tool, scope, subject: ask.subject });
+    const text = (a.text ?? '').trim().slice(0, DECISION_ANSWER_MAX);
+    this.sql.exec(
+      `UPDATE tdecisions SET status = ?, resolved_at = ?, answer = ?, scope = ? WHERE decision_id = ?`,
+      a.action === 'approve' ? 'approved' : a.action === 'answer' ? 'answered' : 'declined', iso(), a.action === 'answer' && text ? text : null, a.action === 'approve' ? scope : null, d.decision_id,
+    );
+    const resolved = this.decision(d.decision_id)!;
+    this.p.append({ type: 'decision.resolved', data: { decision: resolved } });
+    void this.p.flush();
+    return { accepted: true, decision: resolved };
   }
 
   // ── plan editing (while proposed or paused) ────────────────────────────────────────
@@ -816,6 +865,14 @@ export class TeamProjects {
     return kit.tools.length ? { extraTools: kit.tools, extraDescribe: kit.describe } : {};
   }
 
+  /** The connectors this coworker may use (Stage 5), with what a call that needs the owner's OK does here. */
+  private connectorExtras(projectId: string, setup: AgentSetup, selfId: string, stepId: string | undefined, mode: () => ApprovalMode): { tools: AgentTool<any>[]; describe: string } {
+    const kits = setup.connectors?.[selfId] ?? [];
+    const port = this.p.connectors;
+    if (!kits.length || !port) return { tools: [], describe: '' };
+    return connectorTools(kits, { call: (req) => port.call(req) }, { subject: selfId, projectId, ...(stepId ? { stepId } : {}), mode });
+  }
+
   /** A teammate answers a colleague mid-step (in the channel and the inspector). */
   private async consult(projectId: string, setup: AgentSetup, signal: AbortSignal, fromId: string, toId: string, question: string, depth: number, stepId?: string): Promise<string> {
     const team = this.teamOf(projectId);
@@ -1046,13 +1103,18 @@ export class TeamProjects {
       let draft = s0.draft ?? '';
       let sources: Source[] = json<Source[]>(s0.sources, []);
       let asked: { text: string; detail?: string } | null = null;
+      // A connector call that needs the owner's OK pauses the step while the lead works; later (revisions) it cannot.
+      let approval: ConnectorAsk | null = null;
+      let working = true;
       const collab = this.collabExtras(projectId, setup, signal, lead, 0, stepId);
+      const conn = this.connectorExtras(projectId, setup, lead, stepId, () => (working ? { kind: 'pause', onAsk: (ask) => (approval ??= ask) } : { kind: 'note' }));
       const leadWorker = this.worker(lead, setup, deadlineSignal(UNIT_BUDGET_MS, signal), {
         // One question per step: after the owner answers, the lead works with the answer.
-        extraTools: [...(s0.answer ? [] : [askOwnerTool((q) => (asked = q))]), ...(collab.extraTools ?? [])],
+        extraTools: [...(s0.answer ? [] : [askOwnerTool((q) => (asked = q))]), ...(collab.extraTools ?? []), ...conn.tools],
         extraDescribe: [
           'If a decision, permission or input only the owner can give is missing, call request_owner_input (one specific question); continue with reasonable, stated assumptions for anything that does not block you.',
           collab.extraDescribe ?? '',
+          conn.describe,
         ]
           .filter(Boolean)
           .join(' '),
@@ -1062,9 +1124,17 @@ export class TeamProjects {
         this.applyNotes(projectId, fence, stepId, lead);
         this.setStep(projectId, fence, stepId, { status: 'working', by_id: lead, started_at: iso(), error: null });
         const previous = s0.output ?? undefined;
-        const out = await doStepWork({ ...leadWorker, paused: () => !!asked }, brief(), step(), { ...(s0.answer ? { answer: s0.answer } : {}), ...(previous ? { previous } : {}) });
+        const out = await doStepWork({ ...leadWorker, paused: () => !!asked || !!approval }, brief(), step(), { ...(s0.answer ? { answer: s0.answer } : {}), ...(previous ? { previous } : {}) });
         if (!this.live(projectId, fence)) throw new WorkCancelled();
         this.recordRun(projectId, stepId, 'work', leadWorker, out.run, out.sources);
+        const ok = approval as ConnectorAsk | null;
+        if (ok) {
+          const q = { text: `May I use ${ok.name} → ${ok.tool}?`, detail: `With these details:\n${ok.args}` };
+          this.channel.add(projectId, { kind: 'ask', fromId: lead, toId: 'owner', stepId, text: `${q.text}\n\n${q.detail}` });
+          this.setStep(projectId, fence, stepId, { status: 'asking', question: JSON.stringify(q) });
+          this.openDecision(projectId, 'connector', { stepId, fromId: lead, connector: ok, title: `${firstOf(nameOf(lead))} wants to use ${ok.name} → ${ok.tool}`, body: `For “${step().title}”, with these details:\n${ok.args}` });
+          return;
+        }
         const q = asked as { text: string; detail?: string } | null;
         if (q) {
           this.channel.add(projectId, { kind: 'ask', fromId: lead, toId: 'owner', stepId, text: q.detail ? `${q.text}\n\n${q.detail}` : q.text });
@@ -1077,6 +1147,7 @@ export class TeamProjects {
         this.channel.add(projectId, { kind: 'work', fromId: lead, stepId, text: `Handed in “${step().title}”: ${out.summary}` });
         this.setStep(projectId, fence, stepId, { draft, sources: JSON.stringify(sources), status: 'reviewing' });
       }
+      working = false;
 
       // The owner's direction after an escalation: a fresh revision first.
       if (s0.direction) {
@@ -1216,15 +1287,36 @@ export class TeamProjects {
 
   // ── decisions ─────────────────────────────────────────────────────────────────────
 
-  private openDecision(projectId: string, kind: Exclude<DecisionKind, 'plan_approval'>, d: { title: string; body: string; stepId?: string; fromId?: string }): void {
+  /**
+   * The Chief of Staff wants to call a connector tool that needs the owner's OK (a raised hand with no project). A
+   * newer ask for the same tool replaces one still unanswered.
+   */
+  openChiefApproval(ask: ConnectorAsk, title: string): Decision {
+    const at = iso();
+    for (const d of this.sql.exec<DecisionRow>(`SELECT * FROM tdecisions WHERE project_id = '' AND kind = 'connector' AND status = 'open'`).toArray()) {
+      const m = JSON.parse(d.meta ?? '{}') as Partial<ConnectorAsk>;
+      if (m.connectorId === ask.connectorId && m.tool === ask.tool) this.resolve(d.decision_id, 'declined', at);
+    }
+    const decisionId = newId('dec');
+    this.sql.exec(
+      `INSERT INTO tdecisions (decision_id, kind, project_id, title, body, status, created_at, meta) VALUES (?, 'connector', '', ?, ?, 'open', ?, ?)`,
+      decisionId, clipText(title, 300), clipText(`With these details:\n${ask.args}`, 4000), at, JSON.stringify(ask),
+    );
+    const d = this.decision(decisionId)!;
+    this.p.append({ type: 'decision.opened', data: { decision: d } });
+    void this.p.flush();
+    return d;
+  }
+
+  private openDecision(projectId: string, kind: Exclude<DecisionKind, 'plan_approval'>, d: { title: string; body: string; stepId?: string; fromId?: string; connector?: ConnectorAsk }): void {
     // One open hand per step (and one budget hand per project).
     const dup = this.sql.exec<DecisionRow>(`SELECT * FROM tdecisions WHERE project_id = ? AND kind = ? AND status = 'open' AND COALESCE(step_id, '') = ?`, projectId, kind, d.stepId ?? '').toArray()[0];
     if (dup) return;
     const decisionId = newId('dec');
     const at = iso();
     this.sql.exec(
-      `INSERT INTO tdecisions (decision_id, kind, project_id, title, body, status, created_at, step_id, from_id) VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?)`,
-      decisionId, kind, projectId, clipText(d.title, 300), clipText(d.body, 4000), at, d.stepId ?? null, d.fromId ?? null,
+      `INSERT INTO tdecisions (decision_id, kind, project_id, title, body, status, created_at, step_id, from_id, meta) VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)`,
+      decisionId, kind, projectId, clipText(d.title, 300), clipText(d.body, 4000), at, d.stepId ?? null, d.fromId ?? null, d.connector ? JSON.stringify(d.connector) : null,
     );
     this.sql.exec('UPDATE tprojects SET updated_at = ? WHERE project_id = ?', at, projectId);
     this.p.append({ type: 'decision.opened', data: { decision: this.decision(decisionId)! } });
@@ -1383,6 +1475,8 @@ export class TeamProjects {
       body: r.body,
       status: r.status as Decision['status'],
       ...(r.answer ? { answer: r.answer } : {}),
+      ...(r.meta && r.kind === 'connector' ? { connector: JSON.parse(r.meta) as ConnectorAsk } : {}),
+      ...(r.scope ? { scope: r.scope as ConnectorScope } : {}),
       createdAt: r.created_at,
       ...(r.resolved_at ? { resolvedAt: r.resolved_at } : {}),
     };

@@ -3,7 +3,7 @@
 // redirect to their "/app" equivalents, so old links and bookmarks keep working.
 import { computed, signal } from '@preact/signals';
 
-export type RouteName = 'landing' | 'home' | 'onboarding' | 'talk' | 'floor' | 'coworker' | 'projects' | 'project' | 'inbox' | 'skills' | 'skill' | 'chief' | 'notFound';
+export type RouteName = 'landing' | 'home' | 'onboarding' | 'talk' | 'floor' | 'coworker' | 'projects' | 'project' | 'inbox' | 'skills' | 'skill' | 'chief' | 'connectors' | 'notFound';
 
 export interface CurrentRoute {
   name: RouteName;
@@ -26,6 +26,7 @@ const PATTERNS: [RouteName, RegExp, string[]][] = [
   ['skills', /^\/app\/skills\/?$/, []],
   ['skill', /^\/app\/skills\/([a-z0-9][a-z0-9-]*)\/?$/, ['skillId']],
   ['chief', /^\/app\/chief\/?$/, []],
+  ['connectors', /^\/app\/connectors\/?$/, []],
 ];
 
 const LEGACY = [/^\/(welcome|talk|floor|projects|inbox)\/?$/, /^\/desk\/[^/]+\/profile\/?$/];
@@ -101,6 +102,7 @@ export const paths = {
   skills: `${APP_BASE}/skills`,
   skill: (skillId: string) => `${APP_BASE}/skills/${encodeURIComponent(skillId)}`,
   chief: `${APP_BASE}/chief`,
+  connectors: `${APP_BASE}/connectors`,
 } as const;
 
 if (typeof window !== 'undefined')

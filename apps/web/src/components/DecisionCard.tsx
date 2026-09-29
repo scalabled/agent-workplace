@@ -1,8 +1,10 @@
 // A raised hand (Inbox and the project page): a plan to approve, a teammate's question, reviewers' remaining issues,
-// the deliverable's check, or the token budget. Each kind offers its own answers; words reach the team at once.
-import type { Decision } from '@headcount/protocol/ext/projects';
+// the deliverable's check, the token budget, or a connector call that waits for the owner's OK (once, for the project,
+// or always). Each kind offers its own answers; words reach the team at once.
+import type { ConnectorScope, Decision } from '@headcount/protocol/ext/projects';
 import { useState } from 'preact/hooks';
 import { catalog } from '../catalog';
+import { chiefName } from '../chief';
 import { answerDecision, decisionBusy, decisionError } from '../projects/actions';
 import { navigate, paths } from '../router';
 import { teamProjects } from '../store';
@@ -15,6 +17,7 @@ const KIND_LABEL: Record<Decision['kind'], string> = {
   review: 'Review issues',
   deliverable: 'The deliverable',
   budget: 'Budget',
+  connector: 'Permission',
 };
 
 export function DecisionCard({ decision: d, showProject = true }: { decision: Decision; showProject?: boolean }) {
@@ -23,7 +26,8 @@ export function DecisionCard({ decision: d, showProject = true }: { decision: De
   const busy = !!decisionBusy.value[d.decisionId];
   const error = decisionError.value[d.decisionId];
   const asker = d.fromId ? catalog.value?.persona(d.fromId) : undefined;
-  const answer = (action: 'approve' | 'decline' | 'answer') => void answerDecision(d.decisionId, action === 'answer' ? { action, text: text.trim() } : { action }).then((ok) => ok && setText(''));
+  const answer = (action: 'approve' | 'decline' | 'answer', scope?: ConnectorScope) =>
+    void answerDecision(d.decisionId, action === 'answer' ? { action, text: text.trim() } : { action, ...(scope ? { scope } : {}) }).then((ok) => ok && setText(''));
   const words = d.kind === 'input' || d.kind === 'review' || d.kind === 'deliverable';
   const placeholder = d.kind === 'input' ? 'Your answer…' : 'Or give direction: what should change…';
   return (
@@ -46,7 +50,18 @@ export function DecisionCard({ decision: d, showProject = true }: { decision: De
         <h2 id={`dec-${d.decisionId}`} class="decision-title">
           {d.title}
         </h2>
-        <p class="decision-text">{d.body}</p>
+        {d.connector ? (
+          <>
+            <p class="decision-text">{d.projectId ? d.body.split('\n')[0] : `${chiefName.value} is waiting for your answer.`}</p>
+            {d.connector.args.trim() !== '{}' && (
+              <pre class="decision-args" aria-label="The details they would send">
+                {d.connector.args}
+              </pre>
+            )}
+          </>
+        ) : (
+          <p class="decision-text">{d.body}</p>
+        )}
         {d.kind === 'plan_approval' && project && (
           <>
             <TeamStrip team={project.team} max={8} />
@@ -113,6 +128,24 @@ export function DecisionCard({ decision: d, showProject = true }: { decision: De
             </button>
             <button type="button" class="button-quiet" disabled={busy || !text.trim()} onClick={() => answer('answer')}>
               Send direction
+            </button>
+          </>
+        )}
+        {d.kind === 'connector' && (
+          <>
+            <button type="button" class="button-primary" disabled={busy} onClick={() => answer('approve', 'once')}>
+              Allow once
+            </button>
+            {d.projectId && (
+              <button type="button" class="button-quiet" disabled={busy} onClick={() => answer('approve', 'project')}>
+                Allow for this project
+              </button>
+            )}
+            <button type="button" class="button-quiet" disabled={busy} onClick={() => answer('approve', 'always')}>
+              Always allow
+            </button>
+            <button type="button" class="button-quiet" disabled={busy} onClick={() => answer('decline')}>
+              Don’t allow
             </button>
           </>
         )}

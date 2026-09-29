@@ -1,5 +1,6 @@
 // Inc 1 "Hire a team in a sentence": team projects staffed from catalog recipes, a reviewed plan the owner approves
 // in the Inbox (a raised hand), parallel steps with review and one revision, and a written deliverable.
+import type { ConnectorAsk } from './connectors';
 
 /**
  * planning: staffed, the lead is drafting the plan · proposed: waiting for the owner's approval · running · paused
@@ -157,7 +158,7 @@ export interface TeamProjectSnapshot {
  * reviewers still want changes (accept, or give direction) · deliverable: the check left issues (accept, or give
  * direction) · budget: the token budget is spent (raise it and continue?).
  */
-export type DecisionKind = 'plan_approval' | 'input' | 'review' | 'deliverable' | 'budget';
+export type DecisionKind = 'plan_approval' | 'input' | 'review' | 'deliverable' | 'budget' | 'connector';
 
 export interface Decision {
   decisionId: string;
@@ -173,16 +174,31 @@ export interface Decision {
   status: 'open' | 'approved' | 'declined' | 'answered';
   /** The owner's words (an answer, or direction). */
   answer?: string;
+  /** A connector call waiting for the owner's OK (kind 'connector'). An empty projectId: the Chief of Staff asks. */
+  connector?: ConnectorAsk;
+  /** How far an approved connector call's OK reaches. */
+  scope?: ConnectorScope;
   createdAt: string;
   resolvedAt?: string;
 }
+
+/** once: this call only; project: this tool for the whole project; always: this tool from now on. */
+export type ConnectorScope = 'once' | 'project' | 'always';
 
 /** POST /api/decisions/:id — approve, decline, or answer in words (input, or direction for review/deliverable). */
 export interface DecisionAnswer {
   action: 'approve' | 'decline' | 'answer';
   text?: string;
+  /** Connector approvals: how far the OK reaches (default once). */
+  scope?: ConnectorScope;
 }
 export const DECISION_ANSWER_MAX = 4000;
+/** POST /api/decisions/:id answered: the decision, and its project when it has one (a Chief's connector ask has none). */
+export interface DecisionAccepted {
+  accepted: true;
+  decision: Decision;
+  project?: TeamProjectSnapshot;
+}
 
 /** Owner edits of the plan (while proposed or paused). */
 export interface StepEdit {

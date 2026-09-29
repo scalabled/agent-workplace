@@ -81,7 +81,7 @@ export async function answerDecision(decisionId: string, a: DecisionAnswer): Pro
   decisionError.value = { ...decisionError.value, [decisionId]: undefined };
   try {
     const r = await api.answerDecision(decisionId, a);
-    upsertProject(r.project);
+    if (r.project) upsertProject(r.project);
     const { [decisionId]: _gone, ...rest } = openDecisions.value;
     openDecisions.value = rest;
     return true;

@@ -130,6 +130,19 @@ export interface AgentView {
     resolved: { provider: string; model: string } | null;
   };
   prompts: PromptView[];
+  /** Every connected service and whether this coworker may use it (Stage 5). */
+  connectors?: AgentConnectorView[];
+}
+
+export interface AgentConnectorView {
+  connectorId: string;
+  name: string;
+  tools: number;
+  status: string;
+  /** Every coworker may use it (then it cannot be switched off one by one). */
+  everyone: boolean;
+  /** This coworker may use it. */
+  granted: boolean;
 }
 
 export interface AgentConfigPatch {

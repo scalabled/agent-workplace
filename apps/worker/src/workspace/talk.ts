@@ -6,6 +6,9 @@ import { CHIEF_ID, ids, ownerFirstNameOf, type AgentId, type Frame, type JobId, 
 import type { ExprIntentId, ReactHint, TalkSurface } from '@headcount/protocol/ext/expressions';
 import { buildChiefSystemPrompt, honestyPolicyText } from './chief-prompt';
 import { hostsSearch } from '../tools/web-search';
+import type { ConnectorAsk } from '@headcount/protocol/ext/connectors';
+import type { ConnectorCallRequest, ConnectorCallResult, ConnectorKit } from '../connectors/store';
+import { connectorTools } from '../connectors/tools';
 import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
 import type { Decision, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { Feed } from './feed';
@@ -49,6 +52,12 @@ export interface TalkHost {
   reflexes?: TurnReflexHooks;
   /** False when the owner turned web tools off (WEB_TOOLS=off). */
   webTools?: boolean;
+  /** The connectors the Chief may use, their calls, and the wait for the owner's OK (Stage 5). */
+  connectors?: {
+    kits(): ConnectorKit[];
+    call(req: ConnectorCallRequest): Promise<ConnectorCallResult>;
+    wait(ask: ConnectorAsk, signal: AbortSignal): Promise<'approved' | 'declined' | 'pending'>;
+  };
 }
 
 export interface TurnSpec {
@@ -371,7 +380,9 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     const turnNote = turnNoteFor(spec.cues, messages.filter((m) => m.role === 'assistant').map((m) => (typeof m.content === 'string' ? m.content : '')));
     // Quick lookups: the Chief searches natively when its provider hosts web search (research goes to jobs/teams).
     const webSearch = host.webTools !== false && hostsSearch(resolved.provider);
-    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions });
+    const conn = host.connectors;
+    const connectors = conn ? connectorTools(conn.kits(), conn, { subject: 'chief', mode: () => ({ kind: 'wait', wait: (ask) => conn.wait(ask, signal) }) }) : { tools: [], describe: '' };
+    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: connectors.describe });
     const tools = createChiefTools({
       project: host.project(),
       turnId,
@@ -383,6 +394,7 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
       chiefName: settings.chiefName,
       onDelegated: (jobId) => host.reflexes?.delegated(turnId, jobId),
     });
+    tools.push(...connectors.tools);
 
     const result = await runTurn({
       provider: resolved.provider,

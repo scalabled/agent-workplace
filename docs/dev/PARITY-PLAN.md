@@ -6,6 +6,25 @@ increment" (MVP-PLAN Inc 2). Built directly (no Workflow). Specs come from three
 search + MCP; orchestration + inter-agent; prompts + skills). Where biz-bot has a gap (plaintext tokens, string-only
 SSRF checks, unframed MCP results, no prompt viewer), we match the feature and close the gap.
 
+## Status (29 Sep 2026)
+| Stage | State | Commit |
+| --- | --- | --- |
+| 1 · Web search and page reading | done | 65651c9 |
+| 2 · Agent configuration and transparency | done | 3d41cc0 |
+| 3 · Orchestration and planning | done, except automations (schedules, page watchers) | 3d41cc0 |
+| 4 · Inter-agent communication | done | cb26d94 |
+| 5 · MCP connectors | done | (this commit) |
+| 3b · Automations | not started | |
+| Inc 2 · Rooms, voices and listen-in | not started | |
+
+Stage 5 as built: `apps/worker/src/connectors/` (catalog, Streamable HTTP client, sealed keys, store, agent tools,
+routes) and `/app/connectors` on the web. Grants per coworker live in `AgentConfig.connectors` (or "every coworker");
+the Chief uses a connector in Talk when allowed. Calls wait for the owner per the connector's policy (every call /
+calls that change things / never): in a project step the step waits (an Inbox hand: once / this project / always); the
+Chief's call waits up to 60 s on a card in Talk. A demo notebook served inside the worker (mock mode only) makes the
+whole flow testable keyless. Like biz-bot, OAuth-only services take a pasted access token; a real OAuth sign-in flow
+(discovery, dynamic client registration, PKCE, refresh) is not built.
+
 ## Stage 1 · Web search and page reading
 - `ChatRequest.hostedTools` (`web_search`, `x_search`) → native search per adapter (OpenAI/xAI Responses with
   `include: web_search_call.action.sources`, xAI `no_inline_citations`; Anthropic `web_search_20260209`; Gemini

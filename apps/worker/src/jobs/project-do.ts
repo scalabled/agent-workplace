@@ -24,6 +24,8 @@ import type { CheckpointDirective } from '@headcount/agent-loop';
 import type { Env } from '../env';
 import { DailyCounter, dailyLimit, limitMessage, maxActiveJobs } from '../lib/limits';
 import { workspaceStub } from '../lib/stubs';
+import type { ConnectorCallResult } from '../connectors/store';
+import type { ConnectorAsk } from '@headcount/protocol/ext/connectors';
 import type { AgentSetup } from '../agents/store';
 import type { PresenceClaim } from '../workspace/feed';
 import { Ledger } from '../workspace/ledger';
@@ -178,6 +180,11 @@ export class ProjectDO extends DurableObject<Env> {
       // The owner's overrides for coworkers live in the WorkspaceDO.
       agents: async (ids) => (await workspaceStub(env).agentSetup(ids)) as unknown as AgentSetup,
       background: (work) => ctx.waitUntil(work.catch((err) => logError('project.background', err))),
+      // Connector calls run where the keys are.
+      connectors: {
+        call: async (req) => (await workspaceStub(env).connectorCall(req)) as unknown as ConnectorCallResult,
+        grant: async (req) => void (await workspaceStub(env).connectorGrant(req)),
+      },
     });
   }
 
@@ -243,8 +250,13 @@ export class ProjectDO extends DurableObject<Env> {
   }
 
   /** The owner answers a raised hand (a plan, a lead's question, a review escalation, the deliverable, the budget). */
-  answerDecision(decisionId: string, a: DecisionAnswer): Promise<{ accepted: true; decision: Decision; project: TeamProjectSnapshot } | ProjectRefusal> {
+  answerDecision(decisionId: string, a: DecisionAnswer): Promise<{ accepted: true; decision: Decision; project?: TeamProjectSnapshot } | ProjectRefusal> {
     return this.team.answer(decisionId, a);
+  }
+
+  /** The Chief of Staff asks the owner's OK for a connector call (a raised hand with no project). */
+  async openChiefApproval(ask: ConnectorAsk, title: string): Promise<Decision> {
+    return this.team.openChiefApproval(ask, title);
   }
 
   async editStep(projectId: string, stepId: string, e: StepEdit) {

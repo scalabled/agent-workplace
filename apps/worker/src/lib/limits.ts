@@ -26,6 +26,8 @@ export const LIMITS = {
   search: { env: 'SEARCH_DAILY_LIMIT', fallback: 300, what: 'Web searches' },
   /** Web pages read (fetch_page) per day. */
   fetch: { env: 'FETCH_DAILY_LIMIT', fallback: 600, what: 'Web pages read' },
+  /** Connector (MCP) tool calls per day. */
+  connector: { env: 'CONNECTOR_DAILY_LIMIT', fallback: 500, what: 'Connector calls' },
 } as const;
 
 export type LimitKind = keyof typeof LIMITS;

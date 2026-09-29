@@ -16,6 +16,8 @@ import { ChiefPrompt } from './ChiefPrompt';
 import { CoworkerProfile } from './CoworkerProfile';
 import { ProjectDetail } from './ProjectDetail';
 import { SkillPage, Skills } from './Skills';
+import { Connectors } from './Connectors';
+import type { ConnectorView, ConnectorsResponse } from '@headcount/protocol/ext/connectors';
 
 type Call = { url: string; method: string; body: unknown };
 let calls: Call[] = [];
@@ -238,6 +240,32 @@ describe('a coworker’s settings and prompts', () => {
     expect(calls.filter((x) => x.method === 'PUT').at(-1)!.body).toEqual({ skillsOff: ['sk1'] });
   });
 
+  it('How they work: switch a connector on for this coworker (one granted to everyone cannot be switched off)', async () => {
+    const connectors = [
+      { connectorId: 'cn_0000000000000001', name: 'Demo notebook', tools: 3, status: 'ready', everyone: false, granted: false },
+      { connectorId: 'cn_0000000000000002', name: 'DeepWiki', tools: 2, status: 'ready', everyone: true, granted: true },
+    ];
+    respond = (call) => {
+      if (call.url.startsWith('/api/models')) return json({ providers: [] });
+      if (call.method === 'PUT') return json(view({ config: call.body as AgentView['config'], connectors: [{ ...connectors[0]!, granted: true }, connectors[1]!] }));
+      return json(view({ connectors }));
+    };
+    await mount(<CoworkerProfile personaId={a!.id} />);
+    await click(button('How they work'));
+    await flush();
+    const boxes = [...host.querySelectorAll<HTMLInputElement>('[aria-labelledby="connectors-title"] input[type="checkbox"]')];
+    expect(boxes.map((b) => [b.checked, b.disabled])).toEqual([
+      [false, false],
+      [true, true],
+    ]);
+    await act(() => {
+      boxes[0]!.checked = true;
+      boxes[0]!.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flush();
+    expect(calls.filter((x) => x.method === 'PUT').at(-1)!.body).toEqual({ connectors: ['cn_0000000000000001'] });
+  });
+
   it('Prompt: the exact prompt per surface, labelled by origin, with the tools', async () => {
     respond = () => json(view());
     await mount(<CoworkerProfile personaId={a!.id} />);
@@ -340,5 +368,111 @@ describe('the team channel', () => {
     expect(host.querySelector('.channel-live')?.textContent).toContain('round 1 of 2');
     expect(button('Start a discussion')).toBeUndefined();
     expect(presenceFor(`cw_${a!.id}`).label).toBe('In the discussion: Instagram first?');
+  });
+});
+
+describe('connectors', () => {
+  const tool = (name: string, over = {}) => ({ name, description: `${name} does it`, inputSchema: { type: 'object', properties: {} }, needsApproval: true, ...over });
+  const conn = (over: Partial<ConnectorView> = {}): ConnectorView => ({
+    connectorId: 'cn_0000000000000001',
+    catalogId: 'demo-notebook',
+    name: 'Demo notebook',
+    slug: 'demo_notebook',
+    url: 'https://demo-notebook.mcp.invalid/mcp',
+    auth: 'none',
+    hasKey: false,
+    approval: 'ask',
+    everyone: true,
+    chief: true,
+    grantedTo: [],
+    status: 'ready',
+    tools: [tool('list_notes', { readOnly: true }), tool('add_note')],
+    server: { name: 'demo-notebook', version: '1.0.0' },
+    grants: [],
+    calls: 0,
+    createdAt: '2026-09-29T10:00:00Z',
+    updatedAt: '2026-09-29T10:00:00Z',
+    ...over,
+  });
+  const catalogOf = (): ConnectorsResponse['catalog'] => [
+    { id: 'demo-notebook', name: 'Demo notebook', description: 'A tiny notebook.', url: 'https://demo-notebook.mcp.invalid/mcp', auth: 'none', demo: true },
+    { id: 'github', name: 'GitHub', description: 'Issues and code.', url: 'https://api.githubcopilot.com/mcp/', auth: 'token', authHint: 'A personal access token.' },
+  ];
+
+  it('connects from the catalog, shows the tools and what asks first, changes approval, and disconnects', async () => {
+    let list: ConnectorView[] = [];
+    respond = (call) => {
+      if (call.url === '/api/connectors' && call.method === 'GET') return json({ connectors: list, catalog: catalogOf(), canStoreKeys: true });
+      if (call.url === '/api/connectors' && call.method === 'POST') return json({ connector: (list = [conn()])[0] }, 201);
+      if (call.method === 'PUT') return json({ connector: conn({ approval: 'writes', tools: [tool('list_notes', { readOnly: true, needsApproval: false }), tool('add_note')] }) });
+      if (call.method === 'DELETE') return json({ removed: true });
+      return json({});
+    };
+    await mount(<Connectors />);
+    await flush();
+    expect(host.querySelectorAll('.connector-entry')).toHaveLength(2);
+    await click(host.querySelector('[aria-label="Connect Demo notebook"]'));
+    await flush();
+    expect(calls.find((x) => x.method === 'POST')).toMatchObject({ url: '/api/connectors', body: { catalogId: 'demo-notebook' } });
+    const card = host.querySelector('.connector-card')!;
+    expect(card.querySelector('.connector-status')?.textContent).toBe('Ready');
+    expect(card.querySelector('.connector-meta')?.textContent).toContain('2 tools');
+    expect([...card.querySelectorAll('.connector-tool-head')].map((t) => t.textContent)).toEqual(['list_notesAsks you firstReads only', 'add_noteAsks you first']);
+    const select = card.querySelector<HTMLSelectElement>('select')!;
+    await act(() => {
+      select.value = 'writes';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flush();
+    expect(calls.find((x) => x.method === 'PUT')).toMatchObject({ url: '/api/connectors/cn_0000000000000001', body: { approval: 'writes' } });
+    expect(host.querySelector('.connector-tool-head')?.textContent).toContain('Runs without asking');
+    await click(button('Disconnect'));
+    await click(button('Disconnect Demo notebook'));
+    await flush();
+    expect(calls.find((x) => x.method === 'DELETE')?.url).toBe('/api/connectors/cn_0000000000000001');
+    expect(host.querySelector('.connector-card')).toBeNull();
+  });
+
+  it('a keyed connector takes its key once; the page only ever says whether one is stored', async () => {
+    respond = (call) => {
+      if (call.method === 'GET') return json({ connectors: [], catalog: catalogOf(), canStoreKeys: true });
+      return json({ connector: conn({ connectorId: 'cn_0000000000000002', catalogId: 'github', name: 'GitHub', auth: 'token', hasKey: true, status: 'needs_key', lastError: 'The connector refused the key.', tools: [] }) }, 201);
+    };
+    await mount(<Connectors />);
+    await flush();
+    await click(host.querySelector('[aria-label="Connect GitHub"]'));
+    expect(host.querySelector('.connector-hint')?.textContent).toContain('A personal access token.');
+    await typeInto(host.querySelector('#key-github'), 'ghp_secret');
+    await click(host.querySelector('.connector-key-form button[type="submit"]'));
+    await flush();
+    expect(calls.find((x) => x.method === 'POST')!.body).toEqual({ catalogId: 'github', token: 'ghp_secret' });
+    expect(host.textContent).not.toContain('ghp_secret');
+    expect(host.querySelector('.connector-error')?.textContent).toBe('The connector refused the key.');
+    expect(host.textContent).toContain('A key is stored');
+  });
+
+  it('a permission card: the details they would send, and how far the OK reaches', async () => {
+    upsertProject(proj({ status: 'running' }));
+    const ask = hand({ decisionId: 'dec_7', kind: 'connector', fromId: a!.id, title: 'Ann wants to use Demo notebook → add_note', body: 'For “Size the audience”, with these details:\n{}', connector: { connectorId: 'cn_1', name: 'Demo notebook', tool: 'add_note', args: '{\n  "title": "Menu"\n}', subject: a!.id } });
+    openDecisions.value = { dec_7: ask };
+    respond = () => json({ accepted: true, decision: { ...ask, status: 'approved' }, project: proj({ status: 'running', updatedAt: '2026-09-29T10:05:00Z' }) }, 202);
+    await mount(<DecisionCard decision={ask} />);
+    expect(host.querySelector('.decision-kind')?.textContent).toContain('Permission');
+    expect(host.querySelector('.decision-args')?.textContent).toContain('"title": "Menu"');
+    await click(button('Allow for this project'));
+    await flush();
+    expect(calls.at(-1)).toMatchObject({ url: '/api/decisions/dec_7', body: { action: 'approve', scope: 'project' } });
+    expect(openDecisions.value.dec_7).toBeUndefined();
+    // The Chief's own ask has no project: once or always, and the answer carries no project.
+    render(null, host);
+    const chiefAsk = { ...ask, decisionId: 'dec_8', projectId: '', fromId: undefined, connector: { ...ask.connector!, subject: 'chief' } };
+    openDecisions.value = { dec_8: chiefAsk };
+    respond = () => json({ accepted: true, decision: { ...chiefAsk, status: 'approved' } }, 202);
+    await mount(<DecisionCard decision={chiefAsk} showProject={false} />);
+    expect(button('Allow for this project')).toBeUndefined();
+    await click(button('Always allow'));
+    await flush();
+    expect(calls.at(-1)).toMatchObject({ url: '/api/decisions/dec_8', body: { action: 'approve', scope: 'always' } });
+    expect(openDecisions.value.dec_8).toBeUndefined();
   });
 });

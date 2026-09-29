@@ -18,6 +18,7 @@ import { handleStt, handleTts } from './media/speech';
 import { handleOfficePeople } from './rooms/people';
 import { handleRoomCancel, handleRoomSay } from './rooms/routes';
 import { handleAddStep, handleAnswerDecision, handleDiscuss, handlePostChannel, handleProjectChannel, handleApproveProject, handleCancelProject, handleEditPlan, handleEditStep, handleGetProject, handleListProjects, handleNoteProject, handlePauseProject, handleProjectRuns, handleRemoveStep, handleResumeProject, handleStopAll } from './projects/routes';
+import { handleAddConnector, handleListConnectors, handlePatchConnector, handleRemoveConnector, handleRevokeConnectorGrant, handleTestConnector } from './connectors/routes';
 import { handleChiefPrompt, handleGetAgent, handleGetSkill, handleListModels, handleListSkills, handlePutAgent, handlePutSkill, handleResetAgent, handleRollbackSkill } from './agents/routes';
 import { handleGetWorkspace, handlePutWorkspace, handleTalk, handleWs } from './workspace/routes';
 
@@ -82,6 +83,12 @@ export const HANDLERS: Record<RouteId, RouteHandler> = {
   chiefPrompt: handleChiefPrompt,
   listModels: handleListModels,
   cancelProject: handleCancelProject,
+  listConnectors: handleListConnectors,
+  addConnector: handleAddConnector,
+  patchConnector: handlePatchConnector,
+  removeConnector: handleRemoveConnector,
+  testConnector: handleTestConnector,
+  revokeConnectorGrant: handleRevokeConnectorGrant,
 };
 
 /** Reject bodies over the route's cap before the handler runs (Content-Length, or by counting a streamed body). */

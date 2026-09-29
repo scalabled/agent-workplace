@@ -6,6 +6,7 @@ import { renameLine } from '@headcount/catalog';
 import { CHIEF_ID, type JobSnapshot } from '@headcount/protocol';
 import { chiefName, currentLead } from '../chief';
 import { catalog, loadCatalog } from '../catalog';
+import { DecisionCard } from '../components/DecisionCard';
 import { Face, leadSubject } from '../components/Face';
 import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
@@ -17,7 +18,7 @@ import { VoiceElsewhere } from '../components/VoiceElsewhere';
 import { ago, now } from '../lib/time';
 import { bubbles, liveCaptions } from '../living/captions';
 import { navigate, paths } from '../router';
-import { activeJobs, can, chiefPresence, connection, dismissThreadItem, jobList, jobs, onboarded, settings, teamProjects, thread, type ThreadItem } from '../store';
+import { activeJobs, can, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, onboarded, settings, teamProjects, thread, type ThreadItem } from '../store';
 import { retryOwnerMessage, sendOwnerMessage, setVoiceOn } from '../talk/actions';
 import { draft, focusComposer, greetedThisSession, greetOnArrival, prefillComposer } from '../talk/draft';
 import { notice } from '../ui/notice';
@@ -90,10 +91,24 @@ export function Talk() {
       <TalkHead />
       <Thread greeting={greeting} name={name} stick={stick} />
       <div class="talk-dock" ref={dock}>
+        <ChiefAsks />
         <Activity />
         <Composer name={name} />
       </div>
     </section>
+  );
+}
+
+/** The Chief's own connector calls waiting for the owner's OK (the turn waits on the card; the Inbox has it too). */
+function ChiefAsks() {
+  const asks = decisionList.value.filter((d) => d.kind === 'connector' && !d.projectId);
+  if (!asks.length) return null;
+  return (
+    <div class="talk-asks" aria-label="Waiting for your OK">
+      {asks.map((d) => (
+        <DecisionCard key={d.decisionId} decision={d} showProject={false} />
+      ))}
+    </div>
   );
 }
 

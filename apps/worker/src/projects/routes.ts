@@ -1,4 +1,4 @@
-import { CHANNEL_POST_MAX, PROJECT_NOTE_MAX, type ChannelEntry, type ChannelPost, type ChannelResponse, type DecisionAnswer, type DiscussRequest, type PlanEdit, type ProjectActionAccepted, type ProjectNoteRequest, type ProjectResponse, type ProjectsResponse, type StepEdit, type StopAllResponse } from '@headcount/protocol/ext/projects';
+import { CHANNEL_POST_MAX, PROJECT_NOTE_MAX, type ChannelEntry, type DecisionAccepted, type ChannelPost, type ChannelResponse, type DecisionAnswer, type DiscussRequest, type PlanEdit, type ProjectActionAccepted, type ProjectNoteRequest, type ProjectResponse, type ProjectsResponse, type StepEdit, type StopAllResponse } from '@headcount/protocol/ext/projects';
 import type { RunsResponse } from '@headcount/protocol/ext/agents';
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
 import { projectStub } from '../lib/stubs';
@@ -103,8 +103,10 @@ export const handleAnswerDecision: RouteHandler = async (req, { env, params }) =
   const body = await readJson<Partial<DecisionAnswer>>(req);
   if (!body || !['approve', 'decline', 'answer'].includes(String(body.action))) throw new HttpError('bad_request', 'Approve, decline or answer.');
   if (body.text !== undefined && typeof body.text !== 'string') throw new HttpError('bad_request', 'The answer must be text.');
-  const r = (await projectStub(env).answerDecision(params.id, { action: body.action as DecisionAnswer['action'], ...(body.text ? { text: body.text } : {}) })) as unknown as { accepted: true; project: ProjectResponse } | Refusal;
-  return accepted(r);
+  if (body.scope !== undefined && !['once', 'project', 'always'].includes(String(body.scope))) throw new HttpError('bad_request', 'Allow once, for this project, or always.');
+  const r = (await projectStub(env).answerDecision(params.id, { action: body.action as DecisionAnswer['action'], ...(body.text ? { text: body.text } : {}), ...(body.scope ? { scope: body.scope } : {}) })) as unknown as DecisionAccepted | Refusal;
+  if (!r.accepted) throw new HttpError(r.code, r.message);
+  return json<DecisionAccepted>({ accepted: true, decision: r.decision, ...(r.project ? { project: r.project } : {}) }, { status: 202 });
 };
 
 export const handleEditStep: RouteHandler = async (req, { env, params }) => {

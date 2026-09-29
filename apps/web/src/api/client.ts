@@ -34,7 +34,8 @@ import type {
 import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcount/protocol/ext/media';
 import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, RoomCancelResponse, RoomId, RoomSayAccepted, RoomSayRequest } from '@headcount/protocol/ext/rooms';
 import { noteUnauthenticated } from '../auth/session';
-import type { ChannelEntry, ChannelResponse, DecisionAnswer, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
+import type { ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
+import type { ConnectorCreate, ConnectorPatch, ConnectorResponse, ConnectorsResponse } from '@headcount/protocol/ext/connectors';
 import type { AgentConfigPatch, AgentView, ModelsResponse, PromptView, RunsResponse, SkillDetail, SkillsResponse } from '@headcount/protocol/ext/agents';
 import { clientId } from '../lib/client-id';
 
@@ -92,7 +93,13 @@ export const api = {
   pauseProject: (id: string) => request<ProjectActionAccepted>(routePath('pauseProject', { id }), { method: 'POST' }),
   resumeProject: (id: string) => request<ProjectActionAccepted>(routePath('resumeProject', { id }), { method: 'POST' }),
   // Parity stage 3: raised hands, plan editing, the run inspector.
-  answerDecision: (id: string, a: DecisionAnswer) => request<ProjectActionAccepted>(routePath('answerDecision', { id }), jsonInit('POST', a)),
+  answerDecision: (id: string, a: DecisionAnswer) => request<DecisionAccepted>(routePath('answerDecision', { id }), jsonInit('POST', a)),
+  listConnectors: () => request<ConnectorsResponse>(routePath('listConnectors')),
+  addConnector: (c: ConnectorCreate) => request<ConnectorResponse>(routePath('addConnector'), jsonInit('POST', c)),
+  patchConnector: (id: string, p: ConnectorPatch) => request<ConnectorResponse>(routePath('patchConnector', { id }), jsonInit('PUT', p)),
+  removeConnector: (id: string) => request<{ removed: true }>(routePath('removeConnector', { id }), { method: 'DELETE' }),
+  testConnector: (id: string) => request<ConnectorResponse>(routePath('testConnector', { id }), { method: 'POST' }),
+  revokeConnectorGrant: (id: string, grantId: string) => request<ConnectorResponse>(routePath('revokeConnectorGrant', { id, grantId }), { method: 'DELETE' }),
   editStep: (id: string, stepId: string, e: StepEdit) => request<ProjectActionAccepted>(routePath('editStep', { id, stepId }), jsonInit('PUT', e)),
   addStep: (id: string, e: StepEdit) => request<ProjectActionAccepted>(routePath('addStep', { id }), jsonInit('POST', e)),
   removeStep: (id: string, stepId: string) => request<ProjectActionAccepted>(routePath('removeStep', { id, stepId }), { method: 'DELETE' }),

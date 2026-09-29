@@ -138,6 +138,7 @@ function useItems(): PaletteItem[] {
       { id: 'place:projects', label: 'Projects', hint: 'Everyday and more', group: 'Places', icon: 'projects', keywords: 'jobs everyday', run: go(paths.projects) },
       { id: 'place:inbox', label: 'Inbox', hint: 'Raised hands', group: 'Places', icon: 'inbox', keywords: 'decisions', run: go(paths.inbox) },
       { id: 'place:skills', label: 'Skills', hint: 'The methods coworkers use', group: 'Places', icon: 'book', keywords: 'methods playbooks library edit', run: go(paths.skills) },
+      { id: 'place:connectors', label: 'Connectors', hint: 'Services coworkers can use', group: 'Places', icon: 'plus', keywords: 'mcp integrations github notion connect services tools', run: go(paths.connectors) },
       { id: 'place:chief', label: `How ${name} works`, hint: 'Their prompt and tools', group: 'Places', icon: 'code', keywords: 'prompt system instructions tools transparency chief', run: go(paths.chief) },
     ];
     if (s && onboarded.value) items.push({ id: 'set:voice', label: s.voiceOn ? 'Turn voice off' : 'Turn voice on', hint: 'Spoken replies', group: 'Settings', icon: s.voiceOn ? 'voiceOff' : 'voiceOn', keywords: 'speak mute sound audio', run: () => void setVoiceOn(!s.voiceOn) });

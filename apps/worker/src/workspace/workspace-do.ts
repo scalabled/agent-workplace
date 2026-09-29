@@ -40,6 +40,9 @@ import {
 } from '@headcount/protocol/ext/rooms';
 import { webToolsOn } from '../tools/kit';
 import { AgentConfigError, AgentStore, type AgentSetup } from '../agents/store';
+import { connectorTools } from '../connectors/tools';
+import { ConnectorError, ConnectorStore, type ConnectorCallRequest, type ConnectorCallResult, type ConnectorGrantRequest } from '../connectors/store';
+import type { ConnectorAsk, ConnectorCreate, ConnectorPatch, ConnectorsResponse, ConnectorView } from '@headcount/protocol/ext/connectors';
 import { agentView, sectionsOf } from '../agents/view';
 import { allSkillIds, catalogSkill, skillView } from '../agents/skills';
 import type { AgentConfigPatch, AgentView, PromptView, SkillDetail, SkillPatch, SkillsResponse, SkillView } from '@headcount/protocol/ext/agents';
@@ -72,6 +75,8 @@ import { ROOM_NO_PROVIDER_MESSAGE, ROOM_RATE_MESSAGE, cancelRoomTurn, newRoomTur
 
 /** Idempotency records for owner commands (ARCHITECTURE §3.4: 24 h). */
 const OP_TTL_MS = 24 * 60 * 60 * 1000;
+/** How long the Chief's connector call waits for the owner's OK before it says the request is waiting. */
+const CHIEF_APPROVAL_WAIT_MS = 60_000;
 
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS ops (op_id TEXT PRIMARY KEY, result TEXT NOT NULL, at INTEGER NOT NULL)`,
@@ -185,6 +190,10 @@ export class WorkspaceDO extends DurableObject<Env> {
   readonly voice: VoiceOwnership;
   /** The owner's overrides for coworkers and skills (agents/store.ts). */
   private readonly agents: AgentStore;
+  /** Connected MCP servers, their sealed keys and the owner's grants (connectors/store.ts). */
+  private readonly connectors: ConnectorStore;
+  /** The Chief's connector calls waiting for the owner's OK, by decision id. */
+  private readonly approvalWaiters = new Map<string, (v: 'approved' | 'declined') => void>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -194,6 +203,13 @@ export class WorkspaceDO extends DurableObject<Env> {
     this.feed = new Feed(this.workspaceId, this.ledger, this.presence, () => this.ctx.getWebSockets() as unknown as FeedSocket[], runtime.now);
     this.usage = new DailyCounter(ctx.storage);
     this.agents = new AgentStore(ctx.storage.sql);
+    this.connectors = new ConnectorStore({
+      sql: ctx.storage.sql,
+      env,
+      now: () => runtime.now(),
+      grantedTo: (connectorId) => this.agents.grantedTo(connectorId),
+      take: () => this.usage.take('connector', dailyLimit(env, 'connector'), runtime.now()).allowed,
+    });
     this.voice = new VoiceOwnership({
       sql: ctx.storage.sql,
       sockets: () => this.ctx.getWebSockets(),
@@ -319,7 +335,93 @@ export class WorkspaceDO extends DurableObject<Env> {
 
   /** The owner's overrides for these coworkers (the ProjectDO reads them when work starts). */
   async agentSetup(personaIds: string[]): Promise<AgentSetup> {
-    return this.agents.setup(personaIds);
+    const setup = this.agents.setup(personaIds);
+    const connectors: NonNullable<AgentSetup['connectors']> = {};
+    for (const id of personaIds) {
+      const kits = this.connectors.kitsFor(id, setup.configs[id]?.connectors ?? []);
+      if (kits.length) connectors[id] = kits;
+    }
+    return Object.keys(connectors).length ? { ...setup, connectors } : setup;
+  }
+
+  // ── connectors (Stage 5) ──────────────────────────────────────────────────────────
+
+  async connectorsView(): Promise<ConnectorsResponse> {
+    return { connectors: this.connectors.list(), catalog: this.connectors.catalog(), canStoreKeys: this.connectors.canStoreKeys() };
+  }
+
+  /** Connect, then test right away (the tools list is what agents are offered). */
+  async addConnector(body: ConnectorCreate): Promise<{ connector: ConnectorView } | { error: string; code: ConnectorError['code'] }> {
+    return this.connectorOp(async () => {
+      const v = await this.connectors.add(body);
+      return v.status === 'untested' ? this.connectors.test(v.connectorId) : v;
+    });
+  }
+
+  async patchConnector(connectorId: string, patch: ConnectorPatch): Promise<{ connector: ConnectorView } | { error: string; code: ConnectorError['code'] }> {
+    return this.connectorOp(async () => {
+      const v = await this.connectors.patch(connectorId, patch);
+      return v.status === 'untested' ? this.connectors.test(connectorId) : v;
+    });
+  }
+
+  async testConnector(connectorId: string): Promise<{ connector: ConnectorView } | { error: string; code: ConnectorError['code'] }> {
+    return this.connectorOp(() => this.connectors.test(connectorId));
+  }
+
+  async removeConnector(connectorId: string): Promise<{ removed: boolean }> {
+    return { removed: this.connectors.remove(connectorId) };
+  }
+
+  async revokeConnectorGrant(connectorId: string, grantId: string): Promise<{ connector: ConnectorView } | { error: string; code: ConnectorError['code'] }> {
+    if (!this.connectors.revokeGrant(connectorId, grantId)) return { error: 'No such grant.', code: 'not_found' };
+    return { connector: this.connectors.get(connectorId)! };
+  }
+
+  /** A coworker's connector call (from a project step in the ProjectDO); the key never leaves this object. */
+  async connectorCall(req: ConnectorCallRequest): Promise<ConnectorCallResult> {
+    return this.connectors.call(req, this.agents.config(req.subject)?.connectors ?? []);
+  }
+
+  async connectorGrant(req: ConnectorGrantRequest): Promise<void> {
+    this.connectors.grant(req);
+  }
+
+  private async connectorOp(fn: () => Promise<ConnectorView>): Promise<{ connector: ConnectorView } | { error: string; code: ConnectorError['code'] }> {
+    try {
+      return { connector: await fn() };
+    } catch (err) {
+      if (err instanceof ConnectorError) return { error: err.message, code: err.code };
+      throw err;
+    }
+  }
+
+  /**
+   * The Chief's connector call needs the owner's OK: a raised hand (a card in Talk and the Inbox), then a short wait for
+   * the answer. 'pending' when it does not come in time (the hand stays open; allowing it later lets the Chief run it).
+   */
+  private async awaitChiefApproval(ask: ConnectorAsk, signal: AbortSignal): Promise<'approved' | 'declined' | 'pending'> {
+    let decisionId: string;
+    try {
+      const settings = await this.getSettings();
+      const d = (await projectStub(this.env).openChiefApproval(ask, `${settings.chiefName ?? 'Your Chief of Staff'} wants to use ${ask.name} → ${ask.tool}`)) as unknown as Decision;
+      decisionId = d.decisionId;
+    } catch (err) {
+      logError('connector.approval', err);
+      return 'pending';
+    }
+    return new Promise((resolve) => {
+      const done = (v: 'approved' | 'declined' | 'pending') => {
+        clearTimeout(timer);
+        signal.removeEventListener('abort', stop);
+        this.approvalWaiters.delete(decisionId);
+        resolve(v);
+      };
+      const stop = () => done('pending');
+      const timer = setTimeout(stop, CHIEF_APPROVAL_WAIT_MS);
+      signal.addEventListener('abort', stop, { once: true });
+      this.approvalWaiters.set(decisionId, done);
+    });
   }
 
   /** Everything the owner sees about one coworker, the assembled prompts included. */
@@ -332,7 +434,7 @@ export class WorkspaceDO extends DurableObject<Env> {
     } catch (err) {
       logError('agents.staffing', err);
     }
-    return agentView({ persona, setup: this.agents.setup([personaId]), history: this.agents.history(personaId), settings: await this.getSettings(), staffing, registry: runtime.registry(this.env), webTools: webToolsOn(this.env) });
+    return agentView({ persona, setup: await this.agentSetup([personaId]), history: this.agents.history(personaId), settings: await this.getSettings(), staffing, registry: runtime.registry(this.env), webTools: webToolsOn(this.env), connectors: this.connectors.list() });
   }
 
   async patchAgent(personaId: string, patch: AgentConfigPatch): Promise<{ view: AgentView } | { error: string }> {
@@ -406,7 +508,8 @@ export class WorkspaceDO extends DurableObject<Env> {
     } catch {
       /* no provider */
     }
-    const text = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(runtime.now()), ownerFirst: ownerFirstNameOf(settings), webSearch, decisions });
+    const conn = connectorTools(this.connectors.kitsFor('chief'), this.connectors, { subject: 'chief', mode: () => ({ kind: 'note' }) });
+    const text = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(runtime.now()), ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: conn.describe });
     const tools = createChiefTools({ project: this.project(), turnId: 'turn_view' as TurnId, jobs: jobs ?? [], projects: projects ?? [], decisions, log: new TurnLog(), leadId: settings.leadId, chiefName: settings.chiefName });
     return {
       surface: 'chief',
@@ -415,7 +518,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       sections: sectionsOf(text, { 'Platform rules': 'platform', 'LIVE WORK STATE': 'state', 'LIVE TEAM PROJECTS': 'state' }),
       text,
       tools: [
-        ...tools.map((t) => ({ name: t.spec.name, description: t.spec.description, parameters: t.spec.parameters, kind: 'function' as const })),
+        ...[...tools, ...conn.tools].map((t) => ({ name: t.spec.name, description: t.spec.description, parameters: t.spec.parameters, kind: 'function' as const })),
         ...(webSearch ? [{ name: 'web_search', description: 'Built-in web search run by the model provider (quick lookups).', kind: 'hosted' as const }] : []),
       ],
     };
@@ -856,6 +959,8 @@ export class WorkspaceDO extends DurableObject<Env> {
     const voicing: { causeSeq: number; plan: AnnouncementPlan; announcer: Announcer }[] = [];
     for (const f of batch.frames) {
       if (typeof f.seq !== 'number' || !isPersisted(f.type)) continue;
+      // The owner answered a connector ask the Chief is waiting on.
+      if (f.type === 'decision.resolved') this.approvalWaiters.get(f.data.decision.decisionId)?.(f.data.decision.status === 'approved' ? 'approved' : 'declined');
       // The mirrored frame, its dedupe row and the announcement it causes (or the pending row that guarantees it)
       // commit together: a retry after a crash is deduplicated, so an announcement written later could be lost.
       const written = this.ledger.tx(() => {
@@ -950,7 +1055,8 @@ export class WorkspaceDO extends DurableObject<Env> {
    */
   private handFrame(frame: Extract<Frame, { type: 'decision.opened' }>): FrameInput<'talk.message'> | null {
     const d = frame.data.decision;
-    if (d.kind === 'plan_approval') return null;
+    // The Chief's own connector ask shows as a card in Talk while the turn waits.
+    if (d.kind === 'plan_approval' || (d.kind === 'connector' && !d.projectId)) return null;
     const text = d.kind === 'input' ? `${d.title} It's in your Inbox, or just tell me the answer.` : `${d.title} It's in your Inbox.`;
     const spoken = this.usage.take('ping', dailyLimit(this.env, 'ping'), runtime.now()).allowed;
     return {
@@ -1092,6 +1198,11 @@ export class WorkspaceDO extends DurableObject<Env> {
       isCurrent: (turnId: TurnId) => this.turn?.turnId === turnId || !this.turn || this.turn.settled,
       now: () => runtime.now(),
       webTools: webToolsOn(this.env),
+      connectors: {
+        kits: () => this.connectors.kitsFor('chief'),
+        call: (req: ConnectorCallRequest) => this.connectors.call(req),
+        wait: (ask: ConnectorAsk, signal: AbortSignal) => this.awaitChiefApproval(ask, signal),
+      },
       reflexes: {
         started: (turnId: TurnId, via: 'voice' | 'text', cues?: AffectCues) => this.expr.turnStarted(turnId, via, CHIEF_ID, cues),
         spoke: (turnId: TurnId) => this.expr.spokeFor(turnId),
