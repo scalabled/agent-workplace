@@ -41,6 +41,9 @@ import {
 import { webToolsOn } from '../tools/kit';
 import { AgentConfigError, AgentStore, type AgentSetup } from '../agents/store';
 import { connectorTools } from '../connectors/tools';
+import { CardError, Knowledge } from '../memory/host';
+import { memoryTools, type MemoryToolHost } from '../memory/chief-tools';
+import type { ContextCard, HandbookResponse, HandbookSectionId, MemoryItem, MemoryKind, Recalled } from '@headcount/protocol/ext/memory';
 import { realtimeAck, voiceFrontOf, type AckRequest, type FrontPart } from './voice-front';
 import type { AutomationSpec } from '@headcount/protocol/ext/automations';
 import { automationTool, type ProposeOutcome } from '../automations/chief-tool';
@@ -197,6 +200,8 @@ export class WorkspaceDO extends DurableObject<Env> {
   private readonly agents: AgentStore;
   /** Connected MCP servers, their sealed keys and the owner's grants (connectors/store.ts). */
   private readonly connectors: ConnectorStore;
+  /** What the workspace knows: memory, the Handbook, context cards (Inc 4). */
+  private readonly knowledge: Knowledge;
   /** The Chief's connector calls waiting for the owner's OK, by decision id. */
   private readonly approvalWaiters = new Map<string, (v: 'approved' | 'declined') => void>();
 
@@ -208,6 +213,15 @@ export class WorkspaceDO extends DurableObject<Env> {
     this.feed = new Feed(this.workspaceId, this.ledger, this.presence, () => this.ctx.getWebSockets() as unknown as FeedSocket[], runtime.now);
     this.usage = new DailyCounter(ctx.storage);
     this.agents = new AgentStore(ctx.storage.sql);
+    this.knowledge = new Knowledge({
+      sql: ctx.storage.sql,
+      env,
+      blobs: env.BLOBS,
+      workspaceId: env.WORKSPACE_ID || DEFAULT_WORKSPACE_ID,
+      now: () => runtime.now(),
+      take: () => this.usage.take('memory', dailyLimit(env, 'memory'), runtime.now()).allowed,
+      background: (work) => ctx.waitUntil(work.catch((err) => logError('memory', err))),
+    });
     this.connectors = new ConnectorStore({
       sql: ctx.storage.sql,
       env,
@@ -347,6 +361,79 @@ export class WorkspaceDO extends DurableObject<Env> {
       if (kits.length) connectors[id] = kits;
     }
     return Object.keys(connectors).length ? { ...setup, connectors } : setup;
+  }
+
+  // ── what the workspace knows (Inc 4) ──────────────────────────────────────────────
+
+  async memoryList(opts: { scope?: string; kind?: MemoryKind; q?: string } = {}): Promise<MemoryItem[] | (MemoryItem & { score: number })[]> {
+    if (opts.q?.trim()) return this.knowledge.memory.search(opts.q, { scopes: opts.scope ? [opts.scope] : this.knowledge.memory.scopes(), k: 30, ...(opts.kind ? { kinds: [opts.kind] } : {}) });
+    return this.knowledge.memory.list({ ...(opts.scope ? { scope: opts.scope } : {}), ...(opts.kind ? { kind: opts.kind } : {}) });
+  }
+
+  async memoryAdd(m: { text: string; kind: MemoryKind; scope: string }): Promise<MemoryItem> {
+    return this.knowledge.memory.add({ text: m.text, kind: m.kind, scope: m.scope, source: 'owner', sourceLabel: 'Added by you' }).item;
+  }
+
+  async memoryPatch(memoryId: string, p: { text?: string; kind?: MemoryKind; pinned?: boolean }): Promise<MemoryItem | null> {
+    return this.knowledge.memory.patch(memoryId, p);
+  }
+
+  async memoryRemove(memoryId: string): Promise<boolean> {
+    return this.knowledge.memory.remove(memoryId);
+  }
+
+  async handbookView(): Promise<HandbookResponse> {
+    return this.knowledge.handbook.view();
+  }
+
+  async handbookPut(section: HandbookSectionId, content: string): Promise<HandbookResponse> {
+    this.knowledge.handbook.put(section, content, 'owner');
+    return this.knowledge.handbook.view();
+  }
+
+  /** Start (the Chief asks the first question in Talk) or stop the Handbook interview. */
+  async handbookInterview(on: boolean): Promise<HandbookResponse> {
+    const was = this.knowledge.handbook.interviewing;
+    this.knowledge.handbook.setInterviewing(on);
+    if (on && !was) {
+      const next = this.knowledge.handbook.missing()[0];
+      const text = next ? `Let's write your Handbook, one topic at a time; the whole team works from it. First, ${next.ask}?` : `Your Handbook covers everything already. Tell me what to change, or edit it on the Handbook page.`;
+      this.feed.append({ type: 'talk.message', data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text, kind: 'reply' }, actor: CHIEF_ID });
+    }
+    return this.knowledge.handbook.view();
+  }
+
+  async cardsList(scope?: string): Promise<ContextCard[]> {
+    return this.knowledge.cards.list(scope);
+  }
+
+  async cardAdd(input: { name: string; mime: string; bytes: ArrayBuffer; scope: string }): Promise<{ card: ContextCard } | { error: string; code: CardError['code'] }> {
+    try {
+      return { card: await this.knowledge.addCard({ ...input, bytes: new Uint8Array(input.bytes) }) };
+    } catch (err) {
+      if (err instanceof CardError) return { error: err.message, code: err.code };
+      throw err;
+    }
+  }
+
+  async cardGet(cardId: string): Promise<{ card: ContextCard; text: string } | null> {
+    const card = this.knowledge.cards.get(cardId);
+    if (!card) return null;
+    return { card, text: (await this.knowledge.cardText(cardId, 4000)) ?? '' };
+  }
+
+  async cardRemove(cardId: string): Promise<boolean> {
+    return this.knowledge.removeCard(cardId);
+  }
+
+  /** For a coworker's work (ProjectDO): the Handbook and what is known that bears on it. */
+  async knowledgeFor(query: string, scopes: string[]): Promise<string> {
+    return this.knowledge.block(query, scopes);
+  }
+
+  /** Keep what is worth remembering from a meeting (ProjectDO), in the background. */
+  async distillMeeting(input: { text: string; scope: string; sourceLabel: string; sourceRef: string }): Promise<void> {
+    this.ctx.waitUntil(this.knowledge.distillFrom({ ...input, source: 'meeting' }).catch((err) => logError('memory.meeting', err)));
   }
 
   // ── connectors (Stage 5) ──────────────────────────────────────────────────────────
@@ -533,7 +620,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       /* no provider */
     }
     const conn = connectorTools(this.connectors.kitsFor('chief'), this.connectors, { subject: 'chief', mode: () => ({ kind: 'note' }) });
-    const text = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(runtime.now()), ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: conn.describe, automations: true });
+    const text = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(runtime.now()), ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: conn.describe, automations: true, handbook: this.knowledge.handbook.compact(), interview: this.knowledge.handbook.interviewing ? this.knowledge.handbook.missing() : null });
     const tools = createChiefTools({ project: this.project(), turnId: 'turn_view' as TurnId, jobs: jobs ?? [], projects: projects ?? [], decisions, log: new TurnLog(), leadId: settings.leadId, chiefName: settings.chiefName });
     return {
       surface: 'chief',
@@ -542,9 +629,25 @@ export class WorkspaceDO extends DurableObject<Env> {
       sections: sectionsOf(text, { 'Platform rules': 'platform', 'LIVE WORK STATE': 'state', 'LIVE TEAM PROJECTS': 'state' }),
       text,
       tools: [
-        ...[...tools, ...conn.tools, automationTool({ propose: async () => ({ error: 'Preview only.' }) })].map((t) => ({ name: t.spec.name, description: t.spec.description, parameters: t.spec.parameters, kind: 'function' as const })),
+        ...[...memoryTools(this.memoryHost()), ...tools, ...conn.tools, automationTool({ propose: async () => ({ error: 'Preview only.' }) })].map((t) => ({ name: t.spec.name, description: t.spec.description, parameters: t.spec.parameters, kind: 'function' as const })),
         ...(webSearch ? [{ name: 'web_search', description: 'Built-in web search run by the model provider (quick lookups).', kind: 'hosted' as const }] : []),
       ],
+    };
+  }
+
+  /** The Chief's side of the memory (Inc 4): what is recalled for a turn (with the chips shown under the reply), and the tools' host. */
+  private memoryHost(): MemoryToolHost & { forChief(query: string): Promise<{ recalled: Recalled[]; chips: Recalled[]; handbook: string }> } {
+    return {
+      forChief: async (query: string) => {
+        const r = await this.knowledge.forChief(query);
+        const found = new Set((await this.knowledge.memory.search(query, { scopes: ['workspace'], k: 6 })).map((m) => m.memoryId));
+        return { ...r, chips: r.recalled.filter((m) => found.has(m.memoryId)).slice(0, 4) };
+      },
+      interviewing: () => this.knowledge.handbook.interviewing,
+      missing: () => this.knowledge.handbook.missing(),
+      remember: (text: string, kind: MemoryKind) => this.knowledge.remember(text, kind, 'owner', 'Told to remember'),
+      updateHandbook: (section: HandbookSectionId, content: string, mode: 'replace' | 'append') => (mode === 'append' ? this.knowledge.handbook.append(section, content, 'chief') : this.knowledge.handbook.put(section, content, 'chief')),
+      setInterview: (on: boolean) => this.knowledge.handbook.setInterviewing(on),
     };
   }
 
@@ -649,6 +752,9 @@ export class WorkspaceDO extends DurableObject<Env> {
         }
       }
       await runChiefTurn(this.talkHost(), { turnId, ownerSeq: owner.seq!, opId: req.opId, signal: controller.signal, via, cues }, state);
+      // Keep what is worth remembering from the exchange (not while the interview writes the Handbook).
+      if (req.text.trim().length >= 20 && state.text.trim() && !this.knowledge.handbook.interviewing)
+        this.ctx.waitUntil(this.knowledge.distillFrom({ text: `OWNER: ${req.text}\nCHIEF: ${state.text.slice(0, 1500)}`, source: 'talk', sourceLabel: `Talk, ${new Date(runtime.now()).toISOString().slice(0, 10)}` }).catch((err) => logError('memory.talk', err)));
     })()
       .catch((err) => logError('talk', err))
       .finally(() => {
@@ -778,6 +884,9 @@ export class WorkspaceDO extends DurableObject<Env> {
         }
       }
       await runDeskTurn(this.deskHost(), { persona, ownerSeq: owner.seq!, signal: controller.signal, staffing }, state);
+      // Keep what is worth remembering from the chat.
+      if (req.text.trim().length >= 20 && state.text.trim())
+        this.ctx.waitUntil(this.knowledge.distillFrom({ text: `OWNER: ${req.text}\n${persona.name.split(' ')[0]!.toUpperCase()}: ${state.text.slice(0, 1200)}`, source: 'desk', sourceLabel: `Chat with ${persona.name.split(' ')[0]}` }).catch((err) => logError('memory.desk', err)));
     })()
       .catch((err) => logError('desk', err))
       .finally(() => {
@@ -1249,6 +1358,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       now: () => runtime.now(),
       webTools: webToolsOn(this.env),
       automations: { propose: (spec: Partial<AutomationSpec>, signal: AbortSignal) => this.proposeAutomation(spec, signal) },
+      memory: this.memoryHost(),
       ...(voiceFrontOf(this.env) ? { front: { ack: (req: Omit<AckRequest, 'signal'>, signal: AbortSignal) => this.frontAck(req, signal) } } : {}),
       connectors: {
         kits: () => this.connectors.kitsFor('chief'),
@@ -1282,6 +1392,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       registry: () => runtime.registry(this.env),
       settings: () => this.getSettings(),
       isCurrent: (agentId, turnId) => this.deskTurns.get(agentId)?.turnId === turnId,
+      knowledge: (query, personaId) => this.knowledge.block(query, [`coworker:${personaId}`]),
     };
   }
 

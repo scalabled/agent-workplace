@@ -62,6 +62,8 @@ function useProvider(
     family: 'mock',
     defaultModel: () => 'mock-1',
     async *chat(req) {
+      // Memory upkeep after a turn (distilling it) is not the conversation under test.
+      if (req.system?.startsWith('You keep the memory')) return yield* mock.chat(req);
       requests.push(req);
       await opts.before?.(req);
       const custom = opts.stream?.(req);

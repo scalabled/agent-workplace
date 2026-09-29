@@ -18,6 +18,7 @@ import type { RoomId, RoomTurnData } from './ext/rooms';
 import type { ChannelFrameData, DecisionFrameData, ProjectFrameData } from './ext/projects';
 import type { AutomationFiredData, AutomationResultData } from './ext/automations';
 import type { CanvasFrameData } from './ext/canvas';
+import type { Recalled } from './ext/memory';
 
 /**
  * Event envelope (ARCHITECTURE §3.1, trimmed for Inc 0).
@@ -104,6 +105,8 @@ export interface FrameDataMap {
     projectId?: string;
     /** Canvas (an app or a document) this message is about, if any. */
     canvasId?: string;
+    /** Memories the Chief recalled for this reply (Inc 4: shown as chips). */
+    recalled?: Recalled[];
     /** Sources the Chief's web search cited for this reply. */
     sources?: { url: string; title?: string }[];
     surface?: TalkSurface;

@@ -22,6 +22,8 @@ import { SkillPage, Skills } from './routes/Skills';
 import { Connectors } from './routes/Connectors';
 import { Automations } from './routes/Automations';
 import { Canvas, CanvasItem } from './routes/Canvas';
+import { Handbook } from './routes/Handbook';
+import { Memory } from './routes/Memory';
 import { ChiefPrompt } from './routes/ChiefPrompt';
 import { Talk } from './routes/Talk';
 import * as store from './store';
@@ -292,6 +294,10 @@ function Screen() {
       return <Canvas />;
     case 'canvasItem':
       return <CanvasItem canvasId={r.params.canvasId!} />;
+    case 'memory':
+      return <Memory />;
+    case 'handbook':
+      return <Handbook />;
     case 'skill':
       return <SkillPage skillId={r.params.skillId!} />;
     case 'chief':

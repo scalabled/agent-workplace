@@ -383,8 +383,9 @@ async function submitWork(w: Worker, brief: ProjectBrief, prompt: string, trigge
 }
 
 /** The lead's work on a step. `answer`: the owner's answer to the lead's question, when the step waited for one. */
-export function doStepWork(w: Worker, brief: ProjectBrief, step: ProjectStep, opts: { answer?: string; previous?: string } = {}) {
+export function doStepWork(w: Worker, brief: ProjectBrief, step: ProjectStep, opts: { answer?: string; previous?: string; known?: string } = {}) {
   const extra = [
+    opts.known ? `\n${opts.known}` : '',
     opts.answer ? `\n<owner_answer>\n${clipText(opts.answer, 2000)}\n</owner_answer>\nThe owner answered your question above; use it.` : '',
     opts.previous ? `\n<previous_attempt>\nA teammate's earlier attempt (reference material, not verified or finished work):\n${clipText(opts.previous, 4000)}\n</previous_attempt>` : '',
   ].join('');

@@ -106,6 +106,10 @@ export interface TeamHostPorts {
     call(req: ConnectorCallRequest): Promise<ConnectorCallResult>;
     grant(req: ConnectorGrantRequest): Promise<void>;
   };
+  /** What the workspace knows that bears on a piece of work: the Handbook and relevant memories (Inc 4). */
+  knowledge?(query: string, scopes: string[]): Promise<string>;
+  /** Keep what is worth remembering from a meeting (Inc 4). */
+  distillMeeting?(input: { text: string; scope: string; sourceLabel: string; sourceRef: string }): Promise<void>;
   /** Set up an automation the Chief proposed, once the owner allows it (stage 3b). */
   automations?: {
     create(spec: AutomationSpec): { ok: true; name: string } | { ok: false; message: string };
@@ -1035,6 +1039,8 @@ export class TeamProjects {
       text: summary ? `Thank you, everyone. ${first(chair.personaId)}'s summary goes to the team as direction for the next steps.` : 'Thank you, everyone.',
     });
     this.closeMeeting(meetingId, 'done', summary ? clipText(summary, 2000) : undefined);
+    if (summary && this.p.distillMeeting)
+      void this.p.distillMeeting({ text: `MEETING (${kindWord}) on “${row.title}”: ${d.question}\nSUMMARY BY THE CHAIR: ${clipText(summary, 2500)}`, scope: `project:${projectId}`, sourceLabel: `${kindWord}: ${row.title}`, sourceRef: meetingId }).catch((err) => logError('project.memory', err));
     const kickoff = d.kind === 'kickoff';
     this.sql.exec(`UPDATE tprojects SET discussion_state = NULL${kickoff ? ", kickoff = 'done'" : ''}, updated_at = ? WHERE project_id = ?`, iso(), projectId);
     if (summary) this.note(projectId, { text: `${kickoff ? 'Kickoff agreement' : d.kind === 'review' ? 'Review outcome' : 'Discussion outcome'} (${chair.name.split(' ')[0]} chairing): ${clipText(summary, 900)}`, via: 'channel' });
@@ -1324,7 +1330,8 @@ export class TeamProjects {
         this.applyNotes(projectId, fence, stepId, lead);
         this.setStep(projectId, fence, stepId, { status: 'working', by_id: lead, started_at: iso(), error: null });
         const previous = s0.output ?? undefined;
-        const out = await doStepWork({ ...leadWorker, paused: () => !!asked || !!approval }, brief(), step(), { ...(s0.answer ? { answer: s0.answer } : {}), ...(previous ? { previous } : {}) });
+        const known = this.p.knowledge ? await this.p.knowledge(`${step().title}. ${step().brief}`, [`project:${projectId}`, `coworker:${lead}`]).catch(() => '') : '';
+        const out = await doStepWork({ ...leadWorker, paused: () => !!asked || !!approval }, brief(), step(), { ...(s0.answer ? { answer: s0.answer } : {}), ...(previous ? { previous } : {}), ...(known ? { known } : {}) });
         if (!this.live(projectId, fence)) throw new WorkCancelled();
         this.recordRun(projectId, stepId, 'work', leadWorker, out.run, out.sources);
         const ok = approval as ConnectorAsk | null;

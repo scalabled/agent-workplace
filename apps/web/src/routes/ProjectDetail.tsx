@@ -22,6 +22,7 @@ import { TeamChannel } from '../projects/TeamChannel';
 import { Meetings } from '../projects/Meetings';
 import { navigate, paths } from '../router';
 import { decisionList, presenceFor, teamProjects } from '../store';
+import { ContextFiles } from '../memory/ContextFiles';
 import './pages.css';
 
 function roleWord(role: string): string {
@@ -402,6 +403,9 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
             </button>
           ))}
       </section>
+      <div class="panel context-files-panel">
+        <ContextFiles scope={`project:${projectId}`} title="Files for this project" hint="The team reads them when the work calls for them. Drop a price list, a brief, last year's numbers…" />
+      </div>
       {inspect && <RunInspector projectId={projectId} stepId={inspect.stepId} title={inspect.title} onClose={() => setInspect(null)} />}
     </section>
   );

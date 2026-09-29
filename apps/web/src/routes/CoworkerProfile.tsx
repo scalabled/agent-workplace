@@ -13,6 +13,7 @@ import { Face, personaSubject } from '../components/Face';
 import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
 import { SideThread } from '../components/SideThread';
+import { ContextFiles } from '../memory/ContextFiles';
 import { useSampleSpeaker, VoiceSample } from '../components/VoiceSample';
 import { navigate, paths } from '../router';
 import { localPresence, onboarded } from '../store';
@@ -109,14 +110,14 @@ function Profile({ persona: p }: { persona: PersonaSlim }) {
           </button>
         ))}
       </div>
-      {tab !== 'about' && <AgentPanel personaId={p.id} tab={tab} />}
+      {tab !== 'about' && <AgentPanel personaId={p.id} tab={tab} first={first} />}
       {tab === 'about' && <About persona={p} primary={primary} secondary={secondary} first={first} />}
     </article>
   );
 }
 
 /** The owner's view of how they work (lazy: loaded when the tab opens). */
-function AgentPanel({ personaId, tab }: { personaId: string; tab: 'work' | 'prompt' }) {
+function AgentPanel({ personaId, tab, first }: { personaId: string; tab: 'work' | 'prompt'; first: string }) {
   const [view, setView] = useState<AgentView | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -134,7 +135,16 @@ function AgentPanel({ personaId, tab }: { personaId: string; tab: 'work' | 'prom
       </p>
     );
   if (!view) return <p class="page-fine">Loading…</p>;
-  return tab === 'work' ? <AgentSettings view={view} onChange={setView} /> : <PromptViewer views={view.prompts} />;
+  return tab === 'work' ? (
+    <>
+      <AgentSettings view={view} onChange={setView} />
+      <div class="panel context-files-panel">
+        <ContextFiles scope={`coworker:${personaId}`} title={`Files for ${first}`} hint={`${first} reads them when their work calls for it: a style guide, a template, past examples.`} />
+      </div>
+    </>
+  ) : (
+    <PromptViewer views={view.prompts} />
+  );
 }
 
 function About({ persona: p, primary, secondary, first }: { persona: PersonaSlim; primary: SkillIndexEntry[]; secondary: SkillIndexEntry[]; first: string }) {

@@ -44,6 +44,8 @@ export interface Env extends ProviderEnv {
   REALTIME_VOICE_MODEL?: string;
   /** Realtime acknowledgements per day (default 600). */
   VOICE_FRONT_DAILY_LIMIT?: string;
+  /** Memory model calls (distillation, file summaries) per day (default 400). */
+  MEMORY_DAILY_LIMIT?: string;
   /** Canvas builds (apps and documents) per day (default 40). */
   CANVAS_DAILY_LIMIT?: string;
   /** Connector (MCP) tool calls per day (default 500). */

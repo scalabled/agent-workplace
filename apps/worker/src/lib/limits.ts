@@ -32,6 +32,8 @@ export const LIMITS = {
   front: { env: 'VOICE_FRONT_DAILY_LIMIT', fallback: 600, what: 'Spoken acknowledgements' },
   /** Canvas builds (apps and documents) per day. */
   canvas: { env: 'CANVAS_DAILY_LIMIT', fallback: 40, what: 'Canvas builds' },
+  /** Memory model calls (distilling conversations and meetings, summarising files) per day. */
+  memory: { env: 'MEMORY_DAILY_LIMIT', fallback: 400, what: 'Memory updates' },
 } as const;
 
 export type LimitKind = keyof typeof LIMITS;

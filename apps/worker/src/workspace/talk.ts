@@ -12,6 +12,8 @@ import type { ConnectorCallRequest, ConnectorCallResult, ConnectorKit } from '..
 import { connectorTools } from '../connectors/tools';
 import { automationTool, type ProposeOutcome } from '../automations/chief-tool';
 import { FRONT_SAMPLE_RATE, type AckRequest, type FrontPart } from './voice-front';
+import { memoryTools, type MemoryToolHost } from '../memory/chief-tools';
+import type { Recalled } from '@headcount/protocol/ext/memory';
 import type { AutomationSpec } from '@headcount/protocol/ext/automations';
 import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
 import type { Decision, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
@@ -56,6 +58,8 @@ export interface TalkHost {
   reflexes?: TurnReflexHooks;
   /** False when the owner turned web tools off (WEB_TOOLS=off). */
   webTools?: boolean;
+  /** What the workspace knows (Inc 4): recall for this turn, the Handbook, and the memory tools. */
+  memory?: MemoryToolHost & { forChief(query: string): Promise<{ recalled: Recalled[]; chips: Recalled[]; handbook: string }> };
   /** The realtime voice front (Inc 2): a spoken turn gets a quick spoken acknowledgement while the brain works. */
   front?: { ack(req: Omit<AckRequest, 'signal'>, signal: AbortSignal): AsyncIterable<FrontPart> };
   /** The Chief sets up automations the owner asks for; each waits on a card for the owner's OK (stage 3b). */
@@ -224,6 +228,8 @@ export interface TurnState {
   closed: boolean;
   /** Sources the Chief's web search cited this turn. */
   sources?: { url: string; title?: string }[];
+  /** Memories recalled for this turn (Inc 4 chips). */
+  recalled?: Recalled[];
 }
 
 export function newTurnState(turnId: TurnId, opId: OpId): TurnState {
@@ -243,7 +249,7 @@ export function closeTurn(feed: Feed, state: TurnState, finish: TalkFinish, usag
   if (said) {
     feed.append({
       type: 'talk.message',
-      data: { turnId, messageId: replyId, agentId: CHIEF_ID, text: said, kind: route === 'status' ? 'status' : 'reply', ...(jobId ? { jobId } : {}), ...(projectId ? { projectId } : {}), ...(canvasId ? { canvasId } : {}), ...(state.sources?.length ? { sources: state.sources } : {}) },
+      data: { turnId, messageId: replyId, agentId: CHIEF_ID, text: said, kind: route === 'status' ? 'status' : 'reply', ...(jobId ? { jobId } : {}), ...(projectId ? { projectId } : {}), ...(canvasId ? { canvasId } : {}), ...(state.sources?.length ? { sources: state.sources } : {}), ...(state.recalled?.length ? { recalled: state.recalled } : {}) },
       actor: CHIEF_ID,
       opId,
     });
@@ -438,9 +444,20 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     const turnNote = turnNoteFor(spec.cues, messages.filter((m) => m.role === 'assistant').map((m) => (typeof m.content === 'string' ? m.content : '')));
     // Quick lookups: the Chief searches natively when its provider hosts web search (research goes to jobs/teams).
     const webSearch = host.webTools !== false && hostsSearch(resolved.provider);
+    // What the workspace knows that bears on this turn (Inc 4).
+    const lastOwner = messages.filter((m) => m.role === 'user').at(-1)?.content;
+    let known: { recalled: Recalled[]; chips: Recalled[]; handbook: string } | null = null;
+    if (host.memory && typeof lastOwner === 'string' && lastOwner.trim()) {
+      try {
+        known = await host.memory.forChief(lastOwner);
+      } catch (err) {
+        logError('talk.memory', err);
+      }
+    }
+    if (known?.chips.length) state.recalled = known.chips;
     const conn = host.connectors;
     const connectors = conn ? connectorTools(conn.kits(), conn, { subject: 'chief', mode: () => ({ kind: 'wait', wait: (ask) => conn.wait(ask, signal) }) }) : { tools: [], describe: '' };
-    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: connectors.describe, automations: !!host.automations });
+    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: connectors.describe, automations: !!host.automations, ...(host.memory ? { handbook: known?.handbook ?? '', recalled: known?.recalled ?? [], interview: host.memory.interviewing() ? host.memory.missing() : null } : {}) });
     const tools = createChiefTools({
       project: host.project(),
       turnId,
@@ -453,6 +470,7 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
       onDelegated: (jobId) => host.reflexes?.delegated(turnId, jobId),
     });
     tools.push(...connectors.tools);
+    if (host.memory) tools.unshift(...memoryTools(host.memory));
     const auto = host.automations;
     if (auto) tools.push(automationTool({ propose: (spec) => auto.propose(spec, signal) }));
 

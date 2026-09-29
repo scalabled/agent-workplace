@@ -70,6 +70,19 @@ test.describe('phone width (375 px)', () => {
       expect(nav!.y + nav!.height).toBeLessThanOrEqual(812 + 1);
       expect(nav!.x + nav!.width).toBeLessThanOrEqual(375 + 1);
     }
+    // The pages added with parity, Inc 2 and Inc 4 fit too.
+    for (const [path, heading] of [
+      ['/app/connectors', 'Connectors'],
+      ['/app/automations', 'Automations'],
+      ['/app/canvas', 'Canvas'],
+      ['/app/skills', 'Skills'],
+      ['/app/memory', 'Memory'],
+      ['/app/handbook', 'Handbook'],
+    ] as const) {
+      await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+      await expectNoHorizontalScroll(page);
+    }
     // Talk opens at the latest message, with the composer in view.
     await page.goto('/app/talk');
     await expect(page.locator('#composer')).toBeInViewport();

@@ -4,6 +4,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { renameLine } from '@headcount/catalog';
 import { CHIEF_ID, type JobSnapshot } from '@headcount/protocol';
+import type { Recalled } from '@headcount/protocol/ext/memory';
 import { chiefName, currentLead } from '../chief';
 import { catalog, loadCatalog } from '../catalog';
 import { DecisionCard } from '../components/DecisionCard';
@@ -21,7 +22,8 @@ import { navigate, paths } from '../router';
 import { activeJobs, can, canvases, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, onboarded, settings, teamProjects, thread, type ThreadItem } from '../store';
 import { retryOwnerMessage, sendOwnerMessage, setVoiceOn } from '../talk/actions';
 import { draft, focusComposer, greetedThisSession, greetOnArrival, prefillComposer } from '../talk/draft';
-import { notice } from '../ui/notice';
+import { notice, showNotice } from '../ui/notice';
+import { FILE_ACCEPT, uploadFiles } from '../memory/upload';
 import { bargeIn, chiefIsSpeaking, chiefSpeaker } from '../voice/chief-voice';
 import { armAudio, audioSupport } from '../voice/engine';
 import { mayVoice } from '../voice/owner';
@@ -49,6 +51,7 @@ export function Talk() {
   const lead = currentLead.value;
   const name = chiefName.value;
   const dock = useRef<HTMLDivElement>(null);
+  const [dropping, setDropping] = useState(false);
   /** Is the owner following the newest message (scrolled to the bottom)? Shared by the thread and the dock. */
   const stick = useRef(true);
   // A renamed Chief of Staff introduces themself by the owner's name, never the catalog one.
@@ -87,8 +90,32 @@ export function Talk() {
       </section>
     );
 
+  const hasFiles = (e: DragEvent) => !!e.dataTransfer && [...e.dataTransfer.types].includes('Files');
   return (
-    <section class="talk" aria-labelledby="talk-title">
+    <section
+      class="talk"
+      aria-labelledby="talk-title"
+      data-drop={dropping || undefined}
+      onDragOver={(e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        setDropping(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropping(false);
+      }}
+      onDrop={(e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        setDropping(false);
+        void shareInTalk([...(e.dataTransfer?.files ?? [])], name);
+      }}
+    >
+      {dropping && (
+        <p class="talk-drop" aria-hidden="true">
+          <Icon name="attach" size={20} /> Drop to share with {name}
+        </p>
+      )}
       <TalkHead />
       <Thread greeting={greeting} name={name} stick={stick} />
       <div class="talk-dock" ref={dock}>
@@ -317,13 +344,33 @@ function Message({ item, name, grouped }: { item: ThreadItem; name: string; grou
       {item.interrupted && <span class="msg-note">Interrupted</span>}
       {item.kind === 'announcement' && job?.status === 'done' && <Deliverable job={job} />}
       {item.sources && !item.streaming && <Sources sources={item.sources} />}
+      {item.recalled && !item.streaming && <RecallChips items={item.recalled} />}
       {item.projectId && !item.streaming && <ProjectLink projectId={item.projectId} />}
       {item.canvasId && !item.streaming && <CanvasLink canvasId={item.canvasId} />}
     </li>
   );
 }
 
-/** A Chief message about a team project links to it: the plan while it waits, the deliverable once it is done. */
+/** What the Chief remembered for this reply (Inc 4): each chip is a memory, kept on the Memory page. */
+function RecallChips({ items }: { items: Recalled[] }) {
+  return (
+    <div class="msg-recalled">
+      <span class="msg-recalled-label">
+        <Icon name="memory" size={14} /> Remembered
+      </span>
+      <ul aria-label="Remembered for this reply">
+        {items.map((r) => (
+          <li key={r.memoryId}>
+            <Link class="recall-chip" href={paths.memory} title={r.sourceLabel ? `${r.text} (${r.sourceLabel})` : r.text}>
+              {r.text.length > 64 ? `${r.text.slice(0, 62).trimEnd()}…` : r.text}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /** A canvas the Chief is building: how it is going, and the way to it. */
 function CanvasLink({ canvasId }: { canvasId: string }) {
   const c = canvases.value[canvasId];
@@ -336,6 +383,7 @@ function CanvasLink({ canvasId }: { canvasId: string }) {
   );
 }
 
+/** A Chief message about a team project links to it: the plan while it waits, the deliverable once it is done. */
 function ProjectLink({ projectId }: { projectId: string }) {
   const p = teamProjects.value[projectId];
   const words = !p ? 'Open the project' : p.status === 'proposed' ? 'See the team and plan' : p.status === 'done' ? 'Read the deliverable' : 'Open the project';
@@ -418,6 +466,7 @@ function Activity() {
 
 function Composer({ name }: { name: string }) {
   const input = useRef<HTMLTextAreaElement>(null);
+  const files = useRef<HTMLInputElement>(null);
   const text = draft.value;
   const phase = ptt.value.phase;
   const mode = pttMode();
@@ -525,6 +574,23 @@ function Composer({ name }: { name: string }) {
             }
           }}
         />
+        <button type="button" class="icon-button composer-attach" aria-label={`Share a file with ${name}`} title="Share a file (PDF, Word, Excel, CSV, text)" onClick={() => files.current?.click()}>
+          <Icon name="attach" />
+        </button>
+        <input
+          ref={files}
+          type="file"
+          multiple
+          accept={FILE_ACCEPT}
+          class="visually-hidden"
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={(e) => {
+            const el = e.currentTarget;
+            void shareInTalk([...(el.files ?? [])], name);
+            el.value = '';
+          }}
+        />
         {mode && (
           <button
             type="button"
@@ -578,6 +644,15 @@ function Composer({ name }: { name: string }) {
       </div>
     </form>
   );
+}
+
+/** A file shared in Talk is for everyone (the workspace): read, then recalled when a question bears on it. */
+async function shareInTalk(files: File[], name: string): Promise<void> {
+  if (!files.length) return;
+  showNotice(files.length === 1 ? `Reading “${files[0]!.name}”…` : `Reading ${files.length} files…`, 'info', 60_000);
+  const r = await uploadFiles(files);
+  if (r.errors.length) showNotice(r.errors.join(' '), 'error', 8000);
+  else showNotice(`${r.added.length === 1 ? `Read “${r.added[0]!.name}”` : `Read ${r.added.length} files`}. ${name} will use ${r.added.length === 1 ? 'it' : 'them'} when it bears on the work (they're on the Memory page).`, 'info', 7000);
 }
 
 /** Touch devices have no Space bar to hold. */

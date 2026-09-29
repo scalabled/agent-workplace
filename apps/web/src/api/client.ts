@@ -36,6 +36,7 @@ import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, 
 import { noteUnauthenticated } from '../auth/session';
 import type { ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, MeetingResponse, MeetingSay, MeetingsResponse, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
 import type { CanvasCreate, CanvasListResponse, CanvasResponse } from '@headcount/protocol/ext/canvas';
+import type { CardResponse, CardsResponse, HandbookResponse, HandbookSectionId, MemoryCreate, MemoryItem, MemoryKind, MemoryListResponse, MemoryPatch } from '@headcount/protocol/ext/memory';
 import type { AutomationPatch, AutomationResponse, AutomationsResponse } from '@headcount/protocol/ext/automations';
 import type { ConnectorCreate, ConnectorPatch, ConnectorResponse, ConnectorsResponse } from '@headcount/protocol/ext/connectors';
 import type { AgentConfigPatch, AgentView, ModelsResponse, PromptView, RunsResponse, SkillDetail, SkillsResponse } from '@headcount/protocol/ext/agents';
@@ -108,6 +109,28 @@ export const api = {
     if (!res.ok) throw new ApiError(res.status, 'not_found', 'The source could not be read.', []);
     return res.text();
   },
+  // Inc 4: context and memory.
+  listMemory: (o: { q?: string; scope?: string; kind?: MemoryKind } = {}) => {
+    const q = new URLSearchParams(Object.entries(o).filter((e): e is [string, string] => !!e[1])).toString();
+    return request<MemoryListResponse>(`${routePath('listMemory')}${q ? `?${q}` : ''}`);
+  },
+  addMemory: (m: MemoryCreate) => request<{ memory: MemoryItem }>(routePath('addMemory'), jsonInit('POST', m)),
+  patchMemory: (id: string, p: MemoryPatch) => request<{ memory: MemoryItem }>(routePath('patchMemory', { id }), jsonInit('PUT', p)),
+  removeMemory: (id: string) => request<{ removed: true }>(routePath('removeMemory', { id }), { method: 'DELETE' }),
+  getHandbook: () => request<HandbookResponse>(routePath('getHandbook')),
+  putHandbook: (section: HandbookSectionId, content: string) => request<HandbookResponse>(routePath('putHandbook', { section }), jsonInit('PUT', { content })),
+  startInterview: () => request<HandbookResponse>(routePath('startInterview'), { method: 'POST' }),
+  stopInterview: () => request<HandbookResponse>(routePath('stopInterview'), { method: 'DELETE' }),
+  listCards: (scope?: string) => request<CardsResponse>(`${routePath('listCards')}${scope ? `?scope=${encodeURIComponent(scope)}` : ''}`),
+  /** A file as it is (raw bytes); where it was dropped sets its scope. */
+  addCard: (file: File, scope?: string) =>
+    request<CardResponse>(`${routePath('addCard')}${scope ? `?scope=${encodeURIComponent(scope)}` : ''}`, {
+      method: 'POST',
+      headers: { 'content-type': file.type || 'application/octet-stream', 'x-file-name': encodeURIComponent(file.name) },
+      body: file,
+    }),
+  getCard: (id: string) => request<CardResponse>(routePath('getCard', { id })),
+  removeCard: (id: string) => request<{ removed: true }>(routePath('removeCard', { id }), { method: 'DELETE' }),
   listAutomations: () => request<AutomationsResponse>(routePath('listAutomations')),
   addAutomation: (spec: AutomationPatch) => request<AutomationResponse>(routePath('addAutomation'), jsonInit('POST', spec)),
   putAutomation: (id: string, patch: AutomationPatch) => request<AutomationResponse>(routePath('putAutomation', { id }), jsonInit('PUT', patch)),

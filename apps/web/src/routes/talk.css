@@ -506,6 +506,8 @@
 
 .composer-box textarea {
   flex: 1;
+  /* No intrinsic width (the default 20 columns): the buttons fit on a phone. */
+  width: 0;
   min-width: 0;
   min-height: var(--hit);
   max-height: 168px;
@@ -671,4 +673,66 @@
 }
 .composer-live-status[data-phase='hearing'] {
   color: var(--lamp);
+}
+
+/* Inc 4: what the Chief remembered for a reply, as chips under it. */
+.msg-recalled {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+}
+.msg-recalled ul {
+  display: contents;
+  list-style: none;
+}
+.msg-recalled-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+.recall-chip {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.recall-chip:hover {
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+
+/* A file dragged over Talk: shared with the Chief (and so the whole workspace). */
+.talk[data-drop]::after {
+  content: '';
+  position: fixed;
+  inset: var(--space-2);
+  z-index: 20;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-stage);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  pointer-events: none;
+}
+.talk-drop {
+  position: fixed;
+  top: 40%;
+  left: 50%;
+  z-index: 21;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+  font-weight: var(--weight-medium);
+  pointer-events: none;
 }

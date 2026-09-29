@@ -19,6 +19,7 @@ import {
 import type { DeskSayAccepted } from '@headcount/protocol/ext/expressions';
 import type { ChannelEntry, Decision, ProjectsResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { CanvasSnapshot } from '@headcount/protocol/ext/canvas';
+import type { Recalled } from '@headcount/protocol/ext/memory';
 import type { FeedStatus } from '../api/ws';
 import { applyServerVoice } from '../voice/owner';
 
@@ -43,6 +44,8 @@ export interface ThreadItem {
   canvasId?: string;
   /** Sources the Chief's web search cited. */
   sources?: { url: string; title?: string }[];
+  /** What the Chief recalled for this reply (Inc 4): shown as chips under it. */
+  recalled?: Recalled[];
   via?: 'text' | 'voice';
   opId?: OpId;
   /** Owner messages only: pending until accepted, failed when the send failed (text is never lost). */
@@ -534,6 +537,7 @@ function reduce(frame: Frame, live: boolean): void {
         ...(frame.data.projectId ? { projectId: frame.data.projectId } : {}),
         ...(frame.data.canvasId ? { canvasId: frame.data.canvasId } : {}),
         ...(frame.data.sources?.length ? { sources: frame.data.sources } : {}),
+        ...(frame.data.recalled?.length ? { recalled: frame.data.recalled } : {}),
         ...(frame.data.kind === 'note' && frame.data.roomId ? { roomId: frame.data.roomId } : {}),
         ts: frame.ts,
       });

@@ -255,6 +255,8 @@ export interface DeskHost {
   settings(): Promise<WorkspaceSettings>;
   /** False once a newer message to this coworker took over (then this turn must not reset presence). */
   isCurrent(agentId: AgentId, turnId: TurnId): boolean;
+  /** What the workspace knows that bears on the owner's words: the Handbook and relevant memories (Inc 4). */
+  knowledge?(query: string, personaId: string): Promise<string>;
 }
 
 function finishOf(r: TurnResult, text: string): TalkFinish {
@@ -291,9 +293,12 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
     // The reply guard (Office Phase 2 §4.2.6): no work claims, no figures the owner did not say, two sentences.
     const ownerLines = messages.filter((m) => m.role === 'user').map((m) => (typeof m.content === 'string' ? m.content : ''));
     const staffing = spec.staffing ?? [];
-    // A staffed coworker may repeat figures from their own draft (it is the work they are talking about).
+    const lastOwner = ownerLines.at(-1) ?? '';
+    const known = host.knowledge && lastOwner ? await host.knowledge(lastOwner, spec.persona.id).catch(() => '') : '';
+    // A staffed coworker may repeat figures from their own draft (it is the work they are talking about), and anyone
+    // may repeat what the Handbook and the workspace's memory say.
     const guard = new ReplyGuard({
-      allowedFigures: ownerFigures([...ownerLines, ...staffing.map((s) => s.latest ?? '')]),
+      allowedFigures: ownerFigures([...ownerLines, ...staffing.map((s) => s.latest ?? ''), known]),
       ownerText: ownerLines,
       workLine: staffing.length ? STAFFED_WORK_LINE : unstaffedLine(chief),
       ...(staffing.length ? { work: 'staffed' as const } : {}),
@@ -309,7 +314,7 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
     const result = await runTurn({
       provider: resolved.provider,
       model: resolved.model,
-      system: buildDeskSystemPrompt(spec.persona, chief, ownerFirstNameOf(settings), staffing),
+      system: `${buildDeskSystemPrompt(spec.persona, chief, ownerFirstNameOf(settings), staffing)}${known ? `\n\n${known}` : ''}`,
       messages,
       signal: spec.signal,
       maxSteps: 1,

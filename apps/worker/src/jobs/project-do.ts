@@ -195,6 +195,9 @@ export class ProjectDO extends DurableObject<Env> {
         call: async (req) => (await workspaceStub(env).connectorCall(req)) as unknown as ConnectorCallResult,
         grant: async (req) => void (await workspaceStub(env).connectorGrant(req)),
       },
+      // What the workspace knows (the Handbook, memories) lives in the WorkspaceDO.
+      knowledge: async (query, scopes) => String(await workspaceStub(env).knowledgeFor(query, scopes)),
+      distillMeeting: async (input) => void (await workspaceStub(env).distillMeeting(input)),
       // The owner allowed an automation the Chief proposed.
       automations: {
         create: (spec) => {
