@@ -24,7 +24,7 @@ import { handleStt, handleTts } from './media/speech';
 import { handleOfficePeople } from './rooms/people';
 import { handleRoomCancel, handleRoomSay } from './rooms/routes';
 import { handleAddStep, handleAnswerDecision, handleDiscuss, handleGetMeeting, handleMeetingSay, handleProjectMeetings, handlePostChannel, handleProjectChannel, handleApproveProject, handleCancelProject, handleEditPlan, handleEditStep, handleGetProject, handleListProjects, handleNoteProject, handlePauseProject, handleProjectRuns, handleRemoveStep, handleResumeProject, handleStopAll } from './projects/routes';
-import { handleAddCard, handleAddMemory, handleGetCard, handleGetHandbook, handleListCards, handleListMemory, handleGetMemory, handlePatchMemory, handlePutHandbook, handleRemoveCard, handleRemoveMemory, handleStartInterview, handleStopInterview } from './memory/routes';
+import { handleAddCard, handleAddMemory, handleCardFile, handleGetCard, handleGetHandbook, handleListCards, handleListMemory, handleGetMemory, handlePatchMemory, handlePutHandbook, handleRemoveCard, handleRemoveMemory, handleStartInterview, handleStopInterview } from './memory/routes';
 import { handleCanvasSource, handleCreateCanvas, handleDownloadCanvas, handleGetCanvas, handleListCanvas, handlePrintCanvas, handleRemoveCanvas, handleRepairCanvas, handleRetryCanvas, handleReviseCanvas, handleViewCanvas } from './canvas/routes';
 import { handleAddAutomation, handleListAutomations, handlePutAutomation, handleRemoveAutomation, handleRunAutomation } from './automations/routes';
 import { handleAddConnector, handleListConnectors, handlePatchConnector, handleRemoveConnector, handleRevokeConnectorGrant, handleTestConnector } from './connectors/routes';
@@ -120,6 +120,7 @@ export const HANDLERS: Record<RouteId, RouteHandler> = {
   listMemory: handleListMemory,
   addMemory: handleAddMemory,
   getMemory: handleGetMemory,
+  cardFile: handleCardFile,
   patchMemory: handlePatchMemory,
   removeMemory: handleRemoveMemory,
   getHandbook: handleGetHandbook,

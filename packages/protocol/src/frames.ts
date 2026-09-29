@@ -1,4 +1,4 @@
-import type { ErrorCode, JobSnapshot, ProviderId, WorkspaceSettings } from './api';
+import type { ErrorCode, JobSnapshot, ProviderId, TalkAttachment, WorkspaceSettings } from './api';
 import type { ActorId, AgentId, JobId, MessageId, OpId, SteerId, StreamId, TurnId, WorkspaceId } from './ids';
 import type {
   AttentionChangedData,
@@ -74,7 +74,7 @@ export interface FrameDataMap {
    * `surface: 'floor'` marks a Floor quick-chat (never in the Talk transcript or the Chief's history); `surface: 'room'`
    * an office room or joined huddle, with its `roomId` and `meetingId` (ext/rooms).
    */
-  'talk.owner': { turnId: TurnId; messageId: MessageId; text: string; via: 'text' | 'voice'; agentId?: AgentId; surface?: TalkSurface; roomId?: RoomId; meetingId?: string };
+  'talk.owner': { turnId: TurnId; messageId: MessageId; text: string; via: 'text' | 'voice'; agentId?: AgentId; surface?: TalkSurface; roomId?: RoomId; meetingId?: string; attachments?: TalkAttachment[] };
   /**
    * Streaming text of a reply. Ephemeral. `hint`: on the first delta of a Chief turn only, the reaction the model
    * asked for with its `⟦react:…⟧` head token (already stripped from the text).

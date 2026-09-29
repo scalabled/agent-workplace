@@ -43,7 +43,7 @@ export function toOllamaMessages(system: string | undefined, messages: ChatMessa
       const msg: Record<string, unknown> = { role: 'assistant', content: m.content || '' };
       if (m.toolCalls?.length) msg.tool_calls = m.toolCalls.map((tc) => ({ function: { name: names.wire(tc.name), arguments: argumentsObject(tc.arguments) } }));
       out.push(msg);
-    } else out.push({ role: 'user', content: m.content || ' ' });
+    } else out.push({ role: 'user', content: m.content || ' ', ...(m.images?.length ? { images: m.images.map((im) => im.data) } : {}) });
   }
   return out;
 }

@@ -15,6 +15,7 @@ import {
   type TalkAccepted,
   type TurnId,
   type WorkspaceSettings,
+  type TalkAttachment,
 } from '@headcount/protocol';
 import type { DeskSayAccepted } from '@headcount/protocol/ext/expressions';
 import type { ChannelEntry, Decision, ProjectsResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
@@ -46,6 +47,8 @@ export interface ThreadItem {
   sources?: { url: string; title?: string }[];
   /** What the Chief recalled for this reply (Inc 4): shown as chips under it. */
   recalled?: Recalled[];
+  /** Owner messages: the files and pictures shown with it (Inc 4 vision). */
+  attachments?: TalkAttachment[];
   via?: 'text' | 'voice';
   opId?: OpId;
   /** Owner messages only: pending until accepted, failed when the send failed (text is never lost). */
@@ -277,8 +280,8 @@ function patchThread(messageId: string, patch: Partial<ThreadItem>) {
 const localId = (opId: OpId) => `local:${opId}`;
 
 /** Optimistic owner message (shown at once, reconciled by opId when the echo arrives). */
-export function addPendingOwner(opId: OpId, text: string, via: 'text' | 'voice'): void {
-  upsertThread({ messageId: localId(opId), turnId: null, from: 'owner', text, streaming: false, via, opId, status: 'pending', ts: new Date().toISOString() });
+export function addPendingOwner(opId: OpId, text: string, via: 'text' | 'voice', attachments?: TalkAttachment[]): void {
+  upsertThread({ messageId: localId(opId), turnId: null, from: 'owner', text, streaming: false, via, opId, status: 'pending', ...(attachments?.length ? { attachments } : {}), ts: new Date().toISOString() });
 }
 
 /** 202 from POST /api/talk: re-key the optimistic item to the server's ids (the echo may already have replaced it). */
@@ -515,7 +518,7 @@ function reduce(frame: Frame, live: boolean): void {
   switch (frame.type) {
     case 'talk.owner':
       upsertThread(
-        { messageId: frame.data.messageId, turnId: frame.data.turnId, from: 'owner', text: frame.data.text, streaming: false, via: frame.data.via, ...(frame.opId ? { opId: frame.opId } : {}), status: undefined, error: undefined, ts: frame.ts },
+        { messageId: frame.data.messageId, turnId: frame.data.turnId, from: 'owner', text: frame.data.text, streaming: false, via: frame.data.via, ...(frame.opId ? { opId: frame.opId } : {}), ...(frame.data.attachments?.length ? { attachments: frame.data.attachments } : {}), status: undefined, error: undefined, ts: frame.ts },
         (m) => !!frame.opId && m.opId === frame.opId && m.from === 'owner',
       );
       break;

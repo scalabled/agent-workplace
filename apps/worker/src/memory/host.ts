@@ -2,11 +2,11 @@
 // the model calls around them (embeddings, distillation, file summaries). The Chief of Staff's turn and every coworker's
 // work turn ask it for what is relevant; conversations and meetings feed it.
 import { MissingProviderError } from '@headcount/models';
-import type { ContextCard, MemoryItem, MemoryKind, MemoryScope, MemorySource, Recalled } from '@headcount/protocol/ext/memory';
+import { CARD_IMAGE_MAX, type ContextCard, type MemoryItem, type MemoryKind, type MemoryScope, type MemorySource, type Recalled } from '@headcount/protocol/ext/memory';
 import type { Env } from '../env';
 import { Cards, MAX_CARDS, newCardId } from './cards';
-import { distill, summarise, type FastModel } from './distill';
-import { FileReadError, readFile } from './files';
+import { describeImage, distill, summarise, type FastModel } from './distill';
+import { FileReadError, imageMime, readFile, sniffImage } from './files';
 import { Handbook } from './handbook';
 import { chunk } from './recall';
 import { MemoryStore } from './store';
@@ -121,6 +121,7 @@ export class Knowledge {
   async addCard(input: { name: string; mime: string; bytes: Uint8Array; scope: MemoryScope }): Promise<ContextCard> {
     if (this.cards.count() >= MAX_CARDS) throw new CardError(`At most ${MAX_CARDS} files; remove one first.`, 'conflict');
     const name = input.name.replace(/[\\/"<>`\u0000-\u001f]/g, '').trim().slice(0, 160) || 'file';
+    if (imageMime(name, input.mime)) return this.addImage(name, input.bytes, input.scope);
     let read: Awaited<ReturnType<typeof readFile>>;
     try {
       read = await readFile(name, input.mime, input.bytes);
@@ -145,10 +146,60 @@ export class Knowledge {
     return card;
   }
 
+  /**
+   * An image (a photo, a screenshot, a snapshot): kept as it is, and described by a vision model in the background, so
+   * its description (and every piece of text in it) is searchable like any file.
+   */
+  private async addImage(name: string, bytes: Uint8Array, scope: MemoryScope): Promise<ContextCard> {
+    if (bytes.byteLength > CARD_IMAGE_MAX) throw new CardError('Images must be under 5 MB.', 'bad_request');
+    const mime = sniffImage(bytes);
+    if (!mime) throw new CardError('That image could not be opened (use PNG, JPEG, WebP or GIF).', 'bad_request');
+    const cardId = newCardId();
+    await this.p.blobs.put(this.imageKey(cardId), bytes, { httpMetadata: { contentType: mime } });
+    const vm = this.vision();
+    const describing = !!vm && this.p.take();
+    const card = this.cards.add({ cardId, name, kind: 'image', bytes: bytes.byteLength, chars: 0, scope, chunks: 0, summary: describing ? 'An image; being described…' : 'An image (no vision model is set up to describe it yet).' });
+    if (describing) {
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 60_000);
+      this.p.background(
+        describeImage(vm!, name, { mime, data: toBase64(bytes) }, ac.signal)
+          .then(async (text) => {
+            if (!text || !this.cards.get(cardId)) return;
+            await this.p.blobs.put(this.textKey(cardId), text, { httpMetadata: { contentType: 'text/plain; charset=utf-8' } });
+            const pieces = chunk(text);
+            for (const [i, piece] of pieces.entries()) this.memory.add({ text: piece, kind: 'excerpt', scope, source: 'card', sourceRef: cardId, sourceLabel: pieces.length > 1 ? `${name} (part ${i + 1})` : name });
+            this.cards.setRead(cardId, text.length, pieces.length, text.replace(/\s+/g, ' ').slice(0, 300));
+          })
+          .catch((err) => logError('memory.vision', err))
+          .finally(() => clearTimeout(timer)),
+      );
+    }
+    return card;
+  }
+
+  /** An image card's picture (for a vision model, or to show it). */
+  async cardImage(cardId: string): Promise<{ mime: string; bytes: Uint8Array } | null> {
+    const obj = await this.p.blobs.get(this.imageKey(cardId));
+    if (!obj) return null;
+    return { mime: obj.httpMetadata?.contentType ?? 'image/png', bytes: new Uint8Array(await obj.arrayBuffer()) };
+  }
+
+  /** A chat model that can look at images, or null (none set up). */
+  vision(): FastModel | null {
+    try {
+      const r = models(this.p.env, { surface: 'memory' }).resolve('chat', { tier: 'fast', needs: ['vision'] });
+      return { provider: r.provider, model: r.model };
+    } catch {
+      return null;
+    }
+  }
+
   async removeCard(cardId: string): Promise<boolean> {
     if (!this.cards.remove(cardId)) return false;
     this.memory.removeByRef(cardId);
     await this.p.blobs.delete(this.textKey(cardId)).catch(() => undefined);
+    await this.p.blobs.delete(this.imageKey(cardId)).catch(() => undefined);
     return true;
   }
 
@@ -160,6 +211,17 @@ export class Knowledge {
   private textKey(cardId: string): string {
     return `ws/${this.p.workspaceId}/cards/${cardId}.txt`;
   }
+
+  private imageKey(cardId: string): string {
+    return `ws/${this.p.workspaceId}/cards/${cardId}.img`;
+  }
+}
+
+/** Bytes → base64 (in slices, so a large image never overflows the call stack). */
+export function toBase64(bytes: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
 }
 
 /** The knowledge a coworker's work prompt carries (data, never instructions). */

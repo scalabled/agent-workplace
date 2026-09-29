@@ -18,13 +18,17 @@ import { useHoldToTalk } from '../components/useHoldToTalk';
 import { VoiceElsewhere } from '../components/VoiceElsewhere';
 import { ago, now } from '../lib/time';
 import { bubbles, liveCaptions } from '../living/captions';
-import { linkTarget, navigate, paths } from '../router';
+import { linkTarget, linkTo, navigate, paths } from '../router';
 import { activeJobs, can, canvases, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, onboarded, settings, teamProjects, thread, type ThreadItem } from '../store';
 import { retryOwnerMessage, sendOwnerMessage, setVoiceOn } from '../talk/actions';
 import { draft, focusComposer, greetedThisSession, greetOnArrival, prefillComposer } from '../talk/draft';
 import { notice, showNotice } from '../ui/notice';
 import { mayContribute } from '../auth/session';
-import { FILE_ACCEPT, uploadFiles } from '../memory/upload';
+import { FILE_ACCEPT } from '../memory/upload';
+import { api } from '../api/client';
+import { canSnapScreen, canUseCamera, snapScreen } from '../lib/capture';
+import { attachFiles, draftFiles, removeDraftFile, takeAttachments } from '../talk/attachments';
+import { CameraSheet } from '../talk/CameraSheet';
 import { CopyLink, PageTitle } from '../links/CopyLink';
 import { bargeIn, chiefIsSpeaking, chiefSpeaker } from '../voice/chief-voice';
 import { armAudio, audioSupport } from '../voice/engine';
@@ -110,12 +114,12 @@ export function Talk() {
         if (!hasFiles(e)) return;
         e.preventDefault();
         setDropping(false);
-        void shareInTalk([...(e.dataTransfer?.files ?? [])], name);
+        void attachFiles([...(e.dataTransfer?.files ?? [])]);
       }}
     >
       {dropping && (
         <p class="talk-drop" aria-hidden="true">
-          <Icon name="attach" size={20} /> Drop to share with {name}
+          <Icon name="attach" size={20} /> Drop to show {name}
         </p>
       )}
       <TalkHead />
@@ -323,6 +327,22 @@ function MessageLink({ item }: { item: ThreadItem }) {
   return at && !item.streaming ? <CopyLink page={paths.talk} at={at} label="Copy link to this message" what="Link to this message" class="msg-link" /> : null;
 }
 
+/** What the owner showed with a message: pictures as thumbnails, files by name; each opens on the Memory page. */
+function Shown({ files }: { files: NonNullable<ThreadItem['attachments']> }) {
+  return (
+    <ul class="msg-shown" aria-label="Shared with this message">
+      {files.map((f) => (
+        <li key={f.cardId}>
+          <Link href={linkTo(paths.memory, f.cardId)} class={f.kind === 'image' ? 'msg-shown-image' : 'msg-shown-file'} title={`${f.name} (on the Memory page)`}>
+            {f.kind === 'image' ? <img src={api.cardFileUrl(f.cardId)} alt={f.name} loading="lazy" /> : <Icon name="file" size={16} />}
+            {f.kind !== 'image' && <span>{f.name}</span>}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Message({ item, name, grouped }: { item: ThreadItem; name: string; grouped: boolean }) {
   if (item.from === 'owner') {
     return (
@@ -330,6 +350,7 @@ function Message({ item, name, grouped }: { item: ThreadItem; name: string; grou
         <MessageLink item={item} />
         <span class="visually-hidden">You{item.via === 'voice' ? ' (spoken)' : ''}: </span>
         <p class="msg-body">{item.text}</p>
+        {item.attachments?.length ? <Shown files={item.attachments} /> : null}
         {item.via === 'voice' && !item.status && <Icon name="mic" size={14} class="msg-via" />}
         {item.status === 'pending' && <span class="msg-note">Sending…</span>}
         {item.status === 'failed' && (
@@ -529,12 +550,33 @@ function Composer({ name }: { name: string }) {
     el.style.height = `${Math.min(el.scrollHeight, 168)}px`;
   }, [text]);
 
+  const shown = draftFiles.value;
+  const [menu, setMenu] = useState(false);
+  const [camera, setCamera] = useState(false);
+  const attachButton = useRef<HTMLButtonElement>(null);
+  const photoInput = useRef<HTMLInputElement>(null);
+  const screen = canSnapScreen();
+  const cam = canUseCamera();
+
   const send = async () => {
-    const t = draft.value.trim();
-    if (!t) return input.current?.focus();
+    const typed = draft.value.trim();
+    if (!typed && !shown.length) return input.current?.focus();
+    const attachments = takeAttachments();
+    if (!attachments) return showNotice('Still reading what you added. One moment.', 'info', 3000);
     armAudio();
     draft.value = '';
-    await sendOwnerMessage(t, 'text'); // a failed send stays in the thread with Retry: text is never lost
+    // a failed send stays in the thread with Retry: text is never lost
+    await sendOwnerMessage(typed || 'Take a look at this.', 'text', attachments.length ? { attachments } : {});
+  };
+  const closeMenu = (refocus = true) => {
+    setMenu(false);
+    if (refocus) attachButton.current?.focus();
+  };
+  const snap = async () => {
+    closeMenu(false);
+    const file = await snapScreen();
+    if (file) void attachFiles([file]);
+    input.current?.focus();
   };
 
   // The mic: hold to talk, or tap to open it and tap again to send (a tap is easier for many people).
@@ -589,6 +631,8 @@ function Composer({ name }: { name: string }) {
           </button>
         </p>
       )}
+      {shown.length > 0 && <DraftTray name={name} />}
+      {camera && <CameraSheet onTake={(f) => void attachFiles([f])} onClose={() => setCamera(false)} />}
       <div class="composer-box">
         <label class="visually-hidden" for="composer">
           Message {name}
@@ -611,20 +655,46 @@ function Composer({ name }: { name: string }) {
             }
           }}
         />
-        <button type="button" class="icon-button composer-attach" aria-label={`Share a file with ${name}`} title="Share a file (PDF, Word, Excel, CSV, text)" onClick={() => files.current?.click()}>
-          <Icon name="attach" />
-        </button>
+        <span class="composer-attach-wrap">
+          <button
+            type="button"
+            ref={attachButton}
+            class="icon-button composer-attach"
+            aria-label={`Show ${name} a file or picture`}
+            aria-haspopup={screen || cam ? 'menu' : undefined}
+            aria-expanded={screen || cam ? menu : undefined}
+            title="Add a file, a photo or a snapshot of your screen"
+            onClick={() => (screen || cam ? setMenu(!menu) : files.current?.click())}
+          >
+            <Icon name="attach" />
+          </button>
+          {menu && <AttachMenu screen={screen} camera={cam} onClose={closeMenu} onFile={() => (closeMenu(false), files.current?.click())} onScreen={() => void snap()} onCamera={() => (closeMenu(false), coarsePointer() ? photoInput.current?.click() : setCamera(true))} />}
+        </span>
         <input
           ref={files}
           type="file"
           multiple
           accept={FILE_ACCEPT}
+          class="visually-hidden composer-file-input"
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={(e) => {
+            const el = e.currentTarget;
+            void attachFiles([...(el.files ?? [])]);
+            el.value = '';
+          }}
+        />
+        <input
+          ref={photoInput}
+          type="file"
+          accept="image/*"
+          capture="environment"
           class="visually-hidden"
           tabIndex={-1}
           aria-hidden="true"
           onChange={(e) => {
             const el = e.currentTarget;
-            void shareInTalk([...(el.files ?? [])], name);
+            void attachFiles([...(el.files ?? [])]);
             el.value = '';
           }}
         />
@@ -683,13 +753,64 @@ function Composer({ name }: { name: string }) {
   );
 }
 
-/** A file shared in Talk is for everyone (the workspace): read, then recalled when a question bears on it. */
-async function shareInTalk(files: File[], name: string): Promise<void> {
-  if (!files.length) return;
-  showNotice(files.length === 1 ? `Reading “${files[0]!.name}”…` : `Reading ${files.length} files…`, 'info', 60_000);
-  const r = await uploadFiles(files);
-  if (r.errors.length) showNotice(r.errors.join(' '), 'error', 8000);
-  else showNotice(`${r.added.length === 1 ? `Read “${r.added[0]!.name}”` : `Read ${r.added.length} files`}. ${name} will use ${r.added.length === 1 ? 'it' : 'them'} when it bears on the work (they're on the Memory page).`, 'info', 7000);
+/** Add to the message: a file or photo, a snapshot of a screen, a photo from the camera. */
+function AttachMenu({ screen, camera, onClose, onFile, onScreen, onCamera }: { screen: boolean; camera: boolean; onClose: (refocus?: boolean) => void; onFile: () => void; onScreen: () => void; onCamera: () => void }) {
+  const menu = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    menu.current?.querySelector<HTMLButtonElement>('[role=menuitem]')?.focus();
+    const away = (e: PointerEvent) => {
+      if (!menu.current?.parentElement?.contains(e.target as Node)) onClose(false);
+    };
+    document.addEventListener('pointerdown', away);
+    return () => document.removeEventListener('pointerdown', away);
+  }, []);
+  const onKey = (e: KeyboardEvent) => {
+    const items = [...(menu.current?.querySelectorAll<HTMLButtonElement>('[role=menuitem]') ?? [])];
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      onClose();
+    } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[(at + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]?.focus();
+    } else if (e.key === 'Tab') onClose(false);
+  };
+  return (
+    <div class="attach-menu" role="menu" aria-label="Add to your message" ref={menu} onKeyDown={onKey}>
+      <button type="button" role="menuitem" onClick={onFile}>
+        <Icon name="file" size={18} /> A file or photo
+      </button>
+      {screen && (
+        <button type="button" role="menuitem" onClick={onScreen}>
+          <Icon name="screen" size={18} /> A snapshot of your screen
+        </button>
+      )}
+      {camera && (
+        <button type="button" role="menuitem" onClick={onCamera}>
+          <Icon name="camera" size={18} /> Take a photo
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** What goes with the next message: pictures as thumbnails, files by name, each removable; “Reading…” until read. */
+function DraftTray({ name }: { name: string }) {
+  return (
+    <ul class="composer-files" aria-label={`Going to ${name} with your message`}>
+      {draftFiles.value.map((f) => (
+        <li key={f.key} class="composer-file" data-ready={f.card ? true : undefined} data-image={f.image || undefined}>
+          {f.image && (f.preview || f.card) ? <img src={f.preview ?? api.cardFileUrl(f.card!.cardId)} alt="" /> : <Icon name="file" size={16} />}
+          <span class="composer-file-name">{f.name}</span>
+          {!f.card && <span class="composer-file-state">Reading…</span>}
+          <button type="button" class="icon-button icon-button-sm" aria-label={`Remove ${f.name}`} onClick={() => removeDraftFile(f.key)}>
+            <Icon name="close" size={14} />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 /** Touch devices have no Space bar to hold. */

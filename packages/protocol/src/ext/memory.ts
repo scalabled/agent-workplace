@@ -98,8 +98,11 @@ export interface HandbookPatch {
 
 // ── context cards ──────────────────────────────────────────────────────────────────
 
-export type CardKind = 'pdf' | 'docx' | 'xlsx' | 'csv' | 'text';
+export type CardKind = 'pdf' | 'docx' | 'xlsx' | 'csv' | 'text' | 'image';
 export const CARD_UPLOAD_MAX = 10 * 1024 * 1024;
+/** Images (photos, screenshots, snapshots) are kept as they are and shown to vision models; providers take up to ~5 MB. */
+export const CARD_IMAGE_MAX = 5 * 1024 * 1024;
+export const IMAGE_MIMES: readonly string[] = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
 
 export interface ContextCard {
   cardId: string;

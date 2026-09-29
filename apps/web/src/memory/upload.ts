@@ -3,15 +3,18 @@
 import { CARD_UPLOAD_MAX, type ContextCard } from '@headcount/protocol/ext/memory';
 import { api, ApiError } from '../api/client';
 import { catalog } from '../catalog';
+import { shrinkImage } from '../lib/capture';
 import { teamProjects } from '../store';
 
-/** What the file picker offers (the server reads these). */
-export const FILE_ACCEPT = '.pdf,.docx,.xlsx,.csv,.tsv,.txt,.md,.markdown,.json,.yaml,.yml,.xml,.html,.htm,.rtf,.log';
+/** What the file picker offers (the server reads these; pictures are described by a vision model). */
+export const FILE_ACCEPT = '.pdf,.docx,.xlsx,.csv,.tsv,.txt,.md,.markdown,.json,.yaml,.yml,.xml,.html,.htm,.rtf,.log,.png,.jpg,.jpeg,.webp,.gif,image/*';
 
 export async function uploadFiles(files: Iterable<File>, scope?: string): Promise<{ added: ContextCard[]; errors: string[] }> {
   const added: ContextCard[] = [];
   const errors: string[] = [];
-  for (const file of files) {
+  for (const picked of files) {
+    // A phone photo is made small enough to share (pictures are kept up to 5 MB).
+    const file = picked.type.startsWith('image/') ? await shrinkImage(picked) : picked;
     if (file.size > CARD_UPLOAD_MAX) {
       errors.push(`${file.name}: files must be under 10 MB.`);
       continue;

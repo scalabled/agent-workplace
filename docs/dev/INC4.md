@@ -95,5 +95,4 @@ Without `scope`, a memory search on the Memory page covers every scope.
 
 ## Not in this increment
 
-Vision snapshots (a camera or screen described by a vision model) need image input in `ChatMessage` across every
-adapter. They are deferred to the media work.
+Vision snapshots (a camera or screen described by a vision model) came next; see [VISION.md](VISION.md).

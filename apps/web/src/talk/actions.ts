@@ -1,6 +1,6 @@
 // Owner commands: send (optimistic, idempotent by opId), retry, steer and stop jobs, voice on/off, Ambience, and
 // the Floor quick-chat with a coworker.
-import { CHIEF_ID, coworkerAgentId, ids, OWNER_NAME_MAX_CHARS, TALK_MAX_CHARS, type OpId, type UpdateWorkspaceRequest } from '@headcount/protocol';
+import { CHIEF_ID, coworkerAgentId, ids, OWNER_NAME_MAX_CHARS, TALK_MAX_CHARS, type OpId, type TalkAttachment, type UpdateWorkspaceRequest } from '@headcount/protocol';
 import type { Ambience } from '@headcount/protocol/ext/expressions';
 import { api, ApiError } from '../api/client';
 import { beginSend, livingOwnerTurn, livingSendDecision, livingSetAmbience } from '../living';
@@ -21,10 +21,10 @@ export function errorSentence(err: unknown): string {
   return 'Could not reach Headcount. Check that it is running, then try again.';
 }
 
-async function deliver(opId: OpId, text: string, via: 'text' | 'voice', at = Date.now()): Promise<boolean> {
+async function deliver(opId: OpId, text: string, via: 'text' | 'voice', at = Date.now(), attachments: readonly TalkAttachment[] = []): Promise<boolean> {
   const settle = beginSend();
   try {
-    const accepted = await api.talk(text, via, opId);
+    const accepted = await api.talk(text, via, opId, attachments.map((a) => a.cardId));
     markOwnerAccepted(accepted);
     // The living layer's clock for this turn starts when the owner finished, not when the 202 came back.
     livingOwnerTurn({ agentId: CHIEF_ID, turnId: accepted.turnId, at, mode: via, text });
@@ -45,7 +45,7 @@ async function deliver(opId: OpId, text: string, via: 'text' | 'voice', at = Dat
  * the sentence boundary; otherwise it finishes and the new answer follows (with "hold that thought" when 2.5–8 s
  * are left). Without the living layer the voice stops at once, as before.
  */
-export async function sendOwnerMessage(text: string, via: 'text' | 'voice' = 'text', opts: { at?: number; opId?: OpId } = {}): Promise<boolean> {
+export async function sendOwnerMessage(text: string, via: 'text' | 'voice' = 'text', opts: { at?: number; opId?: OpId; attachments?: TalkAttachment[] } = {}): Promise<boolean> {
   const t = text.trim();
   if (!t) return false;
   if (t.length > TALK_MAX_CHARS) {
@@ -57,8 +57,8 @@ export async function sendOwnerMessage(text: string, via: 'text' | 'voice' = 'te
   if (decision === null) bargeIn();
   else if (decision === 'boundary') stopChiefAtBoundary();
   const opId = opts.opId ?? ids.op();
-  addPendingOwner(opId, t, via);
-  return deliver(opId, t, via, at);
+  addPendingOwner(opId, t, via, opts.attachments);
+  return deliver(opId, t, via, at, opts.attachments);
 }
 
 /** A Floor quick-chat message to a catalog coworker; their reply streams into the bubble (and their profile). */
@@ -92,7 +92,7 @@ export async function sendDeskMessage(personaId: string, text: string, opts: { o
 export function retryOwnerMessage(item: ThreadItem): Promise<boolean> {
   if (!item.opId) return Promise.resolve(false);
   markOwnerRetrying(item.opId);
-  return deliver(item.opId, item.text, item.via ?? 'text');
+  return deliver(item.opId, item.text, item.via ?? 'text', Date.now(), item.attachments);
 }
 
 export async function steerJob(jobId: string, text: string): Promise<string | null> {

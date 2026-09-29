@@ -103,7 +103,7 @@ export function toGeminiContents(messages: ChatMessage[], names: ToolNames): Con
     } else if (m.role === 'tool') {
       push('user', [{ functionResponse: { name: names.wire(m.name), response: toolResponse(m.content, m.isError) } }]);
     } else {
-      push('user', [{ text: m.content || ' ' }]);
+      push('user', [...(m.images ?? []).map((im) => ({ inlineData: { mimeType: im.mime, data: im.data } })), { text: m.content || ' ' }]);
     }
   }
   if (!out.length || out[0]!.role !== 'user') out.unshift({ role: 'user', parts: [{ text: '(conversation start)' }] });

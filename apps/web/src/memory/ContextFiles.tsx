@@ -9,7 +9,7 @@ import { FILE_ACCEPT, scopeLabel, sizeOf, uploadFiles } from './upload';
 import { CopyLink } from '../links/CopyLink';
 import { paths } from '../router';
 
-const KIND_WORDS: Record<CardKind, string> = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel', csv: 'CSV', text: 'Text' };
+const KIND_WORDS: Record<CardKind, string> = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel', csv: 'CSV', text: 'Text', image: 'Picture' };
 
 /** Where a file lives: its project, its coworker's profile, or the Memory page. */
 function pageOfScope(scope: string): string {
@@ -75,7 +75,7 @@ export function ContextFiles({ scope, all = false, title = 'Files', hint }: { sc
         }}
       >
         <Icon name="attach" size={18} />
-        <span>{busy ?? 'Drop a PDF, Word, Excel, CSV or text file here, or'}</span>
+        <span>{busy ?? 'Drop a PDF, Word, Excel, CSV, text file or picture here, or'}</span>
         {!busy && (
           <button type="button" class="link-button" onClick={() => input.current?.click()}>
             choose one
@@ -131,8 +131,8 @@ function CardRow({ card: c, showScope, onRemoved }: { card: ContextCard; showSco
   };
   return (
     <li class="card-row" id={c.cardId}>
-      <span class="card-row-icon" aria-hidden="true">
-        <Icon name="file" size={18} />
+      <span class="card-row-icon" aria-hidden="true" data-image={c.kind === 'image' || undefined}>
+        {c.kind === 'image' ? <img src={api.cardFileUrl(c.cardId)} alt="" loading="lazy" /> : <Icon name="file" size={18} />}
       </span>
       <div class="card-row-main">
         <p class="card-row-name">{c.name}</p>
@@ -152,7 +152,7 @@ function CardRow({ card: c, showScope, onRemoved }: { card: ContextCard; showSco
                 .catch(() => setText(''));
           }}
         >
-          <summary>What was read</summary>
+          <summary>{c.kind === 'image' ? 'What it shows' : 'What was read'}</summary>
           {text === null ? <p class="page-fine">Loading…</p> : <pre class="card-row-text">{text || 'Nothing to show.'}</pre>}
         </details>
         {error && <p class="connector-error">{error}</p>}

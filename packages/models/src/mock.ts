@@ -314,6 +314,9 @@ export function planMockTurn(req: ChatRequest): { kind: 'text'; text: string } |
     }
   }
 
+  // Vision (keyless): say what was shown, without pretending to have looked closely.
+  const shown = i >= 0 ? ((req.messages[i] as { images?: unknown[] }).images?.length ?? 0) : 0;
+  if (shown) return { kind: 'text', text: `I can see the ${shown === 1 ? 'picture' : `${shown} pictures`} you shared (the mock model does not really look at them). ${mockReply(userText)}` };
   return { kind: 'text', text: mockReply(userText) };
 }
 

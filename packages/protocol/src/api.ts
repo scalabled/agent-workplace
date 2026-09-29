@@ -144,7 +144,18 @@ export interface TalkRequest {
   via?: 'text' | 'voice';
   /** The sending tab (ext/voice-owner): it becomes the voice owner. */
   clientId?: string;
+  /** Files shown with the message (context card ids, ext/memory): images go to the model as pictures. At most 4. */
+  attachments?: string[];
 }
+
+/** A file shown with a message, as the thread shows it. */
+export interface TalkAttachment {
+  cardId: string;
+  name: string;
+  kind: 'pdf' | 'docx' | 'xlsx' | 'csv' | 'text' | 'image';
+}
+
+export const TALK_ATTACHMENTS_MAX = 4;
 
 export interface TalkAccepted {
   accepted: true;

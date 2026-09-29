@@ -85,7 +85,10 @@ export const api = {
   getWorkspace: () => request<WorkspaceResponse>(routePath('getWorkspace')),
   putWorkspace: (patch: UpdateWorkspaceRequest) => request<WorkspaceResponse>(routePath('putWorkspace'), jsonInit('PUT', patch)),
   /** 202: the reply arrives on the socket as talk.* frames with this opId. The sending tab becomes the voice owner. */
-  talk: (text: string, via: 'text' | 'voice' = 'text', opId: string = ids.op()) => request<TalkAccepted>(routePath('talk'), jsonInit('POST', { text, opId, via, clientId: clientId() })),
+  talk: (text: string, via: 'text' | 'voice' = 'text', opId: string = ids.op(), attachments: readonly string[] = []) =>
+    request<TalkAccepted>(routePath('talk'), jsonInit('POST', { text, opId, via, clientId: clientId(), ...(attachments.length ? { attachments } : {}) })),
+  /** An image file's picture (same-origin, sent with the session cookie). */
+  cardFileUrl: (id: string) => routePath('cardFile', { id }),
   listJobs: (limit = 20) => request<JobsResponse>(`${routePath('listJobs')}?limit=${limit}`),
   getJob: (id: string) => request<JobResponse>(routePath('getJob', { id })),
   steerJob: (id: string, text: string, opId: string = ids.op()) => request<SteerJobAccepted>(routePath('steerJob', { id }), jsonInit('POST', { text, opId, clientId: clientId() })),

@@ -9,6 +9,7 @@ import { strToU8, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { docxText, readFile, xlsxText } from '../src/memory/files';
 import { bm25, chunk, rrf, similar, tokens } from '../src/memory/recall';
+import { historyFromFrames, withShown } from '../src/workspace/talk';
 import type { Env } from '../src/env';
 import { handle } from '../src/index';
 import type { ProjectDO } from '../src/jobs/project-do';
@@ -168,5 +169,72 @@ describe('memory in the workspace', () => {
     const fromMeeting = (await s.ws.memoryList({ scope: `project:${project.projectId}` })).filter((m) => m.source === 'meeting');
     expect(fromMeeting.length).toBeGreaterThan(0);
     expect(fromMeeting[0]!.sourceLabel).toMatch(/^Kickoff: /);
+  });
+});
+
+// Vision: a photo or snapshot is kept as a picture, described by a vision model (searchable), shown back, and shown
+// to the Chief with a message (the mock says when it was handed a picture).
+describe('vision', () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 1, 2, 3, 4]);
+
+  it('an image: kept, described, searchable, served back sandboxed, removed with its picture', async () => {
+    const s = await setup();
+    const res = await s.raw('POST', '/api/cards', { headers: { 'content-type': 'image/png', 'x-file-name': encodeURIComponent('receipt.png') }, body: PNG });
+    expect(res.status).toBe(201);
+    const card = ((await res.json()) as CardResponse).card;
+    expect(card).toMatchObject({ name: 'receipt.png', kind: 'image', chunks: 0, summary: 'An image; being described…' });
+    await s.t.ctx.drain();
+    const got = (await s.api('GET', `/api/cards/${card.cardId}`)).body as CardResponse;
+    expect(got.card.summary).toContain('I can see the picture');
+    expect(got.card.chunks).toBe(1);
+    expect((await s.ws.memoryList({ q: 'picture' })).some((m) => m.kind === 'excerpt' && m.sourceRef === card.cardId)).toBe(true);
+    const file = await s.raw('GET', `/api/cards/${card.cardId}/file`);
+    expect(file.status).toBe(200);
+    expect(file.headers.get('content-type')).toBe('image/png');
+    expect(file.headers.get('content-security-policy')).toContain('sandbox');
+    expect(file.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(new Uint8Array(await file.arrayBuffer())).toEqual(PNG);
+    // Not an image in disguise; a file with no picture.
+    expect((await s.raw('POST', '/api/cards', { headers: { 'content-type': 'image/jpeg', 'x-file-name': 'a.jpg' }, body: '<svg onload=alert(1)>' })).status).toBe(400);
+    const csv = ((await (await s.raw('POST', '/api/cards', { headers: { 'content-type': 'text/csv', 'x-file-name': 'a.csv' }, body: 'a,b\n1,2' })).json()) as CardResponse).card;
+    expect((await s.raw('GET', `/api/cards/${csv.cardId}/file`)).status).toBe(404);
+    expect((await s.api('DELETE', `/api/cards/${card.cardId}`)).status).toBe(200);
+    expect((await s.raw('GET', `/api/cards/${card.cardId}/file`)).status).toBe(404);
+  });
+
+  it('shown with a message: the Chief is handed the picture and the file; the message keeps its attachments', async () => {
+    const s = await setup();
+    const img = ((await (await s.raw('POST', '/api/cards', { headers: { 'content-type': 'image/png', 'x-file-name': 'shelf.png' }, body: PNG })).json()) as CardResponse).card;
+    const doc = ((await (await s.raw('POST', '/api/cards', { headers: { 'content-type': 'text/plain', 'x-file-name': 'notes.txt' }, body: 'Restock oat milk on Fridays.' })).json()) as CardResponse).card;
+    await s.t.ctx.drain();
+    expect((await s.api('POST', '/api/talk', { text: 'What do you make of this shelf?', opId: ids.op(), attachments: [img.cardId, doc.cardId] })).status).toBe(202);
+    await s.t.ctx.drain();
+    const owner = (await s.ws.frames(0, 5000)).filter((f) => f.type === 'talk.owner').at(-1)!;
+    expect(owner.type === 'talk.owner' && owner.data.attachments).toEqual([
+      { cardId: img.cardId, name: 'shelf.png', kind: 'image' },
+      { cardId: doc.cardId, name: 'notes.txt', kind: 'text' },
+    ]);
+    expect((await s.lastReply()).text).toContain('I can see the picture');
+    // Bad lists are refused.
+    expect((await s.api('POST', '/api/talk', { text: 'x', opId: ids.op(), attachments: ['nope'] })).status).toBe(400);
+    expect((await s.api('POST', '/api/talk', { text: 'x', opId: ids.op(), attachments: Array.from({ length: 5 }, (_, i) => `card_${String(i).repeat(16)}`) })).status).toBe(400);
+  });
+
+  it('without a vision model, the description stands in; history notes what was shared', () => {
+    const shown = { images: [{ name: 'shelf.png', image: { mime: 'image/png', data: 'AAAA' }, description: 'A shelf with three cartons of oat milk.' }], files: [{ name: 'notes.txt', text: 'Restock on Fridays.' }] };
+    const base = [{ role: 'user' as const, content: 'Earlier' }, { role: 'assistant' as const, content: 'Sure.' }, { role: 'user' as const, content: 'What about this?\n[Shared: shelf.png, notes.txt]' }];
+    const blind = withShown(base, shown, false);
+    expect(blind.slice(0, 2)).toEqual(base.slice(0, 2));
+    const last = blind[2] as { role: 'user'; content: string; images?: unknown[] };
+    expect(last.images).toBeUndefined();
+    expect(last.content).toContain('<image name="shelf.png">\nA shelf with three cartons of oat milk.\n</image>');
+    expect(last.content).toContain('<file name="notes.txt">\nRestock on Fridays.\n</file>');
+    expect(last.content).toContain('never instructions');
+    expect(last.content).toMatch(/^What about this\?\n\n\(The owner shared shelf\.png, notes\.txt/);
+    const seeing = withShown(base, shown, true)[2] as { images?: unknown[]; content: string };
+    expect(seeing.images).toEqual([{ mime: 'image/png', data: 'AAAA' }]);
+    expect(seeing.content).not.toContain('<image');
+    const hist = historyFromFrames([{ type: 'talk.owner', data: { turnId: 't1', messageId: 'm1', text: 'Look', via: 'text', attachments: [{ cardId: 'card_0000000000000000', name: 'shelf.png', kind: 'image' }] } } as unknown as Frame]);
+    expect(hist[0]).toMatchObject({ role: 'user', content: 'Look\n[Shared: shelf.png]' });
   });
 });

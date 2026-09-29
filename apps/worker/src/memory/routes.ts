@@ -115,6 +115,14 @@ export const handleGetCard: RouteHandler = async (_req, { env, params }) => {
   return json<CardResponse>(r);
 };
 
+/** GET /api/cards/:id/file → an image card's picture (to show it in the thread; never another origin's). */
+export const handleCardFile: RouteHandler = async (_req, { env, params }) => {
+  if (!isCardId(params.id)) throw new HttpError('not_found', 'No such file.');
+  const r = (await workspaceStub(env).cardImageFile(params.id)) as unknown as { mime: string; bytes: ArrayBuffer } | null;
+  if (!r) throw new HttpError('not_found', 'That file has no picture.');
+  return new Response(r.bytes, { headers: { 'content-type': r.mime, 'cache-control': 'private, max-age=86400, immutable', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; sandbox" } });
+};
+
 export const handleRemoveCard: RouteHandler = async (_req, { env, params }) => {
   if (!isCardId(params.id) || !(await workspaceStub(env).cardRemove(params.id))) throw new HttpError('not_found', 'No such file.');
   return json({ removed: true });

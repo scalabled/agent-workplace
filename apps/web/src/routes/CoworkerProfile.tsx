@@ -11,6 +11,7 @@ import { catalog, loadCatalog } from '../catalog';
 import { chiefName } from '../chief';
 import { Face, personaSubject } from '../components/Face';
 import { Icon } from '../components/Icon';
+import { PortraitAction } from '../components/PortraitAction';
 import { Link } from '../components/Link';
 import { SideThread } from '../components/SideThread';
 import { isOwner } from '../auth/session';
@@ -75,7 +76,10 @@ function Profile({ persona: p }: { persona: PersonaSlim }) {
     <article class="page profile" aria-labelledby="profile-title" style={{ '--accent': accentFor(p.avatar.accent_color) }}>
       <BackToFloor />
       <header class="profile-hero">
-        <Face subject={personaSubject(p)} tier="hero" state={speaking ? 'speaking' : 'idle'} sampler={speaker.mouth} label={`${p.name}, ${p.title}`} class="profile-face" agentId={coworkerAgentId(p.id)} />
+        <div class="profile-face-col">
+          <Face subject={personaSubject(p)} tier="hero" state={speaking ? 'speaking' : 'idle'} sampler={speaker.mouth} label={`${p.name}, ${p.title}`} class="profile-face" agentId={coworkerAgentId(p.id)} />
+          {isOwner.value && <PortraitAction id={p.id} name={p.name} class="profile-paint" />}
+        </div>
         <div class="profile-id">
           <p class="profile-dept">
             {dept?.name ?? p.department} · {SENIORITY[p.seniority]}

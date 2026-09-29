@@ -39,6 +39,11 @@ export class Cards {
     this.sql.exec('UPDATE cards SET summary = ? WHERE card_id = ?', summary, cardId);
   }
 
+  /** An image's description arrived: its text length, searchable pieces and summary. */
+  setRead(cardId: string, chars: number, chunks: number, summary: string): void {
+    this.sql.exec('UPDATE cards SET chars = ?, chunks = ?, summary = ? WHERE card_id = ?', chars, chunks, summary, cardId);
+  }
+
   list(scope?: MemoryScope): ContextCard[] {
     const rows = scope ? this.sql.exec<Row>('SELECT * FROM cards WHERE scope = ? ORDER BY created_at DESC', scope).toArray() : this.sql.exec<Row>('SELECT * FROM cards ORDER BY created_at DESC').toArray();
     return rows.map(toCard);

@@ -24,6 +24,7 @@ import {
   type OpId,
   type StreamId,
   type TalkAccepted,
+  type TalkAttachment,
   type TalkRequest,
   type TurnId,
   type UpdateWorkspaceRequest,
@@ -44,7 +45,7 @@ import {
 import { webToolsOn } from '../tools/kit';
 import { AgentConfigError, AgentStore, type AgentSetup } from '../agents/store';
 import { connectorTools } from '../connectors/tools';
-import { CardError, Knowledge } from '../memory/host';
+import { CardError, Knowledge, toBase64 } from '../memory/host';
 import { memoryTools, type MemoryToolHost } from '../memory/chief-tools';
 import { isSection } from '../memory/handbook';
 import { answerThread, Threads, type DocContext } from '../threads/threads';
@@ -67,6 +68,7 @@ import { buildDeskSystemPrompt, closeDeskTurn, DESK_MAX_TOKENS, isDirection, new
 import type { DeskActions, Done } from '../desk/desk-tools';
 import { FIGURE_LINE, ownerFigures, ReplyGuard } from '../rooms/guard';
 import type { TeamToolHost } from './team-tools';
+import type { ShownFiles } from './talk';
 import type { Decision, StaffingContext, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { Env } from '../env';
 import { exprLexicon } from '../expr/catalog';
@@ -576,6 +578,25 @@ export class WorkspaceDO extends DurableObject<Env> {
     return { card, text: (await this.knowledge.cardText(cardId, 4000)) ?? '' };
   }
 
+  async cardImageFile(cardId: string): Promise<{ mime: string; bytes: ArrayBuffer } | null> {
+    const img = await this.knowledge.cardImage(cardId);
+    return img ? { mime: img.mime, bytes: img.bytes.buffer.slice(img.bytes.byteOffset, img.bytes.byteOffset + img.bytes.byteLength) as ArrayBuffer } : null;
+  }
+
+  /** What the owner showed with a message: images (for a vision model, with their description as a fallback) and files' text. */
+  private async shown(ids: readonly string[]): Promise<ShownFiles> {
+    const out: ShownFiles = { images: [], files: [] };
+    for (const id of ids.slice(0, 4)) {
+      const card = this.knowledge.cards.get(id);
+      if (!card) continue;
+      if (card.kind === 'image') {
+        const img = await this.knowledge.cardImage(id);
+        if (img) out.images.push({ name: card.name, image: { mime: img.mime, data: toBase64(img.bytes) }, description: (await this.knowledge.cardText(id, 3000)) ?? '' });
+      } else out.files.push({ name: card.name, text: (await this.knowledge.cardText(id, 6000)) ?? card.summary ?? '' });
+    }
+    return out;
+  }
+
   async cardRemove(cardId: string): Promise<boolean> {
     return this.knowledge.removeCard(cardId);
   }
@@ -881,7 +902,11 @@ export class WorkspaceDO extends DurableObject<Env> {
     }
     if (previous && letFinish) this.finishing = previous;
     const owner = this.ledger.tx(() => {
-      const f = this.ledger.append({ type: 'talk.owner', data: { turnId, messageId, text: req.text, via: req.via === 'voice' ? 'voice' : 'text' }, opId: req.opId, actor: OWNER_ACTOR });
+      const attachments = (req.attachments ?? []).flatMap((id): TalkAttachment[] => {
+        const c = this.knowledge.cards.get(id);
+        return c ? [{ cardId: c.cardId, name: c.name, kind: c.kind }] : [];
+      });
+      const f = this.ledger.append({ type: 'talk.owner', data: { turnId, messageId, text: req.text, via: req.via === 'voice' ? 'voice' : 'text', ...(attachments.length ? { attachments } : {}) }, opId: req.opId, actor: OWNER_ACTOR });
       this.ctx.storage.sql.exec('INSERT INTO ops (op_id, result, at) VALUES (?, ?, ?)', req.opId, JSON.stringify(accepted), now);
       this.ctx.storage.sql.exec(`INSERT INTO meta (key, value) VALUES ('active_turn', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, JSON.stringify({ turnId, opId: req.opId }));
       return f;
@@ -1530,6 +1555,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       automations: { propose: (spec: Partial<AutomationSpec>, signal: AbortSignal) => this.proposeAutomation(spec, signal) },
       memory: this.memoryHost(),
       team: this.teamHost(),
+      shown: (ids: readonly string[]) => this.shown(ids),
       ...(voiceFrontOf(this.env) ? { front: { ack: (req: Omit<AckRequest, 'signal'>, signal: AbortSignal) => this.frontAck(req, signal) } } : {}),
       connectors: {
         kits: () => this.connectors.kitsFor('chief'),

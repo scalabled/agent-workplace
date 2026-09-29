@@ -93,6 +93,7 @@ export const ROUTES = {
   listCards: { method: 'GET', path: '/api/cards', auth: 'reader' },
   addCard: { method: 'POST', path: '/api/cards', auth: 'contributor', body: 'binary', bodyCap: 10 * 1024 * 1024 },
   getCard: { method: 'GET', path: '/api/cards/:id', auth: 'reader' },
+  cardFile: { method: 'GET', path: '/api/cards/:id/file', auth: 'reader' },
   removeCard: { method: 'DELETE', path: '/api/cards/:id', auth: 'contributor' },
   // Parity stage 3b: automations (ext/automations.ts).
   listAutomations: { method: 'GET', path: '/api/automations', auth: 'reader' },

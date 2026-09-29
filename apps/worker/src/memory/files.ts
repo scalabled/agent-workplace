@@ -1,13 +1,33 @@
 // Reading dropped files to text (Inc 4 context cards): PDF (unpdf), Word (the document XML inside the .docx zip), Excel
 // (each sheet's cells, as comma-separated rows), and plain text formats. Nothing in a file is ever run.
 import { strFromU8, unzipSync } from 'fflate';
-import type { CardKind } from '@headcount/protocol/ext/memory';
+import { IMAGE_MIMES, type CardKind } from '@headcount/protocol/ext/memory';
 
 export class FileReadError extends Error {}
 
 const TEXT_EXT = /\.(txt|md|markdown|csv|tsv|json|yaml|yml|xml|html?|rtf|log)$/i;
 /** Text kept from one file. */
 export const FILE_TEXT_MAX = 400_000;
+
+/** An image's type from its name or the type sent (png, jpeg, webp, gif), or null. */
+export function imageMime(name: string, mime: string): string | null {
+  const n = name.toLowerCase();
+  if (/\.png$/.test(n)) return 'image/png';
+  if (/\.jpe?g$/.test(n)) return 'image/jpeg';
+  if (/\.webp$/.test(n)) return 'image/webp';
+  if (/\.gif$/.test(n)) return 'image/gif';
+  return !/\.[a-z0-9]{1,8}$/i.test(n) && IMAGE_MIMES.includes(mime) ? mime : null;
+}
+
+/** The image's real type from its first bytes (never trust the name for what reaches a model). */
+export function sniffImage(bytes: Uint8Array): string | null {
+  const b = bytes;
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return 'image/png';
+  if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return 'image/gif';
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return 'image/webp';
+  return null;
+}
 
 export function kindOf(name: string, mime: string): CardKind | null {
   const n = name.toLowerCase();
@@ -105,7 +125,7 @@ export async function pdfText(bytes: Uint8Array): Promise<string> {
 /** The text of a file, or a FileReadError with one sentence the owner can act on. */
 export async function readFile(name: string, mime: string, bytes: Uint8Array): Promise<{ kind: CardKind; text: string }> {
   const kind = kindOf(name, mime);
-  if (!kind) throw new FileReadError('Use a PDF, Word (.docx), Excel (.xlsx), CSV or text file.');
+  if (!kind) throw new FileReadError('Use a PDF, Word (.docx), Excel (.xlsx), CSV, text file or an image.');
   let text: string;
   if (kind === 'pdf') text = await pdfText(bytes);
   else if (kind === 'docx') text = docxText(bytes);

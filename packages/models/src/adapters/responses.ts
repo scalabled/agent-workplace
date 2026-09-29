@@ -19,7 +19,7 @@ export function toInputItems(messages: ChatMessage[], names: ToolNames): unknown
       items.push({ type: 'function_call_output', call_id: m.toolCallId, output: m.isError ? `Error: ${m.content}` : m.content });
       continue;
     }
-    items.push({ role: 'user', content: [{ type: 'input_text', text: m.content || ' ' }] });
+    items.push({ role: 'user', content: [...(m.images ?? []).map((im) => ({ type: 'input_image', image_url: `data:${im.mime};base64,${im.data}` })), { type: 'input_text', text: m.content || ' ' }] });
   }
   return items;
 }

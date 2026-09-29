@@ -8,11 +8,10 @@ import { catalog, loadCatalog } from '../catalog';
 import { Face, leadSubject } from '../components/Face';
 import { Icon } from '../components/Icon';
 import { useSampleSpeaker, VoiceSample } from '../components/VoiceSample';
-import { generatePortrait, painting } from '../lib/generate';
-import { portraitEpoch, portraitFor } from '../lib/portraits';
 import { builtinQuiz, topMatches, type Match } from '../onboarding/quiz';
 import { navigate, paths } from '../router';
 import { can, localPresence, onboarded, settings } from '../store';
+import { PortraitAction } from '../components/PortraitAction';
 import { ownerNameProblem, updateSettings } from '../talk/actions';
 import { greetOnArrival } from '../talk/draft';
 import { armAudio } from '../voice/engine';
@@ -191,7 +190,7 @@ function Stage({ lead, match, previewLine }: { lead: Lead; match: Match | undefi
     <article class="stage" style={{ '--accent': accentFor(lead.avatar.accent_color) }} aria-labelledby="stage-name">
       <div class="stage-face">
         <Face subject={leadSubject(lead)} tier="hero" state={speaking ? 'speaking' : 'idle'} sampler={speaker.mouth} label={`${lead.name}, ${lead.archetype}`} />
-        <PortraitAction lead={lead} />
+        <PortraitAction id={lead.id} name={lead.name} />
       </div>
       <div class="stage-body">
         <p class="stage-arch">{lead.archetype}</p>
@@ -252,36 +251,6 @@ function Stage({ lead, match, previewLine }: { lead: Lead; match: Match | undefi
         </form>
       </div>
     </article>
-  );
-}
-
-/** Subtle "Generate portrait" when the lead has none yet and an image provider exists. */
-function PortraitAction({ lead }: { lead: Lead }) {
-  const [hasPortrait, setHasPortrait] = useState<boolean | null>(null);
-  const epoch = portraitEpoch.value;
-  useEffect(() => {
-    let alive = true;
-    setHasPortrait(null);
-    void portraitFor(lead.id).then((p) => alive && setHasPortrait(!!p));
-    return () => {
-      alive = false;
-    };
-  }, [lead.id, epoch]);
-  const state = painting.value[lead.id];
-  if (!can('image') || hasPortrait !== false) return null;
-  if (state?.status === 'painting')
-    return (
-      <p class="stage-paint" role="status">
-        Painting {firstName(lead.name)}…
-      </p>
-    );
-  return (
-    <div class="stage-paint">
-      <button type="button" class="link-button" onClick={() => void generatePortrait(lead.id)}>
-        Generate portrait
-      </button>
-      {state?.status === 'failed' && <p class="stage-paint-error">{state.message}</p>}
-    </div>
   );
 }
 

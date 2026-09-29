@@ -70,7 +70,7 @@ export function toAnthropicMessages(messages: ChatMessage[], names: ToolNames, r
     } else if (m.role === 'tool') {
       pushUser([{ type: 'tool_result', tool_use_id: m.toolCallId, content: m.content || '(empty)', ...(m.isError ? { is_error: true } : {}) }]);
     } else {
-      pushUser([{ type: 'text', text: m.content || ' ' }]);
+      pushUser([...(m.images ?? []).map((im) => ({ type: 'image', source: { type: 'base64', media_type: im.mime, data: im.data } })), { type: 'text', text: m.content || ' ' }]);
     }
   });
   // Anthropic requires the first message to be from the user.

@@ -11,8 +11,16 @@ export interface ToolCall {
   arguments: string;
 }
 
+/** An image the owner showed (a photo, a screenshot, a camera snapshot), sent to vision-capable models. */
+export interface ImagePart {
+  /** image/png, image/jpeg, image/webp or image/gif. */
+  mime: string;
+  /** Base64, no data: prefix. */
+  data: string;
+}
+
 export type ChatMessage =
-  | { role: 'user'; content: string }
+  | { role: 'user'; content: string; images?: ImagePart[] }
   | { role: 'assistant'; content: string; toolCalls?: ToolCall[] }
   | { role: 'tool'; toolCallId: string; name: string; content: string; isError?: boolean };
 

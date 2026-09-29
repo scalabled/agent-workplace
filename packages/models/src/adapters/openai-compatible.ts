@@ -33,7 +33,8 @@ export function toCompatMessages(system: string | undefined, messages: ChatMessa
       const msg: Record<string, unknown> = { role: 'assistant', content: m.content || null };
       if (m.toolCalls?.length) msg.tool_calls = m.toolCalls.map((tc) => ({ id: tc.id, type: 'function', function: { name: names.wire(tc.name), arguments: tc.arguments || '{}' } }));
       out.push(msg);
-    } else out.push({ role: 'user', content: m.content || ' ' });
+    } else if (m.images?.length) out.push({ role: 'user', content: [...m.images.map((im) => ({ type: 'image_url', image_url: { url: `data:${im.mime};base64,${im.data}` } })), { type: 'text', text: m.content || ' ' }] });
+    else out.push({ role: 'user', content: m.content || ' ' });
   }
   return out;
 }

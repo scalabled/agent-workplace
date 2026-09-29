@@ -1,5 +1,5 @@
 import { fullIndex } from '@headcount/catalog/full';
-import { OWNER_NAME_MAX_CHARS, TALK_MAX_CHARS, type TalkAccepted, type TalkRequest, type UpdateWorkspaceRequest, type WorkspaceResponse } from '@headcount/protocol';
+import { OWNER_NAME_MAX_CHARS, TALK_MAX_CHARS, type TalkAccepted, type TalkRequest, type UpdateWorkspaceRequest, type WorkspaceResponse, TALK_ATTACHMENTS_MAX } from '@headcount/protocol';
 import { isAmbience } from '@headcount/protocol/ext/expressions';
 import { isClientId } from '@headcount/protocol/ext/voice-owner';
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
@@ -65,7 +65,9 @@ export const handleTalk: RouteHandler = async (req, { env }) => {
   if (typeof body.text !== 'string' || !body.text.trim()) throw new HttpError('bad_request', 'Say something first: text is empty.');
   if (body.text.length > TALK_MAX_CHARS) throw new HttpError('payload_too_large', `Keep messages under ${TALK_MAX_CHARS} characters.`);
   if (typeof body.opId !== 'string' || !body.opId || body.opId.length > OP_ID_MAX) throw new HttpError('bad_request', 'Include an opId so retries are safe.');
-  const talk: TalkRequest = { text: body.text.trim(), opId: body.opId, via: body.via === 'voice' ? 'voice' : 'text', ...(isClientId(body.clientId) ? { clientId: body.clientId } : {}) };
+  if (body.attachments !== undefined && (!Array.isArray(body.attachments) || body.attachments.length > TALK_ATTACHMENTS_MAX || !body.attachments.every((a) => typeof a === 'string' && /^card_[a-f0-9]{16}$/.test(a))))
+    throw new HttpError('bad_request', `Attach at most ${TALK_ATTACHMENTS_MAX} shared files.`);
+  const talk: TalkRequest = { text: body.text.trim(), opId: body.opId, via: body.via === 'voice' ? 'voice' : 'text', ...(isClientId(body.clientId) ? { clientId: body.clientId } : {}), ...(body.attachments?.length ? { attachments: [...new Set(body.attachments)] } : {}) };
   const r = await workspaceStub(env).talk(talk);
   if (!r.accepted) throw new HttpError(r.code, r.message, { opId: body.opId });
   return json<TalkAccepted>(r, { status: 202 });
