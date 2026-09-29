@@ -1,0 +1,24 @@
+{
+  "$schema": "../../schema/expression-pack.schema.json",
+  "kind": "huddle_pack",
+  "id": "hd-wins",
+  "version": 1,
+  "writer": "b",
+  "about": "Grounded wins: eligible only after a real, team-visible job.done, deliverable.accepted or verdict.approve; the fact in the line is the slot and nothing more (docs/dev/OFFICE-LIFE.md §3.7, §5.3). hd-wins.001 is a seed fixture of packages/expressions/src/huddle.test.ts; keep its shape when editing.",
+  "exchanges": [
+    {
+      "id": "hd-wins.001",
+      "spots": ["desk_dropby", "coffee_bar"],
+      "topics": ["wins"],
+      "grounded": true,
+      "requires": { "events": ["job.done", "deliverable.accepted", "verdict.approve"], "who": "B", "max_age_h": 8 },
+      "roles": { "A": { "archetypes": ["warm", "energetic", "playful"] }, "B": { "in_event": true } },
+      "mood": { "valence": 0.5, "energy": 0.3 },
+      "lines": [
+        { "role": "A", "text": "Saw {artifact} come through. Nice one, {name_b}.", "slots": ["artifact", "name_b"] },
+        { "role": "B", "text": "Thanks. Glad it's out of my queue." },
+        { "role": "A", "face": "smile" }
+      ]
+    }
+  ]
+}

@@ -65,13 +65,17 @@ test('the match quiz suggests a top three and explains why', async ({ page }) =>
 test('naming the choice saves it and lands in Talk under that name', async ({ page, request }) => {
   await page.goto('/app/welcome');
   const stage = page.locator('article.stage');
-  const field = stage.getByRole('textbox');
+  const field = stage.getByRole('textbox', { name: /^Call / });
   await field.fill('Juniper');
+  // The owner's own name is one optional field (Office Phase 2: greetings by name).
+  const owner = stage.getByRole('textbox', { name: 'What should the office call you?' });
+  await expect(owner).toHaveAttribute('autocomplete', 'given-name');
+  await owner.fill('Dana');
   await stage.getByRole('button', { name: /^Choose / }).click();
   await expect(page).toHaveURL(/\/talk$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Juniper' })).toBeVisible();
   const saved = await (await request.get('/api/workspace')).json();
-  expect(saved).toMatchObject({ chiefName: 'Juniper' });
+  expect(saved).toMatchObject({ chiefName: 'Juniper', ownerName: 'Dana' });
   expect(saved.leadId).toMatch(/^lead-/);
   // The Talk face and, on every other place, the bubble carry the chosen name too.
   await expect(page.locator('.talk-face-button')).toHaveAttribute('aria-label', /^Juniper,/);

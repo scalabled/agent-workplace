@@ -2,7 +2,9 @@
 // release to send. Provider STT when configured, else the browser's speech recognition (keyless).
 // Starting to talk is a barge-in: the Chief of Staff stops speaking at once. The recording lifecycle
 // (permission, too-short presses, dictation) is the audio package's createPushToTalk.
-import { signal } from '@preact/signals';
+// While an office room or a joined huddle is open, push-to-talk goes there instead (the target, OFFICE-PHASE2 §4.3):
+// pressing hushes the room, the result is sent to it, and the Chief's face does not show listening.
+import { computed, signal, type ReadonlySignal } from '@preact/signals';
 import { createPushToTalk, type PushToTalk, type PushToTalkResult } from '@headcount/audio';
 import { CHIEF_ID } from '@headcount/protocol';
 import { api } from '../api/client';
@@ -25,6 +27,40 @@ export interface PttState {
 
 export const ptt = signal<PttState>({ phase: 'idle', partial: '', level: 0 });
 
+/** Where push-to-talk goes: the Chief of Staff (Talk), or an office room or joined huddle while one is open. */
+export type PttTarget =
+  | { kind: 'chief' }
+  | {
+      kind: 'room';
+      roomId: string;
+      /** Who hears it, for captions and labels: "the Skyline room", "Kate and Pax". */
+      label: string;
+      /** Barge-in: hush the room (≤ 300 ms, X5). */
+      onStart(): void;
+      /** The words heard; `at` is when the owner let go. */
+      send(text: string, at: number): Promise<void>;
+    };
+
+const CHIEF_TARGET: PttTarget = { kind: 'chief' };
+/** Targets set by open rooms and huddles, newest last; the Chief when none is open. */
+const targets = signal<readonly PttTarget[]>([]);
+/** Where push-to-talk goes now (the newest open room or huddle, else the Chief). */
+export const pttTarget: ReadonlySignal<PttTarget> = computed(() => targets.value[targets.value.length - 1] ?? CHIEF_TARGET);
+/** The target of the current (or last) press: its result goes there even if the target changes mid-hold. */
+const pressed = signal<PttTarget | null>(null);
+export const pttPressTarget: ReadonlySignal<PttTarget | null> = pressed;
+
+/**
+ * Set while a room or joined huddle is open: push-to-talk goes there. Returns the restore function (back to whatever
+ * was the target before, in the end the Chief). Restores may come in any order.
+ */
+export function setPttTarget(t: PttTarget): () => void {
+  targets.value = [...targets.peek().filter((x) => x !== t), t];
+  return () => {
+    if (targets.peek().includes(t)) targets.value = targets.peek().filter((x) => x !== t);
+  };
+}
+
 /** How push-to-talk would capture right now, or null when nothing can (then its controls are hidden). */
 export function pttMode(): 'stt' | 'dictation' | null {
   const s = audioSupport();
@@ -45,6 +81,7 @@ function set(patch: Partial<PttState>) {
 }
 
 async function onResult(result: PushToTalkResult): Promise<void> {
+  const target = pressed.peek() ?? pttTarget.peek();
   let text = '';
   if (result.kind === 'text') text = result.text;
   else {
@@ -64,6 +101,14 @@ async function onResult(result: PushToTalkResult): Promise<void> {
   }
   const at = releasedAt ?? Date.now();
   releasedAt = null;
+  if (target.kind === 'room') {
+    try {
+      await target.send(text, at);
+    } catch (err) {
+      showNotice(errorSentence(err), 'error');
+    }
+    return;
+  }
   await sendOwnerMessage(text, 'voice', { at });
 }
 
@@ -74,7 +119,8 @@ function ptc(): PushToTalk {
     lang: typeof navigator !== 'undefined' ? navigator.language || 'en-US' : 'en-US',
     onState: (s) => {
       const listening = s === 'starting' || s === 'recording';
-      setLocalPresence(CHIEF_ID, 'listening', listening);
+      // The Chief's face listens only when the words go to the Chief (a room's people are not the Chief).
+      setLocalPresence(CHIEF_ID, 'listening', listening && pressed.peek()?.kind !== 'room');
       clearInterval(poll);
       if (s === 'recording') poll = setInterval(() => set({ level: controller?.level() ?? 0 }), 100);
       // 'idle' comes before onResult; a recording then shows 'transcribing' while STT runs.
@@ -92,14 +138,25 @@ function ptc(): PushToTalk {
   return controller;
 }
 
-/** Start listening (from a gesture: pointerdown past the hold threshold, Space keydown). */
-export function startPtt(): void {
+/**
+ * Start listening (from a gesture: pointerdown past the hold threshold, Space keydown). Talking is a barge-in on the
+ * target: the Chief stops at once, or the room hushes. `target` pins where this press goes (default: pttTarget).
+ */
+export function startPtt(opts: { target?: PttTarget } = {}): void {
   if (ptt.value.phase !== 'idle') return;
   if (!pttMode()) {
     showNotice('This browser cannot listen. Type your message instead.', 'error');
     return;
   }
-  bargeIn();
+  const target = opts.target ?? pttTarget.peek();
+  pressed.value = target;
+  if (target.kind === 'room') {
+    try {
+      target.onStart();
+    } catch (err) {
+      console.error('room barge-in failed', err);
+    }
+  } else bargeIn();
   armAudio();
   ptc().press();
 }
@@ -108,7 +165,7 @@ export function startPtt(): void {
 export function endPtt(): void {
   if (controller && ptt.value.phase === 'listening') {
     releasedAt = Date.now();
-    livingCue(CHIEF_ID, { gesture: 'look_up', expression: 'thinking', holdMs: TRANSCRIBING_CUE_MS });
+    if (pressed.peek()?.kind !== 'room') livingCue(CHIEF_ID, { gesture: 'look_up', expression: 'thinking', holdMs: TRANSCRIBING_CUE_MS });
   }
   controller?.release();
 }
@@ -124,4 +181,6 @@ export function resetPtt(): void {
   controller = null;
   clearInterval(poll);
   ptt.value = { phase: 'idle', partial: '', level: 0 };
+  pressed.value = null;
+  targets.value = [];
 }

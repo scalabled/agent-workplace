@@ -1,6 +1,6 @@
 // Grounding (LIVING-WORKFORCE §3.4, H1): the live state a reflex line may speak from. Every value comes from the
 // store (jobs, the thread, side-threads) or the clock; anything unknown stays null, so a line that needs it is
-// never picked. The owner has no name setting yet: `owner.firstName` is always null in Inc 0.5.
+// never picked. The owner's first name comes from the optional `ownerName` setting (Office Phase 2), else null.
 import type { GroundingState } from '@headcount/expressions';
 import { CHIEF_ID, type JobSnapshot } from '@headcount/protocol';
 import type { ThreadItem } from '../store';
@@ -44,6 +44,8 @@ export interface ChiefGroundingInput {
   quietHours: boolean;
   /** Onboarding's greeting was spoken in this session: no second hello (§3.4). */
   greetedThisSession: boolean;
+  /** The owner's first name (settings.ownerName), when set. */
+  ownerFirstName?: string | null;
 }
 
 /**
@@ -62,7 +64,7 @@ export function chiefGrounding(i: ChiefGroundingInput): GroundingState {
     : undefined;
   return {
     now: clockOf(i.now),
-    owner: { firstName: null },
+    owner: { firstName: i.ownerFirstName ?? null },
     chiefName: i.chiefName || null,
     self: { agentId: CHIEF_ID, firstName: i.chiefName, presence: job ? 'working' : 'idle', blocked: false, staffed: true, activity: job?.label || null, role: 'chief' },
     ...(work ? { work } : {}),
@@ -86,13 +88,15 @@ export interface CoworkerGroundingInput {
   /** This coworker's Floor quick-chat. */
   sideThread: readonly ThreadItem[];
   quietHours: boolean;
+  /** The owner's first name (settings.ownerName), when set. */
+  ownerFirstName?: string | null;
 }
 
 /** A Directory coworker in Inc 0.5: on no team, no work, idle. Their lines never claim or promise work (H2). */
 export function coworkerGrounding(i: CoworkerGroundingInput): GroundingState {
   return {
     now: clockOf(i.now),
-    owner: { firstName: null },
+    owner: { firstName: i.ownerFirstName ?? null },
     chiefName: i.chiefName || null,
     self: { agentId: i.agentId, firstName: i.firstName, presence: 'idle', blocked: false, staffed: false, activity: null, role: null },
     history: {

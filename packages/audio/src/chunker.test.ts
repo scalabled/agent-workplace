@@ -68,6 +68,23 @@ describe('SentenceChunker', () => {
     expect(out.join(' ').replace(/\s+/g, ' ')).toBe(long);
   });
 
+  it('flushComplete keeps whole sentences (and short ones held for merging) and drops an unfinished last one', () => {
+    const run = (deltas: string[]) => {
+      const out: string[] = [];
+      const c = new SentenceChunker({ onChunk: (s) => out.push(s) });
+      for (const d of deltas) c.push(d);
+      c.flushComplete();
+      c.flushComplete();
+      return out;
+    };
+    expect(run(['The first part is done. And the sec'])).toEqual(['The first part is done.']);
+    // A whole sentence that only lacks the whitespace after its mark is kept.
+    expect(run(['The first part is done. ', 'The second part is too.'])).toEqual(['The first part is done.', 'The second part is too.']);
+    expect(run(['The first part is done. Okay. And th'])).toEqual(['The first part is done.', 'Okay.']);
+    expect(run(['We met Dr.'])).toEqual([]);
+    expect(run([])).toEqual([]);
+  });
+
   it('flush is idempotent and reset drops buffered text', () => {
     const out: string[] = [];
     const c = new SentenceChunker({ onChunk: (s) => out.push(s) });

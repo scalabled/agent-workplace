@@ -109,6 +109,13 @@
   gap: var(--space-3);
 }
 
+/* Phones: the last cards scroll clear of the Chief bubble's corner. */
+@media (max-width: 767px) {
+  .cw-grid {
+    padding-bottom: calc(var(--bubble-size) + var(--space-6));
+  }
+}
+
 .cw-card {
   display: flex;
   align-items: flex-start;
@@ -330,6 +337,21 @@
   min-width: 0;
 }
 
+.floor-head-controls {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+@media (max-width: 767px) {
+  .floor-head-controls {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
 /* A desk: the card and its bubble. The active one rises above its neighbours so the bubble is never covered. */
 .cw-slot {
   position: relative;
@@ -489,6 +511,13 @@
   border-radius: 4px;
   border: 1px solid var(--line-strong);
   color: var(--faint);
+}
+
+/* Touch screens have no R key. */
+@media (pointer: coarse) {
+  .floor-bubble-reply kbd {
+    display: none;
+  }
 }
 
 /* ── the quick side-thread (bubble and profile) ── */
@@ -787,4 +816,137 @@
 .ambience-quiet-toggle:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+/* ── Office | Directory (OFFICE-PHASE2 §4.5.1) ── */
+.floor-view {
+  display: inline-flex;
+  flex: none;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+}
+
+.floor-view-option {
+  min-height: calc(var(--hit) - 10px);
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  transition:
+    background var(--dur-state) var(--ease-out),
+    color var(--dur-state) var(--ease-out);
+}
+
+.floor-view-option:hover {
+  color: var(--ink);
+}
+
+.floor-view-option[aria-checked='true'] {
+  background: var(--panel-raised);
+  color: var(--ink);
+  box-shadow: var(--shadow-soft);
+}
+
+.floor-notice {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* The Office fills the route below a compact header: full bleed, no page scroll. */
+.main:has(> .floor[data-view='office']) {
+  padding: 0;
+}
+
+.floor[data-view='office'] {
+  max-width: none;
+  height: 100dvh;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.floor[data-view='office'] .floor-head {
+  align-items: center;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--line);
+}
+
+.floor[data-view='office'] .floor-head h1 {
+  font-size: var(--text-xl);
+}
+
+.floor-office {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.floor-office-loading {
+  width: 100%;
+  height: 100%;
+  background: #07080a;
+}
+
+:root[data-theme='light'] .floor-office-loading {
+  background: #e9e6df;
+}
+
+#floor-title:focus {
+  outline: none;
+}
+
+#floor-title:focus-visible {
+  outline: 2px solid var(--muted);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+@media (max-width: 767px) {
+  .floor[data-view='office'] {
+    height: calc(100dvh - var(--bottom-tabs-height) - env(safe-area-inset-bottom));
+  }
+  /* One compact row on phones: the heading stays for screen readers, the office gets the height. */
+  .floor[data-view='office'] .floor-head {
+    flex-direction: row;
+    align-items: center;
+    padding: var(--space-2) var(--space-3);
+  }
+  .floor[data-view='office'] .floor-head-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .floor[data-view='office'] .floor-head-controls {
+    flex-wrap: nowrap;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  /* The row fits a phone even with "Play here": Ambience is its icon (the name stays in its accessible label). */
+  .floor[data-view='office'] .ambience-button > span,
+  .floor[data-view='office'] .ambience-button > svg:last-child {
+    display: none;
+  }
+  .floor[data-view='office'] .ambience-button {
+    min-width: var(--hit);
+    justify-content: center;
+  }
+  .floor[data-view='office'] .floor-head-controls .ambience {
+    margin-left: auto;
+  }
+}
+
+@media (pointer: coarse) {
+  .floor-view-option {
+    min-height: 38px;
+  }
 }

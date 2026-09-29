@@ -15,6 +15,7 @@ import { createFakeAudio } from '../test/fake-audio';
 import { startUnread, unread } from '../ui/unread';
 import { setAudioEngine } from '../voice/engine';
 import { bubbles, resetCaptions, showCaption } from './captions';
+import { setFloorView } from '../office/view';
 import { living } from './index';
 import { livelyAnyway, quietHoursNow, setLivelyAnyway } from './quiet';
 import type { HoverPhase, HoverVia, LivingRuntime } from './types';
@@ -88,6 +89,8 @@ beforeEach(() => {
   thread.value = [];
   sideThreads.value = {};
   resetCaptions();
+  // These are the Directory's desks: the Office is the Floor's default on a fine pointer ≥ 900 px (happy-dom's).
+  setFloorView('directory');
 });
 
 afterEach(() => {

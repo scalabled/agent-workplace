@@ -44,6 +44,21 @@ The owner can text, talk (push-to-talk or voice notes) or hold a live voice conv
   - Faces stay live and show each coworker's state.
   - The owner can pan, zoom, hover (for passing-by lines) and click to talk.
   - A list view (the Directory) remains the accessible alternative.
+- **The office runs itself.** Coworkers move around on their own, following stable, familiar daily rhythms:
+  - focus time at their desk,
+  - coffee bar and water-cooler huddles,
+  - lounge breaks,
+  - library visits,
+  - phone-booth calls,
+  - dropping by a teammate's desk.
+
+  Behaviour rules:
+  - Real work always overrides ambient behaviour.
+  - Huddles show small talk as bubbles, and voice plays only when the owner listens in.
+  - The owner can join a huddle, follow anyone, or let an optional autopilot camera drift to where life is happening.
+  - It must feel familiar, meaningful and delightful, never arduous. Nothing requires effort to enjoy it.
+  - Ambience sets the energy.
+  - Reduced motion replaces walking with fades.
 - **Zero-config start.** Onboarding is a conversation with the chosen lead plus the match quiz. The app works keyless with the mock provider or local Ollama, and adding a provider key is one step.
 - **Obvious next action.** Every screen has one clear primary action. Advanced controls (grants, budgets, model policy) sit behind "More" or Settings.
 
@@ -65,6 +80,7 @@ Agents should feel like real people who multitask, not request/response bots. Pr
 - **Side-talk.** Brief coworker-to-coworker banter appears on the Floor as bubbles. It is derived from real hand-offs, asks and results, and is voiced only if someone is listening.
 - **Human-like multitasking.** An agent can hold several attention threads at once: a 1:1 with the owner, a meeting and its background work. It says so naturally ("hang on, finishing a thought in the review — back in ten seconds"). Each agent is an actor with prioritized mailboxes, and communication with the owner always has the highest priority.
 - **Mood.** A light mood model (energy, valence) changes with real events: wins lift it, blockers weigh on it. Mood shapes both expression choice and the avatar's expression palette.
+- **Water-cooler small talk.** Casual chat in huddles is allowed and encouraged. It is persona-true banter about their craft, friendly debates and self-aware AI humour that plays with the office metaphor (for example "I'd grab an espresso if I had hands"). It never claims facts, work or human experiences such as drinking coffee or a commute. Anything that mentions real work must be grounded in a real event.
 - **Honest and never annoying.**
   - Micro-talk never claims work that was not done. Side-talk is grounded in real events. Laughter never mocks the owner.
   - One Ambience setting (Quiet, Lively or Buzzing) and the interruption budget govern chatter volume. Owner-directed replies are always exempt from the budget.

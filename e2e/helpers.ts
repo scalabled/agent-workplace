@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
 
 // Shared e2e helpers (keyless Mock worker, one shared state per run: every spec sets the state it needs).
 
@@ -9,6 +9,8 @@ export interface Settings {
   chiefName?: string | null;
   voiceOn?: boolean;
   ambience?: 'quiet' | 'lively' | 'buzzing';
+  /** What the office calls the owner (greetings only). */
+  ownerName?: string | null;
 }
 
 /** Set the owner's settings directly (fast setup; onboarding itself is covered in onboarding.spec). */
@@ -20,6 +22,20 @@ export async function setWorkspace(request: APIRequestContext, patch: Settings):
 /** A workspace with a Chief of Staff, voice off (text-only tests stay quiet and deterministic). */
 export async function onboarded(request: APIRequestContext, name = 'Rosa', voiceOn = false): Promise<void> {
   await setWorkspace(request, { leadId: LEAD, chiefName: name, voiceOn });
+}
+
+/**
+ * The Floor opens as the Office on a desktop with a fine pointer (Office Phase 2); specs about the Directory pin it
+ * (the owner's remembered choice, `localStorage['hc.floor.view']`), before every load of that page or context.
+ */
+export async function pinDirectory(target: Page | BrowserContext): Promise<void> {
+  await target.addInitScript(() => {
+    try {
+      localStorage.setItem('hc.floor.view', 'directory');
+    } catch {
+      /* storage blocked: the default view */
+    }
+  });
 }
 
 export interface SeenFrame {

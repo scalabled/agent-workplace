@@ -275,6 +275,13 @@ export interface ChatterBudget {
   canSpend(klass: BudgetClass, now: number, voicedMs?: number): boolean;
   spend(klass: BudgetClass, now: number, voicedMs?: number): void;
   state(now: number): { tokens: number; voicedMsWindow: number };
+  /**
+   * Additive (Office Phase 2): voiced ambient ms still allowed in the rolling 10-minute window at this Ambience, so a
+   * host's own ambient audio (the office's listen-in) shares the window with passing-by lines.
+   */
+  voiceLeftMs?(now: number): number;
+  /** Additive: count voiced ambient ms without spending a chatter token (the office's listen-in). */
+  spendVoice?(now: number, ms: number): void;
 }
 export interface GateInput {
   agentId: string; intent: IntentId; now: number; ambience: Ambience; surface: Surface; turnId?: string;
@@ -456,7 +463,8 @@ export type ConversationEvent =
   | { kind: 'first_token'; turnId: string; at: number; hint: ReactHint | null }
   | { kind: 'first_chunk'; turnId: string; at: number }
   | { kind: 'speaking'; turnId: string; agentId: string; remainingMs: number | null }
-  | { kind: 'done' | 'cancelled'; turnId: string; at: number }
+  /** `replayed`: the end came back as history after the feed reconnected: the turn closes, nothing is voiced for it. */
+  | { kind: 'done' | 'cancelled'; turnId: string; at: number; replayed?: boolean }
   | { kind: 'backgrounded'; turnId: string; at: number; etaMs: number | null };
 export interface ReflexRunner {
   ownerSpeech(e: OwnerSpeechEvent): void;

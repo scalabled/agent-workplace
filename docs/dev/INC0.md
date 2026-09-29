@@ -16,6 +16,12 @@ voice (acknowledgements, fillers, laughs, backchannels in your pauses, instant r
 and finish felt at Talk, passing-by lines and in-place chat on the Floor, all captioned and governed by one Ambience
 setting (Quiet · Lively · Buzzing).
 
+**Inc 0.7** (§4d, [OFFICE-PHASE2.md](OFFICE-PHASE2.md) §10) makes the Floor an office that runs itself: on a desktop
+the Floor opens as the Office (desks by department, glass rooms, the city at the window), people keep their own
+rhythms (coffee, the water cooler, the lounge, the library) and chat in bubbles; rest on a face for a line, click
+anyone to chat in place, **Listen** to a huddle or **Join** it (you are greeted by name), and hold a meeting in a glass
+room where up to three people answer in turn. The Directory is one toggle away.
+
 Everything runs without keys, on the Mock provider or your local Ollama. Adding a key upgrades one capability at a
 time; a capability without a provider is hidden, never shown broken.
 
@@ -174,7 +180,10 @@ node scripts/voice-samples.mjs --only lead-warm-mentor --force
    provider voice when a TTS key exists and the browser voice otherwise. Hold **Space** (outside a text field) or the mic to talk. Type while the
    Chief of Staff is speaking: the voice stops at once (barge-in). A message sent while a reply is still streaming
    cuts that reply ("Interrupted").
-10. **Floor.** Search "contract", filter a department, open a profile (face, story, signature methods).
+10. **Floor.** On a laptop it opens as the **Office** (§4d): watch the coffee round, rest on a face, click someone to
+    chat in place, hover a huddle and **Join**, or walk into the Skyline room (**G**), invite (**I**) and ask the
+    room. **Directory** (the toggle in the header, remembered): search "contract", filter a department, open a
+    profile (face, story, signature methods).
 11. **Shell.** Four places plus the Chief of Staff bubble (tap = Talk, hold = talk, also by holding Space on it; on
     Talk the header face takes its place). **⌘K** opens the palette (places, all coworkers, voice, switch Chief of
     Staff, theme); on phones it is the fifth tab, **More**. Dark is the default whatever the OS prefers; ⌘K →
@@ -343,7 +352,41 @@ known gaps) is in [INC05.md](INC05.md); contracts in [CONTRACTS.md](CONTRACTS.md
   running worker (clip endpoints only, stops at the daily clip budget).
 - Screenshots: `docs/dev/screens/inc05/`.
 
+## 4d. Inc 0.7: the Office
+
+The Floor's Office view with office life, joined huddles and the conference roundtable. Plan, contracts and the
+as-built record: [OFFICE-PHASE2.md](OFFICE-PHASE2.md) (§10), [CONTRACTS.md](CONTRACTS.md) §9; the office package:
+[OFFICE-PLAN.md](OFFICE-PLAN.md), [OFFICE-LIFE.md](OFFICE-LIFE.md). In short:
+
+- **Opens by itself.** A fine pointer at 900 px or wider opens the Floor as the Office (phones and touch: the
+  Directory). The choice is remembered (`localStorage['hc.floor.view']`); `/app/floor?view=office|directory`,
+  `&room=skyline|garden`, `&focus=<personaId>` are deep links. The office fades in on the liveliest neighbourhood
+  with the water-cooler crew already talking; the What's happening pill counts huddles and breaks.
+- **Desk mode.** Rest on a face (600 ms) for a look-up and one true line; click anyone (the Chief included) for a
+  quick chat in place, with **Follow** in the bubble; **R** replies, **G** walks, **/** finds, **F** follows,
+  **H** cycles huddles, **L** listens in. Faces are the status: a quick chat's thinking dims that monitor, the
+  Chief's running job lights theirs and brings them back to their desk.
+- **Huddles.** Hover one: its card with what they are saying and a habit line ("Their usual 10:30 AM at the
+  coffee bar"). **Listen** voices the small talk in their voices (only in the tab with the voice, within the ambient
+  budget). **Join**: the warmest greets you by name ("Hello, Sam. I'm Joon."), and you are in a group chat (≤ 2
+  answer); Esc leaves with a sign-off and one quiet line in Talk.
+- **Conference room.** Walk into the Skyline or Garden room, invite (**I**), type or hold Space: up to three
+  answer in turn with captions and lip sync, the floor queue shows who is next, a new message or Space barges in,
+  Esc leaves and Talk gets "Skyline room with Kemar, Kavya and Hira · 1 min".
+- **Honest.** Every room, huddle and quick-chat reply passes the reply guard: no figures the owner did not give
+  ("it went up nine points" becomes "I'd want the real numbers before I put a figure on it."), no work claims or
+  promises, two sentences at most. Small talk is pre-authored and linted; it mentions real work only from real
+  events.
+- **Your name** (optional): onboarding asks once ("What should the office call you?"), or ⌘K → **Set your name**.
+- Screens: `docs/dev/screens/office-app/` (`HEADCOUNT_SCREENS=1 pnpm e2e e2e/office-screens.spec.ts`).
+
 ## 5. Screenshots
+
+**Inc 0.7** — `docs/dev/screens/office-app/` (1440×900 and 375×812 at 2×, the Mock + mock-media e2e stack, owner
+name "Sam"): `office-night-l1`, `office-night-wide`, `office-desk-huddle`, `office-huddle-card`,
+`office-huddle-joined`, `office-hover-bubble`, `office-quick-chat`, `office-follow`, `office-whats-happening`,
+`office-stage-seated`, `office-stage-speaking` (voiced, speaker lit), `office-stage-not-voiced`,
+`office-stage-transcript`, `talk-room-note`, `directory-toggle`, `office-mobile-375`, `directory-mobile-375`.
 
 **Inc 0.6** — `docs/dev/screens/inc0.6/`, recaptured after the review round on the keyed stack (`pnpm dev`, Anthropic
 chat, real portraits, the five repainted faces; the screens spec with keyed waits, delegating "reusable cup programs
@@ -373,6 +416,11 @@ faces are in `repainted-before-after.jpg`).
 - `inbox-*`: the calm empty Inbox
 
 ## 6. Known gaps
+
+**The Office (Inc 0.7)** — in full in [OFFICE-PHASE2.md §10.7](OFFICE-PHASE2.md#107-known-gaps). In short: the office
+chunk is 116.9 kB gzip against a 70 kB budget (the scene package alone is 83 kB; Directory users load none of it);
+two ~120 ms tasks while the office opens, under its veil; no keyed run of the rooms yet; no voiced room fillers;
+small talk is grounded only in the Chief's finished jobs until Inc 1 events exist.
 
 **Providers**
 - **Partly run against real cloud APIs.** Inc 0.6 ran the full talk-and-job flow on Anthropic (keyed, §4) and
@@ -474,6 +522,12 @@ faces are in `repainted-before-after.jpg`).
   both packages draw from one viseme table in `@headcount/protocol`.
 
 ## 7. Integration changes (for reviewers)
+
+**Inc 0.7 (Office Phase 2)** — builders A (web office), B (worker rooms), C (web stage) and the integrator; the file
+map and the integrator's changes with their reasons: [OFFICE-PHASE2.md](OFFICE-PHASE2.md) §3.1 and §10.2. E2E:
+`e2e/office.spec.ts`, `office-life.spec.ts`, `office-voice.spec.ts` (project living-voice), `office-screens.spec.ts`
+(opt-in); specs that test the Directory pin it (`pinDirectory` in `e2e/helpers.ts`), because a desktop opens the
+Floor as the Office.
 
 **Inc 0.6 review round (design and correctness fixes, §4b)**
 - Landing: `content.ts` statuses, `Hero.tsx` real cast, `cast.ts`, `PortraitWall.tsx` (coworkers only, curated),

@@ -65,6 +65,13 @@ export function createChatterBudget(profiles: Readonly<Record<Ambience, Ambience
       refill(now);
       return { tokens, voicedMsWindow: voicedWindow(now) };
     },
+    voiceLeftMs(now: number): number {
+      const cap = num(profiles[amb]?.ambient_voice_s_per_10min, 0) * 1000;
+      return Math.max(0, cap - voicedWindow(now));
+    },
+    spendVoice(now: number, ms: number): void {
+      if (ms > 0) voiced.push({ at: now, ms });
+    },
   };
 }
 

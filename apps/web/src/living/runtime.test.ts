@@ -16,6 +16,8 @@ import { greetedThisSession } from '../talk/draft';
 import { createFakeAudio, type FakeAudio } from '../test/fake-audio';
 import { chiefSpeaker, startChiefVoice } from '../voice/chief-voice';
 import { setAudioEngine } from '../voice/engine';
+import { clientId } from '../lib/client-id';
+import { applyServerVoice, claimVoice, resetVoiceOwner, setVoiceSend } from '../voice/owner';
 import { captionLog, resetCaptions } from './captions';
 import { cueLog, faceBias, resetFaces } from './faces';
 import { beginSend, living } from './index';
@@ -112,6 +114,7 @@ afterEach(() => {
   for (const r of rigs) r.dispose();
   rigs = [];
   living.value = null;
+  resetVoiceOwner();
   vi.unstubAllGlobals();
 });
 
@@ -144,6 +147,28 @@ describe('Talk hooks (B5)', () => {
     // Later deltas of the same turn are not first tokens.
     applyFrame(f({ type: 'talk.delta', data: { turnId: 'turn_b', messageId: 'msg_b', agentId: CHIEF_ID, delta: 'so' } }));
     expect(conversation.mock.calls.filter(([e]) => e.kind === 'first_token')).toHaveLength(1);
+  });
+
+  it('a turn of this tab whose end comes back replayed (it finished while the socket was down) closes silently', async () => {
+    const { rt, clock } = rig();
+    const stop = startChiefVoice();
+    const conversation = vi.spyOn(rt.runner, 'conversation');
+    rt.ownerTurn({ agentId: CHIEF_ID, turnId: 'turn_rp', at: clock.now(), mode: 'voice', text: 'What should we focus on this week?' });
+    applyFrame(f({ type: 'talk.delta', data: { turnId: 'turn_rp', messageId: 'msg_rp', agentId: CHIEF_ID, delta: 'Let me look at the' } }));
+    replayThrough.value = seq + 3;
+    applyFrame(persisted({ type: 'talk.message', data: { turnId: 'turn_rp', messageId: 'msg_rp', agentId: CHIEF_ID, text: 'Let me look at the week first.', kind: 'reply' } }));
+    applyFrame(persisted({ type: 'talk.done', data: { turnId: 'turn_rp', messageId: 'msg_rp', finish: 'stop', route: 'answer' } }));
+    // History this tab never saw live reaches no one.
+    applyFrame(persisted({ type: 'talk.done', data: { turnId: 'turn_old', messageId: 'msg_old', finish: 'stop', route: 'answer' } }));
+    await engine.drain();
+    await clock.advance(10);
+    const ends = conversation.mock.calls.map(([e]) => e).filter((e) => e.kind === 'done' || e.kind === 'cancelled');
+    expect(ends).toEqual([{ kind: 'done', turnId: 'turn_rp', at: expect.any(Number), replayed: true }]);
+    // Nothing is voiced for it afterwards: not the rest of the reply, not a "still working on it".
+    await clock.advance(10_000);
+    expect(engine.spoken.flatMap((r) => r.chunks)).toEqual([]);
+    expect(engine.reflexes).toEqual([]);
+    stop();
   });
 
   it('never speaks a reflex reply through the Chief’s speaker (its clip voices it)', async () => {
@@ -227,6 +252,38 @@ describe('which tab plays a server reflex (§3.3)', () => {
     rt.ownerTurn({ agentId: CHIEF_ID, turnId: 'turn_fast', at: Date.now(), mode: 'text', text: 'thanks' });
     settle();
     expect(frame.mock.calls.map(([x]) => x.type)).toEqual(['reflex.say']);
+  });
+
+  it('one voice per workspace: a tab without the voice captions reflexes and never plays one', async () => {
+    const { rt, clock } = rig();
+    navigate(paths.talk);
+    await clock.advance(10);
+    const setSettings = vi.spyOn(rt.runner, 'setSettings');
+    applyServerVoice({ clientId: 'cOTHERTAB0000000', reason: 'claim', at: 0 });
+    expect(setSettings).toHaveBeenLastCalledWith(expect.objectContaining({ voiceOn: false }));
+    rt.ownerTurn({ agentId: CHIEF_ID, turnId: 'turn_other', at: Date.now(), mode: 'text', text: 'thanks' });
+    applyFrame(f({ type: 'reflex.say', data: say({ turnId: 'turn_other' }) }));
+    applyFrame(f({ type: 'reflex.say', data: say({ intent: 'micro_status', lineId: 'warm.micro_status.01', caption: 'Halfway there.' }) }));
+    await clock.advance(3000);
+    expect(engine.reflexes).toEqual([]);
+    // The voice comes back to this tab: voice on again for the next line.
+    applyServerVoice({ clientId: clientId(), reason: 'claim', at: 0 });
+    expect(setSettings).toHaveBeenLastCalledWith(expect.objectContaining({ voiceOn: true }));
+  });
+
+  it('one voice per workspace: a reaction that arrives before this tab’s claim is echoed stays with the device that had the voice', () => {
+    const { rt } = rig();
+    navigate(paths.talk);
+    const frame = vi.spyOn(rt.runner, 'frame');
+    const sent: { claimId: string }[] = [];
+    setVoiceSend((op) => sent.push(op));
+    applyServerVoice({ clientId: 'cOTHERTAB0000000', reason: 'claim', at: 0 });
+    claimVoice();
+    applyFrame(f({ type: 'reflex.say', data: say({ intent: 'micro_status', lineId: 'warm.micro_status.01', caption: 'Halfway there.' }) }));
+    applyServerVoice({ clientId: clientId(), reason: 'claim', claimId: sent[0]!.claimId, at: 0 });
+    applyFrame(f({ type: 'reflex.say', data: say({ intent: 'micro_status', lineId: 'warm.micro_status.02', caption: 'Nearly there.' }) }));
+    const says = frame.mock.calls.filter(([x]) => x.type === 'reflex.say').map(([x]) => (x.data as ReflexSayData).channels.voice);
+    expect(says).toEqual([false, true]); // caption and face only, then voiced here
   });
 
   it('an event reflex plays only at that agent’s visible stage', () => {

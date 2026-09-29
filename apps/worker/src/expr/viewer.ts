@@ -16,6 +16,10 @@ export interface SocketAttachment {
   viewer?: ViewerOp;
   /** Epoch ms of the last viewer op. */
   at?: number;
+  /** The tab's client id (`/api/ws?client=`, one voice per workspace: workspace/voice.ts). */
+  clientId?: string;
+  /** Epoch ms the socket connected. */
+  connectedAt?: number;
 }
 
 const bool = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null);

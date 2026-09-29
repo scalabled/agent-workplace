@@ -4,6 +4,8 @@
 // ever throws into the conversation: the living layer adds warmth, never failure.
 import { signal } from '@preact/signals';
 import type { Ambience, ExprRecentOp, FaceCue, ViewerOp } from '@headcount/protocol/ext/expressions';
+import { hotGeneration, hotKeep, hotTake } from '../lib/hot';
+import { trackEvents } from './events';
 import { cueFace } from './faces';
 import type { SendWhileSpeaking } from './policy';
 import type { HoverPhase, HoverVia, LivingRuntime, OwnerTurnInput } from './types';
@@ -12,6 +14,16 @@ export type { LivingRuntime, OwnerTurnInput } from './types';
 
 /** The runtime, once loaded. */
 export const living = signal<LivingRuntime | null>(null);
+
+// A hot update (dev) re-evaluates this module and boots a new runtime: the previous one must go first, or both would
+// hear every frame and voice every reflex twice.
+try {
+  hotTake<LivingRuntime>('living-runtime')?.dispose();
+} catch (err) {
+  console.warn('living workforce:', err);
+}
+/** False once a hot update replaced this module: a boot it still has in flight stands down. */
+const current = hotGeneration('living');
 
 type Send = (op: ViewerOp | ExprRecentOp) => void;
 
@@ -41,10 +53,12 @@ function boot(delayMs: number): void {
   retry = setTimeout(
     () =>
       whenIdle(() => {
+        if (!current()) return;
         booting = import('./runtime')
           .then((m) => m.bootLiving({ send: (op) => feedSend?.(op) }))
           .then((rt) => {
-            living.value = rt;
+            if (!current()) return rt.dispose();
+            living.value = hotKeep('living-runtime', rt);
             attempts = 0;
           })
           .catch((err: unknown) => {
@@ -65,6 +79,8 @@ function boot(delayMs: number): void {
  */
 export function startLiving(send: Send): () => void {
   feedSend = send;
+  // Real events the office may mention (job.done seqs), from the first frame on: replay included.
+  safe(() => trackEvents(), undefined);
   if (!living.peek() && !booting) boot(0);
   return () => {
     if (feedSend === send) feedSend = null;
@@ -121,6 +137,7 @@ export function livingCue(agentId: string, cue: FaceCue): void {
 /** Tests: drop the runtime and every pending start. */
 export function resetLiving(): void {
   clearTimeout(retry);
+  hotTake('living-runtime');
   safe(() => living.peek()?.dispose(), undefined);
   living.value = null;
   booting = null;

@@ -5,6 +5,7 @@ import { fillKeyOf, type AudioBus, type PreparedClip, type ReflexAudioPort, type
 import type { ExprClipRef, ExprRenderRequest } from '@headcount/protocol/ext/expressions';
 import type { Agents } from './agents';
 import { clearCaption, showCaption } from './captions';
+import type { BudgetPause } from './budget-pause';
 import type { WebClipStore } from './clips';
 import { biasFace, cueFace } from './faces';
 
@@ -24,6 +25,8 @@ export interface AudioPortDeps {
 }
 
 const DROPPED: ReflexPlayHandle = Object.freeze({ started: Promise.resolve(false), done: Promise.resolve('dropped' as const), stop() {} });
+/** A play that never starts (nothing sounds). */
+export const DROPPED_PLAY: ReflexPlayHandle = DROPPED;
 
 /** The engine has the Inc 0.5 reflex API (a hot-reloaded page can briefly run an older engine). */
 function reflexCapable(e: AudioEngine): boolean {
@@ -126,18 +129,24 @@ export interface RenderDeps {
   exprRender(req: ExprRenderRequest): Promise<ExprClipRef>;
   clips: WebClipStore;
   agents: Agents;
+  /** Shared with pre-voicing: a budget refusal (429) stops render requests until the budget can have come back. */
+  pause?: BudgetPause;
+  now?(): number;
 }
 
 /** Runtime render (POST /api/expr/render) in the agent's own provider, then decode; null on any failure. */
 export function createRender(deps: RenderDeps): (req: RenderRequest) => Promise<PreparedClip | null> {
+  const now = deps.now ?? Date.now;
   return async (req) => {
     const provider = deps.agents.provider(req.agentId) ?? req.provider;
     if (provider === 'browser') return null; // nothing to render: the browser voice speaks the text
+    if (deps.pause?.blocked(now())) return null; // budget spent: captions and faces only, no request
     try {
       const ref = await deps.exprRender({ agentId: req.agentId, lineId: req.lineId, fills: req.fills, provider });
       deps.agents.addClip(req.agentId, `${req.lineId}|${fillKeyOf(req.fills)}`, { clipKey: ref.clipKey, durationMs: ref.durationMs, scope: ref.scope });
       return await deps.clips.load(ref.clipKey);
-    } catch {
+    } catch (err) {
+      deps.pause?.note(err, now());
       return null;
     }
   };

@@ -32,6 +32,8 @@ import type {
   ExprRenderRequest,
 } from '@headcount/protocol/ext/expressions';
 import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcount/protocol/ext/media';
+import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, RoomCancelResponse, RoomId, RoomSayAccepted, RoomSayRequest } from '@headcount/protocol/ext/rooms';
+import { clientId } from '../lib/client-id';
 
 export class ApiError extends Error {
   constructor(
@@ -67,11 +69,11 @@ export const api = {
   capabilities: () => request<CapabilitiesResponse>(routePath('capabilities')),
   getWorkspace: () => request<WorkspaceResponse>(routePath('getWorkspace')),
   putWorkspace: (patch: UpdateWorkspaceRequest) => request<WorkspaceResponse>(routePath('putWorkspace'), jsonInit('PUT', patch)),
-  /** 202: the reply arrives on the socket as talk.* frames with this opId. */
-  talk: (text: string, via: 'text' | 'voice' = 'text', opId: string = ids.op()) => request<TalkAccepted>(routePath('talk'), jsonInit('POST', { text, opId, via })),
+  /** 202: the reply arrives on the socket as talk.* frames with this opId. The sending tab becomes the voice owner. */
+  talk: (text: string, via: 'text' | 'voice' = 'text', opId: string = ids.op()) => request<TalkAccepted>(routePath('talk'), jsonInit('POST', { text, opId, via, clientId: clientId() })),
   listJobs: (limit = 20) => request<JobsResponse>(`${routePath('listJobs')}?limit=${limit}`),
   getJob: (id: string) => request<JobResponse>(routePath('getJob', { id })),
-  steerJob: (id: string, text: string, opId: string = ids.op()) => request<SteerJobAccepted>(routePath('steerJob', { id }), jsonInit('POST', { text, opId })),
+  steerJob: (id: string, text: string, opId: string = ids.op()) => request<SteerJobAccepted>(routePath('steerJob', { id }), jsonInit('POST', { text, opId, clientId: clientId() })),
   cancelJob: (id: string) => request<CancelJobAccepted>(routePath('cancelJob', { id }), { method: 'POST' }),
   /** Raw audio response (Content-Type audio/*). Throws ApiError not_configured when no TTS provider. */
   async tts(req: TtsRequest, signal?: AbortSignal): Promise<Response> {
@@ -121,5 +123,19 @@ export const api = {
   exprAlignment: (clipKey: string) => request<ExprClipAlignment>(routePath('exprAlign', { clipKey })),
   /** 202: a Floor quick-chat to a catalog coworker; the reply streams on the socket (talk.* with surface 'floor'). */
   deskSay: (personaId: string, text: string, opId: string = ids.op()) =>
-    request<DeskSayAccepted>(routePath('deskSay', { personaId }), jsonInit('POST', { text, opId, via: 'text' })),
+    request<DeskSayAccepted>(routePath('deskSay', { personaId }), jsonInit('POST', { text, opId, via: 'text', clientId: clientId() })),
+
+  // ── the office (Office Phase 2, ext/rooms) ──
+  /**
+   * 202: an owner message to a conference room or a joined huddle; replies stream on the socket as talk.* frames with
+   * `surface: 'room'`, this `roomId` and `meetingId`. The sending tab becomes the voice owner. A refusal throws ApiError
+   * with the server's sentence (429 rate_limited, 503 not_configured, …).
+   */
+  roomSay: (roomId: RoomId, body: Omit<RoomSayRequest, 'clientId'>) => request<RoomSayAccepted>(routePath('roomSay', { roomId }), jsonInit('POST', { ...body, clientId: clientId() } satisfies RoomSayRequest)),
+  /** Stop the room turn now (barge-in), or leave the meeting (`leave: true`: one note in Talk if the owner spoke). */
+  roomCancel: (roomId: RoomId, body: Omit<RoomCancelRequest, 'clientId'>) => request<RoomCancelResponse>(routePath('roomCancel', { roomId }), jsonInit('POST', { ...body, clientId: clientId() } satisfies RoomCancelRequest)),
+  /** Personality for office life and the huddle engine (ETag: the browser's HTTP cache revalidates it). */
+  officePeople: () => request<OfficePeopleResponse>(routePath('officePeople')),
+  /** One small-talk turn in the speaker's voice (listen-in). Pass a signal to give up on a late render. */
+  exprHuddleRender: (req: ExprHuddleRenderRequest, signal?: AbortSignal) => request<ExprClipRef>(routePath('exprHuddleRender'), { ...jsonInit('POST', req), ...(signal ? { signal } : {}) }),
 };

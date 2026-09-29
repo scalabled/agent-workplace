@@ -1,6 +1,7 @@
 // What this tab tells the WorkspaceDO (INC05-PLAN §3.3): where the owner is (`viewer`, so event reflexes play
 // only at an agent's stage someone is watching) and which lines it just played (`expr.recent`, so server picks
 // avoid them). Both are fire-and-forget socket ops.
+import { signal } from '@preact/signals';
 import type { RecencySnapshot } from '@headcount/expressions';
 import { CHIEF_ID, coworkerAgentId } from '@headcount/protocol';
 import type { ExprRecentOp, ExprSurface, ViewerOp } from '@headcount/protocol/ext/expressions';
@@ -15,8 +16,21 @@ export const RECENT_MAX_PER_AGENT = 32;
  */
 export const RECENT_WINDOW_MS = 30 * 60_000;
 
-/** The stage the route puts the owner at: Talk is the Chief's, a coworker's profile is their desk. */
-export function stageOf(route: Pick<CurrentRoute, 'name' | 'params'>): { surface: ExprSurface; stageAgentId: string | null } {
+/** Where the owner is inside the Office view (OFFICE-PHASE2 §4.5.13): a conference room or a joined huddle's room. */
+export interface OfficeStage {
+  mode: 'desks' | 'conference';
+  roomId: string | null;
+}
+
+/** Set by the mounted Office (its mode changes); null when the Office is not on screen. */
+export const officeStage = signal<OfficeStage | null>(null);
+
+/**
+ * The stage the route puts the owner at: Talk is the Chief's, a coworker's profile is their desk, and the Floor is the
+ * Floor, or a room while the Office's conference stage is open.
+ */
+export function stageOf(route: Pick<CurrentRoute, 'name' | 'params'>, office?: OfficeStage | null): { surface: ExprSurface; stageAgentId: string | null } {
+  if (route.name === 'floor' && office?.mode === 'conference' && office.roomId) return { surface: 'room', stageAgentId: null };
   switch (route.name) {
     case 'talk':
       return { surface: 'talk', stageAgentId: CHIEF_ID };
@@ -39,10 +53,12 @@ export interface ViewerInput {
   tzOffsetMin: number;
   /** An agent's conversation audio sounding in this tab, until when (epoch ms). */
   voice: { agentId: string; untilMs: number } | null;
+  /** The Office's mode on the Floor (a room reports `surface: 'room'`). */
+  office?: OfficeStage | null;
 }
 
 export function viewerOp(i: ViewerInput): ViewerOp {
-  const { surface, stageAgentId } = stageOf(i.route);
+  const { surface, stageAgentId } = stageOf(i.route, i.office);
   return {
     op: 'viewer',
     surface,

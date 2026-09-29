@@ -4,7 +4,7 @@
 import { effect, signal } from '@preact/signals';
 import { CHIEF_ID } from '@headcount/protocol';
 import { route } from '../router';
-import { onFrame } from '../store';
+import { isTalkSurface, onFrame } from '../store';
 
 /** Chief of Staff messages that arrived while the owner was not on Talk. */
 export const unread = signal(0);
@@ -13,8 +13,9 @@ export const news = signal(0);
 
 export function startUnread(): () => void {
   const off = onFrame((f, { live }) => {
-    // Floor quick-chats are answered in their bubble (and a reflex reply is to a message just sent): not news.
-    if (!live || f.type !== 'talk.message' || f.data.agentId !== CHIEF_ID || f.data.surface === 'floor') return;
+    // Floor quick-chats are answered in their bubble (and a reflex reply is to a message just sent), office rooms on
+    // the stage, and a meeting's note is a quiet record of what the owner just did: not news.
+    if (!live || f.type !== 'talk.message' || f.data.agentId !== CHIEF_ID || !isTalkSurface(f.data.surface) || f.data.kind === 'note') return;
     if (route.value.name === 'talk') return;
     unread.value++;
     news.value++;

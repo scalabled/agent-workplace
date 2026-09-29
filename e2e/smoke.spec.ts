@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { pinDirectory } from './helpers';
 
 // Inc 0 scaffold smoke: both servers up through the Vite proxy, the shell renders the four places.
 test('worker health through the proxy', async ({ request }) => {
@@ -32,6 +33,7 @@ test('capabilities are keyless-safe', async ({ request }) => {
 });
 
 test('shell shows the four places and the Chief of Staff bubble', async ({ page }) => {
+  await pinDirectory(page);
   await page.goto('/app/floor');
   const nav = page.getByRole('navigation', { name: 'Places' });
   for (const place of ['Talk', 'Floor', 'Projects', 'Inbox']) await expect(nav.getByRole('link', { name: place })).toBeVisible();

@@ -5,7 +5,7 @@ import { clipKey, lineOf, planPrevoice, renderUtterance, toDelivery, type AgentI
 import { chiefDisplayName } from '@headcount/catalog';
 import { fullIndex } from '@headcount/catalog/full';
 import type { Registry } from '@headcount/models';
-import { CHIEF_ID, type WorkspaceSettings } from '@headcount/protocol';
+import { CHIEF_ID, ownerFirstNameOf, type WorkspaceSettings } from '@headcount/protocol';
 import type { ExprPrevoiceRequest, ExprPrevoiceTier, ExprSlotValues, ExprTtsProvider } from '@headcount/protocol/ext/expressions';
 import { HttpError } from '../lib/http';
 import { EXPR_CATALOG_VERSION, chiefRenamed, exprCatalog, exprProviderFor, exprVoiceKey, indexFor, profileFor } from './catalog';
@@ -74,6 +74,8 @@ export async function planPrevoiceRun(registry: Registry, mockMedia: boolean, se
   const renamed = chiefRenamed(settings);
   const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
   const chiefName = lead ? chiefDisplayName(lead, settings.chiefName) : undefined;
+  // The owner's name (Office Phase 2): `{owner_name}` lines become eligible; their clips are workspace-scoped.
+  const ownerName = ownerFirstNameOf(settings);
   const items: PrevoicePlanItem[] = [];
   const voiceKeys: Record<string, string> = {};
   const providers: Record<string, ExprTtsProvider> = {};
@@ -106,7 +108,7 @@ export async function planPrevoiceRun(registry: Registry, mockMedia: boolean, se
         candidates.push({ lineId: it.lineId, fills: it.fills ?? {}, tier: def.prevoice === 'runtime' ? 'p1' : def.prevoice });
       }
     } else {
-      const fills: CommonFills = { self_name: profile.firstName, ...(chiefName ? { chief_name: chiefName } : {}) };
+      const fills: CommonFills = { self_name: profile.firstName, ...(chiefName ? { chief_name: chiefName } : {}), ...(ownerName ? { owner_name: ownerName } : {}) };
       const planned = await planPrevoice(index, catalog, provider, fills, {
         tiers,
         maxClips,
@@ -150,7 +152,7 @@ export async function planPrevoiceRun(registry: Registry, mockMedia: boolean, se
 }
 
 /** A stable fingerprint of what a run renders: agents, tiers, sizes, providers, voices, catalog version, items. */
-export async function prevoiceFingerprint(req: ExprPrevoiceRequest, plan: Pick<PrevoicePlan, 'providers' | 'voiceKeys' | 'items'>, maxClips: number): Promise<string> {
+export async function prevoiceFingerprint(req: ExprPrevoiceRequest, plan: Pick<PrevoicePlan, 'providers' | 'voiceKeys' | 'items'>, maxClips: number, ownerName: string | null = null): Promise<string> {
   const agents = [...req.agentIds].sort();
   const byKey = ([a]: [string, unknown], [b]: [string, unknown]) => (a < b ? -1 : a > b ? 1 : 0);
   // The planned clips themselves: a renamed Chief's `self_name` lines (or any other fill) are new clips, a new run.
@@ -166,6 +168,8 @@ export async function prevoiceFingerprint(req: ExprPrevoiceRequest, plan: Pick<P
     EXPR_CATALOG_VERSION,
     maxClips,
     (req.items ?? []).map((i) => [i.agentId, i.lineId, Object.entries(i.fills ?? {}).sort(byKey)]),
+    // A rename of the owner re-plans (only when set, so runs planned before names existed keep their fingerprint).
+    ...(ownerName ? [ownerName] : []),
   ]);
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 40);

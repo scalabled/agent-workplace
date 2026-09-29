@@ -1,0 +1,124 @@
+/* The conference stage's dock (room/RoomDock.tsx), inside the office's own stage. It reuses the office's HUD pieces
+   (.hc-o-compose, .hc-o-input, .hc-o-btn) and adds the live words, the one-line notice and the transcript. */
+.room-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.room-dock[data-empty] {
+  align-items: center;
+}
+
+.room-dock__invite kbd,
+.room-dock kbd {
+  font: inherit;
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.room-dock__form .room-dock__mic {
+  width: 36px;
+  padding: 0;
+  justify-content: center;
+  flex: none;
+}
+
+.room-dock__mic[data-active] {
+  background: var(--o-halo-speak);
+  border-color: transparent;
+  color: #1b1406;
+}
+
+.room-dock__live,
+.room-dock__notice {
+  margin: 0;
+  padding: 7px 14px;
+  border-radius: 12px;
+  background: rgba(9, 10, 12, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--o-label-strong);
+  font-size: 13.5px;
+  line-height: 1.4;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.room-dock__live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room-dock__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--o-halo-speak);
+}
+
+.room-dock__notice {
+  color: var(--o-label-strong);
+  border-color: color-mix(in srgb, var(--o-halo-speak) 35%, transparent);
+}
+
+.room-dock__transcript {
+  align-self: flex-start;
+  max-width: 100%;
+  font-size: 12.5px;
+  color: var(--o-label);
+}
+
+.room-dock__transcript summary {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--o-label);
+}
+
+.room-dock__transcript summary::-webkit-details-marker {
+  display: none;
+}
+
+.room-dock__transcript summary:hover,
+.room-dock__transcript[open] summary {
+  color: var(--o-label-strong);
+}
+
+.room-dock__transcript summary:focus-visible {
+  outline: 2px solid var(--o-label-strong);
+  outline-offset: 1px;
+}
+
+.room-dock__transcript ol {
+  margin: 4px 0 0;
+  padding: 10px 14px;
+  max-height: min(30vh, 240px);
+  overflow-y: auto;
+  list-style: none;
+  border-radius: 12px;
+  background: rgba(9, 10, 12, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  display: grid;
+  gap: 6px;
+  color: var(--o-label-strong);
+  line-height: 1.45;
+}
+
+.room-dock__transcript b {
+  font-weight: 650;
+}
+
+.room-dock__unheard {
+  color: var(--o-label);
+}
+
+@media (pointer: coarse) {
+  .room-dock__form .room-dock__mic {
+    width: 44px;
+    height: 44px;
+  }
+}

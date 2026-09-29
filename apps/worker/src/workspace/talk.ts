@@ -2,7 +2,7 @@ import { callBudget, runTurn, type TurnResult } from '@headcount/agent-loop';
 import { fullIndex, catalogFull } from '@headcount/catalog/full';
 import { REACT_HINT_MAX_CHARS, humourOnly, maybeReactHintPrefix, parseReactHint, type AffectCues } from '@headcount/expressions';
 import { MissingProviderError, type ChatMessage, type ReasoningEffort, type Registry } from '@headcount/models';
-import { CHIEF_ID, ids, type AgentId, type Frame, type JobId, type JobSnapshot, type MessageId, type OpId, type TalkFinish, type TurnId, type UsageSummary, type WorkspaceSettings } from '@headcount/protocol';
+import { CHIEF_ID, ids, ownerFirstNameOf, type AgentId, type Frame, type JobId, type JobSnapshot, type MessageId, type OpId, type TalkFinish, type TurnId, type UsageSummary, type WorkspaceSettings } from '@headcount/protocol';
 import type { ExprIntentId, ReactHint, TalkSurface } from '@headcount/protocol/ext/expressions';
 import { buildChiefSystemPrompt, honestyPolicyText } from './chief-prompt';
 import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
@@ -121,10 +121,18 @@ export class CoveredOpenerFilter {
   }
 }
 
-/** A frame of the Chief of Staff's own conversation: not a Floor quick-chat, not another agent's message. */
+/** True for a talk.* surface that belongs to the Talk transcript: none, or 'talk' (not a Floor quick-chat or a room). */
+export function isTalkSurface(surface: string | undefined): boolean {
+  return surface === undefined || surface === 'talk';
+}
+
+/**
+ * A frame of the Chief of Staff's own conversation: not a Floor quick-chat, not an office room or huddle, not an office
+ * note (a meeting line would read as the Chief's own words), not another agent's message.
+ */
 export function isChiefConversation(f: Frame): boolean {
-  if (f.type === 'talk.owner') return f.data.surface !== 'floor' && (f.data.agentId === undefined || f.data.agentId === CHIEF_ID);
-  if (f.type === 'talk.message') return f.data.surface !== 'floor' && f.data.agentId === CHIEF_ID;
+  if (f.type === 'talk.owner') return isTalkSurface(f.data.surface) && (f.data.agentId === undefined || f.data.agentId === CHIEF_ID);
+  if (f.type === 'talk.message') return isTalkSurface(f.data.surface) && f.data.kind !== 'note' && f.data.agentId === CHIEF_ID;
   return false;
 }
 
@@ -132,8 +140,8 @@ export function isChiefConversation(f: Frame): boolean {
  * Owner and Chief of Staff messages from the ledger → a provider transcript (starts with user, roles
  * alternate). A reply is placed right after the owner message of its own turn, so the transcript always
  * ends with what the owner said last even if a reply was persisted late. Announcements (no turn) keep
- * ledger order. Floor quick-chats with coworkers (`surface: 'floor'`) and other agents' messages are not the
- * Chief's conversation and are left out.
+ * ledger order. Floor quick-chats with coworkers (`surface: 'floor'`), office rooms and huddles (`surface: 'room'`),
+ * office notes and other agents' messages are not the Chief's conversation and are left out.
  */
 export function historyFromFrames(frames: Frame[], maxChars = HISTORY_CHARS): ChatMessage[] {
   const raw: { role: 'user' | 'assistant'; content: string; turnId: string | null }[] = [];
@@ -349,10 +357,10 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
       }
       throw err;
     }
-    // Floor quick-chats share the ledger: read more rows so the Chief still sees its own recent turns.
-    const messages = historyFromFrames(host.ledger.recent(['talk.owner', 'talk.message'], HISTORY_MESSAGES * 3).filter(isChiefConversation).slice(-HISTORY_MESSAGES));
+    // Floor quick-chats and office rooms share the ledger: read more rows so the Chief still sees its own recent turns.
+    const messages = historyFromFrames(host.ledger.recent(['talk.owner', 'talk.message'], HISTORY_MESSAGES * 6).filter(isChiefConversation).slice(-HISTORY_MESSAGES));
     const turnNote = turnNoteFor(spec.cues, messages.filter((m) => m.role === 'assistant').map((m) => (typeof m.content === 'string' ? m.content : '')));
-    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote });
+    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings) });
     const tools = createChiefTools({
       project: host.project(),
       turnId,

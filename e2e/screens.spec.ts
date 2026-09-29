@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
-import { LEAD, setWorkspace } from './helpers';
+import { LEAD, pinDirectory, setWorkspace } from './helpers';
 
 // Inc 0.6 screenshots for the owner: the landing page and the app, desktop + phone, dark by default (the OS
 // asks for light, to show it no longer decides), plus the app's light option on two screens.
@@ -28,6 +28,8 @@ async function shoot(browser: Browser, screen: string, path: string, ready: (pag
   for (const v of variants) {
     const ctx = await browser.newContext({ viewport: v.viewport, colorScheme: 'light', isMobile: v.mobile, hasTouch: v.mobile, deviceScaleFactor: 2, baseURL: test.info().project.use.baseURL });
     if (v.light) await ctx.addInitScript(() => localStorage.setItem('headcount.theme', 'light'));
+    // These are the Directory's screens (the Office's: e2e/office-screens.spec.ts).
+    await pinDirectory(ctx);
     const page = await ctx.newPage();
     await page.goto(path);
     await ready(page);

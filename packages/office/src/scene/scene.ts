@@ -35,6 +35,7 @@ import type {
   TimeOfDay,
 } from '../types';
 import { createStage } from '../stage/stage';
+import { insetLayout, normInsets } from './insets';
 import type { Stage } from '../stage/stage';
 import { openPicker } from '../stage/picker';
 import type { Picker } from '../stage/picker';
@@ -67,19 +68,36 @@ import type { Lod } from './lod';
 import { makeFace } from './faces';
 import { createSky } from './sky';
 import type { SkyLayer } from './sky';
+import { blockedAt, clearSegment, lifeNav } from '../life/nav';
+import type { Attach, Exempt } from '../life/nav';
+import { distanceAt, facingOf as travelFacing, makeProfile, pointAtDistance, pointAttach, roundRoute, route as lifeRoute, seatAttach, slotAttach, speedAt, stopProfile, subPath } from '../life/route';
+import type { PathProfile } from '../life/route';
+import { planSpots } from '../life/spots';
+import { AUTOPILOT, autopilotDue, followTarget, holdFor, springStep } from '../life/moments';
+import type { Cue, HoldWhy, LifeHooks, LifeSummary, Moment, MoveHandle, MoveOptions, OfficeSpot, PlaceRef, ShowHuddleArgs } from '../life/types';
+import { createLifeUi } from './life-ui';
+import type { LifeUi } from './life-ui';
 
 const WALK_SPEED = 260; // u/s
 const FLIGHT_MS = 600;
 const SETTLE_MS = 120;
 const MAX_FACES = 96;
+/** Faces mounted per task (the rest follow on the next frames). */
+const FACES_PER_TASK = 24;
 const RELEASE_OFFSCREEN_MS = 10_000;
 const RELEASE_L0_MS = 2_000;
 const ZOOM_NEIGHBOURHOOD = 3.2;
 const ZOOM_DESK = 5.6;
+/** The HUD row (the pill, Desks | Conference, the tools) the camera keeps focused people below. */
+const HUD_BAND_PX = 64;
+/** A focused person or huddle this close to an edge (share of the view) is brought in. */
+const EDGE_MARGIN = 0.15;
 /** Phones open on the Chief's neighbourhood at a legible zoom, with the floor filling about two thirds of the view. */
 const NARROW_W = 640;
 const ZOOM_PHONE = 2.4;
 const PHONE_FLOOR_LINE = 0.33;
+/** The opening view on a portrait phone shows at most this share of sky above the north floor line. */
+const PHONE_SKY_MAX = 0.2;
 /** Twinkle and beacons pause after this long without input (WCAG 2.2.2) and resume on pointer or key. */
 const CALM_MS = 30_000;
 /** Status lines under a badge stay within the §2.1 cap. */
@@ -125,6 +143,38 @@ interface PView {
   badges: PresenceBadge[];
   speaking: boolean;
   bodyFacing: Facing | null;
+  /** Office life: where the person is (their desk, a spot slot or a point on the floor). */
+  place: PlaceRef;
+  posture: 'sit' | 'stand';
+  lwalk: LifeWalk | null;
+  /** Face-badge lean toward a speaker (deg). */
+  lean: number;
+  facingCand: Facing | null;
+  facingSince: number;
+  /** The face anchor height eases on arrival (standing → sitting), from this height since this time. */
+  zFrom: number;
+  zAt: number;
+  /** The direction of travel while walking (the body glyph takes it on arrival). */
+  walkFacing: Facing | null;
+  /** Plan zoom: the walker's dot and its trail samples (screen-independent plan points with times). */
+  dot: { el: HTMLElement; trail: HTMLElement[]; hist: { x: number; y: number; t: number }[] } | null;
+  /** The latest face cue (a newer cue supersedes an older one). */
+  cueSeq?: number;
+}
+
+/** An office-life walk: a function of time along a smooth path (OFFICE-LIFE §2.6). */
+interface LifeWalk {
+  profile: PathProfile;
+  /** Scene clock (ms) at distance 0. */
+  start: number;
+  to: PlaceRef;
+  dest: { x: number; y: number; facing: Facing; posture: 'sit' | 'stand' };
+  face?: Facing | 'viewer' | Point;
+  resolve: (ok: boolean) => void;
+  /** When the walker enters the view (Infinity: never on this camera). Off-screen walkers are not animated. */
+  enterAt: number;
+  /** Instant moves (reduced motion): fade out, move, fade in. */
+  fade: { moveAt: number; endAt: number } | null;
 }
 
 interface Bubble {
@@ -133,6 +183,29 @@ interface Bubble {
   timer: ReturnType<typeof setTimeout> | null;
   expires: number;
   arc?: SVGSVGElement;
+  /** Small talk (a huddle's bubble) rather than an owner-facing or passing-by bubble. */
+  talk?: string;
+  at: number;
+  /** Measured size (px) of the bubble body, once. */
+  w?: number;
+  h?: number;
+  /** Current placement: horizontal shift (px) above the face, or beside or below it; lifted and narrower last. */
+  bx?: number;
+  by?: number;
+  /** Beside the face: a vertical shift (px), the tail staying level with the face. */
+  sy?: number;
+  side?: 'above' | 'right' | 'left' | 'below';
+  narrow?: boolean;
+  /** A reply in a joined huddle's chat: clicks pass through it. */
+  passive?: boolean;
+}
+
+/** A laugh: a muted caption chip beside the face, no header or tail, ≤ 1.2 s, outside the bubble caps. */
+interface Chip {
+  id: string;
+  el: HTMLElement;
+  timer: ReturnType<typeof setTimeout> | null;
+  w?: number;
 }
 
 interface AnchorRec {
@@ -184,6 +257,9 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
   let destroyed = false;
 
   let plan!: OfficePlan;
+  let spotsCache: OfficeSpot[] = [];
+  let spotById = new Map<string, OfficeSpot>();
+  let lifeHooks: LifeHooks | null = null;
   const views = new Map<string, PView>();
   const presence = new Map<string, { state: PresenceState; label: string; badges: PresenceBadge[] }>();
   const speaking = new Set<string>();
@@ -205,6 +281,11 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
   let settledZoom = 1;
   let box: Rect = { x: 0, y: 0, w: 1, h: 1 };
   let findIds: Set<string> | null = null;
+  /** The camera is still the default opening view (not restored, not set by the host) and nobody has moved it. */
+  let openedOnDefault = true;
+  let cameraTouched = false;
+  /** The host's overlays over the office (OfficeOptions.insets): the HUD and bubbles keep out of them. */
+  let insets = normInsets(options.insets);
 
   const reducedMotion = (): boolean => {
     if (rmSetting !== null) return rmSetting;
@@ -246,6 +327,10 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
   world.setAttribute('aria-hidden', 'true');
   const labelsEl = mk('div', 'hc-o-labels', root);
   labelsEl.setAttribute('aria-hidden', 'true');
+  // Walkers at plan zoom: accent dots with a short fading trail on their own composited layer (transform-only
+  // updates, ≤ 30 Hz), so a walk never repaints the plate (OFFICE-LIFE §2.6 "Layering").
+  const walkersEl = mk('div', 'hc-o-walkers', root);
+  walkersEl.setAttribute('aria-hidden', 'true');
   const peopleEl = mk('div', 'hc-o-people', root);
   peopleEl.setAttribute('role', 'group');
   peopleEl.setAttribute('aria-label', S.seatsGroup);
@@ -301,6 +386,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       api.focus(id, { animate: true, zoom: 'desk' });
     },
     onMinimap: (p) => {
+      cameraTouched = true;
       cam = clampCamera({ x: p.x, y: p.y, zoom: cam.zoom }, box, vp);
       stopMotion();
       requestFrame();
@@ -436,11 +522,36 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
         badges: pres?.badges ?? [],
         speaking: speaking.has(p.id),
         bodyFacing: null,
+        place: { kind: 'desk' },
+        posture: 'sit',
+        lwalk: null,
+        lean: 0,
+        facingCand: null,
+        facingSince: 0,
+        zFrom: NaN,
+        zAt: 0,
+        walkFacing: null,
+        dot: null,
       };
       if (prev) {
         prev.slot?.destroy();
-        // FLIP: someone whose desk moved glides from the old desk to the new one.
-        if (prev.seat && prev.seat.id !== seat.id && !prev.roomId && !reducedMotion()) {
+        dropDot(prev);
+        if (prev.lwalk) {
+          const w = prev.lwalk;
+          prev.lwalk = null;
+          w.resolve(false);
+        }
+        const away = prev.place.kind === 'point' || (prev.place.kind === 'spot' && spotsCache.some((sp) => prev.place.kind === 'spot' && sp.id === prev.place.spotId));
+        if (away && !prev.roomId) {
+          // Office life: someone away from their desk stays where they are.
+          v.x = prev.x;
+          v.y = prev.y;
+          v.place = prev.place;
+          v.posture = prev.posture;
+          v.facing = prev.facing;
+          v.btn.dataset.away = '';
+        } else if (prev.seat && prev.seat.id !== seat.id && !prev.roomId && !reducedMotion()) {
+          // FLIP: someone whose desk moved glides from the old desk to the new one.
           const path = simplify([{ x: prev.x, y: prev.y }, { x: seat.x, y: seat.y }]);
           v.x = prev.x;
           v.y = prev.y;
@@ -448,7 +559,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
         }
       }
       views.set(p.id, v);
-      setBody(v, v.facing);
+      setBody(v, prev?.bodyFacing && v.place.kind !== 'desk' ? prev.bodyFacing : v.facing);
       placeBody(v);
       applyPresence(v);
     }
@@ -464,8 +575,12 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
   const replan = () => {
     plan = planOffice({ people, groups, leadId, rooms });
     groupsMap = groupById();
+    const nextSpots = planSpots(plan);
+    spotsCache = spotsCache.length ? spotsCache.filter((a) => nextSpots.some((b) => b.id === a.id)) : nextSpots;
     buildWorld();
     buildViews();
+    spotsCache = nextSpots;
+    spotById = new Map(spotsCache.map((sp) => [sp.id, sp]));
     buildLabels();
     hud.setMinimap(
       plan.cells.map((c) => ({ rect: { x: c.x, y: Y(c.row === 0 && c.role !== 'pod' ? 0 : c.y), w: c.w, h: (c.row === 0 && c.role !== 'pod' ? c.y + c.h : c.h) * K_Y }, kind: c.role })),
@@ -477,13 +592,32 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
   };
 
   // ── presence ───────────────────────────────────────────────────────────────────────────────────────────────
+  /** Where an away person is, in words ("Coffee bar", "At Juno's desk", "Water cooler · with Pax"). */
+  const placeText = (v: PView): string => {
+    if (v.place.kind !== 'spot') return '';
+    const sp = spotById.get(v.place.spotId);
+    if (!sp) return '';
+    let label = sp.label;
+    if (sp.kind === 'desk_dropby' && sp.seatId) {
+      const host = plan.seats.find((x) => x.id === sp.seatId)?.personId;
+      const hv = host ? views.get(host) : undefined;
+      if (hv) label = S.life.atDesk(firstName(hv.person.name));
+    }
+    const hid = lifeUi?.huddleOf(v.person.id);
+    const with_ = hid ? (huddleMembers.get(hid) ?? []).filter((id) => id !== v.person.id).map((id) => firstName(views.get(id)?.person.name ?? id)) : [];
+    return S.life.withNames(label, with_);
+  };
   const statusText = (v: PView): string => {
     if (v.roomId && mode === 'desks') {
       const r = plan.rooms.find((x) => x.id === v.roomId);
       if (r) return S.inRoom(r.name);
     }
     if (v.speaking) return S.states.speaking;
-    if (v.state === 'idle') return v.badges.includes('lamp') ? S.nightShift : '';
+    if (v.state === 'idle') {
+      const where = !v.lwalk ? placeText(v) : '';
+      if (where) return where;
+      return v.badges.includes('lamp') ? S.nightShift : '';
+    }
     return v.label || S.states[v.state];
   };
 
@@ -497,7 +631,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     v.slot?.setState?.(v.speaking ? 'speaking' : state, v.label);
     const light = v.light;
     if (light) {
-      const atDesk = !v.roomId && !v.walk;
+      const atDesk = !v.roomId && !v.walk && !v.lwalk && v.place.kind === 'desk';
       const mon = atDesk && (state === 'working' || state === 'thinking') ? (state === 'working' ? 'on' : 'dim') : '';
       if (mon) light.setAttribute('data-mon', mon);
       else light.removeAttribute('data-mon');
@@ -611,8 +745,12 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       else active = true;
     }
     if (stepWalks(tt)) active = true;
+    if (stepLifeWalks(tt)) active = true;
+    if (walkerTick) walkersAt = tt;
+    if (stepFollow(tt)) active = true;
     render();
     if (active) requestFrame();
+    else scheduleLifeWake();
   };
 
   const startSpring = () => {
@@ -627,6 +765,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
 
   const flyTo = (to: Camera, done?: () => void, dur = FLIGHT_MS) => {
     stopMotion();
+    cameraTouched = true;
     const target = clampCamera({ ...to, zoom: clampZoom(to.zoom, minZoom) }, box, vp);
     if (reducedMotion() || dur <= 0) {
       cam = target;
@@ -650,7 +789,8 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     const chief = plan.cells.find((c) => c.role === 'chief');
     const x = chief ? chief.x + chief.w / 2 : box.x + box.w / 2;
     const zoom = clampZoom(ZOOM_PHONE, minZoom);
-    return clampCamera({ x, y: (vp.h * (0.5 - PHONE_FLOOR_LINE)) / zoom, zoom }, box, vp);
+    const line = vp.h > vp.w ? PHONE_SKY_MAX : PHONE_FLOOR_LINE;
+    return clampCamera({ x, y: Y(0) + (vp.h * (0.5 - line)) / zoom, zoom }, box, vp);
   };
   /** The opening view: the hero shot on laptops, the Chief's neighbourhood on phones. */
   const openCamera = (): Camera => (narrow() ? phoneCamera() : fit);
@@ -659,9 +799,21 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     sky.layout({ vp, fit: openCamera(), cam, anchorY: Y(0, SKY_ANCHOR_Z), floorY: Y(0), anchorX: box.x + box.w / 2, parallax: !reducedMotion() });
   };
 
+  /** Where a face floats (plan z): desks and rooms as before; standing and walking at head height; seated away lower. */
+  const lifeZ = (v: PView): number => {
+    if (v.roomId || v.walk || v.lwalk) return anchorZ(v.facing, true);
+    if (v.place.kind === 'desk') return anchorZ(v.facing, false);
+    return v.posture === 'sit' ? (v.facing === 's' ? 5 : 7) : 11;
+  };
+  const Z_EASE_MS = 280;
   const personAnchor = (v: PView): Point => {
-    const inRoom = !!v.roomId || !!v.walk;
-    return { x: v.x, y: Y(v.y, anchorZ(v.facing, inRoom)) };
+    let z = lifeZ(v);
+    if (!Number.isNaN(v.zFrom)) {
+      const k = (clock() - v.zAt) / Z_EASE_MS;
+      if (k >= 1) v.zFrom = NaN;
+      else z = v.zFrom + (z - v.zFrom) * easeOut(Math.max(0, k));
+    }
+    return { x: v.x, y: Y(v.y, z) };
   };
 
   const render = () => {
@@ -682,6 +834,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     }
     const k = settledZoom > 0 ? scaleForZoom(cam.zoom) / Math.max(1, scaleForZoom(settledZoom)) : 1;
     const t = clock();
+    const rm = reducedMotion();
     const mx = vp.w * 0.25;
     const my = vp.h * 0.25;
     for (const v of views.values()) {
@@ -698,10 +851,12 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
         if (!vis) v.btn.style.transform = 'translate3d(-9999px,-9999px,0)';
         else v.sx = NaN;
       }
-      if (vis && (sx !== v.sx || sy !== v.sy || camMoved)) {
+      // A walker's badge bobs 0.6 px at 1.9 Hz at L1 and L2 (a transform; off with reduced motion).
+      const bob = v.lwalk && !v.lwalk.fade && lod > 0 && !rm ? Math.sin((t / 1000) * 1.9 * 2 * Math.PI) * 0.6 : 0;
+      if (vis && (sx !== v.sx || sy !== v.sy || camMoved || bob)) {
         v.sx = sx;
         v.sy = sy;
-        v.btn.style.transform = `translate3d(${sx.toFixed(1)}px,${sy.toFixed(1)}px,0) scale(${k.toFixed(4)})`;
+        v.btn.style.transform = `translate3d(${sx.toFixed(1)}px,${(sy + bob).toFixed(1)}px,0) scale(${k.toFixed(4)})`;
       }
     }
     if (camMoved) {
@@ -716,6 +871,170 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       } else hud.updateMinimap(null);
     }
     placeBubbles();
+    placeGhosts();
+    placeDots();
+    fadeCrossedLabels();
+    if (lifeUi && mode === 'desks') {
+      lifeUi.place(
+        (p, z) => {
+          const sx = (p.x - cam.x) * cam.zoom + vp.w / 2;
+          const sy = (Y(p.y, z) - cam.y) * cam.zoom + vp.h / 2;
+          return sx > -40 && sx < vp.w + 40 && sy > -40 && sy < vp.h + 40 ? { x: sx, y: sy } : null;
+        },
+        lod,
+        vp,
+        (members) => {
+          // The bottom of the lowest member's name plate (screen px).
+          let y = -Infinity;
+          for (const id of members) {
+            const v = views.get(id);
+            if (v?.visible && Number.isFinite(v.sy)) y = Math.max(y, v.sy + faceSize(lod, cam.zoom) / 2 + 14);
+          }
+          return Number.isFinite(y) ? y : null;
+        },
+        (members) => {
+          // Where the members stand on the floor (screen px), padded like the default ring around one spot.
+          let x0 = Infinity;
+          let x1 = -Infinity;
+          let y0 = Infinity;
+          let y1 = -Infinity;
+          let n = 0;
+          for (const id of members) {
+            const v = views.get(id);
+            if (!v || !Number.isFinite(v.x) || !Number.isFinite(v.y)) continue;
+            const sx = (v.x - cam.x) * cam.zoom + vp.w / 2;
+            const sy = (Y(v.y, 0) - cam.y) * cam.zoom + vp.h / 2;
+            x0 = Math.min(x0, sx);
+            x1 = Math.max(x1, sx);
+            y0 = Math.min(y0, sy);
+            y1 = Math.max(y1, sy);
+            n++;
+          }
+          if (n < 2) return null;
+          const z = cam.zoom;
+          return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: Math.max(34 * z, x1 - x0 + 26 * z), h: Math.max(21 * z, y1 - y0 + 16 * z) };
+        },
+      );
+    }
+  };
+
+  // ── walkers at plan zoom: a 7 px accent dot with a 2 s fading trail ──
+  const TRAIL = 8;
+  const dropDot = (v: PView) => {
+    if (!v.dot) return;
+    v.dot.el.remove();
+    for (const e of v.dot.trail) e.remove();
+    v.dot = null;
+  };
+  const placeDots = () => {
+    const on = lod === 0 && mode === 'desks';
+    const t = clock();
+    for (const v of views.values()) {
+      const w = v.lwalk;
+      if (!on || !w || w.fade || !v.visible || w.start > t) {
+        if (v.dot) dropDot(v);
+        continue;
+      }
+      if (!v.dot) {
+        const trail: HTMLElement[] = [];
+        for (let i = 0; i < TRAIL; i++) {
+          const e = mk('i', 'hc-o-walker__trail', walkersEl);
+          e.style.setProperty('--acc', v.acc);
+          e.style.setProperty('--k', String(i));
+          trail.push(e);
+        }
+        const el = mk('i', 'hc-o-walker', walkersEl);
+        el.style.setProperty('--acc', v.acc);
+        v.dot = { el, trail, hist: [] };
+      }
+      const d = v.dot;
+      const last = d.hist[d.hist.length - 1];
+      if (!last || t - last.t >= 250) {
+        d.hist.push({ x: v.x, y: v.y, t });
+        if (d.hist.length > TRAIL + 1) d.hist.shift();
+      }
+      const at = (x: number, y: number) => `translate3d(${((x - cam.x) * cam.zoom + vp.w / 2).toFixed(1)}px,${((Y(y, 2) - cam.y) * cam.zoom + vp.h / 2).toFixed(1)}px,0)`;
+      d.el.style.transform = at(v.x, v.y);
+      for (let i = 0; i < TRAIL; i++) {
+        const sample = d.hist[d.hist.length - 2 - i];
+        d.trail[i]!.style.transform = sample && t - sample.t < 2000 ? at(sample.x, sample.y) : 'translate3d(-40px,-40px,0)';
+      }
+    }
+  };
+  /**
+   * A neighbourhood's floor sign (or a place's sign) fades to 40 % while a walker crosses it or someone away from their
+   * desk stands on it (≤ 10 checks a second), so a name plate never fights a sign.
+   */
+  let labelsCheckedAt = 0;
+  const fadeCrossedLabels = () => {
+    const t = clock();
+    if (t - labelsCheckedAt < 100) return;
+    labelsCheckedAt = t;
+    const walkers: Point[] = [];
+    if (mode === 'desks') {
+      for (const v of views.values()) {
+        if (!v.visible || !Number.isFinite(v.sx)) continue;
+        const walking = !!v.lwalk && !v.lwalk.fade;
+        if (!walking && (v.place.kind === 'desk' || lod === 0)) continue;
+        if (walking) walkers.push({ x: (v.x - cam.x) * cam.zoom + vp.w / 2, y: (Y(v.y, 2) - cam.y) * cam.zoom + vp.h / 2 });
+        walkers.push({ x: v.sx, y: v.sy });
+        if (lod > 0) walkers.push({ x: v.sx, y: v.sy + faceSize(lod, cam.zoom) / 2 + 12 });
+      }
+    }
+    for (const l of labels) {
+      if (l.kind !== 'zone' && l.kind !== 'place') continue;
+      let hit = false;
+      if (walkers.length) {
+        const r = l.el.firstElementChild as HTMLElement | null;
+        const w = r?.offsetWidth ?? 80;
+        const hgt = r?.offsetHeight ?? 18;
+        const sx = (l.p.x - cam.x) * cam.zoom + vp.w / 2;
+        const sy = (l.p.y - cam.y) * cam.zoom + vp.h / 2;
+        hit = walkers.some((p) => p.x > sx - 6 && p.x < sx + w + 6 && p.y > sy - 8 && p.y < sy + hgt + 8);
+      }
+      l.el.classList.toggle('is-crossed', hit);
+    }
+  };
+
+  /** At desk zoom, an empty desk whose person is away says where they are ("Kate · Coffee bar"), ≤ 25 at a time. */
+  const ghosts = new Map<string, { el: HTMLElement; text: string }>();
+  const placeGhosts = () => {
+    const seen = new Set<string>();
+    if (lod === 2 && mode === 'desks') {
+      for (const v of views.values()) {
+        if (!v.seat || v.roomId || (v.place.kind === 'desk' && !v.lwalk)) continue;
+        // Right next to their desk (a drop-by next door, walking past), the person is the label: no ghost plate.
+        if (Math.hypot(v.x - v.seat.x, v.y - v.seat.y) < 60) continue;
+        if (seen.size >= 25) break;
+        const sx = (v.seat.x - cam.x) * cam.zoom + vp.w / 2;
+        const sy = (Y(v.seat.y, anchorZ(v.seat.facing, false)) - cam.y) * cam.zoom + vp.h / 2;
+        if (sx < -60 || sx > vp.w + 60 || sy < -30 || sy > vp.h + 30) continue;
+        seen.add(v.person.id);
+        let g = ghosts.get(v.person.id);
+        if (!g) {
+          const el = mk('div', 'hc-o-ghostplate', labelsEl);
+          g = { el, text: '' };
+          ghosts.set(v.person.id, g);
+        }
+        const where = v.lwalk ? S.life.walking : (placeText(v) || S.life.away).split(' · ')[0]!;
+        const text = `${firstName(v.person.name)}\n${where}`;
+        if (text !== g.text) {
+          g.text = text;
+          g.el.replaceChildren();
+          const b = mk('b', '', g.el);
+          b.textContent = firstName(v.person.name);
+          const i = mk('span', '', g.el);
+          i.textContent = where;
+          g.el.setAttribute('aria-hidden', 'true');
+        }
+        g.el.style.transform = `translate3d(${sx.toFixed(1)}px,${sy.toFixed(1)}px,0)`;
+      }
+    }
+    for (const [id, g] of ghosts) {
+      if (seen.has(id)) continue;
+      g.el.remove();
+      ghosts.delete(id);
+    }
   };
 
   /** The zoom-dependent part of a badge's size, for the live scale between settles. */
@@ -735,6 +1054,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     root.dataset.lod = String(next);
     settledZoom = cam.zoom;
     applySizes();
+    lifeHooks?.onViewChange({ input: clock() - lastInput < 4000 });
   };
 
   const applySizes = () => {
@@ -761,6 +1081,8 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     manageFaces();
     reportViewport();
     saveCamera();
+    recomputeEntries();
+    lifeHooks?.onViewChange({ input: clock() - lastInput < 4000 });
   };
 
   // ── faces: mounting, LRU release, tiers ────────────────────────────────────────────────────────────────────
@@ -802,8 +1124,16 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     const want = [...views.values()].filter((v) => v.visible).sort((a, b) => Math.hypot(a.sx - cx, a.sy - cy) - Math.hypot(b.sx - cx, b.sy - cy));
     const keep = new Set(want.slice(0, MAX_FACES));
     let mounted = [...views.values()].filter((v) => v.slot).length;
+    // Mount at most a couple of dozen faces per task, nearest first; the rest follow on the next frames (no long
+    // task when the view jumps to a neighbourhood full of people).
+    let budget = FACES_PER_TASK;
+    let more = false;
     for (const v of keep) {
       if (v.slot) continue;
+      if (budget-- <= 0) {
+        more = true;
+        break;
+      }
       if (mounted >= MAX_FACES) {
         // Release the longest-unseen face to make room.
         const victim = [...views.values()].filter((x) => x.slot && !keep.has(x)).sort((a, b) => a.lastVisible - b.lastVisible)[0];
@@ -815,7 +1145,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       mounted++;
     }
     for (const v of views.values()) if (v.slot && !keep.has(v) && t - v.lastVisible > RELEASE_OFFSCREEN_MS) releaseFace(v);
-    facesTimer = later(manageFaces, RELEASE_OFFSCREEN_MS + 50);
+    facesTimer = later(manageFaces, more ? 24 : RELEASE_OFFSCREEN_MS + 50);
     scheduleTiers();
   };
   let facesSoon: ReturnType<typeof setTimeout> | null = null;
@@ -884,8 +1214,12 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
   };
 
   const placeAtDesk = (v: PView) => {
+    const wasRoom = v.roomId;
     v.roomId = null;
     v.roomSeat = -1;
+    v.place = { kind: 'desk' };
+    delete v.btn.dataset.away;
+    if (wasRoom) lifeHooks?.onRoom?.(v.person.id, null);
     if (v.seat) {
       v.x = v.seat.x;
       v.y = v.seat.y;
@@ -901,6 +1235,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     const room = plan.rooms.find((r) => r.id === rid);
     const rs = room?.seats[i];
     if (!room || !rs) return;
+    if (v.roomId !== rid) lifeHooks?.onRoom?.(v.person.id, rid);
     v.roomId = rid;
     v.roomSeat = i;
     v.x = rs.x;
@@ -925,8 +1260,21 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       placeInRoom(v, room.id, seatIndex);
       return 0;
     }
-    const from = v.roomId ? { ...v.seat, x: v.x, y: v.y } : v.seat;
+    if (v.lwalk) {
+      const w = v.lwalk;
+      if (!w.fade) {
+        const p = pointAtDistance(w.profile, distanceAt(w.profile, (clock() - w.start) / 1000));
+        v.x = p.x;
+        v.y = p.y;
+      }
+      v.lwalk = null;
+      w.resolve(false);
+    }
+    const away = v.place.kind !== 'desk';
+    const from = v.roomId || away ? { ...v.seat, x: v.x, y: v.y } : v.seat;
     const path = v.roomId === room.id ? simplify([{ x: v.x, y: v.y }, rs]) : walkPath(plan.walk, plan, from, room, rs);
+    v.place = { kind: 'desk' };
+    delete v.btn.dataset.away;
     const len = pathLength(path);
     const dur = Math.min(1600, Math.max(600, (len / WALK_SPEED) * 1000));
     v.roomId = room.id;
@@ -934,6 +1282,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     v.btn.dataset.room = room.id;
     v.walk = { path, len, start: clock() + delay, dur, to: { roomId: room.id, seatIndex } };
     applyPresence(v);
+    lifeHooks?.onRoom?.(v.person.id, room.id);
     requestFrame();
     return dur + delay;
   };
@@ -954,8 +1303,352 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     return dur + delay;
   };
 
+  // ── office life: walks (OFFICE-LIFE §2.6) ─────────────────────────────────────────────────────────────────
+  const FADE_MS = 160;
+  const nav = () => lifeNav(plan);
+  /** Where a place is, how the person faces there and whether they sit. */
+  const destOf = (v: PView, to: PlaceRef): LifeWalk['dest'] | null => {
+    if (to.kind === 'desk') return v.seat ? { x: v.seat.x, y: v.seat.y, facing: v.seat.facing, posture: 'sit' } : null;
+    if (to.kind === 'spot') {
+      const sl = spotById.get(to.spotId)?.slots[to.slot];
+      return sl ? { x: sl.x, y: sl.y, facing: sl.facing, posture: sl.posture } : null;
+    }
+    if (to.kind === 'point') return { x: to.x, y: to.y, facing: to.facing ?? v.bodyFacing ?? v.facing, posture: 'stand' };
+    return null;
+  };
+  /** The ways out of where someone is right now. */
+  const attachOf = (v: PView): Attach[] => {
+    const n = nav();
+    if (!v.lwalk && !v.walk && v.place.kind === 'desk' && v.seat) return seatAttach(n, plan, v.seat);
+    if (!v.lwalk && !v.walk && v.place.kind === 'spot') {
+      const sp = spotById.get(v.place.spotId);
+      if (sp) return slotAttach(n, sp, v.place.slot);
+    }
+    return pointAttach(n, { x: v.x, y: v.y });
+  };
+  const attachTo = (v: PView, to: PlaceRef): Attach[] => {
+    const n = nav();
+    if (to.kind === 'desk' && v.seat) return seatAttach(n, plan, v.seat);
+    if (to.kind === 'spot') {
+      const sp = spotById.get(to.spotId);
+      if (sp) return slotAttach(n, sp, to.slot);
+    }
+    return pointAttach(n, to.kind === 'point' ? { x: to.x, y: to.y } : { x: v.x, y: v.y });
+  };
+  const inViewAt = (x: number, y: number, margin = 0.15): boolean => {
+    const a = { x, y: Y(y, 11) };
+    const sx = (a.x - cam.x) * cam.zoom + vp.w / 2;
+    const sy = (a.y - cam.y) * cam.zoom + vp.h / 2;
+    return sx > -vp.w * margin && sx < vp.w * (1 + margin) && sy > -vp.h * margin && sy < vp.h * (1 + margin);
+  };
+  /** The first time (scene clock) a walk's path enters the view, sampled every 100 ms. */
+  const enterTime = (w: LifeWalk, from: number): number => {
+    if (w.fade) return 0;
+    const end = w.start + w.profile.dur * 1000;
+    for (let t = Math.max(from, w.start); t <= end; t += 100) {
+      const p = pointAtDistance(w.profile, distanceAt(w.profile, (t - w.start) / 1000));
+      if (inViewAt(p.x, p.y)) return t;
+    }
+    return inViewAt(w.dest.x, w.dest.y) ? end : Infinity;
+  };
+  const turnToward = (v: PView, toward: Facing | 'viewer' | Point | undefined, fallback: Facing) => {
+    let f: Facing = fallback;
+    if (toward === 'viewer') f = 's';
+    else if (typeof toward === 'string') f = toward;
+    else if (toward) f = travelFacing(toward.x - v.x, toward.y - v.y);
+    setBody(v, f);
+  };
+  const finishLifeWalk = (v: PView) => {
+    const w = v.lwalk;
+    if (!w) return;
+    const zBefore = lifeZ(v);
+    v.lwalk = null;
+    v.x = w.dest.x;
+    v.y = w.dest.y;
+    v.place = w.to;
+    v.posture = w.dest.posture;
+    v.facing = w.to.kind === 'desk' ? (v.seat?.facing ?? v.facing) : w.dest.facing;
+    // Sitting down (or back at the desk): the face settles to its new height instead of jumping (only in view: an
+    // off-screen arrival costs no frames).
+    if (!w.fade && !reducedMotion() && Math.abs(lifeZ(v) - zBefore) > 0.5 && inViewAt(v.x, v.y, 0.05)) {
+      v.zFrom = zBefore;
+      v.zAt = clock();
+      requestFrame();
+    }
+    if (w.to.kind === 'desk') {
+      delete v.btn.dataset.away;
+      setBody(v, v.facing);
+    } else {
+      v.btn.dataset.away = '';
+      if (v.walkFacing) setBody(v, v.walkFacing);
+      // The arrival turn, 150 ms after stopping.
+      later(() => views.get(v.person.id) === v && !v.lwalk && turnToward(v, w.face, w.dest.facing), reducedMotion() ? 0 : 150);
+    }
+    v.walkFacing = null;
+    dropDot(v);
+    delete v.btn.dataset.walking;
+    v.body?.removeAttribute('data-walking');
+    placeBody(v);
+    applyPresence(v);
+    w.resolve(true);
+  };
+  let walkersAt = 0;
+  let walkerTick = false;
+  const stepLifeWalks = (t: number): boolean => {
+    let any = false;
+    walkerTick = false;
+    for (const v of views.values()) {
+      if (!Number.isNaN(v.zFrom)) {
+        if (t - v.zAt < Z_EASE_MS) any = true;
+        v.sx = NaN;
+      }
+      const w = v.lwalk;
+      if (!w) continue;
+      if (w.fade) {
+        // Reduced motion: fade out at the origin, move, fade in at the destination.
+        if (t >= w.fade.moveAt && v.btn.dataset.fade === 'out') {
+          v.x = w.dest.x;
+          v.y = w.dest.y;
+          placeBody(v);
+          v.btn.dataset.fade = 'in';
+          v.body?.setAttribute('data-fade', 'in');
+          v.sx = NaN;
+        }
+        if (t >= w.fade.endAt) {
+          delete v.btn.dataset.fade;
+          v.body?.removeAttribute('data-fade');
+          finishLifeWalk(v);
+        } else any = true;
+        continue;
+      }
+      const el = (t - w.start) / 1000;
+      if (el >= w.profile.dur) {
+        finishLifeWalk(v);
+        continue;
+      }
+      if (el < 0) {
+        any = any || t >= w.enterAt;
+        continue;
+      }
+      // Off-screen walkers are not animated: their position is a function of time, computed when they come into
+      // view (or the camera moves) and at the end. At plan zoom a walker moves at ≤ 30 Hz (a dot in its own layer).
+      if (!(moving || t >= w.enterAt)) continue;
+      any = true;
+      if (lod === 0 && !moving && t - walkersAt < 33) continue;
+      walkerTick = true;
+      const s0 = distanceAt(w.profile, el);
+      const p = pointAtDistance(w.profile, s0);
+      v.x = p.x;
+      v.y = p.y;
+      // Facing follows the direction of travel once it has held for 0.15 s (no flicker on corners). The plate's
+      // body glyph is hidden while walking (the dot layer draws them), so it is updated on arrival, not per frame.
+      const ahead = pointAtDistance(w.profile, Math.min(w.profile.len, s0 + 1.5));
+      const dx = ahead.x - p.x;
+      const dy = ahead.y - p.y;
+      if (Math.hypot(dx, dy) > 0.05) {
+        const f = travelFacing(dx, dy);
+        if (f !== v.walkFacing) {
+          if (f !== v.facingCand) {
+            v.facingCand = f;
+            v.facingSince = t;
+          } else if (t - v.facingSince >= 150 || v.walkFacing === null) v.walkFacing = f;
+        } else v.facingCand = null;
+      }
+      if (!inViewAt(p.x, p.y, 0.3) && !moving) w.enterAt = enterTime(w, t);
+    }
+    return any;
+  };
+  /** With no frame running, wake for the next off-screen walker that enters the view or finishes. */
+  let lifeWake: ReturnType<typeof setTimeout> | null = null;
+  const scheduleLifeWake = () => {
+    if (lifeWake) clearTimeout(lifeWake);
+    lifeWake = null;
+    let next = Infinity;
+    for (const v of views.values()) {
+      const w = v.lwalk;
+      if (!w) continue;
+      next = Math.min(next, w.enterAt, w.fade ? w.fade.endAt : w.start + w.profile.dur * 1000);
+    }
+    if (next === Infinity || destroyed) return;
+    lifeWake = setTimeout(() => {
+      lifeWake = null;
+      if (destroyed) return;
+      // An arrival nobody can see finishes here, without a frame; a walker entering the view wakes the frame loop.
+      const t = clock();
+      let frame = false;
+      for (const v of views.values()) {
+        const w = v.lwalk;
+        if (!w) continue;
+        if (w.fade) {
+          if (t >= Math.min(w.fade.moveAt, w.fade.endAt) - 1) frame = true;
+          continue;
+        }
+        const end = w.start + w.profile.dur * 1000;
+        if (t >= end - 1 && !inViewAt(w.dest.x, w.dest.y, 0.05) && lod > 0) finishLifeWalk(v);
+        else if (t >= w.enterAt - 1 || t >= end - 1) frame = true;
+      }
+      if (frame) requestFrame();
+      else scheduleLifeWake();
+    }, Math.max(0, next - clock()));
+  };
+  const recomputeEntries = () => {
+    const t = clock();
+    for (const v of views.values()) if (v.lwalk && !v.lwalk.fade) v.lwalk.enterAt = enterTime(v.lwalk, t);
+  };
+
+  /**
+   * Someone stopped mid-walk for the owner steps 6 u to the edge of the lane (to the right of travel, where they
+   * already keep), so the aisle stays clear for others while they wait; a small, slow step.
+   */
+  const sidestep = (v: PView, end: Point, before: Point) => {
+    if (reducedMotion() || v.lwalk || v.walk || v.roomId || views.get(v.person.id) !== v) return;
+    const len = Math.hypot(end.x - before.x, end.y - before.y);
+    if (len < 0.01) return;
+    const ux = (end.x - before.x) / len;
+    const uy = (end.y - before.y) / len;
+    const q = { x: end.x - uy * 6, y: end.y + ux * 6 };
+    const g = nav().grid;
+    if (blockedAt(g, q.x, q.y) || !clearSegment(g, end, q)) return;
+    v.lwalk = { profile: makeProfile([end, q], 14, false), start: clock(), to: { kind: 'point', x: q.x, y: q.y }, dest: { x: q.x, y: q.y, facing: v.bodyFacing ?? v.facing, posture: 'stand' }, face: 'viewer', resolve: () => {}, enterAt: 0, fade: null };
+    requestFrame();
+  };
+
+  const lifeMove = (id: string, to: PlaceRef, opts: MoveOptions = {}): MoveHandle => {
+    let resolveDone: (ok: boolean) => void = () => {};
+    const done = new Promise<boolean>((r) => (resolveDone = r));
+    const fail = (): MoveHandle => {
+      resolveDone(false);
+      return { durationMs: 0, cancel() {}, done };
+    };
+    if (destroyed) return fail();
+    const v = views.get(id);
+    if (!v || v.roomId || v.walk || to.kind === 'room') return fail();
+    const dest = destOf(v, to);
+    if (!dest) return fail();
+    // A walk in progress is superseded from where the person is now.
+    if (v.lwalk) {
+      const old = v.lwalk;
+      if (!old.fade) {
+        const p = pointAtDistance(old.profile, distanceAt(old.profile, (clock() - old.start) / 1000));
+        v.x = p.x;
+        v.y = p.y;
+      }
+      v.lwalk = null;
+      delete v.btn.dataset.fade;
+      v.body?.removeAttribute('data-fade');
+      old.resolve(false);
+      v.place = { kind: 'point', x: v.x, y: v.y };
+    }
+    let settled = false;
+    const resolve = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      resolveDone(ok);
+    };
+    const now = clock();
+    const instant = opts.pace === 'instant';
+    if (instant) {
+      const visible = opts.fade !== false && inViewAt(v.x, v.y, 0.05);
+      if (!visible) {
+        // Nobody sees it: be there now.
+        v.lwalk = { profile: makeProfile([dest, dest], 1), start: now, to, dest, face: opts.face, resolve, enterAt: Infinity, fade: null };
+        finishLifeWalk(v);
+        requestFrame();
+        return { durationMs: 0, cancel() {}, done };
+      }
+      v.lwalk = { profile: makeProfile([dest, dest], 1), start: now, to, dest, face: opts.face, resolve, enterAt: 0, fade: { moveAt: now + FADE_MS, endAt: now + 2 * FADE_MS } };
+      v.btn.dataset.fade = 'out';
+      v.body?.setAttribute('data-fade', 'out');
+      v.btn.dataset.walking = '';
+      applyPresence(v);
+      requestFrame();
+      return { durationMs: 2 * FADE_MS, cancel() {}, done };
+    }
+    const from = { x: v.x, y: v.y };
+    const n = nav();
+    let pts: Point[];
+    const samePlace = Math.hypot(dest.x - from.x, dest.y - from.y) < 0.5;
+    const sameSpot = to.kind === 'spot' && v.place.kind === 'spot' && v.place.spotId === to.spotId;
+    const exempt: Exempt[] = [
+      { x: from.x, y: from.y, r: 6 },
+      { x: dest.x, y: dest.y, r: 6 },
+    ];
+    if (samePlace) pts = [from, dest];
+    else if (sameSpot) pts = [from, dest];
+    else {
+      const r = lifeRoute(n, attachOf(v), attachTo(v, to));
+      pts = r ? roundRoute(n, r.pts, exempt) : [from, dest];
+    }
+    if (Math.hypot(pts[0]!.x - from.x, pts[0]!.y - from.y) > 0.5) pts.unshift(from);
+    const speed = opts.pace === 'brisk' ? Math.max(opts.speed ?? 90, 60) : (opts.speed ?? 42);
+    const profile = makeProfile(pts, speed, false);
+    const start = now + (opts.delayMs ?? 0) - Math.min(opts.elapsedMs ?? 0, profile.dur * 1000 - 1);
+    const w: LifeWalk = { profile, start, to, dest, face: opts.face, resolve, enterAt: 0, fade: null };
+    w.enterAt = enterTime(w, now);
+    v.lwalk = w;
+    v.place = { kind: 'point', x: v.x, y: v.y };
+    v.facingCand = null;
+    v.walkFacing = v.bodyFacing;
+    v.btn.dataset.walking = '';
+    v.body?.setAttribute('data-walking', '');
+    delete v.btn.dataset.away;
+    applyPresence(v);
+    // A walk that starts off-screen costs no frame: the frame loop wakes when it enters the view or arrives.
+    if (w.enterAt <= now || moving) requestFrame();
+    else scheduleLifeWake();
+    return {
+      durationMs: Math.max(0, start - now) + profile.dur * 1000,
+      cancel() {
+        if (v.lwalk !== w) return;
+        // Ease to a stop within 0.5 s, where they are.
+        const t = clock();
+        const el = (t - w.start) / 1000;
+        const s0 = distanceAt(w.profile, Math.max(0, el));
+        const sp = speedAt(w.profile, el);
+        const stopLen = Math.min(w.profile.len - s0, sp * 0.25);
+        const p = pointAtDistance(w.profile, s0);
+        v.x = p.x;
+        v.y = p.y;
+        if (stopLen > 0.2) {
+          const path = subPath(w.profile, s0, s0 + stopLen);
+          const end = path[path.length - 1]!;
+          const before = path[path.length - 2] ?? p;
+          const sw: LifeWalk = {
+            profile: stopProfile(path, sp, 0.5),
+            start: t,
+            to: { kind: 'point', x: end.x, y: end.y },
+            dest: { x: end.x, y: end.y, facing: v.walkFacing ?? v.bodyFacing ?? v.facing, posture: 'stand' },
+            face: 'viewer',
+            resolve: (ok) => ok && sidestep(v, end, before),
+            enterAt: 0,
+            fade: null,
+          };
+          v.lwalk = sw;
+          requestFrame();
+        } else {
+          v.lwalk = { profile: makeProfile([p, p], 1), start: t, to: { kind: 'point', x: p.x, y: p.y }, dest: { x: p.x, y: p.y, facing: v.bodyFacing ?? v.facing, posture: 'stand' }, face: 'viewer', resolve: () => {}, enterAt: 0, fade: null };
+          finishLifeWalk(v);
+        }
+        resolve(false);
+      },
+      done,
+    };
+  };
+
   // ── bubbles and anchors ────────────────────────────────────────────────────────────────────────────────────
   const bubbles = new Map<string, Bubble>();
+  const chips = new Map<string, Chip>();
+  const removeChip = (id: string) => {
+    const c = chips.get(id);
+    if (!c) return;
+    if (c.timer) clearTimeout(c.timer);
+    chips.delete(id);
+    if (reducedMotion()) c.el.remove();
+    else {
+      c.el.classList.add('is-leaving');
+      later(() => c.el.remove(), 200);
+    }
+  };
   const anchors = new Set<AnchorRec>();
   const bubbleTtl = (text: string, ttl?: number) => ttl ?? Math.min(9000, 4000 + 60 * text.length);
   const armBubble = (b: Bubble, ms: number) => {
@@ -963,15 +1656,23 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     b.expires = clock() + ms;
     b.timer = setTimeout(() => {
       b.timer = null;
-      if (hoveredId === b.id) armBubble(b, 3000);
+      if (hoveredId === b.id && !b.talk) armBubble(b, 3000);
       else removeBubble(b.id);
     }, ms);
+  };
+  /** At most three ambient bubbles on screen (A1): owner-facing and passing-by bubbles pre-empt small talk. */
+  const MAX_AMBIENT_BUBBLES = 3;
+  const capTalk = () => {
+    const talk = [...bubbles.values()].filter((b) => b.talk).sort((a, b) => a.at - b.at);
+    while (bubbles.size > MAX_AMBIENT_BUBBLES && talk.length) removeBubble(talk.shift()!.id);
   };
   const removeBubble = (id: string) => {
     const b = bubbles.get(id);
     if (!b) return;
     if (b.timer) clearTimeout(b.timer);
     bubbles.delete(id);
+    if (!b.talk) lifeHooks?.onHold(id, false, 'bubble');
+    else delete views.get(id)?.btn.dataset.talking;
     b.arc?.remove();
     if (reducedMotion()) b.el.remove();
     else {
@@ -984,13 +1685,76 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     const fs = lod === 0 ? 10 : faceSize(lod, cam.zoom, v.person.id === leadId);
     return { x: v.sx, y: v.sy - fs / 2 - (lod === 0 ? 4 : 6) };
   };
+  /** Every visible face with its name plate, on screen (rebuilt once per frame while bubbles or chips show). */
+  const faceBoxes = (): { id: string; r: Rect }[] => {
+    const out: { id: string; r: Rect }[] = [];
+    if (lod === 0) return out;
+    for (const v of views.values()) {
+      if (!v.visible || !Number.isFinite(v.sx) || v.roomId) continue;
+      const fs = faceSize(lod, cam.zoom, v.person.id === leadId);
+      out.push({ id: v.person.id, r: { x: v.sx - fs / 2 - 4, y: v.sy - fs / 2 - 4, w: fs + 8, h: fs + 26 } });
+    }
+    return out;
+  };
+  /** The HUD's controls on screen (the pill, the mode switch, the tools, zoom and minimap), cached for half a second. */
+  let hudCache: { at: number; rects: Rect[] } | null = null;
+  const hudRects = (): Rect[] => {
+    const t = clock();
+    if (hudCache && t - hudCache.at < 500) return hudCache.rects.slice();
+    const o = root.getBoundingClientRect();
+    const rects: Rect[] = [];
+    for (const e of hud.el.querySelectorAll<HTMLElement>('.hc-o-life,.hc-o-seg,.hc-o-tools,.hc-o-zoom,.hc-o-mini,.hc-o-follow')) {
+      if (e.hidden) continue;
+      const r = e.getBoundingClientRect();
+      if (r.width && r.height) rects.push({ x: r.left - o.left - 6, y: r.top - o.top - 6, w: r.width + 12, h: r.height + 12 });
+    }
+    rects.push(...insetLayout(insets, vp.w, vp.h).reserved);
+    hudCache = { at: t, rects };
+    return rects.slice();
+  };
+  /** Move the HUD's controls out of the host's reserved areas (CSS translate, so every layout rule still applies). */
+  const applyInsets = () => {
+    const { offsets } = insetLayout(insets, vp.w, vp.h);
+    for (const [k, o] of Object.entries(offsets)) {
+      root.style.setProperty(`--hc-o-${k}-x`, `${o.x}px`);
+      root.style.setProperty(`--hc-o-${k}-y`, `${o.y}px`);
+    }
+    hudCache = null;
+  };
+  const hitsAny = (r: Rect, blocks: readonly Rect[]) => blocks.some((f) => r.x < f.x + f.w && r.x + r.w > f.x && r.y < f.y + f.h && r.y + r.h > f.y);
   const placeBubbles = () => {
+    // An open huddle card already shows its lines: that huddle's own bubbles step aside.
+    const card = lifeUi?.cardId();
+    const cardMembers = card ? huddleMembers.get(card) : undefined;
+    const faces = bubbles.size || chips.size ? faceBoxes() : [];
+    const cardR = lifeUi?.cardRect() ?? null;
+    /** Bubbles already placed this frame (and the HUD): the next one keeps clear of them too. */
+    const placed: Rect[] = bubbles.size ? hudRects() : [];
     for (const b of bubbles.values()) {
       const v = views.get(b.id);
       if (!v) continue;
       const p = faceTop(v);
       b.el.style.transform = `translate3d(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px,0)`;
-      b.el.style.visibility = v.visible && mode === 'desks' ? '' : 'hidden';
+      const shown = v.visible && mode === 'desks' && !(b.talk && cardMembers?.includes(b.id));
+      b.el.style.visibility = shown ? '' : 'hidden';
+      if (shown && lod > 0) placed.push(avoidFaces(b, v, p, faces, placed, cardR));
+    }
+    for (const c of chips.values()) {
+      const v = views.get(c.id);
+      if (!v) continue;
+      const shown = v.visible && mode === 'desks' && lod > 0;
+      c.el.style.visibility = shown ? '' : 'hidden';
+      if (!shown) continue;
+      // Beside the face (right, else left), never over another face or a bubble.
+      const fs = faceSize(lod, cam.zoom, v.person.id === leadId);
+      const w = (c.w ??= (c.el.firstElementChild as HTMLElement | null)?.offsetWidth || 90);
+      const blocks = [...faces.filter((f) => f.id !== c.id).map((f) => f.r), ...placed];
+      const right = { x: v.sx + fs / 2 + 6, y: v.sy - 10, w, h: 20 };
+      const left = { x: v.sx - fs / 2 - 6 - w, y: v.sy - 10, w, h: 20 };
+      const side = !hitsAny(right, blocks) || hitsAny(left, blocks) ? 'right' : 'left';
+      const r = side === 'right' ? right : left;
+      c.el.style.transform = `translate3d(${r.x.toFixed(1)}px,${r.y.toFixed(1)}px,0)`;
+      placed.push(r);
     }
     for (const a of anchors) {
       const v = views.get(a.id);
@@ -999,6 +1763,151 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       a.el.style.transform = `translate3d(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px,0)`;
       a.el.style.visibility = v.visible ? '' : 'hidden';
     }
+  };
+  /**
+   * A bubble never covers anyone's face or name plate (OFFICE-LIFE §3.3, O5), a groupmate's or a bystander's, nor
+   * another bubble or the open card: above the speaker, else shifted above-left or above-right (the tail stays on the
+   * speaker), else below, else beside; as a last resort narrower (≤ 200 px) and lifted above the group's top-most face.
+   */
+  const avoidFaces = (b: Bubble, v: PView, anchor: Point, faces: readonly { id: string; r: Rect }[], placed: readonly Rect[], cardR: Rect | null): Rect => {
+    if (b.w === undefined) {
+      const inner = b.el.firstElementChild as HTMLElement | null;
+      b.w = inner?.offsetWidth || 200;
+      b.h = inner?.offsetHeight || 52;
+    }
+    const w = b.w;
+    const h = b.h ?? 52;
+    const fs = faceSize(lod, cam.zoom, v.person.id === leadId);
+    const near = (r: Rect) => Math.abs(r.x + r.w / 2 - anchor.x) < w + 80 && Math.abs(r.y + r.h / 2 - anchor.y) < h + fs + 120;
+    const blocks: Rect[] = [...faces.filter((f) => f.id !== v.person.id && near(f.r)).map((f) => f.r), ...placed];
+    if (cardR) blocks.push(cardR);
+    const inView = (r: Rect) => r.x >= 4 && r.x + r.w <= vp.w - 4 && r.y >= 4 && r.y + r.h <= vp.h - 4;
+    const ok = (r: Rect) => !hitsAny(r, blocks) && inView(r);
+    const top = anchor.y - 8 - h;
+    const faceMid = anchor.y + fs / 2 + 6;
+    let bx = 0;
+    let by = 0;
+    let sy = 0;
+    let side: NonNullable<Bubble['side']> = 'above';
+    let narrow = false;
+    let rect: Rect = { x: anchor.x - w / 2, y: top, w, h };
+    /**
+     * The smallest horizontal slide of a bubble centred on the speaker at height y that passes `test`; the tail stays on
+     * the speaker (a slide of at most half the width less 16 px). null when none does.
+     */
+    const slideAt = (y: number, ww: number, hh: number, test: (r: Rect) => boolean = ok): number | null => {
+      const x0 = anchor.x - ww / 2;
+      const lim = ww / 2 - 16;
+      const cands = [0, 4 - x0, vp.w - 4 - (x0 + ww)];
+      for (const f of blocks) cands.push(f.x + f.w - x0 + 2, -(x0 + ww - f.x + 2));
+      const c = cands.filter((d) => Math.abs(d) <= lim && test({ x: x0 + d, y, w: ww, h: hh })).sort((m, n) => Math.abs(m) - Math.abs(n))[0];
+      return c ?? null;
+    };
+    if (!ok(rect)) {
+      const belowY = anchor.y + fs + 30;
+      const right: Rect = { x: anchor.x + fs / 2 + 12, y: faceMid - h / 2, w, h };
+      const left: Rect = { x: anchor.x - fs / 2 - 12 - w, y: faceMid - h / 2, w, h };
+      const above = slideAt(top, w, h);
+      const under = above === null ? slideAt(belowY, w, h) : null;
+      if (above !== null) {
+        bx = above;
+        rect = { x: anchor.x - w / 2 + above, y: top, w, h };
+      } else if (under !== null) {
+        side = 'below';
+        bx = under;
+        rect = { x: anchor.x - w / 2 + under, y: belowY, w, h };
+      } else if (ok(right)) {
+        side = 'right';
+        rect = right;
+      } else if (ok(left)) {
+        side = 'left';
+        rect = left;
+      } else if ((() => {
+        // Beside the face, slid up or down (the tail stays on the face, at worst from the bubble's corner): clear of
+        // the HUD at the top edge.
+        const lim = h / 2 + Math.min(12, fs / 2);
+        for (let k = 8; k <= lim; k += 8) {
+          for (const d of [k, -k]) {
+            for (const [sd, r] of [['right', right], ['left', left]] as const) {
+              const c = { ...r, y: r.y + d };
+              if (ok(c)) {
+                side = sd;
+                rect = c;
+                sy = d;
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      })()) {
+        /* placed beside, shifted */
+      } else {
+        // Last resort: narrower, lifted above the group's top-most face (slid into the view if it has to).
+        const hid = lifeUi.huddleOf(v.person.id);
+        const group = hid ? (huddleMembers.get(hid) ?? []) : [v.person.id];
+        let topMost = anchor.y;
+        for (const id of group) {
+          const o = views.get(id);
+          if (o?.visible && Number.isFinite(o.sy)) topMost = Math.min(topMost, o.sy - faceSize(lod, cam.zoom, id === leadId) / 2 - 6);
+        }
+        const nw = Math.min(w, 200);
+        const nh = Math.max(h, Math.round((h * w) / 200));
+        const liftY = topMost - 8 - nh;
+        const hudR = hudRects();
+        const hard = cardR ? [...hudR, cardR] : hudR;
+        const lifted = slideAt(liftY, nw, nh) ?? slideAt(liftY, nw, nh, (r) => inView(r) && !hitsAny(r, hard));
+        if (lifted !== null) {
+          narrow = true;
+          by = topMost - anchor.y;
+          bx = lifted;
+          rect = { x: anchor.x - nw / 2 + lifted, y: liftY, w: nw, h: nh };
+        } else {
+          // At the edge of the view (someone at the north glass): never a clipped bubble, never under the HUD or the
+          // card; the in-view place that covers the fewest faces, below first.
+          const area = (r: Rect, f: Rect) => Math.max(0, Math.min(r.x + r.w, f.x + f.w) - Math.max(r.x, f.x)) * Math.max(0, Math.min(r.y + r.h, f.y + f.h) - Math.max(r.y, f.y));
+          const cover = (r: Rect) => (hitsAny(r, hard) ? 1e9 : 0) + blocks.reduce((a, f) => a + area(r, f), 0);
+          const inside = (r: Rect) => inView(r) && !hitsAny(r, hard);
+          const opts: { side: NonNullable<Bubble['side']>; r: Rect; bx: number }[] = [];
+          const ub = slideAt(belowY, w, h, inside);
+          if (ub !== null) opts.push({ side: 'below', r: { x: anchor.x - w / 2 + ub, y: belowY, w, h }, bx: ub });
+          if (inside(right)) opts.push({ side: 'right', r: right, bx: 0 });
+          if (inside(left)) opts.push({ side: 'left', r: left, bx: 0 });
+          const ua = slideAt(top, w, h, inside);
+          if (ua !== null) opts.push({ side: 'above', r: { x: anchor.x - w / 2 + ua, y: top, w, h }, bx: ua });
+          const best = opts.sort((m, n) => cover(m.r) - cover(n.r))[0];
+          if (best) {
+            side = best.side;
+            rect = best.r;
+            bx = best.bx;
+          }
+        }
+      }
+    }
+    if (bx !== (b.bx ?? 0)) {
+      b.bx = bx;
+      if (bx) b.el.style.setProperty('--bx', `${bx.toFixed(1)}px`);
+      else b.el.style.removeProperty('--bx');
+    }
+    if (by !== (b.by ?? 0)) {
+      b.by = by;
+      if (by) b.el.style.setProperty('--by', `${by.toFixed(1)}px`);
+      else b.el.style.removeProperty('--by');
+    }
+    if (sy !== (b.sy ?? 0)) {
+      b.sy = sy;
+      if (sy) b.el.style.setProperty('--sy', `${sy.toFixed(1)}px`);
+      else b.el.style.removeProperty('--sy');
+    }
+    if (side !== (b.side ?? 'above') || narrow !== !!b.narrow) {
+      b.side = side;
+      b.narrow = narrow;
+      b.el.classList.toggle('is-below', side === 'below');
+      b.el.classList.toggle('is-right', side === 'right');
+      b.el.classList.toggle('is-left', side === 'left');
+      b.el.classList.toggle('is-narrow', narrow);
+    }
+    return rect;
   };
   const handoffArc = (from: PView, to: PView): SVGSVGElement | undefined => {
     if (reducedMotion() || !from.visible || !to.visible) return undefined;
@@ -1080,10 +1989,14 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     const roomIds = plan.rooms.filter((r) => r.rect.x < br.x && r.rect.x + r.rect.w > tl.x && Y(r.rect.y) < br.y && Y(r.rect.y + r.rect.h) > tl.y).map((r) => r.id);
     options.onViewportChange({ personIds: stage.isOpen && roomId ? (roomPeople.get(roomId) ?? []).slice() : personIds, roomIds: stage.isOpen && roomId ? [roomId] : roomIds, zoom: cam.zoom, lod });
   };
+  /** The desk-mode camera from before the owner walked into a room: remembered for the Floor, and flown back to on leaving. */
+  let deskCam: Camera | null = null;
   const saveCamera = () => {
     if (!cameraKey) return;
+    // In a room, the Floor remembers the office view from before it (never the room's close-up).
+    const c = mode === 'conference' && deskCam ? deskCam : cam;
     try {
-      win.sessionStorage?.setItem(cameraKey, JSON.stringify({ x: cam.x, y: cam.y, zoom: cam.zoom, w: vp.w, h: vp.h }));
+      win.sessionStorage?.setItem(cameraKey, JSON.stringify({ x: c.x, y: c.y, zoom: c.zoom, w: vp.w, h: vp.h }));
     } catch {
       /* storage unavailable */
     }
@@ -1163,6 +2076,9 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     if (!roomId || roomId !== room.id || mode !== 'conference') return;
     const cap = room.capacity;
     stage.open({ id: room.id, name: room.name, view: room.view, capacity: cap + 1 }, roomPeople.get(room.id) ?? [], animate);
+    stopFollow();
+    lifeUi.closeCard();
+    lifeHooks?.onStage?.(true);
     for (const id of roomPeople.get(room.id) ?? []) {
       const v = views.get(id);
       if (v) stage.setPresence(id, v.speaking ? 'speaking' : v.state, v.label);
@@ -1250,6 +2166,8 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       hoveredId = id;
       views.get(id)?.btn.setAttribute('data-hover', '');
       scheduleTiers();
+      lifeHooks?.onHold(id, true, 'hover');
+      lifeUi?.hoverPerson(id);
       options.onHover?.(id, { phase: 'enter', via });
       options.onFocusChange?.(id);
     },
@@ -1258,6 +2176,8 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       if (hoveredId === id) hoveredId = null;
       views.get(id)?.btn.removeAttribute('data-hover');
       scheduleTiers();
+      lifeHooks?.onHold(id, false, 'hover');
+      lifeUi?.hoverPerson(null);
       options.onHoverEnd?.(id, { via });
       if (!focusedId) options.onFocusChange?.(null);
       const b = bubbles.get(id);
@@ -1293,7 +2213,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
   };
   const inChrome = (e: Event) => {
     const t = e.target as HTMLElement | null;
-    return !!t?.closest?.('.hc-o-hud,.hc-o-stage,.hc-o-picker,.hc-o-bubble,.hc-o-skip,.hc-o-anchor');
+    return !!t?.closest?.('.hc-o-hud,.hc-o-stage,.hc-o-picker,.hc-o-bubble,.hc-o-skip,.hc-o-anchor,.hc-o-hcard,.hc-o-huddle');
   };
 
   const roomAt = (p: Point): string | null => {
@@ -1306,9 +2226,12 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
   const onPointerDown = (e: PointerEvent) => {
     if (inChrome(e) || mode !== 'desks' || picker) return;
     if (e.button !== undefined && e.button > 0) return;
+    if (followingId) stopFollow();
+    if (!(e.target as HTMLElement)?.closest?.('.hc-o-hcard,.hc-o-huddle')) lifeUi?.closeCard();
     const p = localPoint(e);
     pointers.set(e.pointerId, p);
     if (pointers.size === 2) {
+      cameraTouched = true;
       const [a, b] = [...pointers.values()] as [Point, Point];
       pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y), z0: cam.zoom, cam0: cam, mid0: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
       if (panState?.longPress) clearTimeout(panState.longPress);
@@ -1338,6 +2261,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     if (!st.seatId) return;
     st.dragging = true;
     dragId = st.seatId;
+    lifeHooks?.onHold(st.seatId, true, 'drag');
     const v = views.get(st.seatId)!;
     v.btn.dataset.dragging = '';
     ghost.hidden = false;
@@ -1371,6 +2295,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       lightSvg?.querySelectorAll('.hc-o-droplight').forEach((r) => r.removeAttribute('data-on'));
       if (v) delete v.btn.dataset.dragging;
       dragId = null;
+      lifeHooks?.onHold(id, false, 'drag');
       scheduleTiers();
     };
     const ok = rid ? invite(rid, [id], 'drag') : false;
@@ -1403,6 +2328,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       const dy = p.y - st.y0;
       if (!st.moved && Math.hypot(dx, dy) >= (st.seatId && !st.touch ? 6 : 5)) {
         st.moved = true;
+        cameraTouched = true;
         if (st.longPress) clearTimeout(st.longPress);
         if (st.seatId && !st.touch) startDrag(st, p);
         else root.dataset.panning = '';
@@ -1447,10 +2373,9 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     const dt = clock() - st.t0;
     if (!st.moved && dt < 350) {
       if (st.seatId) {
-        if (st.touch) {
-          if (dwell.current === st.seatId) options.onOpen?.(st.seatId, { via: 'click', mode, roomId });
-          else dwell.tap(st.seatId);
-        } else options.onOpen?.(st.seatId, { via: 'click', mode, roomId });
+        // A tap is a click: they look up (the dwell) and the quick chat opens in place, in one gesture.
+        if (st.touch) dwell.tap(st.seatId);
+        options.onOpen?.(st.seatId, { via: 'click', mode, roomId });
         rovingId = st.seatId;
         updateRoving();
         return;
@@ -1487,10 +2412,12 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
   let wheelNotch = { t: 0, n: 0 };
   const onWheel = (e: WheelEvent) => {
     if (mode !== 'desks' || picker) return;
-    if ((e.target as HTMLElement)?.closest?.('.hc-o-menu,.hc-o-picker,.hc-o-stage')) return;
+    if ((e.target as HTMLElement)?.closest?.('.hc-o-menu,.hc-o-picker,.hc-o-stage,.hc-o-hcard')) return;
     e.preventDefault();
     stopMotion();
+    if (followingId) stopFollow();
     const p = localPoint(e);
+    cameraTouched = true;
     const scale = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? vp.h : 1;
     const dx = e.deltaX * scale;
     const dy = e.deltaY * scale;
@@ -1536,6 +2463,30 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     flyTo(zoomAround(cam, z, p, vp), undefined, 250);
   };
 
+  /**
+   * The free part of the view (px): below the HUD row and clear of the host's insets, less a margin at each edge.
+   * A focused person or huddle is framed inside it, never half under the HUD or at the viewport's edge.
+   */
+  const safeArea = () => {
+    const mx = vp.w * EDGE_MARGIN;
+    const my = vp.h * EDGE_MARGIN;
+    return { left: mx + insets.left, right: vp.w - mx - insets.right, top: Math.max(my, HUD_BAND_PX + insets.top), bottom: vp.h - my - insets.bottom };
+  };
+  /** Is a projected point inside the safe area with this camera? */
+  const inSafeArea = (p: Point, c: Camera = cam): boolean => {
+    const a = safeArea();
+    const sx = (p.x - c.x) * c.zoom + vp.w / 2;
+    const sy = (p.y - c.y) * c.zoom + vp.h / 2;
+    return sx >= a.left && sx <= a.right && sy >= a.top && sy <= a.bottom;
+  };
+  /** A camera at `zoom` that puts `p` at the centre of the safe area (below the HUD band). */
+  const frameAt = (p: Point, zoom: number): Camera => {
+    const a = safeArea();
+    return { x: p.x - ((a.left + a.right) / 2 - vp.w / 2) / zoom, y: p.y - ((a.top + a.bottom) / 2 - vp.h / 2) / zoom, zoom };
+  };
+  /** The seat that focusSeat is flying to: its own focus event must not replace that flight with a nudge. */
+  let flyingToSeat: string | null = null;
+
   const focusSeat = (id: string, opts: { animate?: boolean; zoom?: 'keep' | 'desk' } = {}) => {
     const v = views.get(id);
     if (!v) return;
@@ -1543,11 +2494,16 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     updateRoving();
     const a = personAnchor(v);
     let target: Camera;
-    if (opts.zoom === 'desk') target = { x: a.x, y: a.y, zoom: Math.max(cam.zoom, ZOOM_DESK) };
+    if (opts.zoom === 'desk') target = frameAt(a, Math.max(cam.zoom, ZOOM_DESK));
     else target = followPoint(cam, a, vp);
     const animate = opts.animate !== false;
     flyTo(target, undefined, animate ? (opts.zoom === 'desk' ? FLIGHT_MS : 250) : 0);
-    v.btn.focus({ preventScroll: true });
+    flyingToSeat = id;
+    try {
+      v.btn.focus({ preventScroll: true });
+    } finally {
+      flyingToSeat = null;
+    }
   };
 
   const onFocusIn = (e: FocusEvent) => {
@@ -1557,7 +2513,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     rovingId = id;
     updateRoving();
     const v = views.get(id)!;
-    if (!v.visible || v.sx < vp.w * 0.15 || v.sx > vp.w * 0.85 || v.sy < vp.h * 0.15 || v.sy > vp.h * 0.85) {
+    if (flyingToSeat !== id && (!v.visible || !inSafeArea(personAnchor(v)))) {
       flyTo(followPoint(cam, personAnchor(v), vp), undefined, 250);
     }
     let kbd = false;
@@ -1568,6 +2524,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     }
     if (kbd || !hoveredId) dwell.keyboard(id);
     scheduleTiers();
+    lifeHooks?.onHold(id, true, 'focus');
     options.onFocusChange?.(id);
   };
   const onFocusOut = (e: FocusEvent) => {
@@ -1578,6 +2535,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     focusedId = null;
     dwell.keyboard(null);
     scheduleTiers();
+    lifeHooks?.onHold(id, false, 'focus');
     if (!hoveredId) options.onFocusChange?.(null);
   };
 
@@ -1592,9 +2550,12 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
   const onKeyDown = (e: KeyboardEvent) => {
     if (destroyed || !root.isConnected) return;
     // Document-level routing (keyTarget 'document') leaves keys aimed at other widgets on the page alone.
+    // A header button keeps the keys it acts on (Enter, Space, arrows, Esc…); the office's letter shortcuts still work
+    // from it (after picking an Ambience, H finds a huddle). Open menus, dialogs and lists keep every key.
     if (keyTarget === 'document' && e.target instanceof Node && !root.contains(e.target) && e.target !== doc.body && e.target !== doc.documentElement) {
       const t = e.target as HTMLElement;
-      if (t.closest?.('button,a,[role=button],[role=menu],[role=dialog],[role=listbox],[contenteditable]')) return;
+      if (t.closest?.('[role=menu],[role=dialog],[role=listbox],[contenteditable]')) return;
+      if (t.closest?.('button,a,[role=button],[role=radio],[role=tab]') && (e.key.length !== 1 || e.key === ' ')) return;
     }
     // Esc in the stage's own (empty) message field leaves the room; with text in it, Esc clears the text first.
     if (e.key === 'Escape' && mode === 'conference' && !picker && (e.target as HTMLElement)?.closest?.('.hc-o-compose')) {
@@ -1648,9 +2609,25 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       '-': () => zoomStep(-1),
       _: () => zoomStep(-1),
       '0': () => api.zoomTo('fit'),
-      f: () => focusedId && api.focus(focusedId, { animate: true, zoom: 'desk' }),
+      f: () => {
+        if (!focusedId) return;
+        api.focus(focusedId, { animate: true, zoom: 'desk' });
+        api.follow(focusedId);
+      },
+      h: () => nextHuddle(),
       Escape: () => {
         if (hud.closeMenus()) return;
+        if (lifeUi?.closePopover()) return;
+        if (followingId) {
+          stopFollow();
+          return;
+        }
+        if (lifeUi?.cardId()) {
+          const id = lifeUi.cardId()!;
+          if (lifeJoined.has(id)) lifeHooks?.onHuddleAction(id, 'leave');
+          lifeUi.closeCard();
+          return;
+        }
         if (focusedId && bubbles.has(focusedId)) api.hideBubble(focusedId);
         else if (findIds) {
           findIds = null;
@@ -1660,6 +2637,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     };
     const fn = map[k.length === 1 ? k.toLowerCase() : k] ?? map[k];
     if (!fn) return;
+    if (followingId && ['+', '=', '-', '_', '0', '[', ']', 'PageUp', 'PageDown', 'Home'].includes(k)) stopFollow();
     // Arrows and Enter act on the focused seat; [ ], PageUp/PageDown and Home also work from the floor.
     if ((k.startsWith('Arrow') || k === 'Enter') && !peopleEl.contains(doc.activeElement)) return;
     e.preventDefault();
@@ -1681,13 +2659,27 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     if (idle >= CALM_MS - 20) root.dataset.calm = '';
     else calmTimer = later(checkCalm, CALM_MS - idle);
   };
-  const wake = () => {
+  let lastPointer: Point | null = null;
+  const wake = (e?: Event) => {
+    if (e && e.type === 'pointermove') {
+      const pe = e as PointerEvent;
+      const p = { x: pe.clientX, y: pe.clientY };
+      const small = lastPointer && Math.hypot(p.x - lastPointer.x, p.y - lastPointer.y) <= 3;
+      lastPointer = p;
+      if (small) return;
+    }
     lastInput = clock();
     if (root.dataset.calm !== undefined) delete root.dataset.calm;
     if (!calmTimer) calmTimer = later(checkCalm, CALM_MS);
+    // Any input stops an autopilot flight where it is (no snap back).
+    if (apFlying) {
+      apFlying = false;
+      flight = null;
+      apInterrupted = clock();
+    }
   };
-  for (const type of ['pointerdown', 'pointermove', 'wheel', 'keydown'] as const) root.addEventListener(type, wake, { capture: true, passive: true });
-  if (keyEl !== root) keyEl.addEventListener('keydown', wake, { capture: true, passive: true });
+  for (const type of ['pointerdown', 'pointermove', 'wheel', 'keydown'] as const) root.addEventListener(type, wake as EventListener, { capture: true, passive: true });
+  if (keyEl !== root) keyEl.addEventListener('keydown', wake as EventListener, { capture: true, passive: true });
   root.addEventListener('pointerdown', onPointerDown);
   root.addEventListener('pointermove', onPointerMove);
   root.addEventListener('pointerup', onPointerUp);
@@ -1745,6 +2737,181 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     mql = null;
   }
 
+  // ── office life: the layer, follow and autopilot (OFFICE-LIFE §3.5, §4) ─────────────────────────────────────
+  const huddleMembers = new Map<string, string[]>();
+  const lifeJoined = new Set<string>();
+  let lifeSummary: LifeSummary | null = null;
+  const lifeUi: LifeUi = createLifeUi({
+    doc,
+    strings: S,
+    root,
+    hud: hud.el,
+    before: peopleEl,
+    firstName: (id) => firstName(views.get(id)?.person.name ?? id),
+    accent: (id) => views.get(id)?.acc ?? '#888',
+    onHuddleAction: (id, action, text) => {
+      if (action === 'room') {
+        // Open in a room: they walk to a table for a proper roundtable.
+        const members = (huddleMembers.get(id) ?? []).slice();
+        lifeHooks?.onHuddleAction(id, 'leave');
+        lifeUi.closeCard();
+        const free = plan.rooms.find((r) => !(roomPeople.get(r.id) ?? []).length) ?? plan.rooms[0];
+        if (free) api.enterRoom(free.id, members);
+        return;
+      }
+      if (action === 'open' || action === 'close') placeBubbles();
+      lifeHooks?.onHuddleAction(id, action, text);
+    },
+    onPause: (p) => {
+      lifeHooks?.onPauseToggle(p);
+      options.onLifePause?.(p);
+    },
+    onAutopilot: (on) => api.setAutopilot(on),
+    onMoment: (m, then) => {
+      flyTo({ x: m.at.x, y: m.at.y, zoom: Math.max(cam.zoom, Math.min(AUTOPILOT.maxZoom, m.zoom)) }, undefined, FLIGHT_MS);
+      const id = m.personIds[0];
+      if (then === 'follow' && id) later(() => api.follow(id), FLIGHT_MS + 20);
+      // A raised hand: talk to them (the host opens its quick chat, as a click on their face would).
+      if (then === 'talk' && id) later(() => options.onOpen?.(id, { via: 'click', mode, roomId }), FLIGHT_MS + 20);
+    },
+    onFollowStop: () => stopFollow(),
+    onOffer: (accept) => {
+      storeAp('offer', 'done');
+      lifeUi.offerWander(false);
+      if (accept) api.setAutopilot(true);
+    },
+    onCardHold: (members, held) => {
+      for (const id of members) lifeHooks?.onHold(id, held, 'hover');
+    },
+    reducedMotion,
+  });
+  const nextHuddle = () => {
+    const id = lifeUi.nextHuddle((hid) => {
+      const members = huddleMembers.get(hid) ?? [];
+      return members.some((m) => api.visibility(m) > 0);
+    });
+    if (!id) return;
+    const members = (huddleMembers.get(id) ?? []).map((m) => views.get(m)).filter((v): v is PView => !!v);
+    // Bring the whole huddle into the free part of the view (not only when it is off-screen): its ring and card are
+    // never half under the HUD or cut by an edge.
+    if (members.length && !members.every((v) => inSafeArea(personAnchor(v)))) {
+      const c = members.reduce((a, v) => ({ x: a.x + v.x / members.length, y: a.y + v.y / members.length }), { x: 0, y: 0 });
+      flyTo(frameAt({ x: c.x, y: Y(c.y, 11) }, Math.max(cam.zoom, ZOOM_NEIGHBOURHOOD)), undefined, FLIGHT_MS);
+    }
+  };
+
+  // Follow: a critically damped spring keeps the person inside a 25 % inset, at L1 or closer.
+  /** Keep a following camera over the floor (no void beside or below the plate when the plate is larger than the view). */
+  const overFloor = (c: Camera): Camera => {
+    const hw = vp.w / 2 / c.zoom;
+    const hh = vp.h / 2 / c.zoom;
+    let { x, y } = c;
+    if (box.w > 2 * hw) x = Math.min(box.x + box.w - hw, Math.max(box.x + hw, x));
+    if (box.h > 2 * hh) y = Math.min(box.y + box.h - hh, y);
+    return clampCamera({ x, y, zoom: c.zoom }, box, vp);
+  };
+  let followingId: string | null = null;
+  let followVel = { x: 0, y: 0 };
+  let followLast = 0;
+  const stopFollow = () => {
+    if (!followingId) return;
+    followingId = null;
+    lifeUi.setFollow(null);
+    lifeHooks?.onFollow?.(null);
+    options.onFollowChange?.(null);
+  };
+  const stepFollow = (t: number): boolean => {
+    if (!followingId) return false;
+    const v = views.get(followingId);
+    if (!v || mode !== 'desks') {
+      stopFollow();
+      return false;
+    }
+    if (flight) {
+      followLast = t;
+      return true;
+    }
+    const a = personAnchor(v);
+    const target = overFloor({ ...followTarget(cam, a, vp.w / 2 / cam.zoom, vp.h / 2 / cam.zoom, 0.25), zoom: cam.zoom });
+    const dt = followLast ? Math.min(0.05, Math.max(0.001, (t - followLast) / 1000)) : 1 / 60;
+    followLast = t;
+    if (reducedMotion()) {
+      // Reduced motion: the camera jumps when the person leaves the inset.
+      if (Math.hypot(target.x - cam.x, target.y - cam.y) > 0.01) cam = clampCamera({ x: target.x, y: target.y, zoom: cam.zoom }, box, vp);
+      return false;
+    }
+    const [x, vx] = springStep(cam.x, followVel.x, target.x, dt);
+    const [y, vy] = springStep(cam.y, followVel.y, target.y, dt);
+    cam = clampCamera({ x, y, zoom: cam.zoom }, box, vp);
+    followVel = { x: vx, y: vy };
+    const settling = Math.hypot(target.x - cam.x, target.y - cam.y) > 0.05 || Math.hypot(vx, vy) > 0.05;
+    return settling || !!v.lwalk || !!v.walk;
+  };
+
+  // Autopilot: optional, off by default, stored per viewer; flies to the top moment after 20 s without input.
+  const apKey = options.autopilotKey === undefined ? 'hc.office.autopilot' : options.autopilotKey;
+  const readAp = (suffix = ''): string | null => {
+    if (!apKey) return null;
+    try {
+      return win.localStorage?.getItem(apKey + (suffix ? `.${suffix}` : '')) ?? null;
+    } catch {
+      return null;
+    }
+  };
+  const storeAp = (suffix: string, value: string) => {
+    if (!apKey) return;
+    try {
+      win.localStorage?.setItem(apKey + (suffix ? `.${suffix}` : ''), value);
+    } catch {
+      /* storage unavailable */
+    }
+  };
+  let autopilot = options.autopilot ?? readAp() === 'on';
+  let apFlying = false;
+  let apFlights: number[] = [];
+  let apHoldUntil = 0;
+  let apInterrupted: number | null = null;
+  let offered: Moment | null = null;
+  let apTimer: ReturnType<typeof setTimeout> | null = null;
+  let passiveCounted = false;
+  const apBlocked = () =>
+    reducedMotion() || mode !== 'desks' || stage.isOpen || !!picker || !!followingId || doc.visibilityState === 'hidden' || isTyping(doc.activeElement) || lifeJoined.size > 0 || !!lifeUi.cardId();
+  const apCheck = () => {
+    apTimer = null;
+    if (destroyed) return;
+    const now = clock();
+    // The one-time offer: after a minute of passive watching on two separate visits.
+    if (!autopilot && !passiveCounted && lifeSummary && now - lastInput >= 60_000) {
+      passiveCounted = true;
+      const visits = Number(readAp('visits') ?? '0') + 1;
+      storeAp('visits', String(visits));
+      if (visits >= 2 && readAp('offer') !== 'done' && !reducedMotion()) lifeUi.offerWander(true);
+    }
+    if (autopilot && offered && !apBlocked() && autopilotDue({ lastInput, flights: apFlights, holdUntil: apHoldUntil, interruptedAt: apInterrupted }, now)) {
+      const m = offered;
+      const target = { x: m.at.x, y: m.at.y, zoom: Math.max(2.6, Math.min(AUTOPILOT.maxZoom, m.zoom)) };
+      const far = Math.hypot(target.x - cam.x, target.y - cam.y) * cam.zoom > vp.w * AUTOPILOT.farViewports;
+      apFlying = true;
+      apFlights = [...apFlights.filter((t) => now - t < 60_000), now];
+      apHoldUntil = now + AUTOPILOT.flightMs + holdFor(m, Date.now());
+      const land = () => {
+        apFlying = false;
+      };
+      lifeHooks?.onMomentShown?.(m);
+      if (far) {
+        // Two phases: out toward the floor, then in.
+        const mid = { x: (cam.x + target.x) / 2, y: (cam.y + target.y) / 2, zoom: Math.max(minZoom, Math.min(cam.zoom, target.zoom) / 2.2) };
+        flyTo(mid, () => apFlying && flyTo(target, land, AUTOPILOT.flightMs * 0.6), AUTOPILOT.flightMs * 0.5);
+      } else flyTo(target, land, AUTOPILOT.flightMs);
+    }
+    // Opt-in autopilot polls every 2 s; otherwise one timer waits for the next minute of calm (the one-time offer).
+    if (autopilot) apTimer = setTimeout(apCheck, 2000);
+    else if (!passiveCounted && lifeSummary && doc.visibilityState !== 'hidden') apTimer = setTimeout(apCheck, Math.max(2000, lastInput + 60_000 - now + 50));
+  };
+  const startAp = () => {
+    if (!apTimer && !destroyed) apTimer = setTimeout(apCheck, 2000);
+  };
+
   // ── public API ─────────────────────────────────────────────────────────────────────────────────────────────
   const api: OfficeScene = {
     el: root,
@@ -1757,6 +2924,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       render();
       scheduleSettle();
       requestFrame();
+      lifeHooks?.onReplan?.();
     },
     setPresence(id, state, opts = {}) {
       if (destroyed) return;
@@ -1768,6 +2936,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       v.badges = opts.badges ?? [];
       applyPresence(v);
       if (stage.isOpen && v.roomId === roomId) stage.setPresence(id, v.speaking ? 'speaking' : state, v.label);
+      lifeHooks?.onPresence?.(id, v.state, v.badges, v.speaking);
     },
     setSpeaking(id, on) {
       if (destroyed) return;
@@ -1779,24 +2948,33 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       applyPresence(v);
       scheduleTiers();
       if (stage.isOpen) stage.setSpeaking(id, on);
+      lifeHooks?.onPresence?.(id, v.state, v.badges, v.speaking);
     },
     showBubble(id, text, opts = {}) {
       if (destroyed) return;
       const v = known(id);
       if (!v) return;
       let b = bubbles.get(id);
+      if (b?.talk) {
+        removeBubble(id);
+        b = undefined;
+      }
       if (!b) {
         const el = mk('div', 'hc-o-bubble', bubblesEl);
         el.style.setProperty('--acc', v.acc);
         el.setAttribute('role', 'note');
-        b = { id, el, timer: null, expires: 0 };
+        b = { id, el, timer: null, expires: 0, at: clock() };
         bubbles.set(id, b);
+        lifeHooks?.onHold(id, true, 'bubble');
         if (!reducedMotion()) {
           el.classList.add('is-entering');
           void el.offsetWidth;
           el.classList.remove('is-entering');
         }
       }
+      b.passive = !!opts.passive;
+      b.el.classList.toggle('hc-o-bubble--passive', b.passive);
+      b.w = undefined;
       b.el.replaceChildren();
       const inner = mk('div', 'hc-o-bubble__in', b.el);
       const who = mk('b', 'hc-o-bubble__who', inner);
@@ -1810,6 +2988,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       const t = mk('span', 'hc-o-bubble__text', inner);
       t.textContent = text;
       armBubble(b, bubbleTtl(text, opts.ttlMs));
+      capTalk();
       placeBubbles();
       scheduleTiers();
     },
@@ -1821,12 +3000,17 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       const rec: AnchorRec = { id, el };
       anchors.add(rec);
       if (!views.has(id)) known(id);
+      else lifeHooks?.onHold(id, true, 'anchor');
       placeBubbles();
+      let released = false;
       return {
         el,
         release() {
+          if (released) return;
+          released = true;
           anchors.delete(rec);
           el.remove();
+          if (views.has(id)) lifeHooks?.onHold(id, false, 'anchor');
         },
       };
     },
@@ -1890,10 +3074,13 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
         return;
       }
       if (mode === 'conference' && roomId && roomId !== rid) api.leaveRoom();
+      if (mode === 'desks') deskCam = flight ? flight.to : cam;
       picker?.close();
       hud.closeMenus();
+      stopFollow();
       dwell.clear();
       for (const id of [...bubbles.keys()]) removeBubble(id);
+      for (const id of [...chips.keys()]) removeChip(id);
       lastRoom = rid;
       setModeState('conference', rid);
       const animate = !reducedMotion();
@@ -1936,8 +3123,10 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       const rid = roomId;
       const list = rid ? (roomPeople.get(rid) ?? []).slice() : [];
       picker?.close();
+      const wasOpen = stage.isOpen;
       stage.close(!reducedMotion());
       setModeState('desks', null);
+      if (wasOpen) lifeHooks?.onStage?.(false);
       if (rid) {
         roomPeople.set(rid, []);
         let delay = 0;
@@ -1952,6 +3141,10 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       }
       manageFaces();
       requestFrame();
+      // Step back out to the office view from before the room (never left on the room's close-up).
+      const back = deskCam;
+      deskCam = null;
+      if (back) flyTo(back, undefined, reducedMotion() ? 0 : FLIGHT_MS);
       later(() => {
         const v = views.get(rovingId ?? '');
         if (root.contains(doc.activeElement) || doc.activeElement === doc.body) v?.btn.focus({ preventScroll: true });
@@ -1982,6 +3175,12 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       rmSetting = value;
       applyMotion();
     },
+    setInsets(next) {
+      if (destroyed) return;
+      insets = normInsets(next);
+      applyInsets();
+      placeBubbles();
+    },
     getState(): OfficeState {
       return {
         mode,
@@ -1993,6 +3192,239 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
         focusedId,
         hoveredId,
         timeOfDay: tod,
+        followingId,
+        autopilot,
+        lifePaused: !!lifeSummary?.paused,
+        huddles: [...huddleMembers].map(([id, members]) => ({ id, members: members.slice() })),
+        huddleCard: lifeUi.cardId(),
+      };
+    },
+    nameOf(id) {
+      return views.get(id)?.person.name ?? id;
+    },
+
+    // ── office life (OFFICE-LIFE §6.1): the director drives the scene only through these ──
+    getPlan() {
+      return plan;
+    },
+    spots() {
+      return spotsCache;
+    },
+    moveTo(id, to, opts) {
+      return lifeMove(id, to, opts);
+    },
+    placeOf(id) {
+      const v = views.get(id);
+      if (!v) return { place: { kind: 'desk' }, x: 0, y: 0, walking: false };
+      if (v.lwalk && !v.lwalk.fade) {
+        const p = pointAtDistance(v.lwalk.profile, distanceAt(v.lwalk.profile, (clock() - v.lwalk.start) / 1000));
+        return { place: { kind: 'point', x: p.x, y: p.y }, x: p.x, y: p.y, walking: true };
+      }
+      if (v.roomId) return { place: { kind: 'room', roomId: v.roomId, seat: v.roomSeat }, x: v.x, y: v.y, walking: !!v.walk };
+      return { place: v.place, x: v.x, y: v.y, walking: !!v.walk || !!v.lwalk };
+    },
+    face(id, toward, opts) {
+      const v = views.get(id);
+      if (!v || destroyed) return;
+      // At a desk people keep facing their screen; elsewhere their body turns (plan view).
+      if (v.place.kind !== 'desk' || v.lwalk) turnToward(v, toward, v.bodyFacing ?? v.facing);
+      if (opts?.lean !== undefined) {
+        v.lean = reducedMotion() ? 0 : opts.lean;
+        if (v.lean) v.btn.style.setProperty('--lean', `${v.lean}deg`);
+        else v.btn.style.removeProperty('--lean');
+      }
+    },
+    cue(id, gesture: Cue) {
+      const v = views.get(id);
+      if (!v || destroyed) return;
+      if (v.slot?.cue) {
+        v.slot.cue(gesture);
+        return;
+      }
+      // Off-screen or at plan zoom a face cue shows nothing: skip it (no style work for faces nobody sees).
+      if (reducedMotion() || !v.visible || lod === 0) return;
+      // Restart the animation without forcing a layout: clear it now, set it on the next frame.
+      delete v.btn.dataset.cue;
+      const seq = (v.cueSeq = (v.cueSeq ?? 0) + 1);
+      const set = () => {
+        if (destroyed || v.cueSeq !== seq) return;
+        v.btn.dataset.cue = gesture;
+        later(() => {
+          if (v.cueSeq === seq && v.btn.dataset.cue === gesture) delete v.btn.dataset.cue;
+        }, 950);
+      };
+      const raf = win.requestAnimationFrame?.bind(win);
+      if (raf) raf(set);
+      else later(set, 16);
+    },
+    say(id, text, opts) {
+      if (destroyed || mode !== 'desks') return;
+      const v = views.get(id);
+      if (!v) return;
+      if (opts.nonverbal) {
+        // A laugh is a caption chip beside the face (no name, no tail, ≤ 1.2 s), never a speech bubble.
+        removeChip(id);
+        const el = mk('div', 'hc-o-chip', bubblesEl);
+        el.setAttribute('aria-hidden', 'true');
+        const inner = mk('span', 'hc-o-chip__in', el);
+        inner.textContent = text;
+        const c: Chip = { id, el, timer: null };
+        chips.set(id, c);
+        if (!reducedMotion()) {
+          el.classList.add('is-entering');
+          void el.offsetWidth;
+          el.classList.remove('is-entering');
+        }
+        c.timer = setTimeout(() => removeChip(id), Math.min(1200, opts.ttlMs));
+        placeBubbles();
+        return;
+      }
+      const prev = bubbles.get(id);
+      // Owner-facing and passing-by bubbles are never replaced by small talk.
+      if (prev && !prev.talk) return;
+      if (prev) removeBubble(id);
+      const el = mk('div', `hc-o-bubble hc-o-bubble--talk${opts.nonverbal ? ' is-nonverbal' : ''}`, bubblesEl);
+      el.style.setProperty('--acc', v.acc);
+      el.setAttribute('aria-hidden', 'true');
+      const b: Bubble = { id, el, timer: null, expires: 0, talk: opts.huddleId, at: clock() };
+      bubbles.set(id, b);
+      if (!reducedMotion()) {
+        el.classList.add('is-entering');
+        void el.offsetWidth;
+        el.classList.remove('is-entering');
+      }
+      const inner = mk('div', 'hc-o-bubble__in', el);
+      const who = mk('b', 'hc-o-bubble__who', inner);
+      who.textContent = firstName(v.person.name);
+      const t = mk('span', 'hc-o-bubble__text', inner);
+      t.textContent = text;
+      v.btn.dataset.talking = '';
+      armBubble(b, opts.ttlMs);
+      capTalk();
+      placeBubbles();
+      scheduleTiers();
+    },
+    unsay(id) {
+      const b = bubbles.get(id);
+      if (b?.talk) removeBubble(id);
+      removeChip(id);
+    },
+    trimBubbles(ids, maxMs) {
+      for (const id of ids) {
+        const b = bubbles.get(id);
+        if (b && !b.talk && b.expires - clock() > maxMs) armBubble(b, maxMs);
+      }
+    },
+    frameOpening(p) {
+      // Only the default opening view that nobody has moved: a restored camera or any input wins.
+      if (destroyed || !openedOnDefault || cameraTouched || mode !== 'desks') return;
+      const zoom = narrow() ? cam.zoom : clampZoom(ZOOM_NEIGHBOURHOOD, minZoom);
+      const at = { x: p.x, y: Y(p.y, 6) };
+      let next: Camera;
+      if (narrow()) {
+        // Phones: the target at 40 % of the height, and at most a fifth of a portrait screen of sky above the floor.
+        next = { x: at.x, y: at.y + (vp.h * 0.1) / zoom, zoom };
+        if (vp.h > vp.w) next.y = Math.max(next.y, Y(0) + (vp.h * (0.5 - PHONE_SKY_MAX)) / zoom);
+      } else next = frameAt(at, zoom);
+      cam = clampCamera(next, box, vp);
+      lod = lodFor(cam.zoom);
+      root.dataset.lod = String(lod);
+      settledZoom = cam.zoom;
+      render();
+      settle();
+    },
+    visibility(id) {
+      const v = views.get(id);
+      if (!v || destroyed || mode !== 'desks') return 0;
+      const a = personAnchor(v);
+      const sx = (a.x - cam.x) * cam.zoom + vp.w / 2;
+      const sy = (a.y - cam.y) * cam.zoom + vp.h / 2;
+      return sx >= 0 && sx <= vp.w && sy >= 0 && sy <= vp.h ? ((lod + 1) as 1 | 2 | 3) : 0;
+    },
+    visibilityAt(p) {
+      if (destroyed || mode !== 'desks') return 0;
+      const sx = (p.x - cam.x) * cam.zoom + vp.w / 2;
+      const sy = (Y(p.y, 11) - cam.y) * cam.zoom + vp.h / 2;
+      return sx >= 0 && sx <= vp.w && sy >= 0 && sy <= vp.h ? ((lod + 1) as 1 | 2 | 3) : 0;
+    },
+    showHuddle(h: ShowHuddleArgs) {
+      if (destroyed) return;
+      const prev = huddleMembers.get(h.id) ?? [];
+      huddleMembers.set(h.id, h.members.slice());
+      if (h.joined) lifeJoined.add(h.id);
+      else lifeJoined.delete(h.id);
+      lifeUi.showHuddle(h);
+      if (prev.length !== h.members.length || prev.some((m, i) => m !== h.members[i])) {
+        for (const id of new Set([...prev, ...h.members])) {
+          const v = views.get(id);
+          if (v) applyPresence(v);
+        }
+      }
+      if (!raf) render();
+    },
+    hideHuddle(id) {
+      const members = huddleMembers.get(id) ?? [];
+      huddleMembers.delete(id);
+      lifeJoined.delete(id);
+      lifeUi.hideHuddle(id);
+      for (const m of members) {
+        const v = views.get(m);
+        if (v) applyPresence(v);
+      }
+    },
+    setLifeSummary(sum) {
+      lifeSummary = sum;
+      lifeUi.setSummary(sum);
+      lifeUi.setPaused(!!sum?.paused);
+      if (sum) startAp();
+    },
+    follow(id) {
+      if (destroyed) return;
+      if (!id) {
+        stopFollow();
+        return;
+      }
+      const v = views.get(id);
+      if (!v || mode !== 'desks') return;
+      followingId = id;
+      followVel = { x: 0, y: 0 };
+      followLast = 0;
+      lifeUi.setFollow(firstName(v.person.name));
+      // They keep going: the camera follows a walker, it does not hold them (life drops their hover and focus holds).
+      lifeHooks?.onFollow?.(id);
+      options.onFollowChange?.(id);
+      if (cam.zoom < ZOOM_NEIGHBOURHOOD * 0.75) {
+        const a = personAnchor(v);
+        flyTo(overFloor({ x: a.x, y: a.y, zoom: ZOOM_NEIGHBOURHOOD }), undefined, FLIGHT_MS);
+      } else requestFrame();
+    },
+    setAutopilot(on) {
+      if (destroyed) return;
+      const next = on && !reducedMotion();
+      if (next === autopilot) {
+        lifeUi.setAutopilot(autopilot);
+        return;
+      }
+      autopilot = next;
+      storeAp('', next ? 'on' : 'off');
+      apInterrupted = null;
+      lifeUi.setAutopilot(next);
+      options.onAutopilotChange?.(next);
+      if (next) startAp();
+    },
+    offerMoment(m) {
+      offered = m;
+    },
+    attachLife(hooks) {
+      lifeHooks = hooks;
+      // Replay what the scene already knows: presence and room seating.
+      for (const v of views.values()) {
+        if (v.state !== 'idle' || v.speaking || v.badges.length) hooks.onPresence?.(v.person.id, v.state, v.badges, v.speaking);
+        if (v.roomId) hooks.onRoom?.(v.person.id, v.roomId);
+      }
+      if (stage.isOpen) hooks.onStage?.(true);
+      return () => {
+        if (lifeHooks === hooks) lifeHooks = null;
       };
     },
     destroy() {
@@ -2006,14 +3438,25 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       timers.clear();
       for (const b of bubbles.values()) if (b.timer) clearTimeout(b.timer);
       bubbles.clear();
+      for (const c of chips.values()) if (c.timer) clearTimeout(c.timer);
+      chips.clear();
       anchors.clear();
       dwell.destroy();
       picker?.close();
+      if (lifeWake) clearTimeout(lifeWake);
+      if (apTimer) clearTimeout(apTimer);
+      for (const v of views.values()) {
+        const w = v.lwalk;
+        v.lwalk = null;
+        w?.resolve(false);
+      }
+      lifeUi.destroy();
+      lifeHooks = null;
       ro?.disconnect();
       win.removeEventListener?.('resize', onResize);
       if (keyEl !== root) {
         keyEl.removeEventListener('keydown', onKeyDown as EventListener);
-        keyEl.removeEventListener('keydown', wake, { capture: true });
+        keyEl.removeEventListener('keydown', wake as EventListener, { capture: true });
       }
       mql?.removeEventListener?.('change', onMotionPref);
       for (const v of views.values()) releaseFace(v);
@@ -2039,11 +3482,16 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
   };
   if (!assetsBase) skyFallback();
   else later(skyFallback, 700);
+  applyInsets();
   const initial = options.initialCamera;
-  if (initial && initial !== 'fit') cam = clampCamera({ ...initial, zoom: clampZoom(initial.zoom, minZoom) }, box, vp);
-  else if (!initial) {
+  if (initial && initial !== 'fit') {
+    cam = clampCamera({ ...initial, zoom: clampZoom(initial.zoom, minZoom) }, box, vp);
+    openedOnDefault = false;
+  } else if (!initial) {
     const restored = restoreCamera();
     cam = restored ? clampCamera({ ...restored, zoom: clampZoom(restored.zoom, minZoom) }, box, vp) : openCamera();
+    // The last camera the owner used wins over life's opening frame.
+    openedOnDefault = !restored;
   } else cam = openCamera();
   wake();
   lod = lodFor(cam.zoom);
@@ -2052,6 +3500,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
   render();
   settle();
   scheduleClock();
+  lifeUi.setAutopilot(autopilot);
   const todTimer = setInterval(() => !destroyed && applyTimeOfDay(true), 5 * 60_000);
   if (assetsBase) {
     void loadManifest(assetsBase).then((m) => {

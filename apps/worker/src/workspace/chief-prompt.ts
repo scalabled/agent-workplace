@@ -17,6 +17,8 @@ export interface ChiefPromptInput {
   now: Date;
   /** Per-turn notes (what the office already said aloud, repeated openers and offers); placed last, after the date. */
   turnNote?: string;
+  /** The owner's first name (`ownerFirstNameOf(settings)`), when they set one. */
+  ownerFirst?: string | null;
 }
 
 const list = (items: readonly (string | null | undefined)[] | undefined, bullet = '- '): string =>
@@ -101,6 +103,14 @@ function personaLayer(lead: Lead, name: string): string {
     .join('\n\n');
 }
 
+/**
+ * The Chief of Staff's persona (the chosen lead in the owner's name for it, or the neutral one before onboarding): the
+ * same block the Talk prompt uses, for the Chief's voice in office rooms (Office Phase 2 §4.2.5).
+ */
+export function chiefPersonaBlock(lead: Lead | undefined, name: string): string {
+  return lead ? personaLayer(lead, name) : neutralPersona(name);
+}
+
 /** Fallback identity before a lead is chosen. */
 function neutralPersona(name: string): string {
   return `You are ${name}, the owner's Chief of Staff in Headcount, their AI office. You are warm, plain-spoken and brief. The owner has not picked a Chief of Staff personality yet; if it comes up, suggest choosing one on the welcome screen.`;
@@ -140,6 +150,7 @@ export function buildChiefSystemPrompt(input: ChiefPromptInput): string {
     platformRules(input.honestyPolicy),
     input.lead ? personaLayer(input.lead, name) : neutralPersona(name),
     roleDirective(input.voiceOn),
+    input.ownerFirst ? `The owner's name is ${input.ownerFirst}. Use it rarely.` : '',
     workStateBlock(input.jobs),
     `Today is ${input.now.toUTCString().slice(0, 16)}.`,
     input.turnNote ?? '',

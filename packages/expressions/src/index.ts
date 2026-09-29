@@ -68,6 +68,20 @@ export { proposeSideTalk, sideTalkText } from './sidetalk';
 export { moodEventFor, planServerReflex, reflexIntentFor } from './events';
 export type { ServerReflexArgs, ViewerState, WorkEventKind } from './events';
 
+// ── huddle small talk (docs/dev/OFFICE-LIFE.md §5, §6.2) ───────────────────────
+export {
+  HUDDLE_CAPTION_MAX_CHARS, HUDDLE_COMPLETION_EVENTS, HUDDLE_CONTEXTS, HUDDLE_EVENT_KINDS, HUDDLE_GROUNDED_SLOTS, HUDDLE_PARTICIPANT_MEMORY_MS,
+  HUDDLE_ROLES, HUDDLE_SAD_GATE, HUDDLE_SAD_VALENCE, HUDDLE_SLOTS, HUDDLE_SPOTS, HUDDLE_TEXT_MAX_CHARS, HUDDLE_TOPICS, HUDDLE_WEEKLY_CAP,
+  castRoles, compileHuddles, compileHuddlesLenient,
+  createHuddleRecency, huddleReadingMs, huddleScriptOf, huddleUtterance, huddlesVersion, lintHuddleText, pickExchange, renderHuddleUtterance,
+} from './huddle';
+export type {
+  CastOptions, CompiledExchange, CompiledHuddleLine, CompiledHuddles, HuddleEvent, HuddleEventKind, HuddleExchangeDef, HuddleLineDef,
+  HuddleLinePlan, HuddleLint, HuddleLintContext, HuddlePackInput, HuddlePair, HuddleParticipant, HuddlePick, HuddleRecency,
+  HuddleRecencySnapshot, HuddleRequest, HuddleRequiresDef, HuddleRole, HuddleRoleDef, HuddleScriptOut, HuddleSlot, HuddleSpot,
+  HuddleTopic, HuddleWho,
+} from './huddle';
+
 // ── pre-voicing ─────────────────────────────────────────────────────────────────
 export { planPrevoice } from './prevoice';
 

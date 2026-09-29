@@ -1,6 +1,7 @@
 import type { MouthSample } from '@headcount/protocol';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAudioEngine, DUCK_GAIN, SCHEDULE_LEAD_S, STARVE_MS, STOP_FADE_S } from './engine';
+import { createSpeechStream } from './speech-stream';
 import { FakeAudioContext, FakeGain, FakeSynth, FakeUtterance, fakeClip, type FakeNode } from './test/fakes';
 import type { AudioEngineDeps, SpeakChunk } from './types';
 
@@ -468,5 +469,28 @@ describe('context and ducking', () => {
     expect((await h.done).status).toBe('stopped');
     expect(ctx().state).toBe('closed');
     expect((await engine.speak({ speakerId: 'a', chunks: 'late' }).done).status).toBe('stopped');
+  });
+});
+
+describe('a speech stream that ends where it is', () => {
+  it('an open stream holds its speaker; ended with dropUnfinished, the next line plays and the half sentence never does', async () => {
+    const { engine, synth } = setup();
+    const s = createSpeechStream({ chunker: { maxTokens: 60 } });
+    const first = engine.speak({ speakerId: 'cw_chief', chunks: s });
+    s.push('The first part is done. And the sec');
+    await settle();
+    expect(synth.spoken).toEqual(['The first part is done.']);
+    synth.finish();
+    const next = engine.speak({ speakerId: 'cw_chief', chunks: 'The suppliers job is done.' });
+    for (let i = 0; i < 5; i++) await settle();
+    // The reply's end never arrives: the next line waits behind the open stream.
+    expect(synth.spoken).toEqual(['The first part is done.']);
+    expect(engine.activity('cw_chief').streamOpen).toBe(true);
+    s.end({ dropUnfinished: true });
+    expect((await first.done).status).toBe('completed');
+    for (let i = 0; i < 5; i++) await settle();
+    synth.finish();
+    expect((await next.done).status).toBe('completed');
+    expect(synth.spoken).toEqual(['The first part is done.', 'The suppliers job is done.']);
   });
 });

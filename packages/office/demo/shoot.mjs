@@ -22,7 +22,7 @@ mkdirSync(out, { recursive: true });
 const browser = await chromium.launch();
 
 async function open(page, query) {
-  await page.goto(`${base}/?panel=0&${query}`, { waitUntil: 'load' });
+  await page.goto(`${base}/?panel=0&life=0&${query}`, { waitUntil: "load" });
   await page.waitForFunction(() => document.documentElement.dataset.ready === '1', null, { timeout: 20000 });
   // The sky image (or the vector fallback) is in.
   await page.waitForFunction(() => !!document.querySelector('.hc-o-sky__v.is-loaded, .hc-o-sky__v[data-fallback]'), null, { timeout: 15000 }).catch(() => {});

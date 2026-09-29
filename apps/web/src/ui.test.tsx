@@ -76,7 +76,7 @@ describe('Onboarding', () => {
     const second = slimIndex.catalog.leads[1]!;
     await click(host.querySelectorAll('.gallery-card')[1]);
     expect(host.querySelector('.stage-name')?.textContent).toBe(second.name);
-    await typeInto(host.querySelector('.stage-name-field input'), 'Robin');
+    await typeInto(host.querySelector('.stage-choose .stage-name-field input'), 'Robin');
     const choose = [...host.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Choose '));
     await act(() => void choose!.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
     await flush();
@@ -245,7 +245,7 @@ describe('renamed Chief of Staff', () => {
   it('labels Choose with the typed name', async () => {
     navigate(paths.onboarding);
     await mount(<Onboarding />);
-    await typeInto(host.querySelector('.stage-name-field input'), 'Robin');
+    await typeInto(host.querySelector('.stage-choose .stage-name-field input'), 'Robin');
     expect([...host.querySelectorAll('button')].some((b) => b.textContent === 'Choose Robin')).toBe(true);
   });
 });

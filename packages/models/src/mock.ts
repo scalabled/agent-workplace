@@ -23,6 +23,7 @@ import type {
 //      "also check Y" → steer_job (jobId = the latest job_… id in the transcript), "cancel that" → cancel_job.
 //   4. `toolChoice` required or named.
 // `!slow <ms>` delays the reply (tests that act while a turn is in flight).
+// `!invent` replies with a figure and a movement nobody gave (end-to-end tests of the reply guard): MOCK_INVENTED_REPLY.
 
 export interface MockOptions {
   /** Delay between streamed chunks in ms (demo realism; 0 in tests). */
@@ -87,8 +88,11 @@ export function mockReply(userText: string): string {
   return `You said: "${quoted}". I am running on the mock model, so this is a placeholder answer. Add a provider key or start Ollama for real ones.`;
 }
 
+/** The `!invent` reply: an invented figure and metric move, then a plain sentence (the guard drops the first). */
+export const MOCK_INVENTED_REPLY = 'The reorder rate went up 12 points after the relaunch, so lead with it. Show the before and after.';
+
 function stripDirectives(text: string): string {
-  return text.replace(/!tool\s+[\w.-]+[ \t]*(\{[^\n]*\})?/g, '').replace(/!slow\s+\d+/g, '');
+  return text.replace(/!tool\s+[\w.-]+[ \t]*(\{[^\n]*\})?/g, '').replace(/!slow\s+\d+/g, '').replace(/!invent\b/g, '');
 }
 
 // ── job intents ────────────────────────────────────────────────────────────────
@@ -264,6 +268,7 @@ export function planMockTurn(req: ChatRequest): { kind: 'text'; text: string } |
 
   const tools = req.toolChoice === 'none' ? [] : (req.tools ?? []);
   const last = req.messages[req.messages.length - 1];
+  if (last?.role === 'user' && !tools.length && /!invent\b/.test(userText)) return { kind: 'text', text: MOCK_INVENTED_REPLY };
   if (last?.role === 'tool') {
     // After tool results: speak about them.
     const calls = new Map(since.flatMap((m) => (m.role === 'assistant' ? (m.toolCalls ?? []).map((c) => [c.id, c] as const) : [])));

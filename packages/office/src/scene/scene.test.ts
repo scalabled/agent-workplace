@@ -192,6 +192,27 @@ describe('review fixes (keyboard, honesty, chrome, calm, captions)', () => {
     expect((s.el.querySelector('.hc-o-walk') as HTMLElement).hidden).toBe(false);
   });
 
+  it('keeps letter shortcuts working from a header button outside the office, but not the keys the button uses', () => {
+    const s = make({ keyTarget: 'document' });
+    const btn = document.createElement('button');
+    document.body.append(btn);
+    key(btn, 'Enter');
+    expect((s.el.querySelector('.hc-o-walk') as HTMLElement).hidden).toBe(true);
+    key(btn, 'g');
+    expect((s.el.querySelector('.hc-o-walk') as HTMLElement).hidden).toBe(false);
+    // An open dialog outside keeps every key.
+    (s.el.querySelector('.hc-o-walk') as HTMLElement).hidden = true;
+    const dlg = document.createElement('div');
+    dlg.setAttribute('role', 'dialog');
+    const inner = document.createElement('button');
+    dlg.append(inner);
+    document.body.append(dlg);
+    key(inner, 'g');
+    expect((s.el.querySelector('.hc-o-walk') as HTMLElement).hidden).toBe(true);
+    btn.remove();
+    dlg.remove();
+  });
+
   it("does not repeat the Chief's title in the seat label", () => {
     const s = make();
     const chief = s.el.querySelector(`.hc-o-seat[data-pid="${LEAD.id}"]`)!;

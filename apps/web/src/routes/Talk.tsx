@@ -11,6 +11,7 @@ import { Icon } from '../components/Icon';
 import { Deliverable, JobRow } from '../components/JobRow';
 import { Markdown } from '../components/Markdown';
 import { useHoldToTalk } from '../components/useHoldToTalk';
+import { VoiceElsewhere } from '../components/VoiceElsewhere';
 import { ago, now } from '../lib/time';
 import { bubbles, liveCaptions } from '../living/captions';
 import { navigate, paths } from '../router';
@@ -20,6 +21,7 @@ import { draft, focusComposer, greetedThisSession, greetOnArrival, prefillCompos
 import { notice } from '../ui/notice';
 import { bargeIn, chiefIsSpeaking, chiefSpeaker } from '../voice/chief-voice';
 import { armAudio, audioSupport } from '../voice/engine';
+import { mayVoice } from '../voice/owner';
 import { cancelPtt, endPtt, ptt, pttMode, startPtt } from '../voice/ptt';
 import './talk.css';
 
@@ -71,7 +73,7 @@ export function Talk() {
     if (!lead || !greetOnArrival.value) return;
     greetOnArrival.value = false;
     greetedThisSession.value = true; // no second hello from the living layer this session
-    if (settings.value?.voiceOn) chiefSpeaker.say(greeting, 'greeting');
+    if (settings.value?.voiceOn && mayVoice()) chiefSpeaker.say(greeting, 'greeting');
   }, [lead?.id]);
 
   if (!s || !onboarded.value || !lead)
@@ -130,6 +132,7 @@ function TalkHead() {
         </p>
         <LiveCaption name={name} />
       </div>
+      <VoiceElsewhere />
       {canSpeak && (
         <button
           type="button"
@@ -212,7 +215,7 @@ function Thread({ greeting, name, stick }: { greeting: string; name: string; sti
           <p class="msg-body">{greeting}</p>
         </li>
         {items.map((m, i) => (
-          <Message key={m.messageId} item={m} name={name} grouped={m.kind !== 'announcement' && (i > 0 ? sameSpeaker(items[i - 1]!, m) && items[i - 1]!.kind !== 'announcement' : m.from === CHIEF_ID)} />
+          <Message key={m.messageId} item={m} name={name} grouped={m.kind !== 'announcement' && (i > 0 ? sameSpeaker(items[i - 1]!, m) && items[i - 1]!.kind !== 'announcement' && items[i - 1]!.kind !== 'note' : m.from === CHIEF_ID)} />
         ))}
         {thinking && (
           <li class="msg msg-chief msg-typing">
@@ -225,7 +228,7 @@ function Thread({ greeting, name, stick }: { greeting: string; name: string; sti
           </li>
         )}
       </ol>
-      {items.length === 0 && (
+      {items.every((m) => m.kind === 'note') && (
         <div class="starters" aria-label="Try">
           {starters.map((t) => (
             <button key={t} type="button" class="starter" onClick={() => prefillComposer(t)}>
@@ -278,6 +281,7 @@ function Message({ item, name, grouped }: { item: ThreadItem; name: string; grou
       </li>
     );
   }
+  if (item.kind === 'note') return <NoteLine item={item} />;
   const job = item.jobId ? jobs.value[item.jobId] : undefined;
   // An announcement is its own message (they started it): always named and timed, never folded into a reply.
   const announcement = item.kind === 'announcement';
@@ -294,6 +298,36 @@ function Message({ item, name, grouped }: { item: ThreadItem; name: string; grou
       {item.text ? <Markdown text={item.text} class="msg-body" /> : <p class="msg-body msg-thinking">Thinking…</p>}
       {item.interrupted && <span class="msg-note">Interrupted</span>}
       {item.kind === 'announcement' && job?.status === 'done' && <Deliverable job={job} />}
+    </li>
+  );
+}
+
+/**
+ * A meeting happened in the office ("Skyline room with Juno, Walt and Lena · 4 min"): one quiet, centred line with a
+ * small room glyph. No face, no actions; never voiced, never unread (X2: every side conversation returns as one line).
+ */
+function NoteLine({ item }: { item: ThreadItem }) {
+  const huddle = item.roomId?.startsWith('huddle:') ?? false;
+  return (
+    <li class="msg msg-note" data-kind="note">
+      <svg class="msg-note-glyph" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        {huddle ? (
+          <>
+            <circle cx="8" cy="8" r="3" />
+            <circle cx="16" cy="8" r="3" />
+            <path d="M3 19a5 5 0 0 1 10 0M11 19a5 5 0 0 1 10 0" />
+          </>
+        ) : (
+          <>
+            <circle cx="8" cy="6.5" r="1.6" />
+            <circle cx="12" cy="6.5" r="1.6" />
+            <circle cx="16" cy="6.5" r="1.6" />
+            <path d="M4 11h16M6 11v7M18 11v7" />
+          </>
+        )}
+      </svg>
+      <span class="visually-hidden">In the office: </span>
+      <p class="msg-body">{item.text}</p>
     </li>
   );
 }

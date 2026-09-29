@@ -18,6 +18,7 @@ import {
 } from '@headcount/protocol';
 import type { DeskSayAccepted } from '@headcount/protocol/ext/expressions';
 import type { FeedStatus } from '../api/ws';
+import { applyServerVoice } from '../voice/owner';
 
 export type ThreadFrom = 'owner' | AgentId | 'system';
 
@@ -29,7 +30,10 @@ export interface ThreadItem {
   text: string;
   /** True while talk.delta frames are still arriving. */
   streaming: boolean;
-  kind?: 'reply' | 'announcement' | 'status' | 'reflex' | 'error';
+  /** `note`: one quiet line from the office (a meeting happened); never voiced, never unread. */
+  kind?: 'reply' | 'announcement' | 'status' | 'reflex' | 'error' | 'note';
+  /** A note's room (`skyline`, `garden`, `huddle:<hash>`). */
+  roomId?: string;
   jobId?: JobId;
   via?: 'text' | 'voice';
   opId?: OpId;
@@ -311,6 +315,40 @@ function reduceSide(agentId: string, frame: Frame): void {
   }
 }
 
+// ── office rooms (Office Phase 2) ───────────────────────────────────────────────
+/** Turn and op ids of room turns seen on the feed: their error frames belong to the room's dock, never to Talk. */
+const roomKeys = new Set<string>();
+const ROOM_KEYS_KEPT = 200;
+
+function rememberRoomKey(key: string | undefined): void {
+  if (!key) return;
+  roomKeys.add(key);
+  if (roomKeys.size > ROOM_KEYS_KEPT) roomKeys.delete(roomKeys.values().next().value!);
+}
+
+/**
+ * A frame of an office room or a joined huddle (`surface: 'room'`), or an error of one of their turns. The store keeps
+ * none of them (the room session reads them through onFrame): never in `thread`, `sideThreads` or unread.
+ */
+export function isRoomFrame(frame: Frame): boolean {
+  switch (frame.type) {
+    case 'talk.owner':
+    case 'talk.delta':
+    case 'talk.message':
+    case 'talk.done':
+      return frame.data.surface === 'room';
+    case 'error':
+      return (!!frame.data.turnId && roomKeys.has(frame.data.turnId)) || (!!frame.data.opId && roomKeys.has(frame.data.opId));
+    default:
+      return false;
+  }
+}
+
+/** A talk.* frame of the Chief's Talk thread: no surface, or `'talk'` (never a Floor quick-chat or an office room). */
+export function isTalkSurface(surface: string | undefined): boolean {
+  return surface === undefined || surface === 'talk';
+}
+
 export type ApplyResult = 'applied' | 'ignored' | 'resync';
 
 /**
@@ -320,6 +358,8 @@ export type ApplyResult = 'applied' | 'ignored' | 'resync';
  */
 export function applyFrame(frame: Frame): ApplyResult {
   if (frame.type === 'ready') {
+    // Who speaks now (one voice per workspace), before anything live arrives on this socket.
+    applyServerVoice(frame.data.voice);
     if (frame.data.lastSeq < lastSeq.value) {
       resetFeedState();
       return 'resync';
@@ -345,6 +385,12 @@ export function applyFrame(frame: Frame): ApplyResult {
 }
 
 function reduce(frame: Frame, live: boolean): void {
+  // Office rooms and joined huddles reach onFrame listeners (the room session) only.
+  if (frame.type === 'talk.owner' && frame.data.surface === 'room') {
+    rememberRoomKey(frame.data.turnId);
+    rememberRoomKey(frame.opId);
+  }
+  if (isRoomFrame(frame)) return;
   const side = floorAgent(frame);
   if (side) return reduceSide(side, frame);
   switch (frame.type) {
@@ -369,6 +415,7 @@ function reduce(frame: Frame, live: boolean): void {
         streaming: false,
         kind: frame.data.kind,
         ...(frame.data.jobId ? { jobId: frame.data.jobId } : {}),
+        ...(frame.data.kind === 'note' && frame.data.roomId ? { roomId: frame.data.roomId } : {}),
         ts: frame.ts,
       });
       break;
@@ -434,6 +481,9 @@ function reduce(frame: Frame, live: boolean): void {
       });
       break;
     }
+    case 'voice.owner':
+      applyServerVoice(frame.data);
+      break;
     case 'ready':
       break;
   }

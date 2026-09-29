@@ -47,6 +47,11 @@ export const ROUTES = {
   exprPrevoice: { method: 'POST', path: '/api/expr/prevoice', auth: 'owner', body: 'json', bodyCap: 128 * 1024 },
   exprPrevoiceStatus: { method: 'GET', path: '/api/expr/prevoice/:runId', auth: 'owner' },
   deskSay: { method: 'POST', path: '/api/desk/:personaId/say', auth: 'owner', body: 'json', bodyCap: 16 * 1024 },
+  // Office Phase 2 (ext/rooms.ts). `:roomId` is `skyline`, `garden` or `huddle:<hash>` (routePath URI-encodes the colon).
+  roomSay: { method: 'POST', path: '/api/rooms/:roomId/say', auth: 'owner', body: 'json', bodyCap: 16 * 1024 },
+  roomCancel: { method: 'POST', path: '/api/rooms/:roomId/cancel', auth: 'owner', body: 'json', bodyCap: 4 * 1024 },
+  officePeople: { method: 'GET', path: '/api/office/people', auth: 'owner' },
+  exprHuddleRender: { method: 'POST', path: '/api/expr/huddle/render', auth: 'owner', body: 'json', bodyCap: 8 * 1024 },
 } as const satisfies Record<string, RouteDef>;
 
 export type RouteId = keyof typeof ROUTES;

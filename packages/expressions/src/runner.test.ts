@@ -271,6 +271,28 @@ describe('multitasking (§2.3, §2.4, L3)', () => {
     expect(jug.priority).toBe(1);
   });
 
+  it('an end replayed after a reconnect closes the turn silently: no "I’m all yours", no filler later', async () => {
+    const h = await createRunnerHarness();
+    h.runner.conversation({ kind: 'speaking', turnId: 'turn_a', agentId: chief, remainingMs: 5000 });
+    h.audio.speakFor(chief, 5000);
+    h.turn(chief, 'turn_a', 'Can you look into supplier prices?', 'voice', at(h) - 8000);
+    h.turn(chief, 'turn_b', 'and what about March?');
+    await h.clock.advance(7000);
+    h.runner.conversation({ kind: 'done', turnId: 'turn_a', at: at(h), replayed: true });
+    await h.clock.advance(1000);
+    expect(playedIntents(h)).toEqual(['juggling']);
+    // A voice turn whose reply never started sounding here gets a "still working on it"; once a replayed end closes
+    // it, nothing covers it afterwards.
+    for (const closed of [false, true]) {
+      const h2 = await createRunnerHarness();
+      h2.turn(chief, 'turn_c', 'What should we focus on this week?', 'voice');
+      h2.runner.conversation({ kind: 'first_token', turnId: 'turn_c', at: at(h2), hint: null });
+      if (closed) h2.runner.conversation({ kind: 'done', turnId: 'turn_c', at: at(h2), replayed: true });
+      await h2.clock.advance(10_000);
+      expect(playedIntents(h2)).toEqual(closed ? [] : ['holding_filler']);
+    }
+  });
+
   it('a stop or steer while speaking: yield, then acknowledge the interruption', async () => {
     const h = await createRunnerHarness();
     h.runner.conversation({ kind: 'speaking', turnId: 'turn_a', agentId: chief, remainingMs: 3000 });

@@ -12,3 +12,17 @@ let appPrefetch: Promise<unknown> | null = null;
 export function prefetchApp(): void {
   appPrefetch ??= loadApp().catch(() => (appPrefetch = null));
 }
+
+/** The Office view on the Floor (OFFICE-PHASE2 §4.5.1): its own chunk, never loaded by Directory users. */
+export const loadOffice = () => import('./office/OfficeView').then((m) => m.OfficeView);
+
+let officePrefetch: Promise<unknown> | null = null;
+
+/** Warm the office chunk (the Floor is about to show the Office). */
+export function prefetchOffice(): Promise<unknown> {
+  officePrefetch ??= loadOffice().catch((err: unknown) => {
+    officePrefetch = null;
+    throw err;
+  });
+  return officePrefetch;
+}

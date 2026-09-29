@@ -85,6 +85,39 @@ describe('AgentSpeaker', () => {
     expect(engine.spoken).toHaveLength(2);
   });
 
+  it('endHere ends a streaming message where it is: whole sentences play, the half one and later text never do', async () => {
+    const { engine, speaker } = setup({ tts: false });
+    speaker.delta('msg_5', 'The first part is done. And the sec');
+    expect(speaker.pendingChars()).toBeGreaterThan(0);
+    speaker.endHere('msg_5');
+    // What is left to hear is the whole sentence at most, never the dropped half one.
+    expect(speaker.pendingChars()).toBeLessThanOrEqual('The first part is done.'.length);
+    speaker.delta('msg_5', 'ond part is too.');
+    speaker.complete('msg_5', 'The first part is done. And the second part is too.');
+    await engine.drain();
+    expect(engine.spoken).toHaveLength(1);
+    expect(texts(engine.spoken[0]!.chunks as SpeechChunk[])).toEqual(['The first part is done.']);
+    expect(speaker.pendingChars()).toBe(0);
+    expect(speaker.active).toBe(false);
+    // Nothing streaming under that id: nothing happens, nothing is spoken.
+    speaker.endHere('msg_6');
+    await engine.drain();
+    expect(engine.spoken).toHaveLength(1);
+  });
+
+  it('endStreaming ends every message still streaming, and leaves finished ones and later messages alone', async () => {
+    const { engine, speaker } = setup({ tts: false });
+    speaker.say('Morning.');
+    speaker.delta('msg_7', 'One is ready. The oth');
+    speaker.endStreaming();
+    speaker.delta('msg_7', 'er is not.');
+    speaker.delta('msg_8', 'Next answer.');
+    speaker.complete('msg_8');
+    await engine.drain();
+    expect(engine.spoken.map((r) => (r.text !== null ? r.text : texts(r.chunks as SpeechChunk[]).join(' ')))).toEqual(['Morning.', 'One is ready.', 'Next answer.']);
+    expect(speaker.active).toBe(false);
+  });
+
   it('stays silent when nothing can speak', () => {
     const { engine, speaker } = setup({ tts: false, browser: false });
     expect(speaker.say('Hello.')).toBeNull();

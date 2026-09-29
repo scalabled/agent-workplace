@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { collectEvents } from './collect';
-import { createMockProvider, detectIntent, jobSubject, latestJobId, planMockTurn, summarizeJobs } from './mock';
+import { MOCK_INVENTED_REPLY, createMockProvider, detectIntent, jobSubject, latestJobId, planMockTurn, summarizeJobs } from './mock';
 import { fillSchema } from './schema-fill';
 import type { ChatMessage, ToolSpec } from './types';
 
@@ -148,6 +148,12 @@ describe('mock directives (biz-bot)', () => {
   it('!tool <name> {json} calls that tool once with those args', async () => {
     const out = await collectEvents(mock.chat({ messages: [{ role: 'user', content: '!tool steer_job {"jobId":"job_x1234567","text":"faster"}' }], tools: jobTools }));
     expect(out.toolCalls[0]).toMatchObject({ name: 'steer_job', arguments: '{"jobId":"job_x1234567","text":"faster"}' });
+  });
+
+  it('!invent replies with a figure nobody gave (the reply guard e2e), and never quotes the directive', async () => {
+    const out = await collectEvents(mock.chat({ messages: [{ role: 'user', content: '!invent Should we lead with the reorder rate?' }] }));
+    expect(out.text).toBe(MOCK_INVENTED_REPLY);
+    expect(MOCK_INVENTED_REPLY).toMatch(/12 points/);
   });
 
   it('!slow <ms> delays the reply and stays cancellable', async () => {

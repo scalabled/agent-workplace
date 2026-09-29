@@ -98,6 +98,16 @@ describe('createSpeechStream', () => {
     expect(await collect(s)).toEqual([{ text: 'Hello there.' }, { text: 'How are you?' }]);
   });
 
+  it('end({ dropUnfinished }) finishes after the whole sentences and never speaks the half one', async () => {
+    const s = createSpeechStream();
+    s.push('Hello there. How are you? I was just looking at the');
+    s.end({ dropUnfinished: true });
+    s.push('ignored');
+    s.end();
+    expect(await collect(s)).toEqual([{ text: 'Hello there.' }, { text: 'How are you?' }]);
+    expect(s.sentences).toEqual(['Hello there.', 'How are you?']);
+  });
+
   it('makes Markdown speakable and skips code blocks', async () => {
     const s = createSpeechStream();
     s.push('**Summary:** see [the doc](https://example.com/x).\n```js\nconst x = 1;\n```\n- First point\n');

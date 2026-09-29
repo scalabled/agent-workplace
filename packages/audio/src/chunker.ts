@@ -152,6 +152,21 @@ export class SentenceChunker {
     }
   }
 
+  /**
+   * Emit every whole sentence left and drop an unfinished last one (the text stopped mid-sentence and the rest will
+   * never come). Safe to call more than once.
+   */
+  flushComplete(): void {
+    const rest = this.buffer.trim();
+    this.buffer = '';
+    // Only the whitespace after its last mark is missing: that sentence is whole.
+    if (rest && findSentenceEnd(`${rest} `) === rest.length) this.queue(rest);
+    if (this.pending) {
+      this.emit(this.pending);
+      this.pending = '';
+    }
+  }
+
   /** Drop everything buffered (barge-in). */
   reset(): void {
     this.buffer = '';

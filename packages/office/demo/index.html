@@ -9,7 +9,7 @@
       :root[data-theme='light'] { color-scheme: light; --surface: #f7f5f0; --panel: #ffffff; --ink: #1c1e21; --muted: #6b6f76; --lamp: #e8a33d; --hand: #3d6fe8; --blocked: #c2410c; }
       html, body { margin: 0; height: 100%; background: var(--surface); color: var(--ink); font: 13px/1.4 Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; }
       #office { position: fixed; inset: 0; }
-      .demo { position: fixed; left: 14px; top: 14px; z-index: 1000; width: 232px; padding: 10px; border-radius: 12px; background: rgba(17, 19, 23, 0.82); border: 1px solid rgba(255, 255, 255, 0.09); backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
+      .demo { position: fixed; left: 14px; top: 58px; z-index: 1000; width: 244px; max-height: calc(100vh - 150px); overflow: auto; padding: 10px; border-radius: 12px; background: rgba(17, 19, 23, 0.82); border: 1px solid rgba(255, 255, 255, 0.09); backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
       .demo[hidden] { display: none; }
       .demo h1 { margin: 0 0 8px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 650; display: flex; justify-content: space-between; }
       .demo h1 button { all: unset; cursor: pointer; color: var(--muted); }
@@ -19,6 +19,9 @@
       .demo button.b[aria-pressed='true'] { background: rgba(242, 180, 80, 0.2); border-color: rgba(242, 180, 80, 0.5); }
       .demo label { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; margin: 4px 0; }
       .demo .log { margin-top: 6px; font-size: 11px; color: var(--muted); min-height: 1.4em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .demo h2 { margin: 10px 0 2px; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
+      .demo .note { font-size: 11px; color: var(--muted); white-space: pre-line; line-height: 1.35; }
+      .demo .caps { font-size: 11px; color: var(--ink); white-space: pre-line; line-height: 1.35; min-height: 2.7em; opacity: 0.85; }
       .demo-face { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #1c1f24; }
       .demo-face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 28%; display: block; transform: scale(1.18); transform-origin: 50% 32%; }
       .demo-face[data-tier='hero'] img, .demo-face[data-tier='tile'] img { image-rendering: auto; }
@@ -30,6 +33,25 @@
     <div class="demo" id="demo" hidden>
       <h1><span>Office demo</span><button type="button" id="hide" aria-label="Hide the demo panel">Hide</button></h1>
       <div class="row" id="tod"></div>
+      <h2>Office life</h2>
+      <div class="note" id="summary">Starting…</div>
+      <div class="row" id="amb"></div>
+      <div class="row">
+        <button class="b" type="button" id="pause" aria-pressed="false">Pause</button>
+        <button class="b" type="button" id="autopilot" aria-pressed="false">Autopilot</button>
+        <button class="b" type="button" id="follow">Follow</button>
+        <button class="b" type="button" id="listen" aria-pressed="false">Listen</button>
+        <button class="b" type="button" id="join">Join</button>
+      </div>
+      <div class="row">
+        <button class="b" type="button" id="work">Real work</button>
+        <button class="b" type="button" id="research">Research</button>
+        <button class="b" type="button" id="hand">Raise a hand</button>
+        <button class="b" type="button" id="idle">All idle</button>
+      </div>
+      <div class="caps" id="captions"></div>
+      <div class="note" id="lines"></div>
+      <h2>Floor</h2>
       <div class="row">
         <button class="b" type="button" id="meet">Meet in the Skyline room (5)</button>
         <button class="b" type="button" id="garden">Garden room (3)</button>

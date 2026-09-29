@@ -1,0 +1,196 @@
+/* The Office on the Floor (OFFICE-PHASE2 §4.5): full bleed, dark, calm. Loaded with the office chunk only. */
+
+.office-view {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* The office's own night void, so nothing flashes while it is veiled. */
+  background: #07080a;
+}
+
+:root[data-theme='light'] .office-view {
+  background: #e9e6df;
+}
+
+/* The veil: life places everyone and frames the liveliest neighbourhood, then the office fades in. */
+.office-host {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 360ms var(--ease-out);
+}
+
+.office-view[data-shown] .office-host {
+  opacity: 1;
+}
+
+/* A face in the office: FaceView fills the slot the office sizes. */
+.office-face {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.office-face canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The living layer's bubbles over a face (the same bubble and quick chat as the Directory). */
+.floor-bubble[data-placement='anchor'] {
+  left: -19px;
+  bottom: 10px;
+  z-index: 8;
+  translate: var(--bx, 0px) 0;
+  text-align: left;
+  user-select: text;
+  -webkit-user-select: text;
+  pointer-events: auto;
+}
+
+.floor-bubble[data-placement='anchor']::after {
+  left: clamp(8px, calc(14px - var(--bx, 0px)), calc(100% - 18px));
+}
+
+.floor-bubble[data-placement='anchor'][data-below] {
+  bottom: auto;
+  top: calc(var(--fs, 40px) + 30px);
+}
+
+/* Who is speaking: the office hides name plates at some zooms and on phones. */
+.floor-bubble-who {
+  margin: 0 0 -4px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent) 70%, var(--muted));
+}
+
+/* A name card (a rest that got no line): their role and where they are, quieter than a line. */
+.floor-bubble-text[data-card] {
+  color: var(--muted);
+}
+
+.floor-bubble-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.floor-bubble-follow {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  transition: color var(--dur-state) var(--ease-out);
+}
+
+.floor-bubble-follow:hover,
+.floor-bubble-follow:focus-visible {
+  color: var(--ink);
+}
+
+/* The Chief bubble steps aside while the invite picker is open: on phones its corner holds the picker's Invite. */
+body:has(.hc-o-picker) .chief-bubble {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* One quiet chip on the first visit, above the mini-map. */
+.office-hint {
+  position: absolute;
+  left: 14px;
+  bottom: 100px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 28px);
+  padding: 6px 6px 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(17, 19, 23, 0.82);
+  color: var(--muted);
+  font-size: 12.5px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: office-hint-in 420ms var(--ease-out) both;
+}
+
+:root[data-theme='light'] .office-hint {
+  border-color: rgba(28, 30, 33, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.office-hint-close {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.office-hint-close:hover,
+.office-hint-close:focus-visible {
+  color: var(--ink);
+}
+
+@keyframes office-hint-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+
+/* Transient feedback in desk mode: one line, bottom centre, above the Following chip. */
+.office-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 64px;
+  z-index: 30;
+  translate: -50% 0;
+  max-width: min(520px, calc(100% - 32px));
+  margin: 0;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(17, 19, 23, 0.86);
+  color: var(--ink);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.office-notice[data-tone='error'] {
+  border-color: color-mix(in srgb, var(--hand, #e0a23a) 40%, transparent);
+}
+
+:root[data-theme='light'] .office-notice {
+  border-color: rgba(28, 30, 33, 0.12);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+@media (max-width: 640px) {
+  .office-hint {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .office-host {
+    transition: none;
+  }
+  .office-hint {
+    animation: none;
+  }
+}

@@ -85,12 +85,14 @@ export default defineConfig({
     },
   ],
   projects: [
-    { name: 'chromium', testIgnore: /voice\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
+    { name: 'chromium', testIgnore: /voice\.spec\.ts|office-screens\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
     { name: 'voice', testMatch: /(^|\/)voice\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 }, baseURL: `http://localhost:${VOICE_WEB_PORT}` } },
     {
       // The living workforce with voice (Mock TTS clips with timing) and a microphone that pauses like a person.
       name: 'living-voice',
-      testMatch: /living-voice\.spec\.ts/,
+      // one-voice.spec.ts: one voice per workspace (several tabs on the voice stack). office-voice.spec.ts: the Office's
+      // room voices, barge-in and listen-in (Office Phase 2); office-screens.spec.ts: its screens (opt-in).
+      testMatch: /(living-voice|one-voice|office-voice|office-screens)\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1280, height: 800 },

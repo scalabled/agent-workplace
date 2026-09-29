@@ -34,8 +34,11 @@ export type MoodEventKind =
   | 'project.done' | 'teammate.win' | 'owner.thanks' | 'owner.praise' | 'owner.frustrated' | 'owner.distress'
   | 'hired' | 'everyone.stop' | 'work.hour';
 export type ExprSurface = 'talk' | 'desk' | 'floor' | 'room' | 'elsewhere';
-/** Where a talk.* frame belongs: the Talk transcript (absent = 'talk') or a Floor side-thread. */
-export type TalkSurface = 'talk' | 'floor';
+/**
+ * Where a talk.* frame belongs: the Talk transcript (absent = 'talk'), a Floor side-thread, or an office room or joined
+ * huddle (Office Phase 2: `roomId` and `meetingId` are set; never in Talk, side-threads or unread).
+ */
+export type TalkSurface = 'talk' | 'floor' | 'room';
 export type AttentionKind = 'talk' | 'desk' | 'sidethread' | 'meeting' | 'ask' | 'work';
 export type ExprSliderKey = 'warmth' | 'directness' | 'formality' | 'humor' | 'risk_appetite' | 'detail' | 'pace';
 export type ExprTeamRole = 'lead' | 'co_owner' | 'reviewer' | 'sceptic' | 'facilitator' | 'specialist';
@@ -91,7 +94,11 @@ export interface ExprClipManifest {
 
 // ── HTTP ────────────────────────────────────────────────────────────────────────
 /** GET /api/expr/catalog. `input` is an ExpressionCatalogInput: pass it to compileCatalog(). */
-export interface ExprCatalogBundle { kind: 'expression_bundle'; version: string; input: unknown }
+export interface ExprCatalogBundle {
+  kind: 'expression_bundle'; version: string; input: unknown;
+  /** Office small-talk packs (HuddlePackInput[]): pass them to compileHuddles(). */
+  huddles?: { version: string; packs: unknown[] };
+}
 
 export type ExprPrevoiceTier = 'p0' | 'p1' | 'p2';
 export interface ExprPrevoiceStatus {
@@ -147,7 +154,7 @@ export interface ExprPrevoiceAccepted {
 }
 
 /** POST /api/desk/:personaId/say: a Floor quick-chat message to a catalog coworker. */
-export interface DeskSayRequest { text: string; opId: OpId; via?: 'text' | 'voice' }
+export interface DeskSayRequest { text: string; opId: OpId; via?: 'text' | 'voice'; /** The sending tab (ext/voice-owner): it becomes the voice owner. */ clientId?: string }
 export interface DeskSayAccepted { accepted: true; opId: OpId; agentId: AgentId; turnId: TurnId; messageId: MessageId; duplicate?: boolean }
 
 // ── client → server socket ops (fire-and-forget) ────────────────────────────────

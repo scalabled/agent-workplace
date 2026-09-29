@@ -851,26 +851,27 @@ The office's contract is §5.3; everything below is host code.
 
 ### 6.1 Preconditions
 
-- [ ] Inc 0.5 is merged: `living/` (`livingHover`, `livingBargeIn`, `useDesk`'s `activeDesk`, `captions.bubbles`,
+- [x] Inc 0.5 is merged: `living/` (`livingHover`, `livingBargeIn`, `useDesk`'s `activeDesk`, `captions.bubbles`,
   `faces.registerFace`), `components/FloorBubble.tsx` (`openReply`, `closeReply`, `replyingAgent`), the desk quick chat
   `POST /api/desk/:personaId/say` (`apps/worker/src/desk/routes.ts`) and Ambience.
-- [ ] Phase 1 is accepted from [`screens/office/`](screens/office/) (§9).
-- [ ] `apps/web/package.json`: add `"@headcount/office": "workspace:*"`, then run `pnpm install` once. The package has
+- [x] Phase 1 is accepted from [`screens/office/`](screens/office/) (§9).
+- [x] `apps/web/package.json`: add `"@headcount/office": "workspace:*"`, then run `pnpm install` once. The package has
   no dependencies, so nothing else moves. The art is already served from `apps/web/public/office/` and is only
   requested by the office chunk (`/office/manifest.json`, then one skyline variant).
 
 ### 6.2 The Floor route: Office | Directory
 
-- [ ] `routes/Floor.tsx`: an **Office | Directory** segmented control in the header beside `<AmbienceControl/>`. A
+- [x] `routes/Floor.tsx`: an **Office | Directory** segmented control in the header beside `<AmbienceControl/>`. A
   `floorView` signal (`'office' | 'directory'`) persisted in `localStorage['hc.floor.view']` (wrapped in try/catch).
   Deep links: `?view=office|directory`, `&room=skyline|garden` (→ `scene.enterRoom(room)`), `&focus=<personaId>`
   (→ `scene.focus(coworkerAgentId(id), {zoom: 'desk'})`).
-- [ ] Default: `'office'` when `matchMedia('(min-width: 900px) and (pointer: fine)')` matches, else `'directory'`.
+- [x] Default: `'office'` when `matchMedia('(min-width: 900px) and (pointer: fine)')` matches, else `'directory'`.
   The office's skip link calls `onRequestDirectory` → `floorView = 'directory'` and focus the Directory heading.
-- [ ] New lazy chunk `routes/floor/OfficeView.tsx` (through `lazy.ts`), so Directory users never load the office or
+- [x] New lazy chunk `routes/floor/OfficeView.tsx` (through `lazy.ts`), so Directory users never load the office or
   its art. It mounts `createOfficeScene(host, options)` in an effect over a ref, keeps the scene in a ref, and calls
   `scene.destroy()` on unmount. The host box is `position: relative` and fills the route below the header.
-- [ ] Options:
+  *As built:* `apps/web/src/office/OfficeView.tsx` + `office/mount.ts`, loaded by `lazy.ts` `loadOffice`.
+- [x] Options:
   - `people`: the Chief `{id: CHIEF_ID, name: chiefName, title: 'Chief of Staff', groupId: 'chief', accent:
     currentLead.avatar.accent_color, seniority: 'principal'}` plus the 164 slim personas as
     `{id: coworkerAgentId(p.id), name, title, groupId: p.department, accent: p.avatar.accent_color, seniority}`.
@@ -880,48 +881,55 @@ The office's contract is §5.3; everything below is host code.
   - `keyTarget: 'document'`: the Office is the active view, so `G`, `/`, `[ ]`, `+ − 0`, `Home` work at once. The
     Floor's own `useReplyKey` (R) keeps working: the office never intercepts R, Space or L.
   - `assetsBase` default (`/office/`), `cameraKey` default, `timeOfDay: 'auto'`.
-- [ ] In Office view hide the Directory's search and department tools (the office HUD has Find and Walk to), or
+- [x] In Office view hide the Directory's search and department tools (the office HUD has Find and Walk to), or
   route them: the department filter → `scene.walkTo(departmentId)`; the search box → the office's Find (a later,
   additive `setFind(query)` if the owner wants one box).
-- [ ] Settings: reduced motion → `scene.setReducedMotion(v)`; still-portrait mode → the factory returns still tokens
+  *As built:* hidden in Office view (the office's Find and Walk to cover them).
+- [x] Settings: reduced motion → `scene.setReducedMotion(v)`; still-portrait mode → the factory returns still tokens
   (the speaker keeps the ring and caption); Text Floor → omit `faceFactory` (initials badges).
-- [ ] Unit test (`routes/floor/OfficeView.test.tsx`, happy-dom): mounts with 165 `.hc-o-seat` buttons, destroys on
+  *As built:* the office follows the OS setting live (`reducedMotion: null`); the app has no still-portrait or Text Floor setting yet, so those two branches wait for them.
+- [x] Unit test (`routes/floor/OfficeView.test.tsx`, happy-dom): mounts with 165 `.hc-o-seat` buttons, destroys on
   unmount (no `.hc-office`, no `#hc-office-style`), and the view persists in localStorage.
+  *As built:* `apps/web/src/office/mount.test.ts`, `floor.test.tsx`, `floor-fallback.test.tsx`.
 
 ### 6.3 Desk mode: passing by and quick chat
 
-- [ ] `onHover(id, {phase, via})` → `livingHover(id, phase, via)`; `onHoverEnd(id, {via})` → `livingHover(id, 'leave',
+- [x] `onHover(id, {phase, via})` → `livingHover(id, phase, via)`; `onHoverEnd(id, {via})` → `livingHover(id, 'leave',
   via)`. The office already runs `useDesk`'s thresholds (600 ms below 0.3 px/ms, keyboard 900 ms, a touch tap), so do
   not wrap it in `useDesk`.
-- [ ] `onFocusChange(id)` → `activeDesk.value = id`, so R replies to the desk the owner is at, as in the Directory.
-- [ ] Bubbles: for each agent in `bubbles.value` (`living/captions`) that has a seat, portal
+- [x] `onFocusChange(id)` → `activeDesk.value = id`, so R replies to the desk the owner is at, as in the Directory.
+- [x] Bubbles: for each agent in `bubbles.value` (`living/captions`) that has a seat, portal
   `<FloorBubble agentId first hovered onOpenDesk deskLabel/>` into `scene.anchor(agentId).el` and `release()` the
   anchor when the bubble goes. `hovered` comes from a signal fed by `onHover`/`onHoverEnd`. The anchor sits at the
   top of the face; FloorBubble's above/below measurement uses it as the card. The office's own `showBubble` is for
   the harness only.
-- [ ] `onOpen(id, {via})`: a coworker → `openReply(id)` (the bubble's field focused; quick chat over
+- [x] `onOpen(id, {via})`: a coworker → `openReply(id)` (the bubble's field focused; quick chat over
   `POST /api/desk/:personaId/say`), with "Open desk" in the bubble → `navigate(paths.coworker(personaId))`. The Chief
   → `navigate(paths.talk)`.
-- [ ] Presence: an effect over the store's `presence` signal → `scene.setPresence(agentId, shown.state, {label,
+  *Amended (OFFICE-PHASE2 §0.1):* the Chief gets the same in-place quick chat; "Keep talking with {name} in Talk" goes to Talk.
+- [x] Presence: an effect over the store's `presence` signal → `scene.setPresence(agentId, shown.state, {label,
   badges})` from `presenceFor(agentId)`; the Chief from `chiefPresence` (a running job shows as *working* with its
   label, and `badges: ['lamp']` for Night Shift). The calls are idempotent and cheap.
-- [ ] Speaking: `audio().onSpeakingChange((id, on) => scene.setSpeaking(id, on))`; unsubscribe on unmount.
-- [ ] Viewer op (`living/viewer.ts`): `onViewportChange({personIds, roomIds, zoom, lod})` → the op sender with
+  *As built:* the server never claims the Chief busy (D2), so the office shows the Chief's running job itself: `working` with the running sentence (monitor lit), under any conversation state; nothing produces `lamp` yet.
+- [x] Speaking: `audio().onSpeakingChange((id, on) => scene.setSpeaking(id, on))`; unsubscribe on unmount.
+- [x] Viewer op (`living/viewer.ts`): `onViewportChange({personIds, roomIds, zoom, lod})` → the op sender with
   `surface: 'floor'`, or `'room'` while `scene.getState().mode === 'conference'`, plus the visible agent ids for the
   side-talk gate. Add an optional `office: {mode, roomId, visible}` to `ViewerInput` so `stageOf()` can say `'room'`.
-- [ ] Rooms before the owner arrives: `scene.getState().rooms` is the source for any host UI; the door plate already
+  *As built:* `surface: 'room'` while the stage is open (`officeStage`); the visible ids are not sent (side-talk is not emitted before Inc 1).
+- [x] Rooms before the owner arrives: `scene.getState().rooms` is the source for any host UI; the door plate already
   says "… · waiting for you" (X3).
 
 ### 6.4 Conference roundtable: backend
 
-- [ ] Protocol (protocol owner, `packages/protocol`): `TalkSurface` (`ext/expressions.ts`) gains `'room'`; add
+- [x] Protocol (protocol owner, `packages/protocol`): `TalkSurface` (`ext/expressions.ts`) gains `'room'`; add
   `RoomSayRequest {text, opId, participants: AgentId[], via: 'text' | 'voice'}` and
   `RoomSayAccepted {accepted: true, opId, turnId, order: AgentId[]}`; an optional `roomId` on `talk.owner`,
   `talk.delta`, `talk.done` and `talk.cancelled`. `ExprSurface` already has `'room'`.
-- [ ] Worker route `POST /api/rooms/:roomId/say` (new `apps/worker/src/rooms/routes.ts`, registered beside `deskSay`
+  *Amended:* room ids gain `huddle:<hash>`; cancellation is `talk.done {finish: 'cancelled'}` + the ephemeral `room.turn`, not a `talk.cancelled` frame (OFFICE-PHASE2 §4.1).
+- [x] Worker route `POST /api/rooms/:roomId/say` (new `apps/worker/src/rooms/routes.ts`, registered beside `deskSay`
   in `apps/worker/src/index.ts`): validate like `desk/routes.ts` (text length, known agent ids, ≤ 9 participants,
   `roomId` in `skyline | garden`), then `WorkspaceDO.roomSay(roomId, body)` → **202** `RoomSayAccepted`.
-- [ ] `WorkspaceDO.roomSay()`, the Inc 0.7 slice of the Inc 2 RoomDO (`rooms/room-do.ts` stays a stub):
+- [x] `WorkspaceDO.roomSay()`, the Inc 0.7 slice of the Inc 2 RoomDO (`rooms/room-do.ts` stays a stub):
   - **Floor control.** Exact first-name @mentions go first. Otherwise at most **3 responders** per owner turn, ranked
     by being addressed by name, then the relevance of the persona's title and skills to the text (a keyword score
     from the full catalog), then seat order from the owner's left, rotated so no one always goes first. The Chief,
@@ -936,29 +944,30 @@ The office's contract is §5.3; everything below is host code.
   - **Limits.** Each turn counts against `CHAT_DAILY_LIMIT`; at most 12 room turns a minute.
   - Not recommended: faking the roundtable through `/api/desk/:id/say` with a stuffed prompt (it writes room context
     into 1:1 histories and has no shared floor control).
-- [ ] Worker tests (Mock provider, `apps/worker/src/rooms/rooms.test.ts`): @mention order; at most 3 responders; the
+- [x] Worker tests (Mock provider, `apps/worker/src/rooms/rooms.test.ts`): @mention order; at most 3 responders; the
   Chief's wrap-up only after 2; an owner message mid-turn cancels and drops the queue; the same `opId` is idempotent;
   429 at the limit; room lines absent from `/api/desk` history.
 
 ### 6.5 Conference roundtable: UI
 
-- [ ] A room session store (`room/session.ts`): `{roomId, participants, lines[], turnId}`. `onEnterRoom(roomId, ids)`
+- [x] A room session store (`room/session.ts`): `{roomId, participants, lines[], turnId}`. `onEnterRoom(roomId, ids)`
   opens it; `onInvite` and `seat()` update `participants`; `onLeaveRoom(roomId, ids)` closes it and posts one summary
   line to Talk (X2) when anything was said. A meeting exists only while the owner is in the room (Inc 0.7).
-- [ ] `scene.dock()` → render `<RoomComposer/>` into it: "Message the room…", hold Space to talk (the existing
+- [x] `scene.dock()` → render `<RoomComposer/>` into it: "Message the room…", hold Space to talk (the existing
   `voice/ptt.ts` with the room as the target), Esc on an empty field → `scene.leaveRoom()`. Send →
   `POST /api/rooms/:roomId/say` with `participants: scene.getState().participants`.
-- [ ] Frames with `surface: 'room'`: the 202's `order` → `scene.setFloorQueue(order)` (it shrinks as each speaker
+- [x] Frames with `surface: 'room'`: the 202's `order` → `scene.setFloorQueue(order)` (it shrinks as each speaker
   finishes); `scene.setPresence(nextId, 'thinking')` while that turn generates; `talk.delta` →
   `scene.showCaption(agentId, text)`; the owner's own line → `scene.showCaption(null, text)`.
-- [ ] Voice, *writer ‖ voicer ‖ player* (ARCHITECTURE §7.6): each completed line → `/api/speech/tts` in the persona's
+- [x] Voice, *writer ‖ voicer ‖ player* (ARCHITECTURE §7.6): each completed line → `/api/speech/tts` in the persona's
   voice with alignment (at most 2 lines ahead) → the audio engine with `speakerId = agentId`; `onSpeakingChange` then
   drives `scene.setSpeaking` (the stage lifts the speaker to hero; the factory attaches `audio().sampler(agentId)`
   when the tier is not a token). Captions follow the alignment. Keyless: `showCaption(id, text, {voiced: false})`
   (the NOT VOICED tag).
 - [ ] Reflexes (D5): while a responder is *thinking*, the living layer may play one short filler or backchannel from
   them at −4 dB (the existing reflex path, Ambience rules). Listeners already tilt toward the speaker.
-- [ ] Barge-in: a new owner message or push-to-talk while someone speaks → `livingBargeIn(agentId)`, stop playback,
+  *Not built (OFFICE-PHASE2 §0.1):* the stage shows the thinking face cue only; voiced room fillers are a later increment.
+- [x] Barge-in: a new owner message or push-to-talk while someone speaks → `livingBargeIn(agentId)`, stop playback,
   `scene.setFloorQueue([])`, `scene.setSpeaking(id, false)`.
 
 ### 6.6 End-to-end tests to add (`e2e/office.spec.ts`, Mock provider)
@@ -977,6 +986,9 @@ The office's contract is §5.3; everything below is host code.
 8. Reduced motion: no transitions (computed durations 0) and the camera jumps.
 9. Phone (375 × 812): the Floor opens as the Directory; toggled to the Office, the HUD is one row with the Find icon.
 10. `e2e/screens.spec.ts` gains `office-night` and `office-stage`.
+
+*Done:* items 1–9 in `e2e/office.spec.ts` (plus `office-life.spec.ts` and `office-voice.spec.ts`); item 10 as
+`e2e/office-screens.spec.ts` (opt-in, `docs/dev/screens/office-app/`). See OFFICE-PHASE2 §10.
 
 ### 6.7 Order of work and demo
 
@@ -1118,3 +1130,14 @@ Earlier decisions that still hold:
 - **Not built in Phase 1:** the asset gallery page (§1.5; the screens cover the assets in place), crop mode for very
   large Safari layers (§5.1), preloading the next sky variant 10 min before it switches (§3.8), and a depth-of-field
   blur on the sky at L2 (the review's optional note).
+
+---
+
+## 10. Phase 2 as built (29 September 2026)
+
+The Office is the Floor's default view on a desktop: desk mode, office life, joined huddles and the conference
+roundtable, wired to the real app, with the Directory one toggle away. §6 is checked off above; what landed, where it
+differs from the plan and why, the measured budgets, the tests and the screens are in
+[OFFICE-PHASE2.md §10](OFFICE-PHASE2.md#10-as-built); contracts in [CONTRACTS.md §9](CONTRACTS.md#9-inc-07--the-office-office-phase-2).
+Screens: [`screens/office-app/`](screens/office-app/).
+

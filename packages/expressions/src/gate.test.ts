@@ -197,6 +197,29 @@ describe('chatter budget (§9.2)', () => {
   });
 });
 
+describe('the shared ambient voice window (Office Phase 2)', () => {
+  it('voiceLeftMs is what the 10-minute window still allows; spendVoice counts voiced ms without a token', () => {
+    const b = createChatterBudget(catalog.ambience, 'lively');
+    expect(b.voiceLeftMs!(T0)).toBe(20_000); // Lively: 20 s of voiced ambient per 10 minutes
+    const tokens = b.state(T0).tokens;
+    b.spendVoice!(T0, 6000);
+    expect(b.voiceLeftMs!(T0 + 1000)).toBe(14_000);
+    expect(b.state(T0 + 1000).tokens).toBeGreaterThanOrEqual(tokens); // no chatter token spent
+    // A passing-by line and a listen-in share the window.
+    b.spend('chatter', T0 + 2000, 10_000);
+    expect(b.voiceLeftMs!(T0 + 2000)).toBe(4000);
+    expect(b.canSpend('chatter', T0 + 2000, 5000)).toBe(false);
+    b.setAmbience('quiet');
+    expect(b.voiceLeftMs!(T0 + 3000)).toBe(0);
+    b.spendVoice!(T0, 0);
+    b.spendVoice!(T0, -5);
+    b.setAmbience('buzzing');
+    expect(b.voiceLeftMs!(T0 + 3000)).toBe(40_000 - 16_000);
+    // The window rolls.
+    expect(b.voiceLeftMs!(T0 + 10 * 60_000 + 2001)).toBe(40_000);
+  });
+});
+
 describe('reflexProbability (§3.2, §6.5)', () => {
   const chief = fixtureIndex('chief');
   const ruth = fixtureIndex('ruth');

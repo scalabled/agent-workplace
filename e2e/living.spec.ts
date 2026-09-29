@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { buildAgentIndex, compileCatalog, lineOf, type AgentExpressionProfile, type ExpressionCatalogInput } from '../packages/expressions/src/index';
-import { daytimeZone, expectVoicedCaptioned, frames, livingLog, livingReady, onboarded, recordFrames, say, setWorkspace, waitForFrame } from './helpers';
+import { daytimeZone, expectVoicedCaptioned, frames, livingLog, livingReady, onboarded, pinDirectory, recordFrames, say, setWorkspace, waitForFrame } from './helpers';
 
 // The living workforce, keyless (Mock chat, no speech provider: reflexes use the browser voice when voice is on,
 // else faces, captions and bubbles). LIVING-WORKFORCE §8 (passing-by, side-threads), §9 (Ambience), §1.3 (fillers).
@@ -18,9 +18,11 @@ function compiledCatalog() {
   return compileCatalog(bundle.input);
 }
 
-test.beforeEach(async ({ request }) => {
+test.beforeEach(async ({ request, page }) => {
   await onboarded(request);
   await setWorkspace(request, { ambience: 'lively' });
+  // Passing-by on Directory cards (the Office's desks: e2e/office.spec.ts).
+  await pinDirectory(page);
 });
 
 test.afterAll(async ({ request }) => {

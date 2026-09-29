@@ -18,7 +18,8 @@ const check = (name, ok, detail = '') => {
 const state = () => page.evaluate(() => window.office.getState());
 const log = () => page.evaluate(() => document.getElementById('log')?.textContent ?? '');
 
-await page.goto(`${base}/?panel=0&tod=night`);
+// frame=0: life runs, but the office opens on its fit view (these checks measure the plan at fit, OFFICE-PLAN §9).
+await page.goto(`${base}/?panel=0&tod=night&frame=0`);
 await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
 await page.waitForTimeout(500);
 
@@ -44,7 +45,7 @@ check('/ at load focuses Find', await page.evaluate(() => document.activeElement
 await page.keyboard.press('Escape');
 {
   const p2 = await browser.newPage({ viewport: { width: 1440, height: 900 } });
-  await p2.goto(`${base}/?panel=0&tod=night&keys=scene`);
+  await p2.goto(`${base}/?panel=0&tod=night&keys=scene&frame=0`);
   await p2.waitForFunction(() => document.documentElement.dataset.ready === '1');
   await p2.waitForTimeout(300);
   await p2.mouse.click(720, 880);

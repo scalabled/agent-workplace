@@ -10,7 +10,7 @@ one control (Ambience) sets how much of this happens.
 
 Binding inputs: [OWNER-DIRECTIVES](../OWNER-DIRECTIVES.md) D5 (living workforce), D2, D3;
 [LIVING-WORKFORCE](../LIVING-WORKFORCE.md) (the spec); [INC05-PLAN](INC05-PLAN.md) (the build plan and its §8
-narrowings); contracts in [CONTRACTS.md](CONTRACTS.md) §7.
+narrowings); contracts in [CONTRACTS.md](CONTRACTS.md) §7 and §8 (one voice per workspace).
 
 ---
 
@@ -64,6 +64,8 @@ background (about 15 s on xAI for P0, then P1).
   when the answer starts. A hello after a break shows as a caption when audio is not armed yet.
 - **Nothing on a timer**: the Chief never says goodbye because the owner went quiet (they may be reading); a goodbye
   follows only the owner's own farewell or leaving the app.
+- **One voice per workspace** (§8): with `/app` open in several tabs, windows or devices, only the tab you last used
+  speaks; the others keep the text, captions and faces and show **Speaking on another tab · Play here**.
 
 **Floor.**
 - The Chief of Staff's card is pinned above the Directory (state ring, what they are doing, jobs running).
@@ -272,7 +274,8 @@ retaken on a Mock instance).
 - **Tests adjusted to the increment:** Floor specs scope to Directory cards (the Chief's card is a card too); the
   reload spec counts Talk turns only (Floor quick-chats replay into side-threads); the voice barge-in spec follows the
   amended X5; the frame recorder hooks the store once (the dev hook object is re-assigned when the runtime loads).
-- Dev hook: `window.__headcount.audio` (the engine) for e2e probes.
+- Dev hook: `window.__headcount.audio` (the engine) for e2e probes; `window.__headcount.voice` (`clientId()`, `owner()`,
+  `here()`) for voice ownership (§8).
 
 ## 7. Known gaps
 
@@ -301,3 +304,162 @@ retaken on a Mock instance).
   hellos; no `deferral`; no owner-name setting; OpenAI clips use text timing (no voiced-segment alignment); no
   backchannels in keyless dictation mode; quiet hours are owner-local 22:00–07:00 (the "Lively anyway" override lasts
   the night, per browser) and "Caption reactions" is a constant; the 2.9 MB bundle is not compressed in local dev.
+
+## 8. One voice per workspace (29 September 2026)
+
+**The owner's report:** "I am hearing duplicate responses spoken out loud." The owner had `/app` open in their browser
+while the in-app Browser pane had `/app` open too.
+
+### Root causes
+
+1. **No voice coordination between clients.** Every open `/app` tab with voice on voiced every Chief answer
+   (`startChiefVoice` had no tab rule), every job announcement, every Floor quick-chat reply, and, in every visible
+   tab at Talk, every progress line and celebration (the event-reflex rule picked tabs by stage, not one tab). Measured
+   on a Mock + mock-media instance with two tabs, before the fix: the delegation answer, the progress line, the
+   celebration and the job-done announcement were each voiced in both tabs; only owner-turn reflexes ("hi") were
+   voiced once.
+2. **Hot updates doubled the living runtime (dev).** Vite re-evaluates every module between an edited file and the
+   nearest component boundary but disposes only the boundary. `living/index.ts` sits in that chain for any edit under
+   `living/`, `voice/` or `store/`, so each such save booted a second reflex runner beside the first, both subscribed
+   to the same store: every server `reflex.say` (fillers, acknowledgements, progress lines, celebrations, phatic
+   replies) then played twice until a reload. The owner's `pnpm dev` hot-reloads every save the parallel workflows
+   make, so this compounded the first cause. (Found in Vite's HMR client, which calls `dispose` only for the accepting
+   module, and in the boot path, which had no teardown for an earlier runtime; the dev log shows these partial
+   updates, never a full reload.) The runtime and the audio engine are now handed over on a hot update (`lib/hot.ts`);
+   after two hot updates on the fixer's instance: one engine, each reflex once.
+
+**Single-tab audit (no other duplicates).** On the fixer's own Mock + mock-media instance with one client, counting
+every engine `speak` chunk, prepared-clip play, browser-voice reflex and TTS request per line: "hi", "thanks", a slow
+question typed and by voice (filler + answer), a joke by voice (laugh), a delegation by voice (acknowledgement), a
+steer (acknowledgement), the progress line, the job done (celebration + announcement), a failed job (announcement),
+a passing-by line and a side-thread reply, a reload mid-answer, Talk → Floor → Talk, and two hot updates: every line
+voiced exactly once, no TTS request twice. A reload never re-speaks: replayed frames are applied `live: false`.
+
+### The rule
+
+Only one client speaks at a time: the **voice owner**, the tab of the most recent owner interaction (a talk send,
+push-to-talk, a steer, a desk reply, any real click or key press in `/app`, or switching back to that tab or window).
+The other tabs keep the thread, captions, bubbles and faces, and show one small chip, **Speaking on another tab · Play
+here**, in the Talk and Floor headers; pressing it (or anything else in that tab) moves the voice there, and the tab
+that had it goes quiet at once. A click, a key press or coming back counts only in a page that is on screen and has
+focus: an agent driving the in-app Browser pane (its input is trusted and focuses the page, but the pane reports
+`hidden`) never moves the voice.
+
+- **Reload** keeps the voice (the tab keeps its client id), and so does a worker restart (every socket closed: the
+  tab that spoke gets the same 5 s grace while the tabs reconnect). A wake from hibernation keeps the voice where it
+  was (who speaks is stored). **Closing** the tab with the voice hands proactive speech (announcements, progress lines,
+  reflexes) to the most recently active remaining tab after 5 s, and that tab voices, once, the job announcements that
+  arrived during those 5 s (no tab voiced them); with no tab left, nothing speaks. A tab that only opens never takes
+  the voice (alone on the workspace, it has it at once).
+- **Same browser** hand-offs are immediate (BroadcastChannel; the tab that had the voice goes quiet and answers at
+  once). Another device goes quiet when the server's `voice.owner` reaches it (one round trip): until its claim is
+  echoed, the claiming tab leaves any line that starts meanwhile to that device. A message that was streaming when the
+  voice moved is never picked up in the middle: the new owner speaks from the next message on.
+- Barge-in (Esc, a tap on the face, holding to talk), push-to-talk and "sending while they speak" work as before in
+  the tab with the voice; the same gesture in another tab first takes the voice.
+- The landing page never speaks.
+- Contracts: [CONTRACTS.md](CONTRACTS.md) §8 (client id, `ready.data.voice`, `voice.owner`, `voice.claim`, the
+  `clientId` on talk, steer and desk requests).
+
+**After this change, reload each open `/app` tab once:** a runtime booted before the hot-update handover existed
+cannot be found and disposed by it, so a long-open tab may still hold a second one.
+
+### Verified
+
+- `pnpm typecheck` green (all packages, `packages/office` included at the time of writing); `pnpm test` 86 files,
+  1001 tests (new: `apps/worker/src/workspace/voice.test.ts` — owner tracking, claim echoes, the reload grace, the
+  fallback to the most recently active client, nobody when no client is left, hibernation re-check, a restarted
+  object that does not hand the voice to the first tab back, HTTP claims on
+  talk, steer and desk, the owner's view for event reflexes; `apps/web/src/voice/owner.test.ts` — claims and echoes,
+  settle timeout, legacy servers, the landing page, trusted non-modifier gestures only, the BroadcastChannel hand-off,
+  client ids across reloads and copied tabs, Chief voice gating and going quiet on hand-off;
+  `apps/web/src/lib/hot.test.ts` — the runtime, engine and client id across a simulated hot update; a runtime test
+  that a tab without the voice plays no reflex); `pnpm build` green.
+- `pnpm e2e`: 53 passed, 1 skipped (screens); the `living-voice` project again on the final state: 12 passed. New
+  `e2e/one-voice.spec.ts` (project `living-voice`): two browser
+  contexts on one workspace (only the tab with the voice plays each line, the other keeps the text and shows the chip;
+  "Play here" and any click take the voice); closing the owner's tab hands the job-done announcement to the other
+  tab, voiced once; two tabs of one browser hand over at once mid-answer and nothing is said twice; one tab: every
+  path of the audit above plays each line exactly once and a reload never says anything again.
+
+**Verification round (same day).** Fixed after an independent check:
+- **A wake from hibernation muted the tab left behind.** The restart grace went to the stored owner on every new
+  object, including wakes that kept their sockets, and nothing re-checked when it ended: after the owner's tab closed,
+  every 25 s ping woke a fresh object that named the closed tab again, and a lone tab on a cold workspace never got the
+  voice. Now the grace is given only when no socket is left (a real restart), always with a re-check at its end, and
+  who speaks is stored (`voice_published`). Live on wrangler dev (a Node client pair, 80 s idle): before, the remaining
+  tab was muted from the first ping on (57 of 70 s); after, it kept the voice with no re-announcement, and a cold
+  single tab had it at once.
+- **Announcements during the 5 s grace were voiced nowhere**: the fallback now carries `unvoicedAfter` and the new
+  owner voices them once (new e2e below).
+- **Agent clicks in the in-app Browser pane took the voice**: measured in the pane, automated input is trusted and
+  focuses the page, but the page reports `hidden`; claims now need a page on screen with focus. Live: clicks and
+  typing in a pane tab of `/app` never moved the voice from the other client.
+- **Cross-device overlap**: a line that starts before the claim is echoed stays with the old device.
+- **Switching back to a tab** (tab strip or window) now takes the voice, so progress lines and celebrations are voiced
+  when the owner looks at Talk in another tab.
+
+Checks: `pnpm typecheck` green; `pnpm test` 93 files, 1099 tests (new: hibernation wakes keep the fallback, a cold lone
+tab, the restart grace for the tab that spoke, `unvoicedAfter`; hidden or unfocused pages never claim, coming back
+claims and opening does not, unsettled claims and the same-browser yield, the grace catch-up once and never for old
+news; a reaction before the echo stays captions-only); `pnpm build` green; `pnpm e2e` 53 passed, 1 skipped, then
+`one-voice.spec.ts` with the new test (the owner's tab closes as the write-up starts; the announcement lands in the
+grace and is voiced once by the other tab) 15 of 15 with `--repeat-each 3`.
+
+**A reply that ended while the socket was down (fixed).** When the owner feed dropped mid-answer and came back after
+the reply finished, the reply's `talk.message` and `talk.done` arrived as history (`live: false`) and the voices
+ignored them: the reply's speech stream stayed open, and every later line of the Chief's in that tab (job
+announcements, and the progress lines and celebrations that wait for a free voice) queued behind it until a barge-in or
+a typed message (sending while the Chief speaks stops the reply at its sentence). Reproduced with a page script on a
+Mock + mock-media instance: the announcement never played and `activity('cw_chief')` stayed
+`{conversation: true, streamOpen: true}`. Now an end that is not voiced (replayed, or voice turned off meanwhile)
+still ends what streamed in that tab, where it is: the sentences already cut play, an unfinished last one is dropped,
+nothing new is said. The same holds for a worker restart mid-answer (the recovered `talk.done` names no message: the
+reply is found by its turn), for Floor quick-chat replies, and in the living runtime (a replayed end of a turn this tab
+saw live closes that turn in the runner silently, so no "still working on it" or "I'm all yours" follows it). One voice
+per workspace and the fallback catch-up are unchanged; replayed history still never speaks. Checks: `pnpm typecheck`
+green; `pnpm test` 94 files, 1115 tests (new: `apps/web/src/voice/replayed-end.test.ts`, the speaker's `endHere`, the
+runtime and the runner closing a replayed turn silently, the chunker and speech stream dropping an unfinished last
+sentence, the engine queue moving on once such a stream ends); the page script again: the announcement plays and the
+engine is idle; `living-voice` e2e 14 passed, with a new `one-voice.spec.ts` test that drops the real socket
+mid-answer (half-open, then closed after the answer finished) and checks the job-done announcement is voiced after the
+reconnect (it failed without the fix).
+
+**A socket that came back while the answer still streamed (fixed, same day).** Found when that fix was checked; an
+older gap of the same kind. Deltas are never replayed, so what streamed while the socket was down was lost, and the
+live deltas after the reconnect were appended to the same open utterance with a hole in the middle: the chunker joined
+the two halves into one garbled sentence (a page script: "And the secWant the details?"; the new e2e before the fix:
+"… brand?". I Add a provider key or start Ollama for real ones."). The live `talk.message` could not repair it (its
+text is added only when it starts with what streamed). Now every new `ready` ends whatever is still streaming in that
+tab (Chief replies and Floor quick-chat replies, `AgentSpeaker.endStreaming`) the same way as a replayed end: the
+sentences already cut play, an unfinished last one is dropped, and later deltas and the live end of that message are
+ignored. The rest shows as text. A reply that starts after the reconnect is voiced in full. Replayed history still
+never speaks, and the grace catch-up is unchanged (still voiced once when the voice falls to this tab on a `ready`).
+Checks: `pnpm typecheck` green; `pnpm test` 94 files, 1120 tests (new: the socket coming back mid-reply for the Chief
+and on the Floor, a reply after the reconnect, a reconnect with nothing streaming next to the catch-up, and
+`endStreaming` in the speaker); a new `one-voice.spec.ts` test replays the frames a page gets when its socket comes
+back mid-answer (`ready` at its cursor, the late deltas with the middle ones lost, then the live end) and checks that
+only the first sentence is voiced and the job-done announcement follows (it failed without the fix with the garbled
+sentence above); `living-voice` e2e 15 passed on the final state. On two earlier full runs three other tests failed
+once each and passed alone on rerun: push-to-talk and a two-tab send each timed out waiting for a frame, and the one-tab
+audit drew the same acknowledgement clip twice, 27 s apart. None of them touches the reconnect path.
+
+### Known gaps
+
+- **A socket that comes back mid-answer** ends that answer's voice where it was, even if no delta was lost
+  meanwhile (deltas carry no position, so a hole cannot be detected). The rest shows as text only.
+- **A reload mid-answer** voices the rest of that answer from the first words that arrive after the tab reconnects
+  (never what was already said), which can start mid-sentence.
+- **Cross-device hand-off** waits for the server's `voice.owner` (one round trip): a line that starts within that
+  round trip is voiced by the old device until the word reaches it, then stops; the new device shows it without
+  voicing it.
+- **A page that reports `hidden` while on screen** (some embedded webviews) takes the voice with Play here or an owner
+  action (talk, steer, desk reply), not with a click. An in-app Browser pane that is on screen and reports `visible`
+  with focus counts an agent's clicks as the owner's; one click in the owner's tab takes the voice back.
+- A tab opened within 5 s after the voice owner's tab closed stays silent until its first gesture or the end of that
+  grace. Lines that arrive while the owner's tab reloads are replayed, not voiced (only a close is caught up), and
+  progress lines and celebrations from that grace are not caught up (old news by then).
+- Hovering a desk in a tab without the voice shows the passing-by bubble without voice until a click there; event
+  reflexes (progress line, celebration) are voiced only by the tab with the voice while it shows Talk.
+- Seen during the audit, not a duplicate and not changed here: a "thanks" typed while the "hi" reply still plays is
+  dropped by the one-reflex-at-a-time queue (TTL).

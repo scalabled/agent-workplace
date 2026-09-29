@@ -13,6 +13,7 @@ import {
   type PresenceState,
   type WorkspaceId,
 } from '@headcount/protocol';
+import type { VoiceOwnerData } from '@headcount/protocol/ext/voice-owner';
 import type { Ledger, SqlHost } from './ledger';
 
 /** The part of a WebSocket the feed uses (lets tests pass plain objects). */
@@ -101,11 +102,20 @@ export class Feed {
     private readonly clock: () => number = () => Date.now(),
   ) {}
 
-  /** Greet a new socket and catch it up. Returns the last seq replayed (or `since` when nothing was missed). */
-  open(ws: FeedSocket, since: number): number {
+  /**
+   * Greet a new socket and catch it up. Returns the last seq replayed (or `since` when nothing was missed). `extra.voice`:
+   * who speaks now (one voice per workspace), carried by `ready` so the tab knows before anything live arrives.
+   */
+  open(ws: FeedSocket, since: number, extra: { voice?: VoiceOwnerData } = {}): number {
     const lastSeq = this.ledger.lastSeq();
     const from = Math.max(0, Math.floor(Number.isFinite(since) ? since : 0));
-    send(ws, this.ephemeral({ type: 'ready', data: { workspaceId: this.workspaceId, streamId: this.ledger.streamId, lastSeq, replayFrom: from, serverTime: new Date(this.clock()).toISOString() } }));
+    send(
+      ws,
+      this.ephemeral({
+        type: 'ready',
+        data: { workspaceId: this.workspaceId, streamId: this.ledger.streamId, lastSeq, replayFrom: from, serverTime: new Date(this.clock()).toISOString(), ...(extra.voice ? { voice: extra.voice } : {}) },
+      }),
+    );
     const last = this.replay(ws, from);
     for (const p of this.presence.snapshot()) send(ws, this.ephemeral({ type: 'presence', data: p }));
     return last;

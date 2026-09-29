@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { faceDrawn, onboarded } from './helpers';
+import { faceDrawn, onboarded, pinDirectory } from './helpers';
 
 // Floor (browse): the Directory of catalog coworkers, search + department filter, profile. The Chief of Staff's
-// card sits above the Directory (Inc 0.5), so Directory cards are `.cw-grid .cw-card`.
+// card sits above the Directory (Inc 0.5), so Directory cards are `.cw-grid .cw-card`. A desktop opens the Floor as
+// the Office (Office Phase 2, e2e/office.spec.ts): these pin the Directory.
 const CARDS = '.cw-grid .cw-card';
-test.beforeEach(async ({ request }) => {
+test.beforeEach(async ({ request, page }) => {
   await onboarded(request);
+  await pinDirectory(page);
 });
 
 test('the Directory lists every coworker by department, with faces', async ({ page }) => {

@@ -1,7 +1,7 @@
 // Living-workforce routes (docs/dev/INC05-PLAN.md §3.2): the catalog bundle, agent expression profiles, clips and their
 // alignment, runtime renders and pre-voice runs. Keys stay server-side; errors are one sentence with their fix.
 import { isIntentId, renderUtterance, toDelivery, clipKey as keyOf, clipAlignmentUrl, clipUrl } from '@headcount/expressions';
-import { CHIEF_ID, personaIdFromAgentId, type WorkspaceSettings } from '@headcount/protocol';
+import { CHIEF_ID, ownerFirstNameOf, personaIdFromAgentId, type WorkspaceSettings } from '@headcount/protocol';
 import type {
   ExprAgentResponse,
   ExprClipRef,
@@ -17,7 +17,7 @@ import type { Env } from '../env';
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
 import { workspaceStub } from '../lib/stubs';
 import { mockMediaEnabled } from '../media/speech';
-import { EXPR_CATALOG_VERSION, chiefRenamed, exprBundleJson, exprProviderFor, exprVoiceKey, indexFor, profileFor, wireProfile } from './catalog';
+import { EXPR_BUNDLE, EXPR_CATALOG_VERSION, chiefRenamed, exprBundleJson, exprProviderFor, exprVoiceKey, indexFor, profileFor, wireProfile } from './catalog';
 import { CLIP_KEY_RE, clipCacheControl, clipsRemainingToday, findClip, readAlignment, readClip, renderClip } from './clips';
 import { exprLimit } from './config';
 import type { ManifestRow } from './host';
@@ -38,8 +38,11 @@ function missingProviderKeys(): string[] {
 }
 
 // ── GET /api/expr/catalog ───────────────────────────────────────────────────────
+/** `"<catalog version>.<huddles version>"`: a small-talk content change is fetched while the manifests' version stays. */
+export const EXPR_CATALOG_ETAG = `"${EXPR_CATALOG_VERSION}${EXPR_BUNDLE.huddles?.version ? `.${EXPR_BUNDLE.huddles.version}` : ''}"`;
+
 export const handleExprCatalog: RouteHandler = async (req) => {
-  const etag = `"${EXPR_CATALOG_VERSION}"`;
+  const etag = EXPR_CATALOG_ETAG;
   const headers = { etag, 'cache-control': 'private, no-cache' };
   const match = req.headers.get('if-none-match');
   if (match && match.split(',').some((t) => t.trim().replace(/^W\//, '') === etag)) return new Response(null, { status: 304, headers });
@@ -230,7 +233,7 @@ export const handleExprPrevoice: RouteHandler = async (req, rc) => {
 
   if (plan.provider === 'browser') return json<ExprPrevoiceAccepted>({ ...base, runId: null, planned: 0, alreadyCached: 0, toRender: 0, estAudioMs: 0, ...(body.dryRun ? { dryRun: true } : {}) });
 
-  const fingerprint = await prevoiceFingerprint(body, plan, maxClips);
+  const fingerprint = await prevoiceFingerprint(body, plan, maxClips, ownerFirstNameOf(settings));
   const runner = prevoiceRunner(rc.env);
   const prior = body.dryRun ? null : ((await runner.prevoiceFind(fingerprint)) as ExprPrevoiceStatus | null);
   if (prior?.state === 'done') {

@@ -7,6 +7,7 @@ import { ChiefBubble } from './components/ChiefBubble';
 import { Nav } from './components/Nav';
 import { closePalette, openPalette, Palette, paletteOpen } from './components/Palette';
 import { PttCaption } from './components/PttCaption';
+import { clientId } from './lib/client-id';
 import { startClock } from './lib/time';
 import { startLiving } from './living';
 import { navigate, paths, route } from './router';
@@ -22,7 +23,9 @@ import { draft } from './talk/draft';
 import { startUnread } from './ui/unread';
 import { bargeIn, chiefIsSpeaking, chiefSpeaker, startChiefVoice } from './voice/chief-voice';
 import { armAudio, audio } from './voice/engine';
-import { cancelPtt, endPtt, ptt, pttMode, startPtt } from './voice/ptt';
+import { startVoiceHandoff } from './voice/handoff';
+import { mayVoice, voiceOwner } from './voice/owner';
+import { cancelPtt, endPtt, ptt, pttMode, pttPressTarget, startPtt, type PttTarget } from './voice/ptt';
 import { startSideVoice } from './voice/side-voice';
 import './styles/components.css';
 
@@ -79,7 +82,10 @@ function useBoot() {
         openedBefore = true;
       },
       since: () => lastSeq.value,
+      clientId,
     });
+    // One voice per workspace: only the tab with the voice speaks; a real gesture here takes it (voice/owner.ts).
+    const stopHandoff = startVoiceHandoff((op) => feed?.send(op));
     // The living workforce loads once the app is idle; its socket ops ride this feed.
     const stopLiving = startLiving((op) => feed?.send(op));
     // The first gesture anywhere arms audio, so later announcements can be heard (X4: never before a gesture).
@@ -90,9 +96,10 @@ function useBoot() {
     // sounding, the owner's voice activity) through this hook.
     if (import.meta.env.DEV) {
       const w = window as unknown as { __headcount?: Record<string, unknown> };
-      w.__headcount = { ...(w.__headcount ?? {}), store, applyFrame, chiefSpeaker, audio };
+      w.__headcount = { ...(w.__headcount ?? {}), store, applyFrame, chiefSpeaker, audio, voice: { clientId, owner: () => voiceOwner.peek(), here: mayVoice } };
     }
     return () => {
+      stopHandoff();
       stopLiving();
       feed?.close();
       stopVoice();
@@ -114,6 +121,22 @@ export const COMPOSER_HOLD_MS = 250;
 /** The Talk composer while it is empty: there, a held Space is push-to-talk (its placeholder says so). */
 export function isEmptyComposer(target: EventTarget | null): target is HTMLTextAreaElement {
   return target instanceof HTMLTextAreaElement && target.id === 'composer' && target.value === '';
+}
+
+/**
+ * Another empty field whose placeholder offers "hold Space to talk" (`data-ptt-hold`: the office room's dock): a held
+ * Space talks to the push-to-talk target, a quick tap types a space.
+ */
+export function isEmptyPttField(target: EventTarget | null): target is HTMLInputElement | HTMLTextAreaElement {
+  return (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) && target.hasAttribute('data-ptt-hold') && target.value === '';
+}
+
+/**
+ * The page already handled this Esc or Space (the office scene leaves a room or a huddle, the stage's dock clears its
+ * field, a control held to talk): the global shortcut stays out of it.
+ */
+export function handledByPage(e: KeyboardEvent): boolean {
+  return e.defaultPrevented && (e.key === 'Escape' || e.key === ' ');
 }
 
 /** Space is push-to-talk outside text fields, unless a control has keyboard focus (then Space activates it). */
@@ -138,7 +161,7 @@ function useGlobalKeys() {
     let spaceHeld = false;
     // Space pressed in the empty composer: talk once it is held, type a space if it is let go quickly.
     let composerTimer: ReturnType<typeof setTimeout> | undefined;
-    let composerPending: HTMLTextAreaElement | null = null;
+    let composerPending: HTMLTextAreaElement | HTMLInputElement | null = null;
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -147,6 +170,7 @@ function useGlobalKeys() {
         return;
       }
       if (paletteOpen.value) return;
+      if (handledByPage(e)) return;
       if (e.key === 'Escape') {
         if (document.querySelector('[aria-modal="true"]')) return; // the dialog closes itself
         if (ptt.value.phase !== 'idle') cancelPtt();
@@ -160,7 +184,7 @@ function useGlobalKeys() {
           return;
         }
         if (e.repeat || !onboarded.value || !pttMode()) return;
-        if (isEmptyComposer(e.target) && !e.isComposing) {
+        if ((isEmptyComposer(e.target) || isEmptyPttField(e.target)) && !e.isComposing) {
           e.preventDefault();
           composerPending = e.target;
           composerTimer = setTimeout(() => {
@@ -184,7 +208,11 @@ function useGlobalKeys() {
         const box = composerPending;
         composerPending = null;
         e.preventDefault();
-        draft.value = `${box.value} `;
+        if (box.id === 'composer') draft.value = `${box.value} `;
+        else {
+          box.value = `${box.value} `;
+          box.dispatchEvent(new Event('input', { bubbles: true }));
+        }
         return;
       }
       if (spaceHeld) {
@@ -249,6 +277,11 @@ function Screen() {
   }
 }
 
+/** A press aimed at a conference room (its dock shows the live transcript); a joined huddle has no dock. */
+function conferencePress(t: PttTarget | null): boolean {
+  return t?.kind === 'room' && !t.roomId.startsWith('huddle:');
+}
+
 export function App() {
   useBoot();
   useGlobalKeys();
@@ -264,7 +297,8 @@ export function App() {
         <Screen />
       </main>
       {!bare && <ChiefBubble />}
-      <PttCaption />
+      {/* The conference dock shows its own listening line; everything else (Talk, a joined huddle) shows this one. */}
+      {!conferencePress(pttPressTarget.value) && <PttCaption />}
       <Announcer />
       <Palette />
     </div>

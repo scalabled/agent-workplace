@@ -10,6 +10,8 @@ export interface FeedOptions {
   onStatus?(status: FeedStatus): void;
   /** Highest persisted seq already applied (sent as ?since= on every (re)connect). */
   since(): number;
+  /** This tab's client id (sent as &client=: one voice per workspace). */
+  clientId?: () => string;
   /** Override for tests. */
   url?: (since: number) => string;
   /** Override for tests. */
@@ -67,7 +69,8 @@ export function connectFeed(opts: FeedOptions): Feed {
   const url = (since: number) => {
     if (opts.url) return opts.url(since);
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${proto}//${location.host}${routePath('ws')}?since=${since}`;
+    const client = opts.clientId?.();
+    return `${proto}//${location.host}${routePath('ws')}?since=${since}${client ? `&client=${encodeURIComponent(client)}` : ''}`;
   };
 
   const schedule = (delay: number) => {

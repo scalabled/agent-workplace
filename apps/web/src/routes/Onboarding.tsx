@@ -13,7 +13,7 @@ import { portraitEpoch, portraitFor } from '../lib/portraits';
 import { builtinQuiz, topMatches, type Match } from '../onboarding/quiz';
 import { navigate, paths } from '../router';
 import { can, localPresence, onboarded, settings } from '../store';
-import { updateSettings } from '../talk/actions';
+import { ownerNameProblem, updateSettings } from '../talk/actions';
 import { greetOnArrival } from '../talk/draft';
 import { armAudio } from '../voice/engine';
 import './onboarding.css';
@@ -149,6 +149,9 @@ function teaser(backstory: string): string {
 function Stage({ lead, match, previewLine }: { lead: Lead; match: Match | undefined; previewLine: string | undefined }) {
   const first = firstName(lead.name);
   const [name, setName] = useState(first);
+  // What the office calls the owner: optional, skipped by default (OFFICE-PHASE2 §4.6).
+  const [ownerName, setOwnerName] = useState(settings.value?.ownerName ?? '');
+  const [ownerError, setOwnerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [more, setMore] = useState(false);
   const speaker = useSampleSpeaker(`sample:${lead.id}`, leadVoiceRef(lead));
@@ -165,9 +168,18 @@ function Stage({ lead, match, previewLine }: { lead: Lead; match: Match | undefi
     if (busy) return;
     armAudio(); // the choice is the gesture that lets the greeting play
     speaker.stop();
+    // The owner's name rides on the same save; blank sends nothing (a name set before stays).
+    const owner = ownerName.replace(/\s+/g, ' ').trim();
+    const problem = owner ? ownerNameProblem(owner) : null;
+    setOwnerError(problem);
+    if (problem) return;
     setBusy(true);
     const trimmed = name.trim().slice(0, 40);
-    const ok = await updateSettings({ leadId: lead.id, chiefName: trimmed && trimmed !== first ? trimmed : null });
+    const ok = await updateSettings({
+      leadId: lead.id,
+      chiefName: trimmed && trimmed !== first ? trimmed : null,
+      ...(owner && owner !== (settings.value?.ownerName ?? '') ? { ownerName: owner } : {}),
+    });
     setBusy(false);
     if (ok) {
       greetOnArrival.value = true;
@@ -209,7 +221,27 @@ function Stage({ lead, match, previewLine }: { lead: Lead; match: Match | undefi
           </ul>
         </div>
         <p class="stage-honesty">{first} is an AI coworker. The backstory is character lore, not real events.</p>
-        <form class="stage-choose" onSubmit={choose}>
+        {/* Above Choose, so the owner meets it before the primary action; outside the form's box (pinned to the bottom
+            on phones), still part of it: Enter here chooses too. */}
+        <label class="stage-name-field stage-owner-field">
+          <span>What should the office call you?</span>
+          <input
+            form="stage-choose"
+            value={ownerName}
+            maxLength={40}
+            autoComplete="given-name"
+            aria-describedby="stage-owner-hint"
+            aria-invalid={ownerError ? 'true' : undefined}
+            onInput={(e) => {
+              setOwnerName(e.currentTarget.value);
+              if (ownerError) setOwnerError(null);
+            }}
+          />
+          <span id="stage-owner-hint" class="stage-owner-hint" role={ownerError ? 'alert' : undefined}>
+            {ownerError ?? 'Optional. Used in greetings.'}
+          </span>
+        </label>
+        <form class="stage-choose" id="stage-choose" onSubmit={choose}>
           <label class="stage-name-field">
             <span>Call {pronoun}</span>
             <input value={name} maxLength={40} autoComplete="off" onInput={(e) => setName(e.currentTarget.value)} />

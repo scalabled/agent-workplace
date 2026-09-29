@@ -152,6 +152,11 @@ export function createHud(h: HudHost): Hud {
   const commit = (id: string) => {
     findList.hidden = true;
     findInput.setAttribute('aria-expanded', 'false');
+    // Found: the camera flies there, and the rest of the office lights up again (the filter never lingers).
+    findInput.value = '';
+    renderFind();
+    findList.hidden = true;
+    if (findWrap.dataset.open !== undefined && doc.activeElement !== findInput) delete findWrap.dataset.open;
     h.onFindCommit(id);
   };
   findInput.addEventListener('input', renderFind);

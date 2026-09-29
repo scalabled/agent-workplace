@@ -1,6 +1,6 @@
 // Owner commands: send (optimistic, idempotent by opId), retry, steer and stop jobs, voice on/off, Ambience, and
 // the Floor quick-chat with a coworker.
-import { CHIEF_ID, coworkerAgentId, ids, TALK_MAX_CHARS, type OpId, type UpdateWorkspaceRequest } from '@headcount/protocol';
+import { CHIEF_ID, coworkerAgentId, ids, OWNER_NAME_MAX_CHARS, TALK_MAX_CHARS, type OpId, type UpdateWorkspaceRequest } from '@headcount/protocol';
 import type { Ambience } from '@headcount/protocol/ext/expressions';
 import { api, ApiError } from '../api/client';
 import { beginSend, livingOwnerTurn, livingSendDecision, livingSetAmbience } from '../living';
@@ -139,4 +139,31 @@ export async function setAmbience(a: Ambience): Promise<boolean> {
   const ok = await updateSettings({ ambience: a });
   if (ok) livingSetAmbience(a);
   return ok;
+}
+
+/**
+ * What the office calls the owner (greetings, sign-offs, prompts; never small talk). Blank or null clears it. Returns
+ * null when saved, else one sentence with its fix (the change is rolled back).
+ */
+export async function setOwnerName(name: string | null): Promise<string | null> {
+  const t = (name ?? '').replace(/\s+/g, ' ').trim();
+  const problem = ownerNameProblem(t);
+  if (problem) return problem;
+  const prev = settings.value;
+  if (prev) settings.value = { ...prev, ownerName: t || null };
+  try {
+    settings.value = await api.putWorkspace({ ownerName: t || null });
+    return null;
+  } catch (err) {
+    settings.value = prev;
+    return errorSentence(err);
+  }
+}
+
+/** Why the worker would refuse this name (the same rule as PUT /api/workspace), or null when it is fine. */
+export function ownerNameProblem(name: string): string | null {
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f<>{}[\]\\/@#]/.test(name)) return 'Use letters for your name.';
+  if (name.replace(/\s+/g, ' ').trim().length > OWNER_NAME_MAX_CHARS) return `Keep your name to ${OWNER_NAME_MAX_CHARS} characters or fewer.`;
+  return null;
 }

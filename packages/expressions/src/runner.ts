@@ -910,7 +910,11 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
           lastVoiceEnd.set(agentId, now());
         }
         const j = juggles.get(turn.agentId);
-        if (j && j.turnId === turn.turnId) backWithYou(turn.agentId);
+        // An end replayed after a reconnect closes the juggle silently: no "back with you" from history.
+        if (j && j.turnId === turn.turnId) {
+          if (e.replayed) juggles.delete(turn.agentId);
+          else backWithYou(turn.agentId);
+        }
         return;
       }
       case 'backgrounded': {

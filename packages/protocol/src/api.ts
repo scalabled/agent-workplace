@@ -1,4 +1,5 @@
 import type { Ambience, ExprRecentOp, ViewerOp } from './ext/expressions';
+import type { VoiceClaimOp } from './ext/voice-owner';
 import type { FaceLandmarks } from './face';
 import type { JobId, MessageId, OpId, ProjectId, SteerId, TurnId, WorkspaceId } from './ids';
 import type { Alignment, VoiceRef } from './voice';
@@ -94,6 +95,11 @@ export interface WorkspaceSettings {
    * settings means Lively (`ambienceOf` in ext/expressions).
    */
   ambience?: Ambience;
+  /**
+   * What the office calls the owner (Office Phase 2): optional, set in onboarding or ⌘K. Used only in greetings,
+   * sign-offs and prompts, never in small talk. Absent or null = unset.
+   */
+  ownerName?: string | null;
   updatedAt: string;
 }
 
@@ -106,6 +112,22 @@ export interface UpdateWorkspaceRequest {
   chiefName?: string | null;
   voiceOn?: boolean;
   ambience?: Ambience;
+  /** Trimmed; blank → null; ≤ OWNER_NAME_MAX_CHARS; letters, spaces, apostrophes, hyphens and dots. */
+  ownerName?: string | null;
+}
+
+export const OWNER_NAME_MAX_CHARS = 40;
+
+/**
+ * The owner's first name for greetings and prompts: the first word of `ownerName`, ≤ 24 characters of letters,
+ * apostrophes and hyphens (trailing punctuation dropped). null when unset or when the first word is not a name.
+ */
+export function ownerFirstNameOf(s: { ownerName?: string | null } | null | undefined): string | null {
+  const raw = typeof s?.ownerName === 'string' ? s.ownerName.trim() : '';
+  if (!raw) return null;
+  const first = raw.split(/\s+/)[0]!.replace(/^['’-]+|['’.,-]+$/gu, '');
+  if (!first || first.length > 24 || !/^\p{L}[\p{L}\p{M}'’-]*$/u.test(first)) return null;
+  return first;
 }
 
 // ── talk ────────────────────────────────────────────────────────────────────────
@@ -116,6 +138,8 @@ export interface TalkRequest {
   text: string;
   opId: OpId;
   via?: 'text' | 'voice';
+  /** The sending tab (ext/voice-owner): it becomes the voice owner. */
+  clientId?: string;
 }
 
 export interface TalkAccepted {
@@ -170,6 +194,8 @@ export interface JobSnapshot {
 export interface SteerJobRequest {
   text: string;
   opId?: OpId;
+  /** The steering tab (ext/voice-owner): it becomes the voice owner. */
+  clientId?: string;
 }
 
 export interface SteerJobAccepted {
@@ -258,6 +284,8 @@ export interface PutLandmarksRequest {
  */
 export interface WsQuery {
   since?: number;
+  /** The tab's client id (ext/voice-owner): one voice per workspace. */
+  client?: string;
 }
 
 export const WS_REPLAY_LIMIT = 500;
@@ -268,4 +296,4 @@ export const WS_REPLAY_LIMIT = 500;
  * - `resume` pages the replay: after `ready`, when the last replayed seq is still below `ready.lastSeq`, the
  *   client asks for the next page of persisted frames with seq > since (see feedCatchUp in ext/worker-core).
  */
-export type WsClientMessage = { op: 'ping'; t: number } | { op: 'resume'; since: number } | ViewerOp | ExprRecentOp;
+export type WsClientMessage = { op: 'ping'; t: number } | { op: 'resume'; since: number } | ViewerOp | ExprRecentOp | VoiceClaimOp;

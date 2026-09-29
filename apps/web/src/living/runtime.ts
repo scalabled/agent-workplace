@@ -11,20 +11,25 @@ import {
   expressionBias,
   lineOf,
   moodAt,
+  ownerDayKey,
   REACTION_INTENTS,
+  recordUtterance,
+  selectLine,
   sniffOwnerText,
   type IntentId,
   type CompiledCatalog,
   type ConversationEvent,
   type ExpressionCatalogInput,
   type GroundingState,
+  type Mood,
+  type PreparedClip,
   type PrevoiceTier,
   type RecencySnapshot,
   type ReflexRunner,
   type ReflexSettings,
   type ReflexTelemetry,
 } from '@headcount/expressions';
-import { CHIEF_ID, personaIdFromAgentId, type Frame } from '@headcount/protocol';
+import { CHIEF_ID, ownerFirstNameOf, personaIdFromAgentId, type Frame } from '@headcount/protocol';
 import {
   ambienceOf,
   type Ambience,
@@ -48,6 +53,7 @@ import { feedEpoch, jobs, lastSeq, onboarded, onFrame, presence, replayThrough, 
 import { greetedThisSession } from '../talk/draft';
 import { chiefSpeaker } from '../voice/chief-voice';
 import { audio } from '../voice/engine';
+import { claimUnsettled, mayVoice, voiceActive } from '../voice/owner';
 import { eachSideSpeaker } from '../voice/side-voice';
 import type { AgentSpeaker } from '../voice/speaker';
 import { createAgents, type AgentEntry } from './agents';
@@ -58,9 +64,10 @@ import { chiefGrounding, coworkerGrounding } from './grounding';
 import { isQuietHours, livelyAnyway, quietHoursApply, quietHoursNow } from './quiet';
 import { sendsInFlight } from './index';
 import { sendWhileSpeaking } from './policy';
-import { activityOf, captionPort, createAudioPort, createRender, facePort } from './ports';
+import { createBudgetPause } from './budget-pause';
+import { activityOf, captionPort, createAudioPort, createRender, DROPPED_PLAY, facePort } from './ports';
 import type { HoverPhase, HoverVia, LivingRuntime, OwnerTurnInput } from './types';
-import { createOpSender, recentOp, stageOf, viewerOp } from './viewer';
+import { createOpSender, officeStage, recentOp, stageOf, viewerOp } from './viewer';
 
 export const RECENCY_STORAGE_KEY = 'hc-expr-recency-v1';
 /** While an agent's reply sounds, the runner hears how much is left this often (§3.4 `speaking`). */
@@ -116,6 +123,8 @@ export interface RuntimeDeps {
   speakers?: RuntimeSpeakers;
   /** Dev builds: expose the runtime on window.__headcount.living. */
   devHook?: boolean;
+  /** The bundle's office small-talk packs (OFFICE-PHASE2 §4.5.13), kept for the Office. */
+  huddles?: { version: string; packs: readonly unknown[] } | null;
 }
 
 const defaultSchedule = (fn: () => void, ms: number) => {
@@ -137,6 +146,24 @@ function prefersReducedMotion(): boolean {
 }
 
 const pageVisible = () => typeof document === 'undefined' || document.visibilityState !== 'hidden';
+
+/** A talk.* frame of an office room or joined huddle (`surface: 'room'`). */
+export function isRoomTalk(frame: Frame): boolean {
+  switch (frame.type) {
+    case 'talk.owner':
+    case 'talk.delta':
+    case 'talk.message':
+    case 'talk.done':
+      return (frame.data as { surface?: string }).surface === 'room';
+    default:
+      return false;
+  }
+}
+
+/** A greeting or sign-off from the office starts within this long, or not at all (its bubble shows either way). */
+export const SAY_INTENT_VOICE_TTL_MS = 1500;
+/** Seeds tried for a greeting that says the owner's name before the first pick stands. */
+export const NAMED_GREETING_TRIES = 24;
 
 export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
   const now = deps.now ?? Date.now;
@@ -212,8 +239,12 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
   // The runner's port. While the Chief's next answer is held for a reflex between answers (a lead-in, "all yours"),
   // that answer is queued in the engine but silent: it must not count as a busy voice, or the reflex it waits for
   // waits for it. The runtime's own decisions (sending while they speak, barge-in) read `basePort`.
+  // One voice per workspace: only the tab that has the voice plays anything (a line planned just before another tab
+  // took the voice is dropped here; the runner already treats every other tab as voice off, captions only).
   const audioPort: typeof basePort = {
     ...basePort,
+    play: (req) => (mayVoice() ? basePort.play(req) : DROPPED_PLAY),
+    speakText: (agentId, text, opts) => (mayVoice() ? basePort.speakText(agentId, text, opts) : null),
     voiceBusy(agentId) {
       const b = basePort.voiceBusy(agentId);
       if (agentId !== CHIEF_ID || !nextReply || b.bus !== 'conversation') return b;
@@ -230,7 +261,7 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
   const reducedMotion = signal(prefersReducedMotion());
   const base: ReflexSettings = {
     ambience: ambienceOf(settings.peek()),
-    voiceOn: settings.peek()?.voiceOn ?? false,
+    voiceOn: (settings.peek()?.voiceOn ?? false) && mayVoice(),
     captions: true,
     captionReactions: true,
     reducedMotion: reducedMotion.peek(),
@@ -239,21 +270,25 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
     frontAcks: false,
   };
   const budget = createChatterBudget(catalog.ambience, base.ambience);
+  // A spent voice budget (429) pauses renders and pre-voicing alike until it can have come back (budget-pause.ts).
+  const voicePause = createBudgetPause(deps.storage ?? null);
+  const render = createRender({ exprRender: (r) => deps.api.exprRender(r), clips, agents, pause: voicePause, now });
 
   const grounding = (agentId: string): GroundingState | null => {
     const quietHours = quiet();
     if (agentId === CHIEF_ID) {
       if (!onboarded.peek()) return null;
-      return chiefGrounding({ now: now(), chiefName: chiefName.peek(), jobs: Object.values(jobs.peek()), thread: thread.peek(), quietHours, greetedThisSession: greetedThisSession.peek() });
+      return chiefGrounding({ now: now(), chiefName: chiefName.peek(), jobs: Object.values(jobs.peek()), thread: thread.peek(), quietHours, greetedThisSession: greetedThisSession.peek(), ownerFirstName: ownerFirstNameOf(settings.peek()) });
     }
     const e = agents.get(agentId);
     if (!e) return null;
-    return coworkerGrounding({ now: now(), agentId, firstName: e.resp.profile.firstName, chiefName: chiefName.peek(), sideThread: sideThreads.peek()[agentId] ?? [], quietHours });
+    return coworkerGrounding({ now: now(), agentId, firstName: e.resp.profile.firstName, chiefName: chiefName.peek(), sideThread: sideThreads.peek()[agentId] ?? [], quietHours, ownerFirstName: ownerFirstNameOf(settings.peek()) });
   };
 
   const surface = () => {
     const r = route.peek();
-    return { ...stageOf(r), floorVisible: r.name === 'floor', listeningProjectIds: [] as string[], pageVisible: pageVisible() };
+    const st = stageOf(r, officeStage.peek());
+    return { ...st, floorVisible: st.surface === 'floor', listeningProjectIds: [] as string[], pageVisible: pageVisible() };
   };
 
   const runner: ReflexRunner = createReflexRunner({
@@ -270,7 +305,7 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
     clips,
     recency,
     budget,
-    render: createRender({ exprRender: (r) => deps.api.exprRender(r), clips, agents }),
+    render,
     clock: now,
     schedule,
     telemetry: (e) => onTelemetry(e),
@@ -295,12 +330,13 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
       quietHours: quiet(),
       tzOffsetMin: new Date(now()).getTimezoneOffset(),
       voice: chiefVoiceUntil !== null ? { agentId: CHIEF_ID, untilMs: chiefVoiceUntil } : null,
+      office: officeStage.peek(),
     });
   };
   const updateViewer = () => sender.viewer(currentViewer());
-  /** Voice is on and audio is armed in this tab: a voiced reflex can be heard here. */
+  /** Voice is on, this tab has the voice and audio is armed: a voiced reflex can be heard here. */
   const voiceAudible = (): boolean => {
-    if (!settings.peek()?.voiceOn) return false;
+    if (!settings.peek()?.voiceOn || !mayVoice()) return false;
     try {
       return deps.engine().armed;
     } catch {
@@ -367,6 +403,9 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
     const sf = surface();
     const atStage = sf.pageVisible && (sf.surface === 'talk' || sf.surface === 'desk') && sf.stageAgentId === d.agentId;
     if (!atStage) return faceOnly(d);
+    // A reaction that arrives while this tab's claim of the voice is on its way is voiced by the device that had the
+    // voice (until the server's word reaches it): here it shows as it would in a tab without the voice.
+    if (d.channels.voice && claimUnsettled()) return runner.frame({ type: 'reflex.say', data: { ...d, channels: { ...d.channels, voice: false } } });
     // The celebration is a lead-in to the job-done announcement that follows it on the feed: the announcement's
     // voice waits for it (it would otherwise start first, and the lead-in would be dropped behind it).
     if (d.intent === 'celebrate' && d.agentId === CHIEF_ID && d.channels.voice && voiceAudible()) {
@@ -389,13 +428,25 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
     emit({ kind: 'first_token', turnId: d.turnId, at: now(), hint: d.hint ?? null });
   };
 
-  const onDone = (d: { turnId: string; messageId: string | null; agentId?: string; finish: string }) => {
+  /** The reply that streamed live in a turn (a replayed end may name no message: a worker restart mid-answer). */
+  const replyOfTurn = (turnId: string): string | null => {
+    let found: string | null = null;
+    for (const [msg, t] of msgTurn) if (t === turnId) found = msg;
+    return found;
+  };
+
+  /**
+   * A turn's end. `replayed`: it came back as history after the socket reconnected (the reply finished while it was
+   * down) for a turn this tab saw live: the runner closes that turn without voicing anything for it.
+   */
+  const onDone = (d: { turnId: string; messageId: string | null; agentId?: string; finish: string }, replayed = false) => {
     const agentId = d.agentId ?? CHIEF_ID;
-    const ev: ConversationEvent = { kind: d.finish === 'cancelled' ? 'cancelled' : 'done', turnId: d.turnId, at: now() };
+    const ev: ConversationEvent = { kind: d.finish === 'cancelled' ? 'cancelled' : 'done', turnId: d.turnId, at: now(), ...(replayed ? { replayed: true } : {}) };
     const s = speakerOf(agentId);
+    const reply = d.messageId ?? (replayed ? replyOfTurn(d.turnId) : null);
     // A voiced reply is over when its audio is: the runner's "back with you" and gaps count from there.
-    if (ev.kind === 'done' && d.messageId && s?.has(d.messageId)) {
-      const msg = d.messageId;
+    if (ev.kind === 'done' && reply && s?.has(reply)) {
+      const msg = reply;
       deferredDone.get(msg)?.cancel();
       deferredDone.set(msg, { ev, cancel: schedule(() => flushDone(msg), DONE_WAIT_MAX_MS) });
       return;
@@ -413,7 +464,15 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
 
   disposers.push(
     onFrame((frame: Frame, { live }) => {
-      if (!live) return; // replayed history never speaks or animates
+      // Room turns and joined huddles (OFFICE-PHASE2 §4.4) are not the runner's conversations: their voices and faces
+      // belong to the office's room session.
+      if (isRoomTalk(frame)) return;
+      if (!live) {
+        // Replayed history never speaks or animates. Only the end of a turn this tab saw live (its reply finished while
+        // the socket was down) reaches the runner, which closes it silently: no filler or "still thinking" for it later.
+        if (frame.type === 'talk.done' && (ownTurns.has(frame.data.turnId) || firstToken.has(frame.data.turnId))) onDone(frame.data, true);
+        return;
+      }
       switch (frame.type) {
         case 'reflex.say':
           return routeSay(frame.data);
@@ -615,6 +674,7 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
     if (!e || e.resp.provider === 'browser') return; // keyless: the browser voice speaks, nothing to render
     const key = `${e.resp.voiceKey}|${e.resp.catalogVersion}|${e.resp.provider}|${e.resp.profile.firstName}`;
     if (prevoiced.has(key)) return;
+    if (voicePause.blocked(now())) return; // budget spent earlier: don't ask again until it can have reset
     prevoicing = true;
     try {
       for (const tier of ['p0', 'p1'] as const) {
@@ -625,8 +685,9 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
         if (tier === 'p0') decodeTier(CHIEF_ID, 'p0');
       }
       prevoiced.add(key);
-    } catch {
-      /* budget spent or no provider: reflexes fall back to faces and bubbles */
+    } catch (err) {
+      // Budget spent (429): pause until it can have reset. No provider: reflexes fall back to faces and bubbles.
+      voicePause.note(err, now());
     } finally {
       prevoicing = false;
     }
@@ -662,7 +723,8 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
       void clock.value; // quiet hours follow the clock
       void livelyAnyway.value; // "Lively anyway" lifts them for the night
       quietHoursNow.value = quietOverride ?? isQuietHours(new Date(now()));
-      runner.setSettings({ ambience: ambienceOf(s), voiceOn: s?.voiceOn ?? false, reducedMotion: reducedMotion.value, quietHours: quiet() });
+      // Another tab has the voice (or this one shows the landing page): voice off here, captions and faces stay.
+      runner.setSettings({ ambience: ambienceOf(s), voiceOn: (s?.voiceOn ?? false) && voiceActive.value, reducedMotion: reducedMotion.value, quietHours: quiet() });
     }),
   );
   if (typeof matchMedia === 'function') {
@@ -690,6 +752,7 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
       void settings.value?.voiceOn;
       void reducedMotion.value;
       void clock.value;
+      void officeStage.value;
       updateViewer();
     }),
   );
@@ -743,6 +806,70 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
       if (!e || disposed) return;
       if (via !== 'pointer' || hovering.has(agentId)) runner.hover(agentId, phase, via);
     });
+  };
+
+  /**
+   * The office's greeting on Join and sign-off on Leave (OFFICE-PHASE2 §4.5.11): catalog selection with live grounding
+   * (the owner's name, a first meeting). The text comes back at once; the voice follows only in the tab that may voice,
+   * with voice on and audio armed, from a clip (pre-voiced, or rendered now) that starts within its TTL. Keyless: text.
+   */
+  const sayIntent = async (agentId: string, intent: 'greeting' | 'sign_off'): Promise<{ text: string; voiced: boolean } | null> => {
+    try {
+      const e = await agents.load(agentId);
+      if (!e || disposed) return null;
+      const state = grounding(agentId);
+      if (!state) return null;
+      const t = now();
+      const provider = e.resp.provider;
+      const canVoice = voiceAudible() && !claimUnsettled() && provider !== 'browser';
+      const manifest = agents.manifest(agentId);
+      const seed = `${agentId}|${intent}|office|${Math.floor(t / 60_000)}`;
+      const pick = (s: string) =>
+        selectLine(
+          e.index,
+          {
+            intent,
+            state,
+            mood: agents.mood(agentId),
+            ambience: ambienceOf(settings.peek()),
+            provider,
+            seed: s,
+            now: t,
+            channel: canVoice ? 'voice' : 'text',
+            clips: { has: (k) => !!clips.get(k), durationMs: (k) => clips.get(k)?.durationMs ?? null, pronunciationChecked: () => false },
+            clipKeyOf: (lineId, fk) => manifest?.clips[`${lineId}|${fk}`]?.clipKey,
+          },
+          recency,
+        );
+      let res = pick(seed);
+      // Joining a huddle is greeted by name when the owner gave one (OFFICE-PHASE2 §0): among the lines the catalog
+      // allows right now, one that says the name wins; the pick stays deterministic (seeded) and pure.
+      if (res.ok && intent === 'greeting' && state.owner?.firstName && res.utterance.fills.owner_name === undefined) {
+        for (let k = 1; k <= NAMED_GREETING_TRIES; k++) {
+          const alt = pick(`${seed}|named${k}`);
+          if (alt.ok && alt.utterance.fills.owner_name !== undefined) {
+            res = alt;
+            break;
+          }
+        }
+      }
+      if (!res.ok) return null;
+      const u = res.utterance;
+      recordUtterance(recency, e.index, u, t, ownerDayKey(state));
+      facePort.cue(agentId, u.face);
+      if (!canVoice || u.nonverbal) return { text: u.caption, voiced: false };
+      const started = t;
+      void (async () => {
+        const key = manifest?.clips[`${u.lineId}|${u.fillKey}`]?.clipKey;
+        const clip = key ? await clips.load(key) : await render({ agentId, lineId: u.lineId, fills: u.fills, provider });
+        // One voice per workspace, checked again when it would start: a late clip plays nothing.
+        if (!clip || disposed || !mayVoice() || claimUnsettled() || now() - started > SAY_INTENT_VOICE_TTL_MS) return;
+        basePort.play({ agentId, clip, bus: 'reflex', gainDb: 0, priority: 6, ttlMs: 800, caption: u.caption, intent });
+      })().catch(() => undefined);
+      return { text: u.caption, voiced: true };
+    } catch {
+      return null;
+    }
   };
 
   const rt: LivingRuntime = {
@@ -799,6 +926,20 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
     },
     cues: (text) => sniffOwnerText(text, catalog.lexicon),
     clipsDecoded: () => clips.decodedCount(),
+    huddles: deps.huddles ?? null,
+    ambientVoice: {
+      leftMs: () => budget.voiceLeftMs?.(now()) ?? 0,
+      spend: (ms: number) => budget.spendVoice?.(now(), ms),
+    },
+    loadClip: (clipKey: string): Promise<PreparedClip | null> => clips.load(clipKey).catch(() => null),
+    moodOf(agentId: string): Mood | null {
+      const st = agents.moodState(agentId);
+      if (st) return moodAt(st, now());
+      return agents.get(agentId) ? agents.mood(agentId) : null;
+    },
+    provider: (agentId: string) => agents.provider(agentId),
+    profileOf: (agentId: string) => agents.get(agentId)?.resp.profile ?? null,
+    sayIntent: (agentId, intent) => sayIntent(agentId, intent),
     dispose() {
       if (disposed) return;
       disposed = true;
@@ -882,5 +1023,6 @@ export async function bootLiving(opts: { send(op: ViewerOp | ExprRecentOp): void
     caches,
     storage,
     devHook: import.meta.env.DEV,
+    huddles: bundle.huddles && Array.isArray(bundle.huddles.packs) ? { version: String(bundle.huddles.version ?? ''), packs: bundle.huddles.packs } : null,
   });
 }

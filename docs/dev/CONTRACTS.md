@@ -1,7 +1,8 @@
 # Headcount · Increment 0 contracts
 
 These are the contracts of **Inc 0 "First Light"** (docs/MVP-PLAN.md), as built and integrated, plus **Inc 0.5 "the
-living workforce"** (§7, docs/dev/INC05.md). Every package
+living workforce"** (§7, docs/dev/INC05.md), **one voice per workspace** (§8) and **Inc 0.7 "the Office"** (§9,
+docs/dev/OFFICE-PHASE2.md). Every package
 and route below is implemented; `docs/dev/INC0.md` says what works, how to run it and the demo script. For later
 increments, builders still work **inside their own directories** and code against these contracts. If a contract
 has to change, ask the integrator; do not edit someone else's files.
@@ -107,7 +108,7 @@ type Frame = discriminated union over FrameType   // switch (frame.type) narrows
 
 | Type | Persisted | Data | Producer → consumer |
 |---|---|---|---|
-| `ready` | no | `{workspaceId, streamId, lastSeq, replayFrom, serverTime}` | WorkspaceDO → client, first frame on every socket |
+| `ready` | no | `{workspaceId, streamId, lastSeq, replayFrom, serverTime, voice?}` | WorkspaceDO → client, first frame on every socket; `voice` = who speaks now (`VoiceOwnerData`, §8) |
 | `talk.owner` | yes | `{turnId, messageId, text, via: 'text'\|'voice', agentId?, surface?}` (+`opId`) | WorkspaceDO echoes the owner's message; `agentId` = the addressee (absent = the Chief), `surface: 'floor'` = a Floor quick-chat |
 | `talk.delta` | no | `{turnId, messageId, agentId, delta, surface?, hint?}` | Streaming reply; `hint` (first delta of a Chief turn only) = the model's `⟦react:…⟧` head token, already stripped |
 | `talk.message` | yes | `{turnId\|null, messageId, agentId, text, kind: 'reply'\|'announcement'\|'status'\|'reflex', jobId?, surface?, intent?, lineId?}` | Complete message; `announcement` = proactive (job finished); `reflex` = a phatic reply from the catalog (no model call), with its `intent` and `lineId` |
@@ -121,9 +122,10 @@ type Frame = discriminated union over FrameType   // switch (frame.type) narrows
 | `presence` | no | `PresenceData` (§4.3) | Server claims (thinking, working); `speaking` is client-local |
 | `workspace.updated` | yes | `{settings: WorkspaceSettings}` | Settings changed (other tab) |
 | `reflex.say` · `reflex.face` · `mood.changed` · `attention.changed` · `sidetalk.line` | no | `ReflexSayData` · `ReflexFaceData` · `MoodChangedData` · `AttentionChangedData` · `SideTalkLineData` (`@headcount/protocol/ext/expressions`) | Inc 0.5 living workforce (§7.3); never persisted, never replayed |
+| `voice.owner` | no | `VoiceOwnerData {clientId: string\|null, reason, claimId?, unvoicedAfter?, at}` (`@headcount/protocol/ext/voice-owner`) | Which client (browser tab) speaks: only that one voices answers, reflexes and clips (§8); never replayed |
 | `error` | no | `{code, message, opId?, turnId?, missingKeys?}` | A command or turn failed |
 
-**Owner feed (Inc 0 simplification).** The client holds **one** socket: `GET /api/ws?since=<seq>` → WorkspaceDO,
+**Owner feed (Inc 0 simplification).** The client holds **one** socket: `GET /api/ws?since=<seq>&client=<clientId>` → WorkspaceDO,
 stream `ws:<ws>`. It carries talk frames (talk runs in WorkspaceDO in Inc 0, not in a RoomDO) and **mirrors** the
 Everyday ProjectDO's job frames: ProjectDO appends to its own ledger `p:everyday:<ws>` (authoritative job state) and
 forwards each frame to WorkspaceDO, which re-sequences it into `ws:<ws>` with `cause = {streamId: 'p:everyday:<ws>', seq}`.
@@ -131,8 +133,8 @@ So a single `since` cursor is enough.
 
 **Socket protocol.** On connect: `ready` → persisted frames with `seq > since` from the hot window (oldest first,
 ≤ `WS_REPLAY_LIMIT` = 500) → current presence snapshot → live. Client → server (`WsClientMessage`): `{op:'ping', t}`
-(server replies `{op:'pong', t}`, not a frame), `{op:'resume', since}`, which replays the next page, and the Inc 0.5
-fire-and-forget ops `ViewerOp` and `ExprRecentOp` (§7.3). Commands go
+(server replies `{op:'pong', t}`, not a frame), `{op:'resume', since}`, which replays the next page, the Inc 0.5
+fire-and-forget ops `ViewerOp` and `ExprRecentOp` (§7.3), and `VoiceClaimOp {op:'voice.claim', claimId}` (§8). Commands go
 over HTTP with an `opId`; the resulting frames carry that `opId`. The client keeps the highest applied `seq`, ignores
 `seq <= lastSeq` (replay overlap) and reconnects with it (`apps/web/src/api/ws.ts`: backoff 500 ms × 2ⁿ up to 8 s,
 ping every 25 s).
@@ -188,10 +190,10 @@ Every non-2xx JSON response is `ApiErrorBody = {error: {code, message, missingKe
 | `getWorkspace` | GET `/api/workspace` | — | `WorkspaceSettings {workspaceId, leadId, chiefName, voiceOn, ambience, updatedAt}` (`ambience` always filled: stored settings without one mean Lively) | worker-core |
 | `putWorkspace` | PUT `/api/workspace` | `UpdateWorkspaceRequest` (any of `leadId`, `chiefName`, `voiceOn`, `ambience`) | `WorkspaceSettings`; appends `workspace.updated` and upserts the D1 row. 400 for an unknown `leadId`, a non-boolean `voiceOn` or an ambience other than `quiet`/`lively`/`buzzing`; a blank `chiefName` becomes null | worker-core |
 | `ws` | GET `/api/ws?since=<seq>` | WebSocket upgrade | frames (§4.2) | worker-core |
-| `talk` | POST `/api/talk` | `TalkRequest {text ≤8000, opId, via?}` | **202** `TalkAccepted {accepted, opId, turnId, messageId, duplicate?}` (idempotent on `opId`); **429** past `CHAT_DAILY_LIMIT` | worker-core |
+| `talk` | POST `/api/talk` | `TalkRequest {text ≤8000, opId, via?, clientId?}` (`clientId`: the sending tab becomes the voice owner, §8) | **202** `TalkAccepted {accepted, opId, turnId, messageId, duplicate?}` (idempotent on `opId`); **429** past `CHAT_DAILY_LIMIT` | worker-core |
 | `listJobs` | GET `/api/jobs?limit=<1–100>` | — | `JobsResponse {jobs: JobSnapshot[]}`, newest first (the web merges it on every connect) | worker-core |
 | `getJob` | GET `/api/jobs/:id` | — | `JobResponse` = `JobSnapshot` incl. `result` (Markdown) once done; 404 unknown | worker-core |
-| `steerJob` | POST `/api/jobs/:id/steer` | `SteerJobRequest {text ≤2000, opId?}` | **202** `SteerJobAccepted {accepted, jobId, steerId}`; 404 unknown, 409 when finished | worker-core |
+| `steerJob` | POST `/api/jobs/:id/steer` | `SteerJobRequest {text ≤2000, opId?, clientId?}` (`clientId`: the steering tab becomes the voice owner) | **202** `SteerJobAccepted {accepted, jobId, steerId}`; 404 unknown, 409 when finished | worker-core |
 | `cancelJob` | POST `/api/jobs/:id/cancel` | — | **202** `CancelJobAccepted {accepted, jobId}`; 409 when already finished. The `job.cancelled` frame carries `by: 'owner'`, and the Chief of Staff acknowledges the stop in the thread | worker-core |
 | `tts` | POST `/api/speech/tts` | `TtsRequest {text ≤4000, voiceRef: VoiceRef, speakerId, format?, response?: 'audio'\|'json'}` (also the loose `{provider?, voice}` form) | audio bytes (`audio/mpeg`\|`audio/wav`, headers `X-Speech-Provider`, `X-Speech-Voice`) or `TtsJsonResponse {mime, audioBase64, alignment, provider, voice}`. Keyless: **503 not_configured** naming `OPENAI_API_KEY`/`XAI_API_KEY` (the web uses browser speech); **429** past `TTS_DAILY_LIMIT` | media |
 | `stt` | POST `/api/speech/stt[?language=xx]` | raw audio body (`audio/*` or `video/webm`, ≤ **10 MB**) | `SttResponse {text, provider, language?}`. Keyless: **503** naming the keys (the web uses browser dictation); **429** past `STT_DAILY_LIMIT` | media |
@@ -255,7 +257,7 @@ interface RouteContext { env; ctx: ExecutionContext; route: RouteId; params; url
 
 | Class | Name | Intended RPC surface (owner may refine internals) |
 |---|---|---|
-| `WorkspaceDO` (worker-core) | `ws:<ws>` | `fetch()` = socket upgrade (hibernation API, `resume` paging); `getSettings()`, `updateSettings(patch)`; `talk(TalkRequest): TalkAccepted \| TalkRefusal` (202 path: accept, echo `talk.owner`, run the Chief of Staff turn in the background on the **fast** tier; refused past `CHAT_DAILY_LIMIT`); `ingest(MirrorBatch {source, frames, presence: {agentId, claim\|null}}) → {applied}` (ProjectDO mirrors job frames; deduplicated on `cause`); `frames(since, limit)` (debug/tests). Posts the proactive announcement on `job.done`/`job.failed`/`job.cancelled {by:'owner'}`: the template **in the same transaction** as the mirrored frame (local, Mock), or a `pending_announcements` row in that transaction and the voiced line within 2.5 s (cloud; §4.2). A fresh object clears any stale `talk` (Thinking) claim. |
+| `WorkspaceDO` (worker-core) | `ws:<ws>` | `fetch()` = socket upgrade (hibernation API, `resume` paging) → `openFeed(ws, since, clientId)`; `voiceClaim(clientId, reason)`, `voiceOwner()` (§8); `getSettings()`, `updateSettings(patch)`; `talk(TalkRequest): TalkAccepted \| TalkRefusal` (202 path: accept, echo `talk.owner`, run the Chief of Staff turn in the background on the **fast** tier; refused past `CHAT_DAILY_LIMIT`); `ingest(MirrorBatch {source, frames, presence: {agentId, claim\|null}}) → {applied}` (ProjectDO mirrors job frames; deduplicated on `cause`); `frames(since, limit)` (debug/tests). Posts the proactive announcement on `job.done`/`job.failed`/`job.cancelled {by:'owner'}`: the template **in the same transaction** as the mirrored frame (local, Mock), or a `pending_announcements` row in that transaction and the voiced line within 2.5 s (cloud; §4.2). A fresh object clears any stale `talk` (Thinking) claim. |
 | `ProjectDO` (worker-core) | `p:everyday:<ws>` | `startJob({title, brief, opId?, leadId?, chiefName?}): JobSnapshot \| JobRefusal` (refused `rate_limited` at `MAX_ACTIVE_JOBS` running or past `JOB_DAILY_LIMIT`); `listJobs(limit = 20)`, `getJob(id)`; `steerJob(id, text, opId?) → SteerJobAccepted \| JobRefusal {accepted:false, code:'not_found'\|'conflict'\|'bad_request', message}`; `cancelJob(id, reason?, by = 'owner') → CancelJobAccepted \| JobRefusal` (refusals are returned, not thrown, so they survive RPC); `alarm()` = one checkpoint per due job (plan → 2–4 work steps → synthesis, **reason** tier, each checkpoint with its own 5-minute `deadlineSignal` budget), queued steers applied between steps, between tool calls, and after the write-up (a steer that arrived while it was being written is applied and the write-up is written again, never dropped); each job's frames are mirrored as soon as its checkpoint ends; the Chief of Staff claims no presence for background work (available while working, D2); cancel fences the job and aborts the in-flight call, 3 attempts with backoff then `job.failed`. Mock pacing: with `MOCK_DELAY_MS > 0` checkpoints are 2.5 s apart (a Mock job takes 12–15 s). |
 | `RoomDO` (integrator stub) | `rm:<id>` | `ping()`; rooms arrive in Inc 2 |
 | `RunDO` (integrator stub) | `run:<jobId>` | `ping()`; available for long jobs |
@@ -468,8 +470,9 @@ is dropped after 400 ms). Browser speech is cut at 60 tokens, and its text-timed
 - Store (`src/store/index.ts`, signals): `settings`, `capabilities`, `connection`, `lastSeq`, `replayThrough`, `thread: ThreadItem[]`, `jobs`, `presence`, `localPresence`, computed `onboarded`, `activeJobs`, `jobList`, `chiefPresence`; `applyFrame(frame) → 'applied'|'ignored'|'resync'` (ignores replayed seqs); `onFrame(cb(frame, {live}))` (replayed frames are never spoken); `presenceFor(agentId)` / `setLocalPresence` (client `speaking`/`listening` merged by priority); `addPendingOwner`/`markOwnerAccepted`/`markOwnerFailed` (opId reconciliation, failed sends keep their text with Retry); `mergeJobs(snapshots)` (newer wins); `acceptSettings(next)` (settings only move forward).
 - API client (`src/api/client.ts`): `api.health/capabilities/getWorkspace/putWorkspace/talk/listJobs/getJob/steerJob/cancelJob/tts/ttsAudio/stt/listPortraits/generatePortrait/portraitUrl/portraitImage/portraitBlob/getLandmarks/putLandmarks(id, lm, portraitVersion?)`; errors throw `ApiError {status, code, message, missingKeys}`.
 - Feed (`src/api/ws.ts`): `connectFeed({onFrame, onStatus, since}) → {close(), reconnect()}` with replay paging (§4.2).
-- Voice (`src/voice/*`): one `AudioEngine`; `AgentSpeaker` per speaker feeds live deltas into `createSpeechStream` (TTS per sentence with `response:'json'` when TTS is available, else the browser voice); `chiefSpeaker.mouth` drives every Chief of Staff face; `bargeIn()` on send, push-to-talk, Esc or a tap on the face; push-to-talk uses provider STT when available, else browser dictation, and is hidden when neither exists.
-- Dev builds expose `window.__headcount = {store, applyFrame, chiefSpeaker, audio, living}` for e2e (`audio` = the
+- Voice (`src/voice/*`): one `AudioEngine`; `AgentSpeaker` per speaker feeds live deltas into `createSpeechStream` (TTS per sentence with `response:'json'` when TTS is available, else the browser voice); `chiefSpeaker.mouth` drives every Chief of Staff face; `bargeIn()` on send, push-to-talk, Esc or a tap on the face; push-to-talk uses provider STT when available, else browser dictation, and is hidden when neither exists. Only the tab with the voice speaks (`voice/owner.ts`, `voice/handoff.ts`, §8); the others silence each message for good (`AgentSpeaker.silence(messageId)`).
+- Dev builds expose `window.__headcount = {store, applyFrame, chiefSpeaker, audio, voice, living}` for e2e (`voice` =
+  `{clientId(), owner(), here()}`, §8; `audio` = the
   engine getter; `living` once the runtime loaded: `runner`, `captions` (caption log), `cues` (face-cue log),
   `telemetry`, `clipsDecoded()`, `ambience()`, `viewer()`, `agent(id)`, `mood(id)`, `setQuietHours(v|null)`).
 - On Talk the floating bubble is hidden at every width; the Talk header face takes its gestures and wears the lamp's working arc while any job runs (`data-jobs`). On phones the bubble is 56 px and tucks away while the owner scrolls down (it returns on scroll up, at the end of the page, on focus, listening or news). Failed and stopped jobs offer **Ask again** (the brief back in the composer).
@@ -497,7 +500,10 @@ is dropped after 400 ms). Browser speech is cut at 60 tokens, and its text-timed
   on the keyed stack with Anthropic (INC0.md §4, §4a).
 - Inc 0.5 (the living workforce, §7) is integrated and verified the same way, plus a keyed session on the
   integrator's own stack (docs/dev/INC05.md).
-- Still a stub: `RoomDO` (Inc 2). `RunDO` hosts the pre-voice runner (§7.4).
+- Inc 0.7 (the Office in the app, §9) is integrated and verified the same way: new e2e specs `office`, `office-life`,
+  `office-voice`, screens in `docs/dev/screens/office-app/` (OFFICE-PHASE2 §10).
+- Still a stub: `RoomDO` (Inc 2): rooms and huddle chats run in the `WorkspaceDO` (§9.2). `RunDO` hosts the
+  pre-voice runner (§7.4).
 
 ## 7. Inc 0.5 · the living workforce
 
@@ -526,7 +532,7 @@ the contract text; this section is the as-built summary). Operator notes, tuning
 | `exprRender` | POST `/api/expr/render` | `ExprRenderRequest {agentId, lineId (<id>, <id>~prefix\|~tail\|~gist), fills, provider}` → `ExprClipRef {clipKey, url, alignmentUrl, durationMs, scope, cached}` (renders once, in exactly the agent's provider) | 400 fills, 404 line, 409 provider changed, 429 `EXPR_RENDER_PER_MIN` / `EXPR_CLIP_DAILY_LIMIT`, 503 browser provider, 502 provider failed |
 | `exprPrevoice` | POST `/api/expr/prevoice` | `ExprPrevoiceRequest {agentIds (1–12), tiers?, perIntent?, allLinesFor?, items? (≤ 400), maxClips?, dryRun?}` → 202 `ExprPrevoiceAccepted {runId, provider, planned, alreadyCached, toRender, estAudioMs, remainingToday, reused?, dryRun?}` (200 for dry runs, reused runs and the browser provider). Clips already in R2 are recorded without TTS; a finished run with the same fingerprint is `reused` | 400, 404, 429 when nothing fits today |
 | `exprPrevoiceStatus` | GET `/api/expr/prevoice/:runId` | → `ExprPrevoiceStatus {state: queued\|running\|done\|failed\|stopped_budget, planned, cached, rendered, failed, …}` | 404 |
-| `deskSay` | POST `/api/desk/:personaId/say` | `DeskSayRequest {text ≤ 2000, opId, via?}` → 202 `DeskSayAccepted {accepted, opId, agentId, turnId, messageId, duplicate?}`; the reply streams on the owner feed as `talk.*` with `agentId: cw_<personaId>`, `surface: 'floor'` | 400, 404, 413, 429 (12 a minute; `CHAT_DAILY_LIMIT`) |
+| `deskSay` | POST `/api/desk/:personaId/say` | `DeskSayRequest {text ≤ 2000, opId, via?, clientId?}` (the sending tab becomes the voice owner, §8) → 202 `DeskSayAccepted {accepted, opId, agentId, turnId, messageId, duplicate?}`; the reply streams on the owner feed as `talk.*` with `agentId: cw_<personaId>`, `surface: 'floor'` | 400, 404, 413, 429 (12 a minute; `CHAT_DAILY_LIMIT`) |
 
 ### 7.3 Frames, socket ops, settings, env
 
@@ -535,9 +541,9 @@ the contract text; this section is the as-built summary). Operator notes, tuning
   `mood.changed` (only visible changes, small ones at most one per 10 s per agent; a snapshot on every connect),
   `attention.changed` (the Chief's running jobs as background threads; a snapshot on connect), `sidetalk.line` (not
   emitted in 0.5; the runner handles it).
-- **Which tab plays a `reflex.say`:** an owner-turn reflex (`turnId`) only in the tab that sent the turn (held until
-  that tab's 202 arrives); an event reflex only in a visible tab whose stage is that agent (Talk → `cw_chief`, a
-  profile → that coworker); every other tab shows the face cue only. A `celebrate` lead-in holds the Chief's next
+- **Which tab plays a `reflex.say`:** only the tab with the voice (§8) ever voices one; within it, an owner-turn reflex
+  (`turnId`) only if it sent the turn (held until that tab's 202 arrives), an event reflex only at a visible stage of
+  that agent (Talk → `cw_chief`, a profile → that coworker). Every other tab shows the face cue and the caption. A `celebrate` lead-in holds the Chief's next
   answer (the job-done announcement) until it starts, at most 3.2 s, and a progress line still sounding gives way to it.
 - **Quick-chat frames** (`surface: 'floor'`) go to `sideThreads[agentId]` in the store, never to the Talk thread,
   unread, the Chief's model history or the announcement logic; they replay into the side-thread.
@@ -610,3 +616,150 @@ carries `data-face-cue` while a gesture plays and always `data-face-expression`.
   Esc, a tap on the face and holding to talk still stop at once.
 - Test ids: Floor cards `data-agent-id`; `floor-bubble`, `bubble-reply`, `bubble-input`, `bubble-answer`,
   `live-caption` (+ `data-kind`), `face-bubble`, `ambience-control`; reflex replies render as `li.msg[data-kind="reflex"]`.
+
+## 8. One voice per workspace
+
+Binding product rule (owner report, 29 September 2026: "I am hearing duplicate responses spoken out loud"): every
+open `/app` tab receives every frame, but **only one client speaks at a time**. Operator notes and verification:
+docs/dev/INC05.md §8.
+
+- **Client id** (`apps/web/src/lib/client-id.ts`): one per browser tab, kept in `sessionStorage` (`hc-client-id`), so a
+  reload keeps it and every other tab has its own. A marker that lives only while the page does (`hc-client-live`,
+  removed on `pagehide`) tells a duplicated tab or a `window.open` copy apart: it takes a new id. Format
+  `CLIENT_ID_RE = /^[A-Za-z0-9_-]{8,64}$/` (`@headcount/protocol/ext/voice-owner`).
+- **Sent** on the feed socket (`/api/ws?since=<seq>&client=<id>`, kept in the socket attachment with `connectedAt`,
+  next to the viewer op) and with every owner action: `TalkRequest.clientId`, `SteerJobRequest.clientId`,
+  `DeskSayRequest.clientId`. A request without one (curl, an older tab) never moves the voice.
+- **Server** (`apps/worker/src/workspace/voice.ts`, `VoiceOwnership` in the WorkspaceDO; tables `voice_owner`,
+  `voice_clients`, `voice_published`): the **voice owner** is the client of the most recent owner interaction: a talk
+  send (typed or push-to-talk), a steer, a desk reply, or `VoiceClaimOp {op:'voice.claim', claimId}` sent on a real
+  gesture in `/app`. Who speaks now (`effective()`): the owner while connected, or within `VOICE_GRACE_MS` (5 s) after
+  its last socket closed (a reload keeps the voice, and nobody else speaks meanwhile); else the client that already
+  speaks (`voice_published`) while it stays connected or within that grace (a tab that only opens never takes the
+  voice); else the most recently active connected client (last interaction, then the longest connected); else nobody
+  (`clientId: null`, nothing speaks). Who speaks is stored, so a wake from hibernation (sockets kept, memory and timers
+  lost) neither re-announces it nor gives a grace to anyone. A restarted object (no socket left) gives the client that
+  spoke the reload grace, so the first tab to reconnect does not take it. Every grace schedules a re-check at its end.
+- **Frames:** `ready.data.voice` on every connect; `voice.owner` (ephemeral, broadcast) whenever who-speaks changes, and
+  always as the echo of a socket claim (`claimId`), so the claiming tab knows its claim landed. An HTTP claim lands
+  before the first frame of its turn. Who speaks is also re-checked before proactive speech (`ingest`) and on every
+  socket message, so a timer lost to hibernation never strands the voice with a closed tab. A fallback from a tab that
+  closed carries `unvoicedAfter` (the feed seq when it went): persisted lines after it reached no tab with the voice.
+  Event reflexes are planned for the voice owner's view when several tabs are at a stage (`ExprHost.stageViewer`).
+- **Client** (`apps/web/src/voice/owner.ts`, `handoff.ts`): `voiceOwner` (signal: a client id, null, or undefined when
+  the server says nothing: every tab speaks, as before), `voiceHere`, `voiceActive` (never on the landing page),
+  `mayVoice()`. A claim is optimistic: it holds until the server echoes its `claimId` (older `voice.owner` news waits),
+  or `CLAIM_SETTLE_MS` (4 s). Tabs of one browser also hand over at once on `BroadcastChannel('hc-voice')`
+  (`{t:'claim', clientId, claimId}`; the tab that had the voice goes quiet and answers `{t:'yield', claimId}`), so a
+  hand-off never double-speaks during the round trip. When the voice was on another device, the claim stays
+  unsettled (`claimUnsettled()`) until the server names this tab (its echo, or a talk from here) or a yield arrives:
+  lines that start meanwhile (Chief and side messages, event reflexes) are that device's, silent here. A trusted
+  `pointerdown`/`keydown` (not a lone modifier key) claims when another tab (or nobody) has the voice, and so does
+  coming back to the tab (`visibilitychange` to visible or window `focus` after it was hidden or blurred), in both
+  cases only while the page is on screen with focus (`visibilityState === 'visible' && document.hasFocus()`): an agent
+  driving a hidden in-app browser never claims. On a fallback to this tab with `unvoicedAfter`, the Chief's job
+  announcements it silenced with a later seq (at most 20 s old) are voiced once.
+- **Gating:** `startChiefVoice` / `startSideVoice` voice live messages only while `mayVoice()`, and silence a message
+  that streamed while another tab had the voice (a later claim starts with the next message, never mid-sentence).
+  The living runtime runs voice-off (captions, bubbles, faces) without the voice and its audio port drops any clip or
+  browser-voice reflex; Talk's greeting after onboarding speaks only with the voice. Losing the voice stops everything
+  this tab is saying at once (`silenceHere`). Barge-in, push-to-talk and Esc work as before in the tab with the voice;
+  in another tab the same gesture first takes the voice (the old owner goes quiet).
+- **UI:** a tab without the voice (voice on) shows one small chip, **Speaking on another tab · Play here**
+  (`data-testid="voice-elsewhere"`), in the Talk header and the Floor header; pressing it (or any gesture) takes the
+  voice. The landing page never speaks and never claims.
+- **Hot updates (dev only, `apps/web/src/lib/hot.ts`):** Vite re-evaluates modules between an edited file and the
+  nearest component boundary without disposing them; the living runtime and the audio engine are handed over
+  (`hotTake`/`hotKeep`/`hotGeneration`), so an edit never leaves a second runtime voicing every reflex again.
+
+## 9. Inc 0.7 · the Office (Office Phase 2)
+
+The Office on the Floor: desk mode, office life (people move, huddle and talk on their own), joined huddles and the
+conference roundtable. Plan and contracts: docs/dev/OFFICE-PHASE2.md (§4 is the contract text, §10 the as-built
+summary); the office package: docs/dev/OFFICE-PLAN.md §5.3, OFFICE-LIFE.md §8.2. Every new sound obeys §8.
+
+### 9.1 HTTP routes and wire types (`packages/protocol/src/ext/rooms.ts`, `routes.ts`, `api.ts`)
+
+| Id | Method & path | Request → response | Errors |
+|---|---|---|---|
+| `roomSay` | POST `/api/rooms/:roomId/say` (json, 16 KB) | `RoomSayRequest {text ≤ 2000, opId, meetingId (mtg_<ulid>), participants (1…limit, seat order), via?, clientId?, label?}` → **202** `RoomSayAccepted {accepted, opId, roomId, meetingId, turnId, messageId, order, mode, gen, duplicate?}`; replies stream as `talk.*` with `surface: 'room'`, `roomId`, `meetingId` | 400, 404 (`roomId` not `skyline \| garden \| huddle:<hash>`), 413, 429 `rate_limited` (12 replies a minute, `CHAT_DAILY_LIMIT`), 503 `not_configured` |
+| `roomCancel` | POST `/api/rooms/:roomId/cancel` (json, 4 KB) | `RoomCancelRequest {opId, meetingId, leave?, participants?, label?, clientId?}` → 200 `{cancelled, noteId}`; idempotent on `opId` | 400, 404 |
+| `officePeople` | GET `/api/office/people` | → `OfficePeopleResponse {version, people: OfficePersonDto[]}` (164 personas + the Chief once a lead is chosen: group, team roles, pairs and tensions as agent ids, archetype blend, expression profile); `ETag`, `private, no-cache`, 304 | — |
+| `exprHuddleRender` | POST `/api/expr/huddle/render` (json, 8 KB) | `ExprHuddleRenderRequest {exchangeId, index, agentId, fills, provider}` → `ExprClipRef` (the same render, store and rate path as `exprRender`; the clip key equals the client's `clipKey(toDelivery(huddleUtterance(pick, i), voice, provider))`) | 400, 404, 409 provider changed, 429, 503 browser provider |
+| `updateWorkspace` | PUT `/api/workspace` | gains `ownerName?: string \| null` (trimmed, blank → null, ≤ 40, letters: no control characters or `<>{}[]\/@#`); `WorkspaceSettings.ownerName`; `ownerFirstNameOf(settings)` | 400 "Use letters for your name." |
+
+- **Room ids.** `ConferenceRoomId = 'skyline' | 'garden'`, `HuddleRoomId = 'huddle:' + base-36 FNV-1a of the life
+  huddle id` (`huddleRoomId`), `ROOM_LIMITS` (Skyline 9 participants / 3 responders / Chief wrap-up, Garden 7 / 3 /
+  wrap-up, huddle 4 / 2 / none), `ROOM_LABEL_RE` (a huddle's place: "water cooler", "at Liban's desk").
+- **Frames.** `talk.owner|delta|message|done` gain `roomId?`, `meetingId?` (set exactly with `surface: 'room'`, and on
+  a note). `talk.message.kind` gains **`'note'`**: one quiet line in Talk when the owner leaves a room or huddle they
+  spoke in ("Skyline room with Juno, Walt and Lena · 4 min", "Water cooler with Kate and Pax · 2 min"); never voiced,
+  never unread, never in the Chief's model history. New ephemeral frame **`room.turn`** (`RoomTurnData {roomId,
+  meetingId, turnId, gen, order, next, state: running | done | cancelled, reason?: owner | left | limit | error}`).
+  Cancellation is `talk.done {finish: 'cancelled'}` plus `room.turn {state: 'cancelled'}` (there is no
+  `talk.cancelled` frame). `TalkSurface` gains `'room'`; `VoiceOwnerReason` gains `'room'`.
+- **Bundle.** `ExprCatalogBundle.huddles?: {version, packs}`; `GET /api/expr/catalog`'s ETag is
+  `"<version>.<huddles.version>"`.
+
+### 9.2 Worker (`apps/worker/src/rooms/**`, `expr/huddle-render.ts`)
+
+- **`WorkspaceDO.roomSay` / `roomCancel`** (RoomDO stays the Inc 2 stub): at most one running room turn per
+  workspace; a new say or a cancel bumps `gen`, aborts the running turn (the partial reply persisted, `talk.done
+  {finish: 'cancelled'}`, `room.turn cancelled`), then starts the new one. No model call before the 202. `clientId`
+  claims the voice (§8). Recovery after a restart closes an active room turn.
+- **Floor control** (`rooms/floor.ts`, pure): mentions first (`@First`, full name, "First," — several first names are
+  ordinary words), a group cue fills to the cap, phatic lines get catalog reflex replies (no model call), otherwise
+  keyword relevance over title, department, skills and one-liner, rotation after the previous first speaker; the
+  Chief only when named or alone, and a wrap-up only after two others spoke.
+- **Turns** (`rooms/room-turn.ts`): sequential fast-tier, tool-free turns at machine speed (the client paces
+  playback), ≤ 160 output tokens, a 15 s deadline each; the room projection (`rooms/prompt.ts`): the last 12 lines of
+  this meeting, others' lines as `[Juno (Copy lead)]: …`. Room lines never enter Talk, the Chief's history or any desk
+  history.
+- **The reply guard** (`rooms/guard.ts`, also on every desk quick-chat reply): whole sentences only; a work claim or
+  promise is replaced once (`unstaffedLine`; the Chief: "Bring it to me in Talk and it goes on my list."); a figure
+  the owner did not say, a metric moving ("went up nine points"), a recounted experience or a citation is replaced
+  once with "I'd want the real numbers before I put a figure on it."; at most two sentences. Logged by kind only.
+- **Owner name** reaches server reflexes (`{owner_name}`), pre-voicing (a fill and the run fingerprint) and the
+  room, desk and Talk prompts ("The owner's name is {first}. Use it rarely.").
+
+### 9.3 Web (`apps/web/src/office/**`, `room/**`, shell hooks)
+
+- **Floor:** `floorView` (`office/view.ts`): `?view=` (remembered) → `localStorage['hc.floor.view']` → Office on
+  `(min-width: 900px) and (pointer: fine)`, else Directory; no toggle before onboarding; `&room=`, `&focus=` deep
+  links. The Office is a lazy chunk (`lazy.ts` `loadOffice`/`prefetchOffice`); Directory users load none of it.
+- **Mount** (`office/mount.ts`): the scene (FaceView faces, `drawsChrome: true`), then `createOfficeLife` on
+  `GET /api/office/people` (or neutral personalities after 1 s), presence diffed into the scene (the Chief's running
+  job shows as work: monitor lit, activity to its place), pins while the owner talks with someone (+ 20 s), hover
+  routing (huddle → its card; away → an availability line; desk → the living passing-by), quick chat on click for
+  anyone (the Chief included), FloorBubbles portalled into `scene.anchor(id)`, small talk from the huddle engine over
+  the runtime's packs (grounded only in the Chief's finished jobs as "write-up"), listen-in, Join, ⌘K items, a
+  one-time hint. DEV only: `window.__headcount.office = {scene, life, view(), stage(), huddles, ready()}` and
+  `?at=HH:MM` (the office clock, for e2e and demos).
+- **Rooms** (`room/session.ts`, `player.ts`, `stage.ts`, `RoomDock.tsx`): one session per meeting (writer ‖ voicer ‖
+  player: lines in server order, ≤ 2 lines of TTS look-ahead, a 250 ms gap between speakers, the voice decision at
+  each line's start: `voiceOn && mayVoice() && !claimUnsettled() && can('tts')`, else captions for their reading
+  time, NOT VOICED when voice is off or keyless); `hush()` stops every room speaker (≤ 300 ms, X5) and posts cancel;
+  `close({leave})` posts the leave (one note). The stage binding maps session events to the scene's captions, floor
+  queue and speaker light; the dock is one field (Enter sends, hold Space in the empty field or the mic to talk,
+  Esc on the empty field leaves) with a Transcript disclosure (lines cut by a barge-in: "not heard").
+- **Join** (`office/join.ts`): a huddle session (≤ 4 members, ≤ 2 answer), the warmest greets by name
+  (`LivingRuntime.sayIntent(id, 'greeting')` prefers a catalog line with the owner's name; "Oh, hi {name}." before
+  the runtime), replies over their speaker as they start (a reply that grows updates its line: `life.reply(id, text,
+  {update: true})`), Leave signs off and closes with `{leave: true}`; the huddle label is sent with its first letter
+  lower-cased ("at Liban's desk").
+- **Shell hooks:** `api.roomSay`, `roomCancel`, `officePeople`, `exprHuddleRender`; the store's `reduce()` skips
+  `talk.*` with `surface: 'room'` (they reach `onFrame` listeners only) and keeps `kind: 'note'` as a Talk line;
+  `chief-voice` and `ui/unread` ignore room lines and notes; the **push-to-talk target** (`voice/ptt.ts`
+  `setPttTarget({kind: 'room', roomId, label, onStart, send})` → restore; `pttTarget`, `pttPressTarget`); Esc and
+  Space defer to `defaultPrevented`, and a held Space in an empty `data-ptt-hold` field talks to the target; the
+  **palette registry** (`registerPaletteItems(provide) → unregister`, `askInPalette` for one-line prompts, **Set your
+  name**); `setOwnerName` (`talk/actions.ts`); the optional onboarding field "What should the office call you?".
+- **Living runtime additions** (`living/types.ts`): `huddles`, `ambientVoice {leftMs, spend}`, `loadClip`, `moodOf`,
+  `provider`, `profileOf`, `sayIntent`; room frames are not the runner's conversations; the viewer op reports
+  `surface: 'room'` while the stage is open. `ChatterBudget.voiceLeftMs?` / `spendVoice?` (`packages/expressions`).
+- **`@headcount/office` additions** (additive, no dependencies): `OfficeOptions.insets` / `scene.setInsets()`,
+  `onOpened`, `onHuddleToRoom` (the card's "Open in a room"), `LifeScenePort.enterRoom?`, `OfficeLife.reply(id, text,
+  {update?})`; the What's happening list fills only its top action.
+- **Test ids:** `floor-view` (radiogroup), `office-view`, `office-hint`, `room-dock`, `room-dock-error`,
+  `room-dock-live`; Talk notes are `li.msg[data-kind="note"]`; FloorBubble gains `bubble-follow`.
+

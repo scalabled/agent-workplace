@@ -1,5 +1,6 @@
 // Public types of @headcount/office (OFFICE-PLAN §5.3). Declared locally: the package has no dependencies, and
 // PresenceState is a structural superset of @headcount/protocol's.
+import type { LifeScenePort } from './life/types';
 
 export type PresenceState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'working' | 'raised_hand' | 'blocked' | 'away';
 export type PresenceBadge = 'hand' | 'lamp';
@@ -49,6 +50,8 @@ export interface FaceSlot {
    * own state rings on that seat and keeps only the outer hover, focus and speaking halo, so there is one ring.
    */
   drawsChrome?: boolean;
+  /** Optional face cue (nod, look_up, smile, head_tilt, brow_flash): FaceView's cue(). Without it the office animates the badge. */
+  cue?(gesture: string): void;
 }
 export type FaceFactory = (personId: string, tier: FaceTier) => FaceSlot;
 
@@ -68,6 +71,11 @@ export interface OfficeCallbacks {
   /** At most 2 per second. */
   onViewportChange?(v: { personIds: string[]; roomIds: string[]; zoom: number; lod: 0 | 1 | 2 }): void;
   onRequestDirectory?(): void;
+  /** Office life (OFFICE-LIFE §4): the camera follows someone (null = stopped). */
+  onFollowChange?(personId: string | null): void;
+  onAutopilotChange?(on: boolean): void;
+  /** The Pause office life switch in the What's happening popover. */
+  onLifePause?(paused: boolean): void;
 }
 
 export interface OfficeOptions extends OfficeCallbacks {
@@ -97,6 +105,25 @@ export interface OfficeOptions extends OfficeCallbacks {
    * while the Office is the active view (typing in fields is still ignored).
    */
   keyTarget?: 'scene' | 'document';
+  /** Office life's optional autopilot camera (default: the viewer's stored choice, else off). */
+  autopilot?: boolean;
+  /** localStorage key for the viewer's autopilot choice and the one-time offer; null = not stored. */
+  autopilotKey?: string | null;
+  /** The host's own overlays on top of the office (the app's Chief bubble): the HUD and bubbles keep out of them. */
+  insets?: OfficeInsets;
+}
+
+/**
+ * Host overlays over the office, in px from each edge. Two adjacent edges reserve their corner ({right: 88, bottom: 88}
+ * is the bottom-right corner, 88 × 88); an edge with neither neighbour set reserves the whole strip along it. HUD
+ * controls in a reserved area move out of it (a corner control moves along its vertical edge first), and bubbles never
+ * enter one.
+ */
+export interface OfficeInsets {
+  top?: number;
+  right?: number;
+  bottom?: number;
+  left?: number;
 }
 
 export interface Camera {
@@ -119,6 +146,13 @@ export interface OfficeState {
   focusedId: string | null;
   hoveredId: string | null;
   timeOfDay: TimeOfDay;
+  /** Office life. */
+  followingId: string | null;
+  autopilot: boolean;
+  lifePaused: boolean;
+  huddles: { id: string; members: string[] }[];
+  /** The huddle whose card is open (hovered or focused): the host's L listens in to it. */
+  huddleCard: string | null;
 }
 
 export interface Point {
@@ -132,12 +166,13 @@ export interface Rect {
   h: number;
 }
 
-export interface OfficeScene {
+export interface OfficeScene extends LifeScenePort {
   readonly el: HTMLElement;
   setPeople(people: OfficePerson[], groups?: OfficeGroup[], leadId?: string): void;
   setPresence(personId: string, state: PresenceState, opts?: { label?: string; badges?: PresenceBadge[] }): void;
   setSpeaking(personId: string, speaking: boolean): void;
-  showBubble(personId: string, text: string, opts?: { ttlMs?: number; to?: string }): void;
+  /** `passive`: a reply in a joined huddle's chat; clicks pass through it to the people underneath. */
+  showBubble(personId: string, text: string, opts?: { ttlMs?: number; to?: string; passive?: boolean }): void;
   hideBubble(personId: string): void;
   anchor(personId: string): { el: HTMLElement; release(): void };
   showCaption(personId: string | null, text: string, opts?: { final?: boolean; voiced?: boolean }): void;
@@ -153,6 +188,10 @@ export interface OfficeScene {
   setTheme(theme: OfficeTheme): void;
   setTimeOfDay(tod: TimeOfDay | 'auto'): void;
   setReducedMotion(value: boolean | null): void;
+  /** Replace the host insets (a phone layout, a resized overlay). */
+  setInsets(insets: OfficeInsets | null): void;
   getState(): OfficeState;
+  /** A person's display name (office life labels). */
+  nameOf(personId: string): string;
   destroy(): void;
 }

@@ -5,8 +5,11 @@ import bundle from '@headcount/expressions/bundle';
 import {
   buildAgentIndex,
   compileCatalog,
+  compileHuddles,
+  compileHuddlesLenient,
   voiceKeyOf,
   type AffectLexicon,
+  type CompiledHuddles,
   type AgentExpressionProfile,
   type AgentIndex,
   type CompiledCatalog,
@@ -29,6 +32,25 @@ let serialized: string | null = null;
 export function exprCatalog(): CompiledCatalog {
   compiled ??= compileCatalog(bundle.input);
   return compiled;
+}
+
+let huddles: CompiledHuddles | null = null;
+
+/**
+ * The office small-talk content (Office Phase 2 listen-in renders), compiled against the expressions catalog once per
+ * isolate. The build writes cleaned packs, so the strict compile passes; a lenient compile keeps the route alive if
+ * content ever slips through. Null when the bundle carries no huddles.
+ */
+export function exprHuddles(): CompiledHuddles | null {
+  if (huddles) return huddles;
+  const packs = bundle.huddles?.packs;
+  if (!packs?.length) return null;
+  try {
+    huddles = compileHuddles(packs, exprCatalog());
+  } catch {
+    huddles = compileHuddlesLenient(packs, exprCatalog()).huddles;
+  }
+  return huddles;
 }
 
 /** True once this isolate compiled the catalog (a pick is then well under a millisecond). */

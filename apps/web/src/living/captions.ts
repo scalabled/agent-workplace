@@ -26,13 +26,16 @@ export interface Bubble {
   threadId?: string;
   toAgentId?: string;
   shownAt: number;
+  /** A quiet name card (who they are and where), shown when a rest on someone gets no line: never something they said. */
+  card?: boolean;
 }
 
 export interface CaptionLogEntry {
   at: number;
   agentId: string;
   text: string;
-  kind: CaptionKind | BubbleKind;
+  /** `smalltalk`: office small talk (OFFICE-PHASE2 §4.5.9), logged only. */
+  kind: CaptionKind | BubbleKind | 'smalltalk';
 }
 
 export interface ShowCaption {
@@ -46,6 +49,8 @@ export interface ShowCaption {
   toAgentId?: string;
   /** The reflex intent, when a reflex shows it: only Floor-meaningful ones become what the agent "last said". */
   intent?: string;
+  /** A name card, not a line (see Bubble.card). */
+  card?: boolean;
 }
 
 /** A bubble stays this long after the pointer or focus leaves it (LIVING-WORKFORCE §8.2). */
@@ -131,11 +136,21 @@ export function showCaption(c: ShowCaption): void {
     ...(c.gloss ? { gloss: c.gloss } : {}),
     ...(c.threadId ? { threadId: c.threadId } : {}),
     ...(c.toAgentId ? { toAgentId: c.toAgentId } : {}),
+    ...(c.card ? { card: true } : {}),
   };
   bubbles.value = { ...bubbles.peek(), [c.agentId]: bubble };
-  if (c.kind === 'sidetalk' || (c.intent !== undefined && SAID_INTENTS.has(c.intent))) lastSaid.value = { ...lastSaid.peek(), [c.agentId]: text };
+  if (!c.card && (c.kind === 'sidetalk' || (c.intent !== undefined && SAID_INTENTS.has(c.intent)))) lastSaid.value = { ...lastSaid.peek(), [c.agentId]: text };
   bubbleUntil.set(c.agentId, Date.now() + Math.max(0, c.ttlMs));
   armBubbleExpiry(c.agentId);
+}
+
+/**
+ * Office small talk for the caption log only (OFFICE-PHASE2 §4.5.9): never a live caption, a bubble, what someone
+ * "last said", or a live region. Small talk is non-factual by design, so nothing lives only here.
+ */
+export function logCaption(e: { agentId: string; text: string; kind: 'smalltalk' }): void {
+  const text = e.text.trim();
+  if (text) log({ agentId: e.agentId, text, kind: e.kind });
 }
 
 /** The caption port's clear(). */

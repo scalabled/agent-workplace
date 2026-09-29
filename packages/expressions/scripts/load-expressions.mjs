@@ -81,7 +81,7 @@ export function loadExpressionSources(opts = {}) {
     }
     if (d?.kind === 'archetype_pack') packs.push(d);
     else if (d?.kind === 'signature_file') signatures.push(d);
-    else {
+    else if (d?.kind !== 'huddle_pack') { // huddle packs are known, and loaded by build-expressions.mjs itself (OFFICE-LIFE §6.2)
       skipped.push({ path: rel(p), reason: `unknown kind ${JSON.stringify(d?.kind)}` });
       continue;
     }

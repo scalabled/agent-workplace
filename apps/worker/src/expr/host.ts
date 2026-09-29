@@ -2,8 +2,8 @@
 // state, the workspace recency memory, clip manifests, mood and attention, and the planner of the reflexes only the
 // server can know about (phatic replies, the thinking-filler safety net, acknowledgements, progress lines, the
 // celebration before an announcement, `oops` on a retried step, face cues). Everything it emits is ephemeral.
-// Honesty: slots come from state or the cause event only (grounded or silent), the owner has no name here, and
-// event lines reach a viewer only at the Chief's stage.
+// Honesty: slots come from state or the cause event only (grounded or silent), the owner's name only when they set one
+// (`ownerName`, Office Phase 2), and event lines reach a viewer only at the Chief's stage.
 import {
   applyMoodEvent,
   attentionChangedData,
@@ -48,6 +48,7 @@ import type { Registry } from '@headcount/models';
 import {
   CHIEF_ID,
   EVERYDAY_PROJECT_ID,
+  ownerFirstNameOf,
   projectStream,
   type AgentId,
   type Frame,
@@ -127,6 +128,8 @@ export interface ExprHostDeps {
   now(): number;
   /** A job's title as the owner feed knows it (jobs_seen), for the celebration's `{artifact}`. */
   jobTitle(jobId: string): string | null;
+  /** The client that speaks now (one voice per workspace), when known. */
+  voiceOwner?(): string | null;
 }
 
 interface AgentCtx {
@@ -230,7 +233,9 @@ export class ExprHost {
   /** Store a validated viewer op on its socket and react to what changed (attention, catalog warm-up). */
   setViewer(ws: WebSocket, op: ViewerOp): void {
     try {
-      ws.serializeAttachment({ viewer: op, at: this.d.now() } satisfies SocketAttachment);
+      // Keep what else the socket carries (its client id: one voice per workspace).
+      const prev = ((ws as unknown as { deserializeAttachment?: () => unknown }).deserializeAttachment?.() ?? {}) as SocketAttachment;
+      ws.serializeAttachment({ ...prev, viewer: op, at: this.d.now() } satisfies SocketAttachment);
     } catch (err) {
       logError('expr.viewer', err);
     }
@@ -257,24 +262,33 @@ export class ExprHost {
     }, 0);
   }
 
-  /** Every socket's viewer, newest first. */
-  viewers(): ViewerOp[] {
-    const out: { v: ViewerOp; at: number }[] = [];
+  /** Every socket's viewer (and its client), newest first. */
+  private viewerEntries(): { v: ViewerOp; at: number; clientId: string | null }[] {
+    const out: { v: ViewerOp; at: number; clientId: string | null }[] = [];
     for (const ws of this.d.sockets()) {
       try {
         const a = (ws as unknown as { deserializeAttachment?: () => unknown }).deserializeAttachment?.() as SocketAttachment | null | undefined;
-        if (a?.viewer) out.push({ v: a.viewer, at: a.at ?? 0 });
+        if (a?.viewer) out.push({ v: a.viewer, at: a.at ?? 0, clientId: a.clientId ?? null });
       } catch {
         /* a closing socket */
       }
     }
-    return out.sort((a, b) => b.at - a.at).map((x) => x.v);
+    return out.sort((a, b) => b.at - a.at);
   }
 
-  /** A visible viewer at agent X's stage (Talk for the Chief, X's desk otherwise); one with audio armed and voice on first. */
+  /** Every socket's viewer, newest first. */
+  viewers(): ViewerOp[] {
+    return this.viewerEntries().map((x) => x.v);
+  }
+
+  /**
+   * A visible viewer at agent X's stage (Talk for the Chief, X's desk otherwise): the voice owner's tab first (the one
+   * tab that speaks), then one with audio armed and voice on.
+   */
   stageViewer(agentId: string): ViewerOp | null {
-    const at = this.viewers().filter((v) => atStage(v, agentId));
-    return at.find((v) => v.audioArmed && v.voiceOn) ?? at[0] ?? null;
+    const at = this.viewerEntries().filter((e) => atStage(e.v, agentId));
+    const owner = this.d.voiceOwner?.() ?? null;
+    return (owner ? at.find((e) => e.clientId === owner)?.v : undefined) ?? at.find((e) => e.v.audioArmed && e.v.voiceOn)?.v ?? at[0]?.v ?? null;
   }
 
   private latestViewer(): ViewerOp | null {
@@ -413,10 +427,16 @@ export class ExprHost {
     return { agentId, catalogVersion, provider, voiceKey, clips };
   }
 
-  // ── per-minute rates (EXPR_RENDER_PER_MIN, Floor quick-chat) ─────────────────────────────────────────────
+  // ── per-minute rates (EXPR_RENDER_PER_MIN, Floor quick-chat, room replies) ───────────────────────────────
+
+  /** Uses of a per-minute rate so far in this minute (nothing is counted). */
+  rateUsed(kind: 'render' | 'desk' | 'room'): number {
+    const minute = new Date(this.d.now()).toISOString().slice(0, 16);
+    return Number(this.d.sql.exec<{ count: number }>('SELECT count FROM expr_rate WHERE minute = ?', `${kind}@${minute}`).toArray()[0]?.count ?? 0);
+  }
 
   /** Count one use in this minute; false when `limit` is used up. Pruned hourly. */
-  takeRate(kind: 'render' | 'desk', limit: number): boolean {
+  takeRate(kind: 'render' | 'desk' | 'room', limit: number): boolean {
     const now = this.d.now();
     const minute = new Date(now).toISOString().slice(0, 16);
     const row = this.d.sql
@@ -465,7 +485,7 @@ export class ExprHost {
     return Number(this.d.sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM expr_work').toArray()[0]?.n ?? 0);
   }
 
-  /** Grounding for an agent (A9): live work for the Chief, unstaffed and idle for catalog coworkers, no owner name. */
+  /** Grounding for an agent (A9): live work for the Chief, unstaffed and idle for catalog coworkers, the owner's name when set. */
   private grounding(
     ctx: AgentCtx,
     opts: { exchange?: Partial<GroundingState['exchange']>; cues?: AffectCues; jobId?: string; artifact?: string; history?: Partial<GroundingState['history']> } = {},
@@ -486,7 +506,7 @@ export class ExprHost {
     const lead = ctx.settings.leadId ? fullIndex.lead(ctx.settings.leadId) : undefined;
     return {
       now: { epochMs: clock.epochMs, localHour: clock.localHour, weekday: clock.weekday },
-      owner: { firstName: null },
+      owner: { firstName: ownerFirstNameOf(ctx.settings) },
       chiefName: lead ? chiefDisplayName(lead, ctx.settings.chiefName) : null,
       self: { agentId: ctx.agentId, firstName: ctx.firstName, presence, blocked: false, staffed: chief, activity: null, role: chief ? 'chief' : null },
       ...(Object.keys(work).length ? { work } : {}),

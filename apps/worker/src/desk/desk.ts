@@ -1,15 +1,17 @@
 // Floor quick-chat with a catalog coworker (docs/dev/INC05-PLAN.md §4 A11): a fast-tier, tool-free turn in the
 // persona's own voice, at most two short sentences. Coworkers are not staffed in Inc 0.5, so a guard releases the
-// reply one sentence at a time and replaces any sentence that claims or promises work (H2).
+// reply one sentence at a time and replaces any sentence that claims or promises work (H2) or states a figure, metric,
+// experience or study the owner did not give (the reply guard, rooms/guard.ts, Office Phase 2 §4.2.6).
 import { callBudget, runTurn, type TurnResult } from '@headcount/agent-loop';
 import { chiefDisplayName, firstName, type Persona } from '@headcount/catalog';
 import { catalogFull, fullIndex } from '@headcount/catalog/full';
 import { MissingProviderError, type ChatMessage, type Registry } from '@headcount/models';
-import { ids, type AgentId, type Frame, type MessageId, type OpId, type TalkFinish, type TurnId, type UsageSummary, type WorkspaceSettings } from '@headcount/protocol';
+import { ids, ownerFirstNameOf, type AgentId, type Frame, type MessageId, type OpId, type TalkFinish, type TurnId, type UsageSummary, type WorkspaceSettings } from '@headcount/protocol';
 import type { Feed } from '../workspace/feed';
 import type { Ledger } from '../workspace/ledger';
 import { honestyPolicyText } from '../workspace/chief-prompt';
 import { logError, logWarn } from '../workspace/runtime';
+import { FIGURE_LINE, ReplyGuard, ownerFigures } from '../rooms/guard';
 
 /** Visible output of a quick-chat reply (two short sentences). */
 export const DESK_MAX_TOKENS = 160;
@@ -103,11 +105,32 @@ function shortStory(s: string, max = 600): string {
   return end > 80 ? cut.slice(0, end + 1) : `${cut.replace(/\s+\S*$/, '')}…`;
 }
 
-/** The quick-chat system prompt: platform rules, the persona, their (unstaffed) status and the style. */
-export function buildDeskSystemPrompt(persona: Persona, chief: string): string {
+/** "## Who you are" for a catalog coworker (quick chat and rooms). */
+export function personaBlock(persona: Persona): string {
   const name = firstName(persona.name);
   const department = fullIndex.department(persona.department)?.name ?? persona.department;
   const p = persona.personality;
+  return [
+    `## Who you are`,
+    `You are ${persona.name} (${persona.pronouns}), ${persona.title} in ${department}. The owner calls you ${name}.`,
+    persona.one_liner,
+    p.traits?.length ? `Traits: ${p.traits.join(', ')}.` : '',
+    p.communication_style ? `How you talk: ${p.communication_style}` : '',
+    p.quirks?.length ? `Quirks:\n${list(p.quirks.slice(0, 3))}` : '',
+    persona.intro_line ? `How you introduce yourself: "${persona.intro_line}"` : '',
+    persona.backstory ? `Backstory (character lore): ${shortStory(persona.backstory)}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+/** "The owner's name is Greg. Use it rarely." when the owner set one (Office Phase 2 §4.2.10). */
+export function ownerNameLine(ownerFirst: string | null | undefined): string {
+  return ownerFirst ? `The owner's name is ${ownerFirst}. Use it rarely.` : '';
+}
+
+/** The quick-chat system prompt: platform rules, the persona, their (unstaffed) status and the style. */
+export function buildDeskSystemPrompt(persona: Persona, chief: string, ownerFirst?: string | null): string {
   const policy = honestyPolicyText(catalogFull.honestyPolicy);
   return [
     [
@@ -115,22 +138,12 @@ export function buildDeskSystemPrompt(persona: Persona, chief: string): string {
       '- You are an AI coworker in Headcount, the owner\'s AI office. Your backstory is character lore, not a record of real events. If the owner sincerely asks whether you are an AI, answer plainly.',
       '- You have no tools here: you cannot send, book, pay, publish, browse or change anything, and you never say you did.',
       '- When you are unsure of a fact, say so briefly instead of guessing.',
+      '- Speak from your expertise: opinions, principles, questions. Never state a figure, percentage, date, result, study or past event unless the owner said it.',
       policy ? `- Catalog honesty policy: ${policy}` : '',
     ]
       .filter(Boolean)
       .join('\n'),
-    [
-      `## Who you are`,
-      `You are ${persona.name} (${persona.pronouns}), ${persona.title} in ${department}. The owner calls you ${name}.`,
-      persona.one_liner,
-      p.traits?.length ? `Traits: ${p.traits.join(', ')}.` : '',
-      p.communication_style ? `How you talk: ${p.communication_style}` : '',
-      p.quirks?.length ? `Quirks:\n${list(p.quirks.slice(0, 3))}` : '',
-      persona.intro_line ? `How you introduce yourself: "${persona.intro_line}"` : '',
-      persona.backstory ? `Backstory (character lore): ${shortStory(persona.backstory)}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n'),
+    personaBlock(persona),
     [
       '## Your status',
       `You are not on any project yet: no tasks, no tools, no files. Never say you are working on, starting, finishing or will deliver anything; if the owner asks for work, say ${chief} can bring you onto a project.`,
@@ -140,7 +153,10 @@ export function buildDeskSystemPrompt(persona: Persona, chief: string): string {
       '## Style',
       '- This is a quick chat in passing on the office floor: at most two short sentences.',
       '- Spoken style: plain words, no Markdown, no lists, no emoji, no exclamation marks.',
-    ].join('\n'),
+      ownerFirst ? `- ${ownerNameLine(ownerFirst)}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
   ].join('\n\n');
 }
 
@@ -223,7 +239,17 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
       }
       throw err;
     }
-    const guard = new HonestyGuard(unstaffedLine(chief));
+    const messages = deskHistory(host.ledger.recent(['talk.owner', 'talk.message'], 200), agentId);
+    // The reply guard (Office Phase 2 §4.2.6): no work claims, no figures the owner did not say, two sentences.
+    const ownerLines = messages.filter((m) => m.role === 'user').map((m) => (typeof m.content === 'string' ? m.content : ''));
+    const guard = new ReplyGuard({
+      allowedFigures: ownerFigures(ownerLines),
+      ownerText: ownerLines,
+      workLine: unstaffedLine(chief),
+      figureLine: FIGURE_LINE,
+      maxSentences: 2,
+      where: 'desk.guard',
+    });
     const say = (text: string) => {
       if (!text || state.closed) return;
       state.text += text;
@@ -232,8 +258,8 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
     const result = await runTurn({
       provider: resolved.provider,
       model: resolved.model,
-      system: buildDeskSystemPrompt(spec.persona, chief),
-      messages: deskHistory(host.ledger.recent(['talk.owner', 'talk.message'], 200), agentId),
+      system: buildDeskSystemPrompt(spec.persona, chief, ownerFirstNameOf(settings)),
+      messages,
       signal: spec.signal,
       maxSteps: 1,
       ...callBudget(resolved.provider, resolved.model, DESK_MAX_TOKENS, 'none'),
@@ -241,7 +267,8 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
         if (!state.closed && e.type === 'text' && e.delta) say(guard.push(e.delta));
       },
     });
-    say(guard.flush());
+    // A reply cut by the token cap ends at its last whole sentence: the fragment is never said.
+    say(result.finish === 'length' || result.finish === 'incomplete' ? guard.discard() : guard.flush());
     usage = { provider: resolved.providerId, input: result.usage.input, output: result.usage.output, usd: result.usage.usd };
     finish = finishOf(result, state.text);
     if (result.finish === 'error' && !state.closed) {

@@ -10,10 +10,12 @@
 //   node catalog/scripts/validate-expressions.mjs --quiet     errors and the summary line only
 //   node catalog/scripts/validate-expressions.mjs --blends    also print every persona's derived archetype blend
 //   node catalog/scripts/validate-expressions.mjs --json      also print a machine-readable summary (last stdout line)
+//   node catalog/scripts/validate-expressions.mjs --huddles   also print the huddle coverage report (docs/dev/OFFICE-LIFE.md §5.7)
 //
 // Files are found by walking catalog/expressions/ and classified by their top-level `kind`:
 //   intents.json (kind intents) · archetypes.json (kind archetypes) · packs/<archetype>.json (archetype_pack)
-//   personas/<department>.json and leads.json (signature_file; signatures/<group>.json is accepted too).
+//   personas/<department>.json and leads.json (signature_file; signatures/<group>.json is accepted too)
+//   huddles/<pack-id>.json (huddle_pack: office small-talk exchanges, docs/dev/OFFICE-LIFE.md §5).
 //
 // Checks (errors unless marked warn):
 //   files      every JSON file parses, has a known kind, sits where its kind belongs and passes the schema
@@ -49,6 +51,16 @@
 //   coverage   personas and leads without a signature pack (warn; errors under --strict), persona × intent pairs
 //              whose selectable candidate pool is thin (warn), archetype packs whose mood.energy spread is too
 //              narrow for mood to matter (warn), and slots no line uses (report only)
+//   huddles    (OFFICE-LIFE §5.3-§5.7) exchange ids prefixed by their pack and globally unique; 2-4 turns, exactly one
+//              of text/laugh/face each, A and B both take a turn, ≤ 2 beats, no opening laugh; slots equal placeholders,
+//              {name_x} never in X's own line, grounded slots only in grounded exchanges; spot rules (library soft and
+//              ≤ 3 turns, hallway ≤ 3, never phone_booth); topic rules (wins/welcome/owner_projects grounded,
+//              welcome needs hired, craft sets departments in the taxonomy, debates are tension pairs); the honesty
+//              lints (embodiment only as self_aware counterfactuals, no numbers/weather/weekdays/products, never the
+//              owner, no put-downs or soliciting, completion words only with completion events, progress only when
+//              grounded, night is not tired, H2 external actions); no laugh right after naming someone; hard-coded
+//              catalog first names; exact duplicate texts (warn: near-duplicates, lines over 60 characters); casting
+//              feasibility against the real catalog and the §5.7 quotas (warn; errors under --strict)
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -176,6 +188,10 @@ const STEP_SPLICE = /\b(still|busy|just|i'm|quietly|currently|happily|carefully|
 const ACTIVITY_TAIL = /\{(step_label|project)\}[^.?!]*[.?!—–,]\s*[^{]*\b(reading|drawing|humming|tab, tab|typing|testing|listening|watching|scrolling|calling|sketching|scribbling|clicking|tapping)\b/i;
 /** A juggling line that names another activity without {other_thread} (E16d). */
 const JUGGLE_INVENTED = /\b(call|meeting|review|email|inbox|phone|interview|standup|stand-up|workshop|session)\b/i;
+/** A greeting or passing-by line that presumes shared work in progress (D5): only with a {project} slot. */
+const PROJECT_PRESUMPTION = /\b(go-live|launch date|the launch|our launch|the brief|the roadmap|the deadline|the rollout|the release list|before we (?:ship|launch|pick|go live|start)|our (?:project|campaign|product))\b/i;
+/** An idle or unstaffed hello that claims work done or under way (D5 "micro-talk never claims work that was not done"). */
+const IDLE_WORK_CLAIM = /\b(everything filed|all filed|filed away|everything labell?ed|desk clear,|inbox zero|all caught up|tidied (?:up|it)|(?:always|busy|currently|constantly) (?:sketching|drafting|writing|building|working on|planning|designing|coding|testing|reviewing|researching|tinkering|polishing|mapping))\b/i;
 /** An idle line that asks the owner for work (E25 solicits). */
 const SOLICITS = /\?\s*$|\b(anything (for|i can)|got (anything|something)|throw me|pick me|use me|send (me|something)|what can i|need (anything|a hand|help)|put me to work|give me something|anything you need|want me to|point me|hand me|toss me|my way)\b/i;
 /** Non-English words that need `lang` and a gloss (E17). Names with diacritics are not flagged. */
@@ -256,6 +272,268 @@ export function progressGrounding(line, intentDef) {
   }
   return out;
 }
+
+// ── huddle small talk (docs/dev/OFFICE-LIFE.md §5.3-§5.4): a port of packages/expressions/src/huddle.ts ──────
+// lintHuddleText and checkHuddleExchange mirror the engine's lintHuddleText and checkExchange (same regexes, same
+// rules); huddle.test.ts checks the parity. Keep them in sync.
+export const HUDDLE_SPOTS = ['water_cooler', 'coffee_bar', 'lounge', 'library', 'phone_booth', 'desk_dropby', 'hallway', 'window'];
+export const HUDDLE_TOPICS = ['craft', 'debate', 'tools', 'ideas', 'self_aware', 'office', 'owner_projects', 'wins', 'welcome'];
+const HUDDLE_ROLES = ['A', 'B', 'C'];
+const HUDDLE_SLOTS = ['name_a', 'name_b', 'name_c', 'chief_name', 'part_of_day', 'weekday', 'coworker', 'project', 'artifact', 'gist'];
+const HUDDLE_GROUNDED_SLOTS = ['coworker', 'project', 'artifact', 'gist'];
+const HUDDLE_EVENT_KINDS = ['job.done', 'deliverable.accepted', 'verdict.approve', 'project.done', 'project.active', 'hired'];
+const HUDDLE_COMPLETION_EVENTS = ['job.done', 'deliverable.accepted', 'verdict.approve', 'project.done'];
+export const HUDDLE_CONTEXTS = ['crew', 'first_today', 'same_department', 'cross_department', 'night', 'spot_empty'];
+const HUDDLE_FACES = ['none', 'nod', 'double_nod', 'look_up', 'brow_flash', 'head_tilt', 'smile', 'wince', 'exhale', 'glance', 'still'];
+const HUDDLE_TEAM_ROLES = ['lead', 'co_owner', 'reviewer', 'sceptic', 'facilitator', 'specialist'];
+const HUDDLE_ARCHETYPES = ['warm', 'dry-wit', 'energetic', 'calm-steady', 'blunt', 'playful', 'meticulous', 'gentle', 'hustler', 'visionary', 'analytical', 'veteran'];
+const HUDDLE_TEXT_MAX_CHARS = 90;
+const HD_MARKUP = /[[\]<>]/;
+const HD_EMOJI = /\p{Extended_Pictographic}/u;
+const HD_STAGE = /\*[^*]+\*|\((?:laughs?|chuckles?|sighs?|smiles?|grins?|pauses?|coughs?|nods?|winks?|giggles?|snorts?|clears|shrugs?)\b[^)]*\)/i;
+const HD_NUMBER = /\d|%|\bpercent\b/i;
+/** Cardinal number words (a count is a checkable fact); hyphenated idioms such as "high-five" are not counts. */
+const HD_NUMBER_WORD = /(?<![\w-])(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundreds?|thousands?|millions?|billions?|dozens?)(?![\w-])/i;
+const HD_WEATHER = /\b(weather|rain(?:s|ing|y|ed)?|sunny|sunshine|snow\w*|storm(?:s|y)?|forecast|humid\w*|cloudy|drizzl\w*|heat ?wave|freezing|degrees|windy)\b/i;
+const HD_WEEKDAY = /\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)s?\b/;
+const HD_PRODUCT = /\b(Slack|Excel|Google|Figma|Notion|Jira|Zoom|Microsoft|Apple|iPhone|ChatGPT|OpenAI|Anthropic|Claude|Gemini|Salesforce|HubSpot|Trello|Asana|PowerPoint|Keynote|Photoshop|Canva|Airtable|Amazon|Netflix|Spotify|Twitter|LinkedIn|Instagram|TikTok|Facebook|Starbucks|Nespresso)\b/;
+const HD_OWNER = /\b(the owner|our owner|the boss|boss man|our human|my human|the human|the client said|they want)\b/i;
+const HD_PUTDOWN = /\b(stupid|idiot\w*|dumb|pathetic|useless|clueless|lazy|shut up|loser|moron\w*|crazy|insane|lame|ridiculous)\b/i;
+const HD_SOLICIT = /\b(bored|boring day|nothing to do|put me to work|anything for (?:me|us)|slow day|waiting for (?:work|a task|something to do))\b/i;
+const HD_EMBODIMENT = /\b(coffee(?! bar)|espresso|latte|cappuccino|caffeine|tea|teas|lunch|breakfast|dinner|snacks?|eat|eats|eating|ate|eaten|food|drink|drinks|drinking|drank|thirsty|thirst|hungry|hunger|sleep|sleeps|sleeping|slept|sleepy|asleep|nap|naps|napping|tired|exhausted|commute|commuting|traffic|weekends?|go(?:ing)? home|went home|at home|my home|my family|my kids|my partner|gym|workout|bathroom|toilet|headphones|hungover|long day)\b/i;
+const HD_COUNTERFACTUAL = /\bif (?:I|we) (?:had|could|were)\b|\b(?:I|we) (?:can['’]t|cannot|can not|don['’]t|do not)\b|\b(?:none|neither|not one) of us\b|\bno (?:hands|taste ?buds|stomach)\b|\bin theory\b|\btheoretically\b|\bpretend\w*|\ballegedly\b|\bmetaphor\w*|\bhypothetically\b|\b(?:I|we)['’]d\b[^.!?]*\bif\b/i;
+const HD_NIGHT_TIRED = /\b(tired|sleep\w*|slept|asleep|long day|exhausted|bed(?:time)?|yawn\w*|knackered|wiped out)\b/i;
+const HD_COMPLETION = /\b(done|finished|completed?|wrapped(?: up)?|landed|(?:came|come|comes) through|shipped|delivered|launched|out of (?:my|the|your|our) queue|signed off|in the bag|nailed it)\b/i;
+const HD_PROGRESS = /\b(working on|worked on|all (?:morning|afternoon|day|week|night)|been (?:on|at|working)|just (?:finished|wrapped|sent)|in the middle of|halfway (?:through|done|there)|(?:almost|nearly|mostly) (?:done|finished|there)|deep in|busy (?:with|day)|back-to-back|on a call|mid-call|in a meeting|my queue|my inbox)\b/i;
+const HD_EXTERNAL_ACTION = COMPLETION_CLAIM;
+/** Non-claim idioms removed before the completion test. Unlike NOT_A_CLAIM, "you've done" stays a claim here: in a huddle it is a colleague's work. */
+const HD_NOT_A_CLAIM = [
+  /\b(?:well|nicely|beautifully|brilliantly|superbly|neatly|expertly|smartly|so well|very well|really well)\s+done\b/gi,
+  /\bdone\s+(?:right|properly|well|carefully|together)\b/gi,
+  /\bhow\b[^.!?]*?\b(?:done|finished)\b/gi,
+  /\b(?:when|once|until|till|before|as soon as|by the time|the (?:moment|minute|second))\b[^.,;:!?—–]*?\b(?:done|finished|complete|wrapped up)\b/gi,
+  /\bget(?:s|ting)?\b(?:\s+[\w'’]+){0,3}?\s+done\b/gi,
+  /\bhalf[- ]?(?:done|finished)\b/gi,
+  /\b(?:not|never|isn['’]t|aren['’]t|wasn['’]t|won['’]t be|nothing['’]s)\s+(?:yet\s+|quite\s+|really\s+|ever\s+)?(?:done|finished|complete)\b/gi,
+];
+function assertedHuddleText(text) {
+  const sentences = String(text).replace(/\{[a-z_]+\}/g, ' ').split(/(?<=[.!?…])\s+/);
+  let s = sentences.filter((x) => !/\?\s*["”’)]*\s*$/.test(x.trim())).join(' ');
+  for (const re of HD_NOT_A_CLAIM) s = s.replace(re, ' ');
+  return s;
+}
+/** First names that are also common words: a hard-coded-name hit at a sentence start is not flagged. */
+const COMMON_WORD_NAMES = new Set(['Hope', 'Joy', 'Sky', 'Miles', 'Robin', 'Will', 'May', 'Grace']);
+
+/** The §5.4 honesty lints for one spoken huddle line (mirrors the engine's lintHuddleText). Returns [{rule, message}]. */
+export function lintHuddleText(text, ctx) {
+  const out = [];
+  const add = (rule, message) => out.push({ rule, message });
+  const t = String(text);
+  const bare = t.replace(/\{[a-z_]+\}/g, ' ');
+  if (HD_MARKUP.test(t)) add('markup', 'text must not contain markup; put it in tags.xai');
+  if (HD_EMOJI.test(t)) add('emoji', 'no emoji in captions');
+  if (HD_STAGE.test(bare)) add('stage', 'no stage directions; use a laugh or face beat');
+  if (HD_NUMBER.test(bare)) add('number', 'no numbers in small talk (rule 1); facts come only from grounded slots');
+  const numWord = bare.match(HD_NUMBER_WORD);
+  if (numWord && !ctx.grounded) add('number', `no number words in ungrounded small talk ("${numWord[0]}"): a count is a checkable fact (rule 1)`);
+  const weather = bare.match(HD_WEATHER);
+  if (weather) add('weather', `no weather ("${weather[0]}"): the skyline is fictional (rule 10)`);
+  const weekday = bare.match(HD_WEEKDAY);
+  if (weekday) add('weekday', `hard-coded weekday "${weekday[0]}"; use {weekday} or a context (rule 10)`);
+  const product = bare.match(HD_PRODUCT);
+  if (product) add('product', `names a real product or company ("${product[0]}") (rule 1)`);
+  const owner = bare.match(HD_OWNER);
+  if (owner) add('owner', `small talk never mentions the owner ("${owner[0]}") (rule 4)`);
+  const putdown = bare.match(HD_PUTDOWN);
+  if (putdown) add('putdown', `no put-downs or mockery ("${putdown[0]}") (rules 5, 6)`);
+  const solicit = bare.match(HD_SOLICIT);
+  if (solicit) add('solicit', `idle reads as pleasant availability, never boredom or asking for work ("${solicit[0]}")`);
+  const body = bare.match(HD_EMBODIMENT);
+  if (body && !(ctx.topics.includes('self_aware') && HD_COUNTERFACTUAL.test(bare))) {
+    add('embodiment', `human-embodiment word "${body[0]}" only in self_aware lines as a counterfactual ("if I had hands") (rule 3, A2)`);
+  }
+  const tired = bare.match(HD_NIGHT_TIRED);
+  if (ctx.night && tired) add('night', `night is not tired ("${tired[0]}") (rule 7)`);
+  const done = assertedHuddleText(t).match(HD_COMPLETION);
+  if (done && !ctx.completionEvent) add('completion', `completion word "${done[0]}" needs grounded requires.events with job.done, deliverable.accepted, verdict.approve or project.done (rule 2)`);
+  const progress = assertedHuddleText(t).match(HD_PROGRESS);
+  if (progress && !ctx.grounded) add('progress', `work-in-progress claim "${progress[0]}" only in grounded exchanges (rule 2)`);
+  if (HD_EXTERNAL_ACTION.test(t)) add('external', 'canned lines never claim a completed external action (H2)');
+  for (const phrase of GLOBAL_NEVER_SAYS) if (containsPhrase(t, phrase)) add('never_says', `uses globally banned phrase "${phrase}"`);
+  return out;
+}
+
+const hdObj = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
+const hdSameSet = (a, b) => { const sa = new Set(a), sb = new Set(b); return sa.size === sb.size && [...sa].every((x) => sb.has(x)); };
+
+/**
+ * The §5.3 field rules and §5.4 lints for one exchange (mirrors the engine's checkExchange, so an exchange the
+ * validator accepts always compiles). `contextOk(tag)` checks the expressions context vocabulary.
+ */
+export function checkHuddleExchange(ex, packId, contextOk) {
+  const out = [];
+  if (!hdObj(ex) || typeof ex.id !== 'string' || !/^hd-[a-z0-9]+(-[a-z0-9]+)*\.[0-9]{3}$/.test(ex.id)) return [`bad exchange id ${JSON.stringify(ex?.id)}`];
+  if (ex.id.slice(0, ex.id.lastIndexOf('.')) !== packId) out.push(`id must start with "${packId}."`);
+  const spots = Array.isArray(ex.spots) ? ex.spots : [];
+  if (!spots.length) out.push('spots must list at least one spot');
+  for (const s of spots) if (!HUDDLE_SPOTS.includes(s)) out.push(`unknown spot ${JSON.stringify(s)}`);
+  if (new Set(spots).size !== spots.length) out.push('spots repeat');
+  const topics = Array.isArray(ex.topics) ? ex.topics : [];
+  if (topics.length < 1 || topics.length > 2) out.push('an exchange has 1–2 topics');
+  for (const t of topics) if (!HUDDLE_TOPICS.includes(t)) out.push(`unknown topic ${JSON.stringify(t)}`);
+  if (new Set(topics).size !== topics.length) out.push('topics repeat');
+
+  const grounded = ex.grounded === true;
+  if (ex.grounded !== undefined && typeof ex.grounded !== 'boolean') out.push('grounded must be a boolean');
+  const req = ex.requires;
+  if (grounded && !req) out.push('a grounded exchange needs requires');
+  if (!grounded && req) out.push('requires only with grounded: true');
+  const reqEvents = hdObj(req) && Array.isArray(req.events) ? req.events : [];
+  if (req) {
+    if (!hdObj(req)) out.push('requires must be an object');
+    else {
+      if (!reqEvents.length) out.push('requires.events lists at least one event');
+      for (const e of reqEvents) if (!HUDDLE_EVENT_KINDS.includes(e)) out.push(`unknown event ${JSON.stringify(e)}`);
+      if (new Set(reqEvents).size !== reqEvents.length) out.push('requires.events repeat');
+      if (req.who !== undefined && !['A', 'B', 'either', 'other'].includes(req.who)) out.push(`requires.who ${JSON.stringify(req.who)} must be A, B, either or other`);
+      if (req.max_age_h !== undefined && !(typeof req.max_age_h === 'number' && req.max_age_h >= 0.5 && req.max_age_h <= 72)) out.push('requires.max_age_h must be 0.5…72');
+    }
+  }
+  const completionEvent = reqEvents.some((e) => HUDDLE_COMPLETION_EVENTS.includes(e));
+  for (const t of ['owner_projects', 'wins', 'welcome']) if (topics.includes(t) && !grounded) out.push(`topic ${t} requires grounded: true`);
+  if (topics.includes('welcome') && !reqEvents.includes('hired')) out.push('topic welcome requires requires.events with hired');
+  if (spots.includes('phone_booth')) out.push('no huddle exchange plays in a phone_booth: booths hold one person on a real call');
+
+  const roles = hdObj(ex.roles) ? ex.roles : {};
+  if (ex.roles !== undefined && !hdObj(ex.roles)) out.push('roles must be an object');
+  let chiefs = 0;
+  for (const [k, def] of Object.entries(roles)) {
+    if (!HUDDLE_ROLES.includes(k)) { out.push(`unknown role ${k}`); continue; }
+    if (!hdObj(def)) { out.push(`role ${k} must be an object`); continue; }
+    for (const a of def.archetypes ?? []) if (!HUDDLE_ARCHETYPES.includes(a)) out.push(`role ${k}: unknown archetype ${JSON.stringify(a)}`);
+    if ((def.archetypes?.length ?? 0) > 4) out.push(`role ${k}: at most 4 archetypes`);
+    for (const d of def.departments ?? []) if (typeof d !== 'string' || !/^[a-z][a-z0-9-]*$/.test(d)) out.push(`role ${k}: bad department ${JSON.stringify(d)}`);
+    for (const t of def.team_roles ?? []) if (!HUDDLE_TEAM_ROLES.includes(t)) out.push(`role ${k}: unknown team role ${JSON.stringify(t)}`);
+    if (def.chief !== undefined && typeof def.chief !== 'boolean') out.push(`role ${k}: chief must be a boolean`);
+    if (def.chief === true) chiefs++;
+    if (def.in_event !== undefined && typeof def.in_event !== 'boolean') out.push(`role ${k}: in_event must be a boolean`);
+    if (def.in_event && !grounded) out.push(`role ${k}: in_event only in grounded exchanges`);
+    if (def.at_desk !== undefined && typeof def.at_desk !== 'boolean') out.push(`role ${k}: at_desk must be a boolean`);
+    if (def.at_desk !== undefined && !(spots.length === 1 && spots[0] === 'desk_dropby')) out.push(`role ${k}: at_desk only in exchanges that play at a desk drop-by alone`);
+  }
+  if (chiefs > 1) out.push('chief: true on at most one role');
+  if (topics.includes('craft') && !Object.values(roles).some((r) => hdObj(r) && (r.departments?.length ?? 0) > 0)) out.push('craft exchanges set roles.<role>.departments (rule 8)');
+
+  const lines = Array.isArray(ex.lines) ? ex.lines : [];
+  if (lines.length < 2 || lines.length > 4) out.push('an exchange has 2–4 turns');
+  const used = new Set();
+  let spoken = 0;
+  let beats = 0;
+  const night = (ex.context ?? []).some((c) => c === 'night' || c === 'part_of_day:late_night' || c === 'part_of_day:evening');
+  const lintCtx = { topics, grounded, completionEvent, night };
+  lines.forEach((l, i) => {
+    const w = `turn ${i}`;
+    if (!hdObj(l) || !HUDDLE_ROLES.includes(l.role)) { out.push(`${w}: role must be A, B or C`); return; }
+    used.add(l.role);
+    const kinds = [l.text !== undefined, l.laugh !== undefined, l.face !== undefined].filter(Boolean).length;
+    if (kinds !== 1) out.push(`${w}: exactly one of text, laugh or face`);
+    if (l.pause_ms !== undefined && !(Number.isInteger(l.pause_ms) && l.pause_ms >= 0 && l.pause_ms <= 2500)) out.push(`${w}: pause_ms must be an integer 0…2500`);
+    if (l.text === undefined) {
+      beats++;
+      if (l.laugh !== undefined && l.laugh !== true) out.push(`${w}: laugh must be true`);
+      if (l.face !== undefined && !HUDDLE_FACES.includes(l.face)) out.push(`${w}: unknown face gesture ${JSON.stringify(l.face)}`);
+      if (l.tags !== undefined || l.slots !== undefined) out.push(`${w}: beats take no tags or slots`);
+      if (i === 0 && l.laugh) out.push('a laugh never opens an exchange');
+      // The listener laughs, never the joker at their own line (§5.4 rule 5, the laugh-track review).
+      const before = i > 0 ? lines[i - 1] : undefined;
+      if (l.laugh && hdObj(before) && typeof before.text === 'string' && before.role === l.role) out.push(`${w}: the listener laughs, not the speaker of the line before (no laughing at your own joke)`);
+      // Laughter never at a person (rule 5): not right after a line about someone, and never in an exchange that
+      // comments on someone's things or traits ("{name_b}'s roadmap…").
+      const prev = i > 0 ? lines[i - 1] : undefined;
+      if (l.laugh && hdObj(prev) && typeof prev.text === 'string' && /\{(name_[abc]|coworker)\}/.test(prev.text)) {
+        out.push(`${w}: a laugh right after a line that names someone reads as laughing at a person (rule 5); use a smile`);
+      } else if (l.laugh && lines.some((x) => hdObj(x) && typeof x.text === 'string' && /\{(name_[abc]|coworker)\}['’]s\b/.test(x.text))) {
+        out.push(`${w}: no laugh in an exchange that comments on someone's things ("{name}'s …"): it reads as laughing at a person (rule 5)`);
+      }
+      return;
+    }
+    spoken++;
+    if (typeof l.text !== 'string' || !l.text.trim()) { out.push(`${w}: text is empty`); return; }
+    const text = l.text;
+    if (/^\s|\s$|\s{2,}/.test(text)) out.push(`${w}: leading, trailing or doubled whitespace`);
+    if (text.length > HUDDLE_TEXT_MAX_CHARS) out.push(`${w}: text longer than ${HUDDLE_TEXT_MAX_CHARS} characters`);
+    const inText = [...new Set(placeholders(text))];
+    const declared = l.slots ?? [];
+    for (const s of new Set([...inText, ...declared])) if (!HUDDLE_SLOTS.includes(s)) out.push(`${w}: unknown slot {${s}}`);
+    if (!hdSameSet(inText, declared)) out.push(`${w}: slots ${JSON.stringify(declared)} must equal placeholders ${JSON.stringify(inText)}`);
+    if (placeholders(text).length !== inText.length) out.push(`${w}: a slot appears twice`);
+    for (const s of inText) {
+      const holder = { name_a: 'A', name_b: 'B', name_c: 'C' }[s];
+      if (holder && holder === l.role) out.push(`${w}: {${s}} in role ${holder}'s own line`);
+      if (HUDDLE_GROUNDED_SLOTS.includes(s) && !grounded) out.push(`${w}: {${s}} only in grounded exchanges`);
+      if (s === 'coworker' && hdObj(req) && req.who !== 'other') out.push(`${w}: {coworker} is the teammate outside the huddle: requires.who must be "other"`);
+    }
+    const xai = l.tags?.xai;
+    if (xai !== undefined) {
+      if (readable(xai) !== text) out.push(`${w}: readable(tags.xai) "${readable(xai)}" must equal text`);
+      if (speakable(xai) !== xai.replace(/\s{2,}/g, ' ').trim()) out.push(`${w}: tags.xai has unknown or unbalanced tags (speakable: "${speakable(xai)}")`);
+      if (/\[(cough|yawn)\]/i.test(xai)) out.push(`${w}: [cough] and [yawn] are not allowed`);
+    }
+    const say = l.tags?.openai?.say;
+    if (say !== undefined && (!hdSameSet([...new Set(placeholders(say))], inText) || HD_MARKUP.test(say))) out.push(`${w}: tags.openai.say keeps the text's slots and has no markup`);
+    if (spots.includes('library') && !/<(soft|whisper)>/i.test(xai ?? '')) out.push(`${w}: library lines are soft: wrap tags.xai in <soft> or <whisper>`);
+    for (const lint of lintHuddleText(text, lintCtx)) out.push(`${w}: ${lint.message}`);
+  });
+  const minSpoken = spots.length && spots.every((s) => s === 'hallway') ? 1 : 2;
+  if (lines.length && spoken < minSpoken) out.push(`at least ${minSpoken} spoken turn${minSpoken > 1 ? 's' : ''}`);
+  if (lines.length && (!used.has('A') || !used.has('B'))) out.push('roles A and B both take a turn');
+  if (beats > 2) out.push('at most 2 beats (laugh or face) per exchange');
+  for (const k of Object.keys(roles)) if (HUDDLE_ROLES.includes(k) && !used.has(k)) out.push(`role ${k} is declared but takes no turn`);
+  if (spots.includes('library') && lines.length > 3) out.push('library exchanges have at most 3 turns');
+  if (spots.includes('hallway') && lines.length > 3) out.push('hallway exchanges have at most 3 turns');
+  const rolesUsed = HUDDLE_ROLES.filter((r) => used.has(r));
+  if (ex.size !== undefined) {
+    const sz = ex.size;
+    if (!Array.isArray(sz) || sz.length !== 2 || !sz.every((n) => Number.isInteger(n) && n >= 2 && n <= 4) || sz[0] > sz[1]) out.push('size is [min, max] with 2 ≤ min ≤ max ≤ 4');
+    else if (sz[0] < rolesUsed.length) out.push(`size min ${sz[0]} is below the ${rolesUsed.length} roles that take a turn`);
+  }
+  if (hdObj(req) && (req.who === 'A' || req.who === 'B') && !used.has(req.who)) out.push(`requires.who ${req.who} takes no turn`);
+  if (hdObj(req) && req.who === 'other' && !lines.some((l) => hdObj(l) && typeof l.text === 'string' && l.text.includes('{coworker}'))) out.push('requires.who "other" needs a line with {coworker}');
+  if (topics.includes('debate')) {
+    const a = roles.A?.archetypes ?? [];
+    const b = roles.B?.archetypes ?? [];
+    const opposed = a.length > 0 && b.length > 0 && !a.some((x) => b.includes(x));
+    if (ex.pair !== 'tension' && !opposed) out.push('debates need pair: "tension" or opposed archetypes for A and B (rule 6)');
+  }
+  if (ex.pair !== undefined && !['well', 'tension', 'any'].includes(ex.pair)) out.push(`pair ${JSON.stringify(ex.pair)} must be well, tension or any`);
+
+  const ctx = ex.context ?? [];
+  if (!Array.isArray(ctx)) out.push('context must be a list');
+  else {
+    for (const c of ctx) if (typeof c !== 'string' || !(HUDDLE_CONTEXTS.includes(c.replace(/^!/, '')) || contextOk(c))) out.push(`unknown context ${JSON.stringify(c)}`);
+    for (const c of ctx) if (!c.startsWith('!') && ctx.includes(`!${c}`)) out.push(`context requires and forbids ${c}`);
+  }
+  if (ex.mood !== undefined) {
+    const m = ex.mood;
+    const n9 = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 9);
+    if (!hdObj(m) || !(Math.abs(n9(m.valence)) <= 1) || !(Math.abs(n9(m.energy)) <= 1)) out.push('mood must be within -1…1');
+    else if (m.spread !== undefined && !(m.spread >= 0.2 && m.spread <= 2)) out.push('mood.spread must be 0.2…2');
+  }
+  if (ex.weight !== undefined && !(typeof ex.weight === 'number' && ex.weight >= 0.1 && ex.weight <= 5)) out.push('weight must be 0.1…5');
+  if (ex.max_per_day !== undefined && !(Number.isInteger(ex.max_per_day) && ex.max_per_day >= 1 && ex.max_per_day <= 3)) out.push('max_per_day must be an integer 1…3');
+  if (ex.max_per_week !== undefined && !(Number.isInteger(ex.max_per_week) && ex.max_per_week >= 1 && ex.max_per_week <= 60)) out.push('max_per_week must be an integer 1…60');
+  return out;
+}
+
+/** §5.7 coverage quotas for the huddle library (warnings; errors under --strict). */
+export const HUDDLE_QUOTAS = {
+  spots: { water_cooler: 120, coffee_bar: 120, lounge: 80, desk_dropby: 60, window: 60, hallway: 40, library: 30 },
+  three_people_share: 0.35, four_present_share: 0.5, low_energy_share: 0.2, high_energy_share: 0.2, low_valence_share: 0.1,
+  night: 60, archetype_roles: 30, craft_per_department: 4, castable_pairs: 10,
+  /** At most this share of exchanges end on a laugh (the laugh-track review): a smile, a nod or nothing reads warmer. */
+  laugh_end_max_share: 0.2,
+};
 
 // ── mini JSON Schema (2020-12 subset) ───────────────────────────────────────────────────────────────────────
 const typeOf = (v) => (v === null ? 'null' : Array.isArray(v) ? 'array' : Number.isInteger(v) ? 'integer' : typeof v);
@@ -354,6 +632,7 @@ function main() {
   const QUIET = args.has('--quiet');
   const VERBOSE = args.has('--verbose');
   const JSON_OUT = args.has('--json');
+  const HUDDLES = args.has('--huddles');
 
   const errors = [];
   const warnings = new Map(); // rule → messages
@@ -405,6 +684,7 @@ function main() {
   let intentsFile, archetypesFile;
   const packFiles = [];
   const sigFiles = [];
+  const huddleFiles = [];
   for (const p of walk(EXPR)) {
     const d = tryJson(p);
     if (d === undefined) continue;
@@ -431,8 +711,13 @@ function main() {
         sigFiles.push({ p, d });
         break;
       }
+      case 'huddle_pack':
+        if (!/^huddles\/[^/]+\.json$/.test(r)) err(rel(p), 'huddle packs live in catalog/expressions/huddles/<pack-id>.json');
+        if (`${d.id}.json` !== base) warn('huddle-file-name', rel(p), `name the file ${d.id}.json after its pack id`);
+        huddleFiles.push({ p, d });
+        break;
       default:
-        err(rel(p), `unknown kind ${JSON.stringify(d?.kind)} (expected intents, archetypes, archetype_pack or signature_file)`);
+        err(rel(p), `unknown kind ${JSON.stringify(d?.kind)} (expected intents, archetypes, archetype_pack, signature_file or huddle_pack)`);
     }
   }
   if (!intentsFile || !archetypesFile) {
@@ -443,7 +728,7 @@ function main() {
   }
   schemaCheck(intentsPath, intentsFile);
   schemaCheck(archetypesPath, archetypesFile);
-  for (const { p, d } of [...packFiles, ...sigFiles]) schemaCheck(p, d);
+  for (const { p, d } of [...packFiles, ...sigFiles, ...huddleFiles]) schemaCheck(p, d);
 
   // ── vocabularies ──
   const SCHEMA_INTENTS = schema.$defs.intent_id.enum;
@@ -624,6 +909,8 @@ function main() {
     if (inIntent('juggling') && !inText.includes('other_thread') && !has('in_meeting') && (JUGGLE_INVENTED.test(text) || /mid-call/i.test(text))) err(w, 'names another thread without {other_thread} or in_meeting; juggling never invents the contention (E16)');
     if (inIntent('sidetalk_reply') && !ctx.some((c) => c.startsWith('reply_to:'))) err(w, 'a side-talk reply needs reply_to:<opener> or reply_to:any (E7)');
     if (inIntent('passing_by') && has('idle') && SOLICITS.test(text) && !line.solicits) err(w, 'an idle line that asks the owner for work; set solicits: true (E25)');
+    if ((inIntent('greeting', 'passing_by') || has('first_meeting')) && PROJECT_PRESUMPTION.test(text) && !inText.includes('project')) err(w, 'presumes shared work in progress (a launch, a brief, a release); only with a {project} slot (D5)');
+    if (inIntent('passing_by') && (has('idle') || has('unstaffed')) && IDLE_WORK_CLAIM.test(text)) err(w, 'an idle or unstaffed hello that claims work done or under way; say a preference, not a status (D5)');
     if (line.lang !== undefined) {
       if (!line.gloss) err(w, 'a line with lang needs a gloss (E17)');
       if (!line.tags?.openai?.instructions) warn('lang-voice', w, 'lang line without tags.openai.instructions: never voiced until a clip is pronunciation-checked (E17)');
@@ -848,6 +1135,139 @@ function main() {
   }
   for (const t of thin) warn('thin-pool', t.id, `${t.intent}: only ${t.pool} selectable candidate lines after never_says and max_ms (${t.open} need no slot or context)`);
 
+  // ── huddle small talk (OFFICE-LIFE §5) ──
+  const huddle = checkHuddles();
+
+  function checkHuddles() {
+    const all = []; // { ex, packId, where }
+    const exIds = new Map();
+    const packIds = new Map();
+    const texts = new Map(); // exact text → exchange id
+    const near = new Map(); // normalised text → { id, text }
+    const people = [
+      ...[...personas.values()].map((x) => ({ id: x.id, department: x.department, roles: x.team_roles ?? [], chief: false })),
+      ...[...leads.values()].map((x) => ({ id: x.id, department: null, roles: [], chief: true })),
+    ].map((x) => ({ ...x, blend: blendOf(x.id), never: (signed.get(x.id)?.pack.never_says ?? []).map((n) => String(n)) }));
+    for (const { p, d } of huddleFiles) {
+      const where = rel(p);
+      if (typeof d.id !== 'string') continue;
+      if (packIds.has(d.id)) { err(where, `second huddle pack with id ${d.id} (also ${packIds.get(d.id)})`); continue; }
+      packIds.set(d.id, where);
+      for (const ex of Array.isArray(d.exchanges) ? d.exchanges : []) {
+        const id = typeof ex?.id === 'string' ? ex.id : '(no id)';
+        const w = `${where} ${id}`;
+        if (exIds.has(id)) err(w, `duplicate exchange id (also in ${exIds.get(id)})`);
+        else exIds.set(id, where);
+        for (const m of checkHuddleExchange(ex, d.id, contextOk)) err(w, m);
+        const roles = ex?.roles && typeof ex.roles === 'object' ? ex.roles : {};
+        for (const [k, r] of Object.entries(roles)) for (const dep of r?.departments ?? []) if (departments.size && !departments.has(dep)) err(w, `role ${k}: department "${dep}" is not a catalog department`);
+        (Array.isArray(ex?.lines) ? ex.lines : []).forEach((l, i) => {
+          if (typeof l?.text !== 'string') return;
+          const lw = `${w} turn ${i}`;
+          if (l.text.length > 60) warn('huddle-length', lw, `${l.text.length} characters; write to ≤ 60 so the bubble stays one glance`);
+          if (l.tags?.xai !== undefined && tagCount(l.tags.xai) > 3) warn('tag-budget', lw, `${tagCount(l.tags.xai)} expressive tags (more than 3)`);
+          if (texts.has(l.text)) err(lw, `duplicate huddle text "${l.text}" (also ${texts.get(l.text)})`);
+          else texts.set(l.text, id);
+          const k = l.text.toLowerCase().replace(/[’‘]/g, "'").replace(/[.,!?;:—–…"“”()]/g, ' ').replace(/\s+/g, ' ').trim();
+          if (near.has(k) && near.get(k).text !== l.text) warn('near-duplicate', lw, `"${l.text}" differs from ${near.get(k).id} only in case or punctuation`);
+          else if (!near.has(k)) near.set(k, { id, text: l.text });
+          // Names come only from slots: a hard-coded catalog first name is cast to someone else.
+          for (const m of l.text.replace(/\{[a-z_]+\}/g, ' ').matchAll(/(^|[.!?…]\s+|[^\p{L}])(\p{Lu}[\p{Ll}'’-]+)/gu)) {
+            const name = m[2];
+            const atStart = m.index === 0 || /[.!?…]\s+$/.test(m[1]);
+            if (FIRST_NAMES.has(name) && !(atStart && COMMON_WORD_NAMES.has(name))) err(lw, `hard-codes the name "${name}"; use {name_a}, {name_b}, {name_c} or {coworker}`);
+          }
+        });
+        all.push({ ex, packId: d.id, where: w });
+      }
+    }
+
+    // Casting feasibility (hard filters only: departments, team roles, chief, never_says) against the real catalog.
+    const valid = all.filter(({ ex, packId }) => checkHuddleExchange(ex, packId, contextOk).length === 0);
+    const roleOk = (ex, role, person) => {
+      const def = ex.roles?.[role] ?? {};
+      if (def.departments?.length && !def.departments.includes(person.department)) return false;
+      if (def.team_roles?.length && !person.roles.some((r) => def.team_roles.includes(r))) return false;
+      if (def.chief === true && !person.chief) return false;
+      if (def.chief === false && person.chief) return false;
+      const texts = ex.lines.filter((l) => l.role === role && typeof l.text === 'string').map((l) => l.text.replace(/\{[a-z_]+\}/g, ' '));
+      return !person.never.some((n) => texts.some((t) => containsPhrase(t, n)));
+    };
+    const castablePairs = new Map();
+    for (const { ex, where } of valid) {
+      const usesC = ex.lines.some((l) => l.role === 'C');
+      const as = people.filter((x) => roleOk(ex, 'A', x));
+      const bs = people.filter((x) => roleOk(ex, 'B', x));
+      const cs = usesC ? people.filter((x) => roleOk(ex, 'C', x)) : null;
+      let pairs = 0;
+      for (const a of as) for (const b of bs) {
+        if (a === b) continue;
+        if (cs && !cs.some((c) => c !== a && c !== b)) continue;
+        pairs++;
+      }
+      castablePairs.set(ex.id, pairs);
+      if (pairs < HUDDLE_QUOTAS.castable_pairs) gate('huddle-cast', where, `castable by only ${pairs} pairs of catalog personas (quota ${HUDDLE_QUOTAS.castable_pairs}); widen its departments, team roles or chief filter`);
+    }
+
+    // §5.7 coverage.
+    const n = valid.length;
+    const exs = valid.map((v) => v.ex);
+    const bySpot = Object.fromEntries(HUDDLE_SPOTS.map((sp) => [sp, exs.filter((e) => e.spots.includes(sp) && (sp !== 'phone_booth' || e.grounded)).length]));
+    const byTopic = Object.fromEntries(HUDDLE_TOPICS.map((t) => [t, exs.filter((e) => e.topics.includes(t)).length]));
+    const rolesUsedOf = (e) => new Set(e.lines.map((l) => l.role)).size;
+    const sizeOf = (e) => [e.size?.[0] ?? Math.max(2, rolesUsedOf(e)), e.size?.[1] ?? 4];
+    const three = exs.filter((e) => { const [lo, hi] = sizeOf(e); return lo <= 3 && hi >= 3; }).length;
+    const four = exs.filter((e) => sizeOf(e)[1] >= 4).length;
+    const lowEnergy = exs.filter((e) => e.mood && e.mood.energy <= -0.2).length;
+    const highEnergy = exs.filter((e) => e.mood && e.mood.energy >= 0.3).length;
+    const lowValence = exs.filter((e) => e.mood && e.mood.valence <= 0 && !e.topics.includes('debate')).length;
+    const night = exs.filter((e) => (e.context ?? []).some((c) => c === 'night' || c === 'part_of_day:evening' || c === 'part_of_day:late_night')).length;
+    const grounded = exs.filter((e) => e.grounded).length;
+    const laughEnds = exs.filter((e) => e.lines[e.lines.length - 1]?.laugh === true).length;
+    const archetypeRoles = Object.fromEntries(HUDDLE_ARCHETYPES.map((a) => [a, exs.filter((e) => Object.values(e.roles ?? {}).some((r) => (r.archetypes ?? []).includes(a))).length]));
+    const craftByDept = Object.fromEntries([...departments].sort().map((dep) => [dep, exs.filter((e) => e.topics.includes('craft') && Object.values(e.roles ?? {}).some((r) => (r.departments ?? []).includes(dep))).length]));
+    const Q = HUDDLE_QUOTAS;
+    const share = (x) => (n ? x / n : 0);
+    const where = 'catalog/expressions/huddles/';
+    if (huddleFiles.length) {
+      for (const [sp, min] of Object.entries(Q.spots)) if (bySpot[sp] < min) gate('huddle-quota', where, `${sp}: ${bySpot[sp]} eligible exchanges, quota ${min}`);
+      if (share(three) < Q.three_people_share) gate('huddle-quota', where, `${three} of ${n} castable with three people present, quota ${Math.round(Q.three_people_share * 100)} %`);
+      if (share(four) < Q.four_present_share) gate('huddle-quota', where, `${four} of ${n} allow four present, quota ${Math.round(Q.four_present_share * 100)} %`);
+      if (share(lowEnergy) < Q.low_energy_share) gate('huddle-quota', where, `${lowEnergy} of ${n} low-energy (mood.energy ≤ -0.2), quota ${Math.round(Q.low_energy_share * 100)} %`);
+      if (share(highEnergy) < Q.high_energy_share) gate('huddle-quota', where, `${highEnergy} of ${n} high-energy (mood.energy ≥ 0.3), quota ${Math.round(Q.high_energy_share * 100)} %`);
+      if (share(lowValence) < Q.low_valence_share) gate('huddle-quota', where, `${lowValence} of ${n} for a low-valence day (mood.valence ≤ 0, no debate), quota ${Math.round(Q.low_valence_share * 100)} %`);
+      if (night < Q.night) gate('huddle-quota', where, `${night} night exchanges (night, part_of_day:evening or late_night), quota ${Q.night}`);
+      if (share(laughEnds) > Q.laugh_end_max_share) gate('huddle-quota', where, `${laughEnds} of ${n} exchanges end on a laugh, at most ${Math.round(Q.laugh_end_max_share * 100)} %`);
+      for (const [a, c] of Object.entries(archetypeRoles)) if (c < Q.archetype_roles) gate('huddle-quota', where, `archetype ${a} fits a role in ${c} exchanges, quota ${Q.archetype_roles}`);
+      for (const [dep, c] of Object.entries(craftByDept)) if (c < Q.craft_per_department) gate('huddle-quota', where, `craft for ${dep}: ${c} exchanges, quota ${Q.craft_per_department}`);
+    }
+    const lines = [];
+    if (huddleFiles.length) {
+      lines.push('');
+      lines.push(`Huddles: ${packIds.size} packs, ${all.length} exchanges (${n} valid, ${grounded} grounded, ${share(grounded) ? Math.round(share(grounded) * 100) : 0} %)`);
+      if (HUDDLES) {
+        lines.push('  eligible per spot           count  quota');
+        for (const sp of HUDDLE_SPOTS) lines.push(`    ${sp.padEnd(24)} ${String(bySpot[sp]).padStart(6)} ${String(Q.spots[sp] ?? '-').padStart(6)}`);
+        lines.push('  per topic                   count');
+        for (const t of HUDDLE_TOPICS) lines.push(`    ${t.padEnd(24)} ${String(byTopic[t]).padStart(6)}`);
+        lines.push(`  castable with 3 present:    ${three} (${Math.round(share(three) * 100)} %, quota ${Math.round(Q.three_people_share * 100)} %)`);
+        lines.push(`  allow 4 present:            ${four} (${Math.round(share(four) * 100)} %, quota ${Math.round(Q.four_present_share * 100)} %)`);
+        lines.push(`  low / high energy:          ${lowEnergy} / ${highEnergy} (quota ${Math.round(Q.low_energy_share * 100)} % each)`);
+        lines.push(`  low-valence day:            ${lowValence} (quota ${Math.round(Q.low_valence_share * 100)} %)`);
+        lines.push(`  night:                      ${night} (quota ${Q.night})`);
+        lines.push(`  end on a laugh:             ${laughEnds} (${Math.round(share(laughEnds) * 100)} %, at most ${Math.round(Q.laugh_end_max_share * 100)} %)`);
+        lines.push(`  archetype role fits:        ${HUDDLE_ARCHETYPES.map((a) => `${a} ${archetypeRoles[a]}`).join(', ')} (quota ${Q.archetype_roles})`);
+        lines.push(`  craft per department:       ${Object.entries(craftByDept).map(([dep, c]) => `${dep} ${c}`).join(', ')} (quota ${Q.craft_per_department})`);
+        const minPairs = [...castablePairs.entries()].sort((a, b) => a[1] - b[1]).slice(0, 5);
+        lines.push(`  fewest castable pairs:      ${minPairs.map(([id, c]) => `${id} ${c}`).join(', ') || 'none'} (quota ${Q.castable_pairs})`);
+      }
+    }
+    return {
+      lines,
+      summary: { packs: packIds.size, exchanges: all.length, valid: n, grounded, per_spot: bySpot, per_topic: byTopic, three_people: three, four_present: four, low_energy: lowEnergy, high_energy: highEnergy, low_valence: lowValence, night, archetype_roles: archetypeRoles, craft_per_department: craftByDept },
+    };
+  }
+
   // ── totals ──
   const lines = [];
   const total = counts.archetype + counts.signature + counts.catchphrase;
@@ -902,6 +1322,8 @@ function main() {
   lines.push(`  slots no line uses:                ${unusedSlots.length ? `${unusedSlots.join(', ')} (gist is appended to side-talk openers at runtime; client is allowed by no intent)` : 'none'}`);
   lines.push(`  slot-free lines over max_ms:       ${overBudget.size ? `${overBudget.size} (${[...overByIntent].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}`).join(', ')})` : 'none'}`);
 
+  lines.push(...huddle.lines);
+
   if (args.has('--blends')) {
     const top = new Map(), any = new Map();
     const out = [];
@@ -930,13 +1352,14 @@ function main() {
   report({
     totals: lines,
     summary: {
-      files: { intents: 1, archetypes: 1, archetype_packs: packFiles.length, signature_files: sigFiles.length },
+      files: { intents: 1, archetypes: 1, archetype_packs: packFiles.length, signature_files: sigFiles.length, huddle_packs: huddleFiles.length },
       intents: intents.size,
       archetypes: archetypes.size,
       signature_packs: signed.size,
       lines: { total, ...counts },
       per_intent: perIntent,
       per_department: Object.fromEntries(deptRows.map((r) => [r.dep, { personas: r.personas, packs: r.packs, lines: r.lines }])),
+      huddles: huddle.summary,
       coverage: { lines_over_max_ms: overBudget.size, unused_slots: unusedSlots, personas_without_pack: missingPersonas, leads_without_pack: missingLeads, archetype_intents_under_quota: archUnder, signature_intents_under_quota: Object.fromEntries([...sigUnder].map(([k, v]) => [k, v.length])), thin_pools: thin },
     },
   });
@@ -954,7 +1377,7 @@ function main() {
     for (const e of errors) console.error(`error ${e}`);
     if (!QUIET && extra.totals) console.log(extra.totals.join('\n'));
     const s = extra.summary;
-    console.log(`\nexpressions: ${s?.intents ?? '?'} intents, ${s?.archetypes ?? '?'} archetypes, ${s?.files.archetype_packs ?? '?'} archetype packs, ${s?.signature_packs ?? '?'} signature packs, ${s?.lines.total ?? '?'} lines · ${errors.length} errors, ${nWarn} warnings`);
+    console.log(`\nexpressions: ${s?.intents ?? '?'} intents, ${s?.archetypes ?? '?'} archetypes, ${s?.files.archetype_packs ?? '?'} archetype packs, ${s?.signature_packs ?? '?'} signature packs, ${s?.lines.total ?? '?'} lines, ${s?.huddles?.exchanges ?? 0} huddle exchanges · ${errors.length} errors, ${nWarn} warnings`);
     if (JSON_OUT) console.log(JSON.stringify({ errors: errors.length, warnings: nWarn, ...(s ?? {}) }));
     process.exitCode = errors.length ? 1 : 0;
   }

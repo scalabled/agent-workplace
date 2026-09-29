@@ -29,8 +29,11 @@ export interface SpeechStreamOptions {
 export interface SpeechStream extends AsyncIterable<SpeechChunk> {
   /** Feed a streamed delta of reply text (Markdown is made speakable). */
   push(delta: string): void;
-  /** The reply is complete: flush the last sentence and finish the iteration after it. */
-  end(): void;
+  /**
+   * The reply is complete: flush the last sentence and finish the iteration after it. `dropUnfinished`: the text ends
+   * here although the reply went on (its end was never heard here): an unfinished last sentence is dropped, not spoken.
+   */
+  end(opts?: { dropUnfinished?: boolean }): void;
   /** Abort pending synthesis and end the iteration now (barge-in). Idempotent. */
   cancel(): void;
   readonly cancelled: boolean;
@@ -134,9 +137,10 @@ export function createSpeechStream(opts: SpeechStreamOptions = {}): SpeechStream
       if (ended || cancelled || !delta) return;
       chunker.push(delta);
     },
-    end() {
+    end(endOpts) {
       if (ended || cancelled) return;
-      chunker.flush();
+      if (endOpts?.dropUnfinished) chunker.flushComplete();
+      else chunker.flush();
       ended = true;
       notify();
     },

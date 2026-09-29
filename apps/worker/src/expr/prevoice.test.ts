@@ -126,6 +126,28 @@ describe('POST /api/expr/prevoice', () => {
   });
 });
 
+describe('the owner’s name in pre-voicing (Office Phase 2 §4.2.10)', () => {
+  it('fills {owner_name} lines, keeps them workspace-scoped, and a rename re-plans', async () => {
+    useProviders();
+    const s = await exprSetup({ MOCK_MEDIA: 'true' });
+    const body = { agentIds: ['cw_chief'], tiers: ['p0', 'p1'], dryRun: true };
+    const without = await s.api('POST', '/api/expr/prevoice', body);
+    await s.api('PUT', '/api/workspace', { ownerName: 'Greg' });
+    const named = await s.api('POST', '/api/expr/prevoice', body);
+    // More lines become eligible once the office knows the owner's name.
+    expect(named.body.planned).toBeGreaterThan(without.body.planned);
+    const { planPrevoiceRun, prevoiceFingerprint } = await import('./prevoice');
+    const settings = await s.ws.getSettings();
+    const plan = await planPrevoiceRun(runtime.registry(s.t.env), true, settings, { agentIds: ['cw_chief'], tiers: ['p0', 'p1'] }, 300);
+    const withName = plan.items.filter((i) => i.text.includes('Greg'));
+    expect(withName.length).toBeGreaterThan(0);
+    expect(withName.every((i) => i.scope === 'workspace')).toBe(true);
+    const req = { agentIds: ['cw_chief'], tiers: ['p0', 'p1'] as ('p0' | 'p1')[] };
+    expect(await prevoiceFingerprint(req, plan, 300, 'Greg')).not.toBe(await prevoiceFingerprint(req, plan, 300, 'Gregory'));
+    expect(await prevoiceFingerprint(req, plan, 300, null)).toBe(await prevoiceFingerprint(req, plan, 300));
+  });
+});
+
 /** Slot-free verbal lines of the Chief for an intent, by prior. */
 describe('speculative pre-voicing of a lead the owner has not chosen (LIVING-WORKFORCE §7.1)', () => {
   it('pre-voices cw_<leadId> into the very clips cw_chief finds once that lead is chosen', async () => {

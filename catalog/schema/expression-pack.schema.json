@@ -2,12 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://agent-workplace.local/catalog/schema/expression-pack.schema.json",
   "title": "Expression catalog (living workforce)",
-  "description": "Every file under catalog/expressions/ validates against this schema; the top-level `kind` picks the shape. archetype_pack = packs/<archetype-id>.json (shared lines per intent). signature_file = personas/<department-id>.json or leads.json (one signature pack per persona or lead; signatures/<group>.json is also accepted). intents = intents.json (the intent taxonomy, timing, channels, slots, contexts, ambience). archetypes = archetypes.json (voice archetypes and how personas map onto them). Spec: docs/LIVING-WORKFORCE.md §3-§5. Cross-file checks (line-id uniqueness, slot/placeholder agreement, readable(tags.xai) == text, persona ids, enum parity with intents.json and archetypes.json) run in catalog/scripts/validate-expressions.mjs.",
+  "description": "Every file under catalog/expressions/ validates against this schema; the top-level `kind` picks the shape. archetype_pack = packs/<archetype-id>.json (shared lines per intent). signature_file = personas/<department-id>.json or leads.json (one signature pack per persona or lead; signatures/<group>.json is also accepted). intents = intents.json (the intent taxonomy, timing, channels, slots, contexts, ambience). archetypes = archetypes.json (voice archetypes and how personas map onto them). huddle_pack = huddles/<pack-id>.json (pre-authored office small-talk exchanges, docs/dev/OFFICE-LIFE.md §5). Spec: docs/LIVING-WORKFORCE.md §3-§5. Cross-file checks (line-id uniqueness, slot/placeholder agreement, readable(tags.xai) == text, persona ids, enum parity with intents.json and archetypes.json) run in catalog/scripts/validate-expressions.mjs.",
   "oneOf": [
     { "$ref": "#/$defs/archetype_pack" },
     { "$ref": "#/$defs/signature_file" },
     { "$ref": "#/$defs/intents_file" },
-    { "$ref": "#/$defs/archetypes_file" }
+    { "$ref": "#/$defs/archetypes_file" },
+    { "$ref": "#/$defs/huddle_pack" }
   ],
   "$defs": {
     "record_id": {
@@ -742,6 +743,88 @@
         "risk_appetite": { "type": "number" },
         "detail": { "type": "number" },
         "pace": { "type": "number" }
+      }
+    },
+    "huddle_pack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "version", "exchanges"],
+      "description": "Office small talk (docs/dev/OFFICE-LIFE.md §5): exchanges of 2–4 turns cast to the people in a huddle. File: catalog/expressions/huddles/<id>.json. The field rules and honesty lints of §5.3–§5.4 run in catalog/scripts/validate-expressions.mjs and compileHuddles.",
+      "properties": {
+        "$schema": { "type": "string" },
+        "kind": { "const": "huddle_pack" },
+        "id": { "type": "string", "pattern": "^hd-[a-z0-9]+(-[a-z0-9]+)*$" },
+        "version": { "type": "integer", "minimum": 1 },
+        "writer": { "type": "string", "maxLength": 40 },
+        "about": { "type": "string", "maxLength": 400 },
+        "exchanges": { "type": "array", "minItems": 1, "maxItems": 200, "items": { "$ref": "#/$defs/huddle_exchange" } }
+      }
+    },
+    "huddle_spot": { "type": "string", "enum": ["water_cooler", "coffee_bar", "lounge", "library", "phone_booth", "desk_dropby", "hallway", "window"], "description": "Where an exchange may play. phone_booth is reserved: booths hold one person on a real call, so the validator rejects it in huddle exchanges." },
+    "huddle_topic": { "type": "string", "enum": ["craft", "debate", "tools", "ideas", "self_aware", "office", "owner_projects", "wins", "welcome"] },
+    "huddle_role_id": { "type": "string", "enum": ["A", "B", "C"] },
+    "huddle_slot_id": {
+      "type": "string",
+      "enum": ["name_a", "name_b", "name_c", "chief_name", "part_of_day", "weekday", "coworker", "project", "artifact", "gist"],
+      "description": "name_x: the first name of role X's holder (never in X's own line). coworker, project, artifact and gist come only from the grounding event."
+    },
+    "huddle_role": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "archetypes": { "type": "array", "items": { "$ref": "#/$defs/archetype_id" }, "uniqueItems": true, "maxItems": 4, "description": "Soft fit: casting prefers people whose blend weights these archetypes." },
+        "departments": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }, "uniqueItems": true, "maxItems": 6, "description": "Hard filter on the role holder's department (craft talk)." },
+        "team_roles": { "type": "array", "items": { "type": "string", "enum": ["lead", "co_owner", "reviewer", "sceptic", "facilitator", "specialist"] }, "uniqueItems": true },
+        "chief": { "type": "boolean", "description": "true: the role must be the Chief of Staff; false: must not be." },
+        "in_event": { "type": "boolean", "description": "Grounded exchanges: the role holder is one of the cause event's agents." },
+        "at_desk": { "type": "boolean", "description": "Desk drop-bys (spots exactly [desk_dropby]): true casts the colleague at their own desk, false the one who dropped by." }
+      }
+    },
+    "huddle_line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role"],
+      "description": "One turn: exactly one of text (a spoken line), laugh (the speaker's own laugh style) or face (a face-only beat); the validator checks the exclusivity.",
+      "properties": {
+        "role": { "$ref": "#/$defs/huddle_role_id" },
+        "text": { "type": "string", "minLength": 1, "maxLength": 90 },
+        "laugh": { "const": true },
+        "face": { "$ref": "#/$defs/face_gesture" },
+        "tags": { "$ref": "#/$defs/delivery_tags" },
+        "slots": { "type": "array", "items": { "$ref": "#/$defs/huddle_slot_id" }, "uniqueItems": true, "maxItems": 3 },
+        "pause_ms": { "type": "integer", "minimum": 0, "maximum": 2500, "description": "Beat before this turn (comic timing)." }
+      }
+    },
+    "huddle_requires": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["events"],
+      "properties": {
+        "events": { "type": "array", "items": { "type": "string", "enum": ["job.done", "deliverable.accepted", "verdict.approve", "project.done", "project.active", "hired"] }, "minItems": 1, "uniqueItems": true },
+        "who": { "type": "string", "enum": ["A", "B", "either", "other"], "description": "Whose event: a role holder, either participant, or a teammate outside the huddle ({coworker})." },
+        "max_age_h": { "type": "number", "minimum": 0.5, "maximum": 72 }
+      }
+    },
+    "huddle_exchange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "spots", "topics", "lines"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^hd-[a-z0-9]+(-[a-z0-9]+)*\\.[0-9]{3}$" },
+        "spots": { "type": "array", "items": { "$ref": "#/$defs/huddle_spot" }, "minItems": 1, "uniqueItems": true },
+        "topics": { "type": "array", "items": { "$ref": "#/$defs/huddle_topic" }, "minItems": 1, "maxItems": 2, "uniqueItems": true },
+        "roles": { "type": "object", "additionalProperties": false, "properties": { "A": { "$ref": "#/$defs/huddle_role" }, "B": { "$ref": "#/$defs/huddle_role" }, "C": { "$ref": "#/$defs/huddle_role" } } },
+        "size": { "type": "array", "items": { "type": "integer", "minimum": 2, "maximum": 4 }, "minItems": 2, "maxItems": 2, "description": "[min, max] people present; default [roles used, 4]. Extra people listen." },
+        "pair": { "type": "string", "enum": ["well", "tension", "any"], "description": "Casting bonus for A–B: pairs_well_with (well) or productive_tension_with (tension)." },
+        "mood": { "$ref": "#/$defs/mood_fit" },
+        "context": { "type": "array", "items": { "$ref": "#/$defs/context_tag" }, "uniqueItems": true, "maxItems": 4 },
+        "grounded": { "type": "boolean" },
+        "requires": { "$ref": "#/$defs/huddle_requires" },
+        "lines": { "type": "array", "items": { "$ref": "#/$defs/huddle_line" }, "minItems": 2, "maxItems": 4 },
+        "weight": { "type": "number", "minimum": 0.1, "maximum": 5 },
+        "max_per_day": { "type": "integer", "minimum": 1, "maximum": 3, "description": "Floor-wide per owner-local day; default 1." },
+        "max_per_week": { "$ref": "#/$defs/max_per_week" },
+        "note": { "type": "string", "maxLength": 240 }
       }
     }
   }

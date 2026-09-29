@@ -39,6 +39,8 @@ export class Utterance {
   private ended = false;
   /** Characters of text the engine has taken so far (synthesised, or handed to the browser voice). */
   private taken = 0;
+  /** Ended where it was (endHere): the characters it will ever speak, an unfinished last sentence left out. */
+  private total: number | null = null;
   private startedAudio = false;
 
   constructor(speakerId: string, voice: VoiceSpec, deps: SpeakerDeps, onStart?: () => void, gate?: Promise<void> | null) {
@@ -76,7 +78,7 @@ export class Utterance {
 
   /** Text that has streamed in but the engine has not taken yet (0 once the message is fully handed over). */
   get pendingChars(): number {
-    return Math.max(0, this.received.length - this.taken);
+    return Math.max(0, (this.total ?? this.received.length) - this.taken);
   }
 
   /** The message is still streaming in (more text may come). */
@@ -100,6 +102,17 @@ export class Utterance {
     }
     this.ended = true;
     this.stream.end();
+  }
+
+  /**
+   * The message ended where this tab never heard its end: nothing more is taken. The sentences already cut are
+   * spoken; an unfinished last one is dropped.
+   */
+  endHere(): void {
+    if (this.ended) return;
+    this.ended = true;
+    this.stream.end({ dropUnfinished: true });
+    this.total = this.stream.sentences.reduce((n, s) => n + s.length, 0);
   }
 
   get sentences(): readonly string[] {
@@ -158,6 +171,43 @@ export class AgentSpeaker {
     u.finish(finalText);
     this.live.delete(messageId);
     remember(this.done, messageId);
+  }
+
+  /**
+   * A streaming message whose end this tab does not voice (replayed after the socket came back, voice turned off
+   * meanwhile, or a turn that ended without naming it): it ends where it is, so the speaker's next message is not
+   * left waiting behind it. The sentences already cut still play, an unfinished last one is dropped, and nothing new
+   * is spoken. A message not streaming here is left alone.
+   */
+  endHere(messageId: string): void {
+    const u = this.live.get(messageId);
+    if (!u) return;
+    u.endHere();
+    this.live.delete(messageId);
+    remember(this.done, messageId);
+  }
+
+  /**
+   * The feed socket came back: every message still streaming in here ends where it is. Deltas are never replayed, so
+   * what streamed while the socket was down is gone, and a later delta would be joined to the earlier text with a hole
+   * in the middle. The rest of such a message shows as text only.
+   */
+  endStreaming(): void {
+    for (const id of [...this.live.keys()]) this.endHere(id);
+  }
+
+  /**
+   * Never voice this message here (another tab has the voice while it streams): a later claim of the voice starts
+   * with the next message, never in the middle of this one.
+   */
+  silence(messageId: string): void {
+    if (this.done.has(messageId)) return;
+    const u = this.live.get(messageId);
+    if (u) {
+      u.stop();
+      this.live.delete(messageId);
+    }
+    remember(this.silenced, messageId);
   }
 
   /** Speak a full text now (greeting, voice sample). */

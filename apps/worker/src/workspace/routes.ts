@@ -1,6 +1,7 @@
 import { fullIndex } from '@headcount/catalog/full';
-import { TALK_MAX_CHARS, type TalkAccepted, type TalkRequest, type UpdateWorkspaceRequest, type WorkspaceResponse } from '@headcount/protocol';
+import { OWNER_NAME_MAX_CHARS, TALK_MAX_CHARS, type TalkAccepted, type TalkRequest, type UpdateWorkspaceRequest, type WorkspaceResponse } from '@headcount/protocol';
 import { isAmbience } from '@headcount/protocol/ext/expressions';
+import { isClientId } from '@headcount/protocol/ext/voice-owner';
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
 import { workspaceStub } from '../lib/stubs';
 
@@ -33,8 +34,23 @@ export const handlePutWorkspace: RouteHandler = async (req, { env }) => {
     if (!isAmbience(body.ambience)) throw new HttpError('bad_request', 'ambience must be "quiet", "lively" or "buzzing".');
     patch.ambience = body.ambience;
   }
+  if ('ownerName' in body) patch.ownerName = ownerNameOf(body.ownerName);
   return json<WorkspaceResponse>(await workspaceStub(env).updateSettings(patch));
 };
+
+/**
+ * What the office calls the owner (Office Phase 2 §4.2.10): trimmed, whitespace collapsed, blank → null, at most
+ * OWNER_NAME_MAX_CHARS characters, no control characters or markup-ish symbols.
+ */
+export function ownerNameOf(v: unknown): string | null {
+  if (v === null) return null;
+  if (typeof v !== 'string') throw new HttpError('bad_request', 'ownerName must be text or null.');
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f<>{}[\]\\/@#]/.test(v)) throw new HttpError('bad_request', 'Use letters for your name.');
+  const name = v.replace(/\s+/g, ' ').trim();
+  if (name.length > OWNER_NAME_MAX_CHARS) throw new HttpError('bad_request', `Keep your name to ${OWNER_NAME_MAX_CHARS} characters or fewer.`);
+  return name || null;
+}
 
 /** GET /api/ws?since=<seq> → WorkspaceDO socket (ready → replay → presence → live). */
 export const handleWs: RouteHandler = async (req, { env }) => {
@@ -49,7 +65,7 @@ export const handleTalk: RouteHandler = async (req, { env }) => {
   if (typeof body.text !== 'string' || !body.text.trim()) throw new HttpError('bad_request', 'Say something first: text is empty.');
   if (body.text.length > TALK_MAX_CHARS) throw new HttpError('payload_too_large', `Keep messages under ${TALK_MAX_CHARS} characters.`);
   if (typeof body.opId !== 'string' || !body.opId || body.opId.length > OP_ID_MAX) throw new HttpError('bad_request', 'Include an opId so retries are safe.');
-  const talk: TalkRequest = { text: body.text.trim(), opId: body.opId, via: body.via === 'voice' ? 'voice' : 'text' };
+  const talk: TalkRequest = { text: body.text.trim(), opId: body.opId, via: body.via === 'voice' ? 'voice' : 'text', ...(isClientId(body.clientId) ? { clientId: body.clientId } : {}) };
   const r = await workspaceStub(env).talk(talk);
   if (!r.accepted) throw new HttpError(r.code, r.message, { opId: body.opId });
   return json<TalkAccepted>(r, { status: 202 });

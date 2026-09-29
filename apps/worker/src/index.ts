@@ -7,12 +7,15 @@ import { handleCancelJob, handleGetJob, handleListJobs, handleSteerJob } from '.
 import { handleHealth } from './lib/health';
 import { handleDeskSay } from './desk/routes';
 import { handleExprAgent, handleExprAlign, handleExprCatalog, handleExprClip, handleExprPrevoice, handleExprPrevoiceStatus, handleExprRender } from './expr/routes';
+import { handleExprHuddleRender } from './expr/huddle-render';
 import { HttpError, errorResponse, type RouteContext, type RouteHandler } from './lib/http';
 import { guardRequest, originPolicy, type OriginPolicy } from './lib/origin';
 import { handleCapabilities } from './media/capabilities';
 import { handleMediaRoute } from './media/media-images';
 import { handleGeneratePortrait, handleGetLandmarks, handleGetPortrait, handleListPortraits, handlePutLandmarks } from './media/portraits';
 import { handleStt, handleTts } from './media/speech';
+import { handleOfficePeople } from './rooms/people';
+import { handleRoomCancel, handleRoomSay } from './rooms/routes';
 import { handleGetWorkspace, handlePutWorkspace, handleTalk, handleWs } from './workspace/routes';
 
 export { ProjectDO } from './jobs/project-do';
@@ -46,6 +49,10 @@ export const HANDLERS: Record<RouteId, RouteHandler> = {
   exprPrevoice: handleExprPrevoice,
   exprPrevoiceStatus: handleExprPrevoiceStatus,
   deskSay: handleDeskSay,
+  roomSay: handleRoomSay,
+  roomCancel: handleRoomCancel,
+  officePeople: handleOfficePeople,
+  exprHuddleRender: handleExprHuddleRender,
 };
 
 /** Reject bodies over the route's cap before the handler runs (Content-Length, or by counting a streamed body). */

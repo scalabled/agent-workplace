@@ -1,13 +1,16 @@
 // ⌘K: go to a place or a coworker, or flip a setting. It navigates and toggles; it never approves.
+// Screens add their own items while they are on screen (registerPaletteItems: the office's camera and life switches),
+// and an item can ask for one line first (askInPalette: "Set your name").
 import { signal } from '@preact/signals';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { OWNER_NAME_MAX_CHARS } from '@headcount/protocol';
 import { AMBIENCES, ambienceOf } from '@headcount/protocol/ext/expressions';
 import { catalog, loadCatalog } from '../catalog';
 import { chiefName } from '../chief';
 import { setTheme, theme } from '../lib/theme';
 import { navigate, paths } from '../router';
 import { onboarded, settings } from '../store';
-import { setAmbience, setVoiceOn } from '../talk/actions';
+import { setAmbience, setOwnerName, setVoiceOn } from '../talk/actions';
 import { AMBIENCE_LABEL, AMBIENCE_LINE } from './AmbienceControl';
 import { Icon, type IconName } from './Icon';
 
@@ -23,6 +26,7 @@ export function openPalette(): void {
 
 export function closePalette(): void {
   paletteOpen.value = false;
+  prompt.value = null;
   returnFocus?.focus?.();
   returnFocus = null;
 }
@@ -31,10 +35,72 @@ export interface PaletteItem {
   id: string;
   label: string;
   hint?: string;
-  group: 'Places' | 'Coworkers' | 'Settings';
+  /** 'Office': items the office registers while it is on screen. */
+  group: 'Places' | 'Coworkers' | 'Settings' | 'Office';
   icon: IconName;
   keywords?: string;
   run(): void;
+}
+
+/** One line the palette asks for in place of its list (Enter submits, Esc cancels). */
+export interface PalettePrompt {
+  label: string;
+  placeholder?: string;
+  /** The field's starting text. */
+  value: string;
+  maxLength?: number;
+  autoComplete?: string;
+  /** One quiet line under the field. */
+  help?: string;
+  /** Resolves to an error sentence to show (the palette stays open), or nothing when done. */
+  submit(value: string): Promise<string | null | void> | string | null | void;
+}
+
+const prompt = signal<PalettePrompt | null>(null);
+
+/** Open the palette on one text field (from a palette item's run, or anywhere else). */
+export function askInPalette(p: PalettePrompt): void {
+  if (!paletteOpen.value) openPalette();
+  prompt.value = p;
+}
+
+const providers = signal<readonly (() => PaletteItem[])[]>([]);
+
+/**
+ * Add items to ⌘K while a screen is on screen (the office's camera and life switches). `provide` is called each time
+ * the palette renders, so its items follow the screen's state (it may read signals). Returns the unregister.
+ */
+export function registerPaletteItems(provide: () => PaletteItem[]): () => void {
+  providers.value = [...providers.peek(), provide];
+  return () => {
+    providers.value = providers.peek().filter((p) => p !== provide);
+  };
+}
+
+/** The registered items, now. A provider that throws adds nothing. */
+export function registeredPaletteItems(): PaletteItem[] {
+  const out: PaletteItem[] = [];
+  for (const provide of providers.value) {
+    try {
+      out.push(...provide());
+    } catch (err) {
+      console.error('palette items failed', err);
+    }
+  }
+  return out;
+}
+
+/** "Set your name": what the office calls the owner in greetings (OFFICE-PHASE2 §4.6). */
+export function ownerNamePrompt(current: string | null): PalettePrompt {
+  return {
+    label: 'Your first name',
+    placeholder: 'Your first name',
+    value: current ?? '',
+    maxLength: OWNER_NAME_MAX_CHARS,
+    autoComplete: 'given-name',
+    help: current ? 'Used in greetings. Enter saves, Esc cancels, blank clears it.' : 'Used in greetings. Enter saves, Esc cancels.',
+    submit: (v) => setOwnerName(v.trim() ? v.trim() : null),
+  };
 }
 
 /** Rank by: label starts with the query, a word starts with it, then anywhere (label, hint, keywords). */
@@ -72,6 +138,10 @@ function useItems(): PaletteItem[] {
       { id: 'place:inbox', label: 'Inbox', hint: 'Raised hands', group: 'Places', icon: 'inbox', keywords: 'decisions', run: go(paths.inbox) },
     ];
     if (s && onboarded.value) items.push({ id: 'set:voice', label: s.voiceOn ? 'Turn voice off' : 'Turn voice on', hint: 'Spoken replies', group: 'Settings', icon: s.voiceOn ? 'voiceOff' : 'voiceOn', keywords: 'speak mute sound audio', run: () => void setVoiceOn(!s.voiceOn) });
+    if (s && onboarded.value) {
+      const current = s.ownerName?.trim() || null;
+      items.push({ id: 'set:owner-name', label: 'Set your name', hint: current ? `Now ${current}` : 'Used in greetings', group: 'Settings', icon: 'user', keywords: 'my name call me first name greeting owner', run: () => askInPalette(ownerNamePrompt(current)) });
+    }
     items.push({ id: 'set:chief', label: 'Switch Chief of Staff', hint: 'Pick someone else', group: 'Settings', icon: 'user', keywords: 'lead change choose', run: go(paths.onboarding) });
     if (t !== 'dark') items.push({ id: 'set:dark', label: 'Use dark theme', group: 'Settings', icon: 'moon', keywords: 'night theme appearance', run: () => setTheme('dark') });
     if (t !== 'light') items.push({ id: 'set:light', label: 'Use light theme', group: 'Settings', icon: 'sun', keywords: 'day theme appearance', run: () => setTheme('light') });
@@ -103,11 +173,20 @@ export function Palette() {
 }
 
 function PaletteDialog() {
+  const ask = prompt.value;
+  if (ask) return <PromptDialog key={ask.label} ask={ask} />;
+  return <ListDialog />;
+}
+
+function ListDialog() {
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
-  const items = useItems();
-  const results = useMemo(() => filterItems(items, query), [items, query]);
+  const base = useItems();
+  // Registered items follow their screen's state: read on every render (cheap; a few items).
+  const extra = registeredPaletteItems();
+  const items = extra.length ? [...base.filter((i) => i.group === 'Places'), ...extra, ...base.filter((i) => i.group !== 'Places')] : base;
+  const results = filterItems(items, query);
 
   useEffect(() => input.current?.focus(), []);
   useEffect(() => setActive(0), [query]);
@@ -168,11 +247,81 @@ function PaletteDialog() {
               <Icon name={item.icon} size={18} />
               <span class="palette-label">{item.label}</span>
               {item.hint && <span class="palette-hint">{item.hint}</span>}
-              <span class="palette-group">{item.group === 'Coworkers' ? 'Coworker' : item.group === 'Places' ? 'Place' : ''}</span>
+              <span class="palette-group">{item.group === 'Coworkers' ? 'Coworker' : item.group === 'Places' ? 'Place' : item.group === 'Office' ? 'Office' : ''}</span>
             </li>
           ))}
           {!results.length && <li class="palette-empty">No place or coworker matches “{query}”.</li>}
         </ul>
+      </div>
+    </div>
+  );
+}
+
+/** The palette asking for one line (Enter submits, Esc cancels; an error keeps it open with one sentence). */
+function PromptDialog({ ask }: { ask: PalettePrompt }) {
+  const [value, setValue] = useState(ask.value);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    input.current?.focus();
+    input.current?.select();
+  }, []);
+  const submit = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const err = await ask.submit(value);
+      if (typeof err === 'string' && err) {
+        setError(err);
+        input.current?.focus();
+        return;
+      }
+      closePalette();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div class="palette-scrim" onPointerDown={(e) => e.target === e.currentTarget && closePalette()}>
+      <div class="palette" role="dialog" aria-modal="true" aria-label={ask.label}>
+        <div class="palette-field">
+          <Icon name="user" />
+          <input
+            ref={input}
+            aria-label={ask.label}
+            aria-describedby="palette-prompt-help"
+            aria-invalid={error ? 'true' : undefined}
+            placeholder={ask.placeholder ?? ask.label}
+            value={value}
+            maxLength={ask.maxLength}
+            autoComplete={ask.autoComplete ?? 'off'}
+            onInput={(e) => setValue(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.isComposing) {
+                e.preventDefault();
+                void submit();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                closePalette();
+              } else if (e.key === 'Tab') {
+                e.preventDefault();
+              }
+            }}
+          />
+          <kbd class="palette-esc">Esc</kbd>
+        </div>
+        {error ? (
+          <p class="palette-empty" id="palette-prompt-help" role="alert">
+            {error}
+          </p>
+        ) : (
+          <p class="palette-empty" id="palette-prompt-help">
+            {ask.help ?? 'Enter saves, Esc cancels.'}
+          </p>
+        )}
       </div>
     </div>
   );

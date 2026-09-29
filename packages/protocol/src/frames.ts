@@ -13,6 +13,8 @@ import type {
   ViewerOp,
 } from './ext/expressions';
 import type { PresenceData } from './presence';
+import type { VoiceClaimOp, VoiceOwnerData } from './ext/voice-owner';
+import type { RoomId, RoomTurnData } from './ext/rooms';
 
 /**
  * Event envelope (ARCHITECTURE §3.1, trimmed for Inc 0).
@@ -57,19 +59,23 @@ export interface UsageSummary {
 }
 
 export interface FrameDataMap {
-  /** First frame on every socket. Ephemeral. */
-  ready: { workspaceId: WorkspaceId; streamId: StreamId; lastSeq: number; replayFrom: number; serverTime: string };
+  /**
+   * First frame on every socket. Ephemeral. `voice`: who speaks now (one voice per workspace); absent from a server
+   * without voice ownership, where every tab speaks as before.
+   */
+  ready: { workspaceId: WorkspaceId; streamId: StreamId; lastSeq: number; replayFrom: number; serverTime: string; voice?: VoiceOwnerData };
 
   /**
    * The owner's message, echoed with its opId. Persisted. `agentId` is the addressee (absent = the Chief of Staff);
-   * `surface: 'floor'` marks a Floor quick-chat (never in the Talk transcript or the Chief's history).
+   * `surface: 'floor'` marks a Floor quick-chat (never in the Talk transcript or the Chief's history); `surface: 'room'`
+   * an office room or joined huddle, with its `roomId` and `meetingId` (ext/rooms).
    */
-  'talk.owner': { turnId: TurnId; messageId: MessageId; text: string; via: 'text' | 'voice'; agentId?: AgentId; surface?: TalkSurface };
+  'talk.owner': { turnId: TurnId; messageId: MessageId; text: string; via: 'text' | 'voice'; agentId?: AgentId; surface?: TalkSurface; roomId?: RoomId; meetingId?: string };
   /**
    * Streaming text of a reply. Ephemeral. `hint`: on the first delta of a Chief turn only, the reaction the model
    * asked for with its `⟦react:…⟧` head token (already stripped from the text).
    */
-  'talk.delta': { turnId: TurnId; messageId: MessageId; agentId: AgentId; delta: string; surface?: TalkSurface; hint?: ReactHint };
+  'talk.delta': { turnId: TurnId; messageId: MessageId; agentId: AgentId; delta: string; surface?: TalkSurface; hint?: ReactHint; roomId?: RoomId; meetingId?: string };
   /** A complete Chief of Staff message: a turn's reply, or a proactive one (job done). Persisted. */
   'talk.message': {
     turnId: TurnId | null;
@@ -78,15 +84,20 @@ export interface FrameDataMap {
     text: string;
     /**
      * reply = answer to the owner; announcement = proactive (e.g. job finished); status = from live job state;
-     * reflex = a phatic reply picked from the expression catalog without a model call (Inc 0.5).
+     * reflex = a phatic reply picked from the expression catalog without a model call (Inc 0.5);
+     * note = a quiet thread line from the office (a meeting happened): never voiced, never unread, never in the Chief's
+     * model history.
      */
-    kind: 'reply' | 'announcement' | 'status' | 'reflex';
+    kind: 'reply' | 'announcement' | 'status' | 'reflex' | 'note';
     /** Job this message is about, if any. */
     jobId?: JobId;
     surface?: TalkSurface;
     /** `kind: 'reflex'` only: the intent and catalog line that produced the text. */
     intent?: ExprIntentId;
     lineId?: string;
+    /** Set exactly when `surface: 'room'`, and on a note. */
+    roomId?: RoomId;
+    meetingId?: string;
   };
   /** The turn is over. Persisted. */
   'talk.done': {
@@ -99,6 +110,8 @@ export interface FrameDataMap {
     /** What the Chief of Staff did: answer | delegate | status | steer | cancel. */
     route?: string;
     usage?: UsageSummary;
+    roomId?: RoomId;
+    meetingId?: string;
   };
 
   /** A background job started (Everyday ProjectDO). Persisted. */
@@ -135,6 +148,12 @@ export interface FrameDataMap {
   'mood.changed': MoodChangedData;
   /** An agent's focus and background threads changed. */
   'attention.changed': AttentionChangedData;
+
+  /** Which client (browser tab) speaks now: only that one voices answers, reflexes and clips. Ephemeral. */
+  'voice.owner': VoiceOwnerData;
+
+  /** Office Phase 2 (ext/rooms): floor control of a room turn as the server runs it. Ephemeral. */
+  'room.turn': RoomTurnData;
 }
 
 export type FrameType = keyof FrameDataMap;
@@ -165,6 +184,8 @@ export const EPHEMERAL_FRAME_TYPES: ReadonlySet<FrameType> = new Set<FrameType>(
   'sidetalk.line',
   'mood.changed',
   'attention.changed',
+  'voice.owner',
+  'room.turn',
 ]);
 
 export function isPersisted(type: FrameType): boolean {
@@ -193,7 +214,7 @@ export function makeFrame<T extends FrameType>(
  * Client → server socket messages. Commands go over HTTP with an opId; the socket carries keepalive, replay paging
  * and (Inc 0.5) the fire-and-forget viewer and expression-recency ops.
  */
-export type ClientSocketMessage = { op: 'ping'; t?: number } | { op: 'resume'; since: number } | ViewerOp | ExprRecentOp;
+export type ClientSocketMessage = { op: 'ping'; t?: number } | { op: 'resume'; since: number } | ViewerOp | ExprRecentOp | VoiceClaimOp;
 /** Server replies to `ping` with this (not a frame). */
 export interface PongMessage {
   op: 'pong';

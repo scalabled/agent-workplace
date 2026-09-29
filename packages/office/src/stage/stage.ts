@@ -582,11 +582,11 @@ export function createStage(host: StageHost): Stage {
         void el.offsetWidth;
         el.classList.remove('is-entering');
       }
-      clock.textContent = fmtTime(0);
+      // The meeting clock starts with the owner's first words (as the Talk note measures it); an empty room shows none.
+      clock.textContent = '';
+      clock.hidden = true;
       if (clockTimer) clearInterval(clockTimer);
-      clockTimer = setInterval(() => {
-        clock.textContent = fmtTime(host.now() - openedAt);
-      }, 1000);
+      clockTimer = null;
     },
     close(animate) {
       if (!isOpen) return;
@@ -669,6 +669,14 @@ export function createStage(host: StageHost): Stage {
       if (!text) {
         cap.hidden = true;
         return;
+      }
+      if (!id && isOpen && !clockTimer) {
+        openedAt = host.now();
+        clock.hidden = false;
+        clock.textContent = fmtTime(0);
+        clockTimer = setInterval(() => {
+          clock.textContent = fmtTime(host.now() - openedAt);
+        }, 1000);
       }
       const p = id ? host.person(id) : null;
       capName.textContent = p ? p.name.split(/\s+/)[0]!.toUpperCase() : S.you.toUpperCase();

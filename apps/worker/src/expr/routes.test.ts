@@ -4,24 +4,27 @@ import { fullIndex } from '@headcount/catalog/full';
 import { afterEach, describe, expect, it } from 'vitest';
 import { exprSetup, useProviders } from '../../test/expr-kit';
 import { defaultRuntime, runtime } from '../workspace/runtime';
-import { EXPR_CATALOG_VERSION } from './catalog';
+import { EXPR_BUNDLE, EXPR_CATALOG_VERSION } from './catalog';
 
 afterEach(() => Object.assign(runtime, defaultRuntime));
 
 describe('GET /api/expr/catalog', () => {
-  it('serves the bundle with its version as the ETag, and 304 on a repeat', async () => {
+  it('serves the bundle with its version (and the huddles version) as the ETag, and 304 on a repeat', async () => {
     useProviders();
     const s = await exprSetup();
     const r = await s.api('GET', '/api/expr/catalog');
     expect(r.status).toBe(200);
-    expect(r.headers.get('etag')).toBe(`"${EXPR_CATALOG_VERSION}"`);
+    // Office Phase 2 §4.2.9: a small-talk content change is fetched; the manifests' catalog version does not change.
+    const etag = `"${EXPR_CATALOG_VERSION}.${EXPR_BUNDLE.huddles!.version}"`;
+    expect(r.headers.get('etag')).toBe(etag);
     expect(r.headers.get('cache-control')).toBe('private, no-cache');
     expect(r.body).toMatchObject({ kind: 'expression_bundle', version: EXPR_CATALOG_VERSION });
     // The browser compiles the same input to the same version.
     expect(compileCatalog(r.body.input as ExpressionCatalogInput).version).toBe(EXPR_CATALOG_VERSION);
-    const again = await s.api('GET', '/api/expr/catalog', undefined, { 'if-none-match': `"${EXPR_CATALOG_VERSION}"` });
+    const again = await s.api('GET', '/api/expr/catalog', undefined, { 'if-none-match': etag });
     expect(again.status).toBe(304);
     expect(await again.res.text()).toBe('');
+    expect((await s.api('GET', '/api/expr/catalog', undefined, { 'if-none-match': `"${EXPR_CATALOG_VERSION}"` })).status).toBe(200);
     expect((await s.api('GET', '/api/expr/catalog', undefined, { 'if-none-match': '"e1_old"' })).status).toBe(200);
   });
 });

@@ -15,8 +15,15 @@ export const AMBIENCE_LINE: Record<Ambience, string> = {
   lively: 'Hellos and short updates, softly.',
   buzzing: 'Shorter gaps between hellos.',
 };
+/** In the Office, Ambience is the floor's energy: walkers, huddles and small talk as well as hellos (D3). */
+export const AMBIENCE_OFFICE_LINE: Record<Ambience, string> = {
+  quiet: 'A calm floor, no small talk.',
+  lively: 'People wander and chat now and then.',
+  buzzing: 'A busy floor, more chatter.',
+};
 
-export function AmbienceControl() {
+export function AmbienceControl({ office = false }: { office?: boolean } = {}) {
+  const lines = office ? AMBIENCE_OFFICE_LINE : AMBIENCE_LINE;
   const current = ambienceOf(settings.value);
   // Quiet hours matter only when the setting is not Quiet already.
   const quietHours = quietHoursNow.value && !livelyAnyway.value && current !== 'quiet';
@@ -100,7 +107,7 @@ export function AmbienceControl() {
                   {AMBIENCE_LABEL[a]}
                 </span>
                 <span class="ambience-line" id={`ambience-line-${a}`}>
-                  {AMBIENCE_LINE[a]}
+                  {lines[a]}
                 </span>
               </label>
             ))}

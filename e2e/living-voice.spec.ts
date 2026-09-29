@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
-import { daytimeZone, expectVoicedCaptioned, frames, livingLog, livingReady, onboarded, recordFrames, say, setWorkspace, waitForFrame, type Telemetry } from './helpers';
+import { daytimeZone, expectVoicedCaptioned, frames, livingLog, livingReady, onboarded, pinDirectory, recordFrames, say, setWorkspace, waitForFrame, type Telemetry } from './helpers';
 
 // The living workforce with voice (project "living-voice": Mock chat, Mock TTS clips with timing, and a microphone
 // that talks in 2.8 s stretches with 0.7 s pauses). What the owner hears: pre-voiced reflexes in the Chief of
@@ -8,9 +8,11 @@ import { daytimeZone, expectVoicedCaptioned, frames, livingLog, livingReady, onb
 // Push-to-talk transcripts are set per test (the STT response is routed); everything else is the real pipeline.
 test.use({ timezoneId: daytimeZone() });
 
-test.beforeEach(async ({ request }) => {
+test.beforeEach(async ({ request, page }) => {
   await onboarded(request, 'Rosa', true);
   await setWorkspace(request, { ambience: 'lively' });
+  // Desk hovers here are on Directory cards (the Office: e2e/office-voice.spec.ts).
+  await pinDirectory(page);
 });
 
 // On failure, attach what the living layer did (telemetry, captions, cues, frames, the audio probe) to the report.

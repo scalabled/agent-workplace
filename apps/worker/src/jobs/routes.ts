@@ -1,6 +1,7 @@
 import type { CancelJobAccepted, JobResponse, JobsResponse, SteerJobAccepted, SteerJobRequest } from '@headcount/protocol';
+import { isClientId } from '@headcount/protocol/ext/voice-owner';
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
-import { projectStub } from '../lib/stubs';
+import { projectStub, workspaceStub } from '../lib/stubs';
 
 // Route handlers for background jobs (owned by worker-core). Both return 202 at once: steering lands at
 // the job's next checkpoint and cancellation fences the job; the frames arrive on the owner feed.
@@ -14,6 +15,8 @@ export const handleSteerJob: RouteHandler = async (req, { env, params }) => {
   if (!body || typeof body.text !== 'string' || !body.text.trim()) throw new HttpError('bad_request', 'Add what the job should change.');
   if (body.text.length > STEER_MAX) throw new HttpError('payload_too_large', `Keep steering under ${STEER_MAX} characters.`);
   const opId = typeof body.opId === 'string' && body.opId ? body.opId.slice(0, 128) : undefined;
+  // The steering tab speaks (one voice per workspace): its claim lands before the acknowledgement.
+  if (isClientId(body.clientId)) await workspaceStub(env).voiceClaim(body.clientId, 'steer');
   const r = await projectStub(env).steerJob(params.id, body.text.trim(), opId);
   if (!r.accepted) throw new HttpError(r.code, r.message, opId ? { opId } : {});
   return json<SteerJobAccepted>({ accepted: true, jobId: r.jobId, steerId: r.steerId }, { status: 202 });

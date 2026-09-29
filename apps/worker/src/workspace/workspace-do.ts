@@ -1,7 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { fullIndex } from '@headcount/catalog/full';
 import { sniffOwnerText, type AffectCues } from '@headcount/expressions';
-import type { ChatProvider } from '@headcount/models';
+import { MissingProviderError, type ChatProvider } from '@headcount/models';
 import {
   CHIEF_ID,
   DEFAULT_WORKSPACE_ID,
@@ -25,6 +25,17 @@ import {
   type WorkspaceSettings,
 } from '@headcount/protocol';
 import { ambienceOf, type DeskSayAccepted, type DeskSayRequest, type ExprCause, type ExprTtsProvider, type TalkSurface } from '@headcount/protocol/ext/expressions';
+import { isClaimId, isClientId, type VoiceOwnerData, type VoiceOwnerReason } from '@headcount/protocol/ext/voice-owner';
+import {
+  ROOM_TURNS_PER_MIN,
+  roomKindOf,
+  type RoomCancelRequest,
+  type RoomCancelResponse,
+  type RoomId,
+  type RoomRefusal,
+  type RoomSayAccepted,
+  type RoomSayRequest,
+} from '@headcount/protocol/ext/rooms';
 import { closeDeskTurn, newDeskTurnState, runDeskTurn, type DeskHost, type DeskTurnState } from '../desk/desk';
 import type { Env } from '../env';
 import { exprLexicon } from '../expr/catalog';
@@ -42,6 +53,11 @@ import { Ledger } from './ledger';
 import { rollupEvents, upsertWorkspace } from './rollup';
 import { logError, logWarn, runtime } from './runtime';
 import { closeReflexTurn, closeTurn, newTurnState, runChiefTurn, type TurnState } from './talk';
+import { VoiceOwnership } from './voice';
+import { isPhatic, planFloor, type FloorCandidate } from '../rooms/floor';
+import { existingNote, meetingNoteText, meetingStats } from '../rooms/meeting';
+import { roomMember, type RoomMember } from '../rooms/prompt';
+import { ROOM_NO_PROVIDER_MESSAGE, ROOM_RATE_MESSAGE, cancelRoomTurn, newRoomTurn, runRoomTurn, type RoomHost, type RoomTurnState } from '../rooms/room-turn';
 
 /** Idempotency records for owner commands (ARCHITECTURE §3.4: 24 h). */
 const OP_TTL_MS = 24 * 60 * 60 * 1000;
@@ -113,8 +129,15 @@ interface ActiveDeskTurn {
   done: Promise<void>;
 }
 
-/** A phatic owner turn ("thanks", "bye"): answered from the catalog with no model call (no distress, no sincere-AI question). */
-const isPhatic = (c: AffectCues): boolean => c.phatic && !c.distress && !c.sincereAi;
+/** Meeting lines a room turn reads from the ledger (floor rotation, projection, the leave note). */
+const ROOM_LEDGER_WINDOW = 600;
+
+let skillNames: Map<string, string> | null = null;
+/** A catalog skill id → its name (floor relevance). */
+function skillName(id: string): string {
+  skillNames ??= new Map(fullIndex.catalog.skills.map((s) => [s.id, s.name]));
+  return skillNames.get(id) ?? id.replace(/-/g, ' ');
+}
 
 /**
  * WorkspaceDO — the tenant (ARCHITECTURE §2.2). In Inc 0 it also hosts:
@@ -126,7 +149,9 @@ const isPhatic = (c: AffectCues): boolean => c.phatic && !c.distress && !c.since
  *   streams as talk.* frames; a newer owner message cuts a reply still streaming (barge-in) and the
  *   next turn sees everything said so far;
  * - the mirror of the Everyday ProjectDO's job frames (re-sequenced, cause = source stream + seq), plus
- *   the proactive announcement when a job finishes, fails or is stopped from the UI.
+ *   the proactive announcement when a job finishes, fails or is stopped from the UI;
+ * - Floor quick chats (desk/) and, in Office Phase 2, office rooms and joined huddles (rooms/): one room turn at a
+ *   time, responders in turn at machine speed, every reply through the reply guard, one note in Talk on leave.
  */
 export class WorkspaceDO extends DurableObject<Env> {
   private readonly ledger: Ledger;
@@ -136,10 +161,15 @@ export class WorkspaceDO extends DurableObject<Env> {
   /** A previous reply still writing after a typed follow-up or a phatic "thanks" (it finishes; nothing cuts it). */
   private finishing: ActiveTurn | null = null;
   private readonly deskTurns = new Map<AgentId, ActiveDeskTurn>();
+  /** The office room turn running now (at most one per workspace) and its promise (Office Phase 2). */
+  private room: RoomTurnState | null = null;
+  private roomDone: Promise<void> | null = null;
   private rollupPending = false;
   private readonly usage: DailyCounter;
   /** The living-workforce layer: viewers, recency, manifests, mood, attention and server reflexes (Inc 0.5). */
   readonly expr: ExprHost;
+  /** One voice per workspace: which client (browser tab) speaks (workspace/voice.ts). */
+  readonly voice: VoiceOwnership;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -148,6 +178,23 @@ export class WorkspaceDO extends DurableObject<Env> {
     this.presence = new PresenceBoard(ctx.storage);
     this.feed = new Feed(this.workspaceId, this.ledger, this.presence, () => this.ctx.getWebSockets() as unknown as FeedSocket[], runtime.now);
     this.usage = new DailyCounter(ctx.storage);
+    this.voice = new VoiceOwnership({
+      sql: ctx.storage.sql,
+      sockets: () => this.ctx.getWebSockets(),
+      broadcast: (data) => this.feed.emit({ type: 'voice.owner', data }),
+      now: () => runtime.now(),
+      later: (fn, ms) => {
+        const t = setTimeout(() => {
+          try {
+            fn();
+          } catch (err) {
+            logError('voice', err);
+          }
+        }, ms);
+        (t as unknown as { unref?: () => void }).unref?.();
+      },
+      head: () => this.ledger.lastSeq(),
+    });
     this.expr = new ExprHost({
       sql: ctx.storage.sql,
       feed: this.feed,
@@ -160,6 +207,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       mockMedia: () => mockMediaEnabled(this.env),
       now: () => runtime.now(),
       jobTitle: (jobId) => this.ctx.storage.sql.exec<{ title: string }>('SELECT title FROM jobs_seen WHERE job_id = ?', jobId).toArray()[0]?.title ?? null,
+      voiceOwner: () => this.voice.effective(),
     });
     this.recoverInterruptedTurn();
     this.postStrandedAnnouncements();
@@ -171,22 +219,44 @@ export class WorkspaceDO extends DurableObject<Env> {
 
   // ── sockets (hibernation API) ───────────────────────────────────────────────────
 
-  /** WebSocket upgrade for GET /api/ws?since=<seq>. */
+  /** WebSocket upgrade for GET /api/ws?since=<seq>&client=<id>. */
   override async fetch(request: Request): Promise<Response> {
     if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') return new Response('Expected a WebSocket upgrade.', { status: 426 });
-    const raw = new URL(request.url).searchParams.get('since');
+    const params = new URL(request.url).searchParams;
+    const raw = params.get('since');
     const since = raw && /^\d+$/.test(raw) ? Number(raw) : 0;
+    const clientId = params.get('client');
     const pair = new WebSocketPair();
     const [client, server] = [pair[0], pair[1]];
     this.ctx.acceptWebSocket(server, ['feed']);
-    this.feed.open(server, since);
+    this.openFeed(server, since, isClientId(clientId) ? clientId : null);
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  /**
+   * Greet an accepted feed socket: `ready` (with who speaks now) → replay → presence → moods and attention; then tell
+   * the other tabs if the voice moved (the first tab, or the owner's tab back after a reload).
+   */
+  openFeed(ws: WebSocket, since: number, clientId: string | null): void {
+    this.voice.attach(ws, clientId);
+    this.feed.open(ws, since, { voice: this.voice.snapshot() });
     // After the presence snapshot: moods of agents with an event and the Chief's attention (never replayed).
     try {
-      for (const f of this.expr.connectFrames()) this.feed.sendTo(server, f);
+      for (const f of this.expr.connectFrames()) this.feed.sendTo(ws, f);
     } catch (err) {
       logError('expr.connect', err);
     }
-    return new Response(null, { status: 101, webSocket: client });
+    this.voice.connected();
+  }
+
+  /** An owner action over HTTP from a tab (a steer): that tab becomes the voice owner. */
+  async voiceClaim(clientId: string, reason: VoiceOwnerReason): Promise<void> {
+    if (isClientId(clientId)) this.voice.claim(clientId, reason);
+  }
+
+  /** Who speaks now (tests, debugging). */
+  async voiceOwner(): Promise<VoiceOwnerData> {
+    return this.voice.snapshot();
   }
 
   override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
@@ -197,9 +267,13 @@ export class WorkspaceDO extends DurableObject<Env> {
     } catch {
       return;
     }
+    this.voice.refresh();
     if (msg?.op === 'ping') ws.send(JSON.stringify({ op: 'pong', t: msg.t }));
     else if (msg?.op === 'resume' && typeof msg.since === 'number' && msg.since >= 0) this.feed.replay(ws, Math.floor(msg.since));
-    else if (msg?.op === 'viewer') {
+    else if (msg?.op === 'voice.claim') {
+      const clientId = this.voice.clientOf(ws);
+      if (clientId && isClaimId(msg.claimId)) this.voice.claim(clientId, 'claim', msg.claimId);
+    } else if (msg?.op === 'viewer') {
       const op = parseViewerOp(msg);
       if (op) this.expr.setViewer(ws, op);
     } else if (msg?.op === 'expr.recent') {
@@ -214,10 +288,12 @@ export class WorkspaceDO extends DurableObject<Env> {
     } catch {
       /* already closed */
     }
+    this.voice.closed(ws);
   }
 
-  override async webSocketError(): Promise<void> {
-    /* the client reconnects with its cursor */
+  override async webSocketError(ws: WebSocket): Promise<void> {
+    // The client reconnects with its cursor; meanwhile its voice follows the owner rules.
+    this.voice.closed(ws);
   }
 
   // ── settings ────────────────────────────────────────────────────────────────────
@@ -237,6 +313,7 @@ export class WorkspaceDO extends DurableObject<Env> {
     if (patch.chiefName !== undefined) next.chiefName = patch.chiefName;
     if (patch.voiceOn !== undefined) next.voiceOn = patch.voiceOn;
     if (patch.ambience !== undefined) next.ambience = patch.ambience;
+    if (patch.ownerName !== undefined) next.ownerName = patch.ownerName;
     // A new lead has its own baseline mood.
     if (next.leadId !== current.leadId) this.expr.resetMood(CHIEF_ID);
     await this.ctx.storage.put('settings', next);
@@ -253,6 +330,8 @@ export class WorkspaceDO extends DurableObject<Env> {
    * sees everything said so far.
    */
   async talk(req: TalkRequest): Promise<TalkAccepted | TalkRefusal> {
+    // The sending tab speaks: its claim lands before any frame of this turn.
+    if (isClientId(req.clientId)) this.voice.claim(req.clientId, 'talk');
     const prior = this.ctx.storage.sql.exec<{ result: string }>('SELECT result FROM ops WHERE op_id = ?', req.opId).toArray()[0];
     if (prior) return { ...(JSON.parse(prior.result) as TalkAccepted), duplicate: true };
     // The owner-affect sniff (under a millisecond, straight from the bundle's lexicon: nothing compiles here).
@@ -391,6 +470,7 @@ export class WorkspaceDO extends DurableObject<Env> {
    * coworker cuts a reply still streaming, and nothing here touches the Chief of Staff's turn.
    */
   async deskSay(personaId: string, req: DeskSayRequest): Promise<DeskSayAccepted | DeskRefusal> {
+    if (isClientId(req.clientId)) this.voice.claim(req.clientId, 'desk');
     const prior = this.ctx.storage.sql.exec<{ result: string }>('SELECT result FROM ops WHERE op_id = ?', req.opId).toArray()[0];
     if (prior) return { ...(JSON.parse(prior.result) as DeskSayAccepted), duplicate: true };
     const persona = fullIndex.persona(personaId);
@@ -453,6 +533,156 @@ export class WorkspaceDO extends DurableObject<Env> {
     return accepted;
   }
 
+  // ── office rooms and joined huddles (Office Phase 2, src/rooms) ─────────────────────
+
+  /**
+   * The owner talks to a conference room or a joined huddle (202 path, no model call before it): floor control plans
+   * who answers, the owner's line is persisted with `surface: 'room'`, and the responders answer one after the other
+   * in the background. At most one room turn runs per workspace: a newer message (any room) closes the running one
+   * first, its partial reply persisted. Idempotent on opId.
+   */
+  async roomSay(roomId: RoomId, req: RoomSayRequest): Promise<RoomSayAccepted | RoomRefusal> {
+    if (isClientId(req.clientId)) this.voice.claim(req.clientId, 'room');
+    const prior = this.ctx.storage.sql.exec<{ result: string }>('SELECT result FROM ops WHERE op_id = ?', req.opId).toArray()[0];
+    if (prior) return { ...(JSON.parse(prior.result) as RoomSayAccepted), duplicate: true };
+    const settings = await this.getSettings();
+    const kind = roomKindOf(roomId);
+    const members: RoomMember[] = [];
+    for (const id of req.participants) {
+      const m = roomMember(id, settings);
+      if (!m) return { accepted: false, code: 'bad_request', message: id === CHIEF_ID ? 'Choose a Chief of Staff first.' : `There is no coworker called ${id}.` };
+      members.push(m);
+    }
+    if (this.expr.rateUsed('room') >= ROOM_TURNS_PER_MIN) return { accepted: false, code: 'rate_limited', message: ROOM_RATE_MESSAGE };
+    const cues = sniffOwnerText(req.text, exprLexicon());
+    const phatic = isPhatic(cues);
+    const now = runtime.now();
+    if (!phatic) {
+      // A model reply must be possible: one left today, and a chat provider (the replies take theirs as they go).
+      const limit = dailyLimit(this.env, 'chat');
+      if (!this.usage.take('chat', limit, now).allowed) return { accepted: false, code: 'rate_limited', message: limitMessage('chat', limit) };
+      this.usage.refund('chat', now);
+      try {
+        runtime.registry(this.env).resolve('chat', { tier: 'fast' });
+      } catch (err) {
+        if (err instanceof MissingProviderError) return { accepted: false, code: 'not_configured', message: ROOM_NO_PROVIDER_MESSAGE, missingKeys: err.missingKeys };
+        throw err;
+      }
+    }
+    const stats = meetingStats(this.ledger.recent(['talk.owner', 'talk.message'], ROOM_LEDGER_WINDOW), req.meetingId);
+    const candidates: FloorCandidate[] = members.map((m, seat) => ({
+      agentId: m.agentId,
+      firstName: m.firstName,
+      fullName: m.fullName,
+      isChief: m.isChief,
+      seat,
+      title: m.title,
+      departmentName: m.persona ? (fullIndex.department(m.persona.department)?.name ?? m.persona.department) : 'Chief of Staff',
+      skillNames: m.persona ? [...m.persona.skills.primary, ...m.persona.skills.secondary].map(skillName) : [],
+      oneLiner: m.persona?.one_liner ?? '',
+    }));
+    const plan = planFloor({ text: req.text, kind, candidates, phatic, lastFirst: stats.lastFirst, turnsBy: stats.turnsBy });
+
+    // Barge-in: the running room turn (any room) is closed before the new owner line, so turns stay contiguous.
+    const previous = this.roomDone;
+    if (this.room && !this.room.closed) cancelRoomTurn(this.feed, this.room, 'owner');
+    const gen = this.nextRoomGen();
+    const turnId = ids.turn();
+    const messageId = ids.message();
+    const order = plan.order as AgentId[];
+    const accepted: RoomSayAccepted = { accepted: true, opId: req.opId, roomId, meetingId: req.meetingId, turnId, messageId, order, mode: plan.mode, gen };
+    const via = req.via === 'voice' ? 'voice' : 'text';
+    const owner = this.ledger.tx(() => {
+      const f = this.ledger.append({ type: 'talk.owner', data: { turnId, messageId, text: req.text, via, surface: 'room', roomId, meetingId: req.meetingId }, opId: req.opId, actor: OWNER_ACTOR });
+      this.ctx.storage.sql.exec('INSERT INTO ops (op_id, result, at) VALUES (?, ?, ?)', req.opId, JSON.stringify(accepted), now);
+      this.ctx.storage.sql.exec(
+        `INSERT INTO meta (key, value) VALUES ('active_room', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        JSON.stringify({ turnId, opId: req.opId, roomId, meetingId: req.meetingId, agentId: null }),
+      );
+      return f;
+    });
+    this.feed.broadcast(owner);
+    this.scheduleRollup();
+    this.ctx.storage.sql.exec('DELETE FROM ops WHERE at < ?', now - OP_TTL_MS);
+
+    const turn = newRoomTurn({
+      roomId,
+      meetingId: req.meetingId,
+      turnId,
+      opId: req.opId,
+      gen,
+      mode: plan.mode,
+      order,
+      chiefWrap: plan.chiefWrap,
+      participants: [...req.participants],
+      label: req.label ?? null,
+      via,
+      cues,
+      ownerSeq: owner.seq!,
+    });
+    this.room = turn;
+    const done = (async () => {
+      if (previous) await previous; // the cut turn winds down (its model call aborts) first
+      await runRoomTurn(this.roomHost(), turn);
+    })()
+      .catch((err) => logError('room', err))
+      .finally(() => {
+        if (this.room === turn) {
+          this.room = null;
+          this.ctx.storage.sql.exec(`DELETE FROM meta WHERE key = 'active_room'`);
+        }
+        this.scheduleRollup();
+      });
+    this.roomDone = done;
+    this.ctx.waitUntil(done);
+    return accepted;
+  }
+
+  /**
+   * Barge-in or leave (Office Phase 2 §4.2.1, §4.2.7): close the running turn of this meeting now (reason 'owner', or
+   * 'left' with `leave`). On leave, one quiet note lands in Talk when the owner said anything in the meeting (once
+   * per meeting). Idempotent on opId; cancelling nothing is `{cancelled: false, noteId: null}`.
+   */
+  async roomCancel(roomId: RoomId, req: RoomCancelRequest): Promise<RoomCancelResponse> {
+    if (isClientId(req.clientId)) this.voice.claim(req.clientId, 'room');
+    const prior = this.ctx.storage.sql.exec<{ result: string }>('SELECT result FROM ops WHERE op_id = ?', req.opId).toArray()[0];
+    if (prior) return JSON.parse(prior.result) as RoomCancelResponse;
+    const t = this.room;
+    const cancelled = !!t && !t.closed && t.roomId === roomId && t.meetingId === req.meetingId && cancelRoomTurn(this.feed, t, req.leave ? 'left' : 'owner');
+    const noteId = req.leave ? await this.postMeetingNote(roomId, req) : null;
+    const result: RoomCancelResponse = { cancelled, noteId };
+    this.ctx.storage.sql.exec('INSERT OR IGNORE INTO ops (op_id, result, at) VALUES (?, ?, ?)', req.opId, JSON.stringify(result), runtime.now());
+    if (noteId) this.scheduleRollup();
+    return result;
+  }
+
+  /** The meeting's one note in Talk ("Skyline room with Juno, Walt and Lena · 4 min"), or null when the owner said nothing. */
+  private async postMeetingNote(roomId: RoomId, req: RoomCancelRequest): Promise<MessageId | null> {
+    const frames = this.ledger.recent(['talk.owner', 'talk.message'], ROOM_LEDGER_WINDOW);
+    const stats = meetingStats(frames, req.meetingId);
+    if (!stats.ownerSpoke) return null;
+    const existing = existingNote(frames, req.meetingId);
+    if (existing) return existing.data.messageId;
+    const settings = await this.getSettings();
+    const names: string[] = [];
+    for (const id of [...stats.speakers, ...(req.participants ?? [])]) {
+      const m = roomMember(id, settings);
+      if (m && !names.includes(m.firstName)) names.push(m.firstName);
+    }
+    const messageId = ids.message();
+    const text = meetingNoteText(roomId, req.label ?? null, names, stats.firstAt, stats.lastAt);
+    this.feed.append({ type: 'talk.message', data: { turnId: null, messageId, agentId: CHIEF_ID, text, kind: 'note', roomId, meetingId: req.meetingId }, actor: CHIEF_ID, opId: req.opId });
+    return messageId;
+  }
+
+  /** The room turn generation (persisted, so it keeps rising across restarts). */
+  private nextRoomGen(): number {
+    const row = this.ctx.storage.sql.exec<{ value: string }>(`SELECT value FROM meta WHERE key = 'room_gen'`).toArray()[0];
+    const gen = (Number(row?.value) || 0) + 1;
+    this.ctx.storage.sql.exec(`INSERT INTO meta (key, value) VALUES ('room_gen', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, String(gen));
+    return gen;
+  }
+
   // ── living workforce RPC (routes in src/expr) ─────────────────────────────────────
 
   /** Record rendered clips in the agents' manifests (render route, pre-voice runner). */
@@ -485,6 +715,8 @@ export class WorkspaceDO extends DurableObject<Env> {
    * claim updates the merged face state.
    */
   async ingest(batch: MirrorBatch): Promise<{ applied: number }> {
+    // Proactive speech follows: make sure the voice is with a tab that is still here.
+    this.voice.refresh();
     let applied = 0;
     let lastSeq: number | null = null;
     let announcer: Announcer | null | undefined;
@@ -671,6 +903,56 @@ export class WorkspaceDO extends DurableObject<Env> {
     };
   }
 
+  private roomHost(): RoomHost {
+    const limit = dailyLimit(this.env, 'chat');
+    return {
+      feed: this.feed,
+      ledger: this.ledger,
+      streamId: this.ledger.streamId,
+      registry: () => runtime.registry(this.env),
+      settings: () => this.getSettings(),
+      isCurrent: (gen) => this.room?.gen === gen,
+      takeRate: () => this.expr.takeRate('room', ROOM_TURNS_PER_MIN),
+      takeChat: () => (this.usage.take('chat', limit, runtime.now()).allowed ? { allowed: true } : { allowed: false, message: limitMessage('chat', limit) }),
+      phatic: async (agentId, turnId, via, cues) => {
+        const r = await this.expr.phaticReply({ agentId, turnId, via, cues, history: { firstMeeting: false } });
+        // The room plays its lines in order through each speaker's voice: the reflex frame is not sent.
+        return r ? { text: r.text, intent: r.intent, lineId: r.lineId } : null;
+      },
+      thinking: (agentId) => this.expr.emitFace(agentId, { gesture: 'look_up', holdMs: 900 }),
+      ownerMood: (agentId, cues, cause) => void this.expr.ownerMood(agentId, cues, cause).catch((err) => logError('expr.mood', err)),
+      markCurrent: (t) =>
+        this.ctx.storage.sql.exec(
+          `INSERT INTO meta (key, value) VALUES ('active_room', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+          JSON.stringify({ turnId: t.turnId, opId: t.opId, roomId: t.roomId, meetingId: t.meetingId, agentId: t.current?.agentId ?? null }),
+        ),
+    };
+  }
+
+  /**
+   * A room turn in flight when the object stopped: close the reply being written (`talk.done {finish: 'error'}`) and
+   * clear stale `room` Thinking claims.
+   */
+  private recoverRoomTurns(): void {
+    const now = runtime.now();
+    const stale = this.ctx.storage.sql.exec<{ agent_id: string }>(`SELECT DISTINCT agent_id FROM presence_claims WHERE source = 'room'`).toArray();
+    for (const r of stale) this.presence.claim(r.agent_id as AgentId, 'room', null, now);
+    const row = this.ctx.storage.sql.exec<{ value: string }>(`SELECT value FROM meta WHERE key = 'active_room'`).toArray()[0];
+    if (!row) return;
+    try {
+      const { turnId, opId, roomId, meetingId, agentId } = JSON.parse(row.value) as { turnId: TurnId; opId?: string; roomId: RoomId; meetingId: string; agentId: AgentId | null };
+      this.ledger.append({
+        type: 'talk.done',
+        data: { turnId, messageId: null, finish: 'error', ...(agentId ? { agentId } : {}), surface: 'room', roomId, meetingId },
+        actor: agentId ?? CHIEF_ID,
+        ...(opId ? { opId } : {}),
+      });
+    } catch (err) {
+      logError('room.recover', err);
+    }
+    this.ctx.storage.sql.exec(`DELETE FROM meta WHERE key = 'active_room'`);
+  }
+
   /**
    * A turn that was running when the object last died never finished: close it so the thread is consistent.
    * A fresh object runs no turn, so any 'talk' presence claim (Thinking) is stale too and is cleared, even
@@ -679,6 +961,7 @@ export class WorkspaceDO extends DurableObject<Env> {
   private recoverInterruptedTurn(): void {
     this.presence.claim(CHIEF_ID, 'talk', null, runtime.now());
     this.recoverDeskTurns();
+    this.recoverRoomTurns();
     const row = this.ctx.storage.sql.exec<{ value: string }>(`SELECT value FROM meta WHERE key = 'active_turn'`).toArray()[0];
     if (!row) return;
     try {

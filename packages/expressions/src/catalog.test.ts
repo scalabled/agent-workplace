@@ -174,7 +174,7 @@ describe('blending (§4.5)', () => {
       compared++;
     }
     expect(compared).toBe(expected.size);
-  });
+  }, 30_000); // runs the whole catalog validator: slow under a full parallel test run
 });
 
 describe('buildAgentIndex (§5.2 priors)', () => {
