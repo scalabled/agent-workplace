@@ -56,7 +56,7 @@ export function chiefDisplayName(lead: Pick<Lead, 'name'> | undefined, chiefName
 
 /**
  * A catalog line in the owner's name for their Chief of Staff: the lead's first name (whole words only) becomes
- * `chiefName`, so a renamed lead never introduces themself by the catalog name ("I'm Paolo" → "I'm Rosa").
+ * `chiefName`, so a renamed lead never introduces themself by the catalog name ("I'm Eddie" → "I'm Rosa").
  * Unchanged when there is no chosen name or it equals the catalog one.
  */
 export function renameLine(text: string, lead: Pick<Lead, 'name'>, chiefName: string | null | undefined): string {

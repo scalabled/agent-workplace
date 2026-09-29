@@ -118,8 +118,8 @@ describe('landing helpers', () => {
   });
 
   it('introduces each lead by name in their voice sample', () => {
-    expect(sampleText('Sunny', "Hi, I'd be your chief of staff. Tell me more.")).toBe("Hi, I'm Sunny. I'd be your chief of staff. Tell me more.");
-    expect(sampleText('Sunny', null)).toBe("Hi, I'm Sunny.");
+    expect(sampleText('Kate', "Hi, I'd be your chief of staff. Tell me more.")).toBe("Hi, I'm Kate. I'd be your chief of staff. Tell me more.");
+    expect(sampleText('Kate', null)).toBe("Hi, I'm Kate.");
   });
 });
 

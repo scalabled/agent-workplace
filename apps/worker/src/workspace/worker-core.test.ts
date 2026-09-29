@@ -169,7 +169,7 @@ describe('talk (conversation loop)', () => {
     await s.talk('thanks');
     const system = requests.at(-1)!.system!;
     expect(system).toContain('You are Rosa');
-    expect(system).toContain('Kobby Owusu');
+    expect(system).toContain('Ben Addo');
     expect(system).toContain('Profitable on paper');
     expect(system).toContain('LIVE WORK STATE');
     expect(system).toContain('“Office chairs under $500” — running, planning; now: Making a plan for “Office chairs under $500”');

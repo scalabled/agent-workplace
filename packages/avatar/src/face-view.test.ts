@@ -102,7 +102,7 @@ describe('FaceView', () => {
     const host = document.createElement('div');
     const face = new FaceView({ tier: 'hero', reducedMotion: false });
     face.mount(host);
-    face.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Kobby Owusu' });
+    face.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Ben Addo' });
     loop.frames(1);
     const ctx = ctxOf(host);
     expect(face.stats().renderer).toBe('procedural');
@@ -156,7 +156,7 @@ describe('FaceView', () => {
     const host = document.createElement('div');
     const face = new FaceView({ tier: 'hero', reducedMotion: true });
     face.mount(host);
-    face.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Kobby Owusu' });
+    face.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Ben Addo' });
     loop.frames(3);
     expect(loop.pending.size, 'nothing to animate → the loop sleeps').toBe(0);
     face.attachSampler(openSampler);
@@ -214,7 +214,7 @@ describe('FaceView', () => {
     // A portrait that fails to load leaves the illustrated face in place.
     const c = new FaceView({ tier: 'tile' });
     c.mount(document.createElement('div'));
-    c.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Kobby Owusu' });
+    c.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Ben Addo' });
     await c.setPortrait({ url: '/api/portraits/broken', landmarks: null });
     expect(c.stats().renderer).toBe('procedural');
     // Stored landmarks skip detection entirely; tokens never detect.
@@ -249,7 +249,7 @@ describe('FaceView', () => {
     const host = document.createElement('div');
     const face = new FaceView({ tier: 'hero', reducedMotion: false, detectLandmarks: false });
     face.mount(host);
-    face.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Kobby Owusu' });
+    face.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Ben Addo' });
     await face.setPortrait({ url: '/p.png', landmarks: null });
     const ctx = ctxOf(host);
     ctx.reset();
@@ -296,11 +296,11 @@ describe('FaceView', () => {
 
   it('seeds motion per person: two faces never sway in lockstep', () => {
     const phase = (f: FaceView) => (f as unknown as { motion: { swayPhase: number } }).motion.swayPhase;
-    const a = new FaceView({ name: 'Paolo Bautista' });
-    const b = new FaceView({ name: 'Sunny Baek' });
+    const a = new FaceView({ name: 'Eddie Ramos' });
+    const b = new FaceView({ name: 'Kate Kim' });
     expect(phase(a)).not.toBe(phase(b));
     const late = new FaceView();
-    late.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Sunny Baek' });
+    late.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Kate Kim' });
     expect(phase(late)).toBe(phase(b));
     [a, b, late].forEach((f) => f.destroy());
   });

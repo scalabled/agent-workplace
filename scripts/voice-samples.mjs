@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// node scripts/voice-samples.mjs — pre-voices each lead's landing-page sample ("Hi, I'm Sunny. I'd be your chief
+// node scripts/voice-samples.mjs — pre-voices each lead's landing-page sample ("Hi, I'm Kate. I'd be your chief
 // of staff. …") through the running worker's TTS route (POST /api/speech/tts, response "json": the worker holds
 // the keys, this script never sees them), then writes the audio and its lip-sync timing to
 // apps/web/public/marketing/voices/: <leadId>-<n>.<ext> per sentence and manifest.json

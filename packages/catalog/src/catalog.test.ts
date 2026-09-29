@@ -50,8 +50,8 @@ describe('build tolerance', () => {
 
 describe('helpers', () => {
   it('names the chief', () => {
-    expect(chiefDisplayName({ name: 'Kobby Owusu' }, null)).toBe('Kobby');
-    expect(chiefDisplayName({ name: 'Kobby Owusu' }, ' Rosa ')).toBe('Rosa');
+    expect(chiefDisplayName({ name: 'Ben Addo' }, null)).toBe('Ben');
+    expect(chiefDisplayName({ name: 'Ben Addo' }, ' Rosa ')).toBe('Rosa');
     expect(initials('Anne-Marie Chen')).toBe('AC');
   });
   it('scores the match quiz with normalisation and autonomy tie-break', () => {
@@ -76,17 +76,17 @@ describe('helpers', () => {
 });
 
 describe('renameLine', () => {
-  const lead = { name: 'Paolo Bautista' };
+  const lead = { name: 'Eddie Ramos' };
   it('replaces the catalog first name with the chosen one, whole words only', () => {
-    expect(renameLine("I'm Paolo. Give me the messy version.", lead, 'Rosa')).toBe("I'm Rosa. Give me the messy version.");
-    expect(renameLine('Paolozzi and Paolo’s plan', lead, 'Rosa')).toBe('Paolozzi and Rosa’s plan');
+    expect(renameLine("I'm Eddie. Give me the messy version.", lead, 'Rosa')).toBe("I'm Rosa. Give me the messy version.");
+    expect(renameLine('Eddies and Eddie’s plan', lead, 'Rosa')).toBe('Eddies and Rosa’s plan');
     expect(renameLine('Costs $5', lead, '$& Rosa')).toBe('Costs $5');
-    expect(renameLine('Hi Paolo', lead, '$1 Lu')).toBe('Hi $1 Lu');
+    expect(renameLine('Hi Eddie', lead, '$1 Lu')).toBe('Hi $1 Lu');
   });
   it('leaves the line alone without a different name', () => {
-    expect(renameLine("I'm Paolo.", lead, null)).toBe("I'm Paolo.");
-    expect(renameLine("I'm Paolo.", lead, 'Paolo')).toBe("I'm Paolo.");
-    expect(renameLine('Hello, I’m Tou.', { name: 'Tou Moua' }, 'Ana')).toBe('Hello, I’m Ana.');
+    expect(renameLine("I'm Eddie.", lead, null)).toBe("I'm Eddie.");
+    expect(renameLine("I'm Eddie.", lead, 'Eddie')).toBe("I'm Eddie.");
+    expect(renameLine('Hello, I’m Zack.', { name: 'Zack Vang' }, 'Ana')).toBe('Hello, I’m Ana.');
   });
   it('covers every catalog greeting', () => {
     for (const l of catalogFull.leads) {

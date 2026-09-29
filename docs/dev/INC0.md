@@ -147,8 +147,8 @@ node scripts/voice-samples.mjs --only lead-warm-mentor --force
    Open http://localhost:5173: the landing page. Scroll it (the real cast in the hero, the coworker wall, the twelve
    Chiefs of Staff with **Hear …** (pre-voiced, keyless too), how it works, every capability marked Works today, In
    the works or Planned, pricing marked as planned), then press **Enter the office**.
-2. **Pick your Chief of Staff.** Browse the twelve (Paolo, Neema, Sunny, Kobby, Mateo, Sevan, Tou, Liya, Ellis,
-   Renata, Rio, Grete) and click a few cards; each has a face, a backstory teaser, "best for owners who…" and an
+2. **Pick your Chief of Staff.** Browse the twelve (Eddie, Joy, Kate, Ben, Victor, Sasha, Zack, Hope, Owen,
+   Irma, Frankie, Anna) and click a few cards; each has a face, a backstory teaser, "best for owners who…" and an
    honesty line. With a TTS key, press "Hear …'s voice". Press **Find your match · 8
    questions** and answer; your top 3 appear with the reason for each. Rename your pick (for example "Rosa") and press
    **Choose**.
@@ -256,10 +256,12 @@ marked Planned; pricing is marked planned (PRODUCT §10).
 `catalog/ART-DIRECTION.md`, catalog v2.0.0): new contemporary names and handles that fit each person's heritage,
 ages 24–54, new looks, same pronouns and heritages. First names are unique and never equal a voice id or a story
 name (`taxonomy.reserved_first_names`: Dana, Luis, Priya, Morgan, Rosa, …), which `catalog/scripts/validate.mjs`
-checks. The twelve leads: Paolo Bautista, Neema Kimaro, Sunny Baek, Kobby Owusu, Mateo Ríos, Sevan Karapetyan, Tou
-Moua, Liya Girma, Ellis Vaughan, Renata Ibarra, Rio Quispe and Grete Kask. Every portrait was regenerated in one
-"staff photo shoot" look (charcoal seamless, accent rim light, even key light, 85 mm, 3:4), and landmarks were
-precomputed. Contact sheets: `docs/dev/screens/cast/`.
+checks. The twelve leads: Eddie Ramos, Joy Lema, Kate Kim, Ben Addo, Victor Rios, Sasha Sarkis, Zack
+Vang, Hope Girma, Owen Price, Irma Vega, Frankie Flores and Anna Kask. (The leads were renamed a second time after
+2.0.0 because the owner found the first names hard to remember; faces, voices and lore stayed, and `renames.json`
+keeps the 2.0.0 names as `interim_name`.) Every portrait was regenerated in one "staff photo shoot" look (charcoal
+seamless, accent rim light, even key light, 85 mm, 3:4), and landmarks were precomputed. Contact sheets:
+`docs/dev/screens/cast/` (`leads.jpg` still captions the 2.0.0 names).
 
 **Media scripts.** `POST /api/media/image` and `GET /api/media/:key` (worker, media-owned, outside the protocol route
 table), `scripts/marketing-images.mjs`, `scripts/landmarks-precompute.mjs` and `pnpm portraits:generate
@@ -299,7 +301,7 @@ sticky beside long text. Wall tiles carry no hover affordance, show job titles o
 a menu sheet, a 92% opaque nav, compact how-it-works and multimodal rows, and a two-column provider list. US spelling
 throughout.
 
-**Cast.** Paolo Bautista (vitiligo, grey temples), Nayra Choque (wheelchair backrest) and Amara Okafor, Esi Mensah and
+**Cast.** Eddie Ramos (vitiligo, grey temples), Nayra Choque (wheelchair backrest) and Amara Okafor, Esi Mensah and
 Jonas Brandt (apparent age) were repainted with the signature detail right after the prompt prefix and the age said
 outright, then their landmarks were measured again (`docs/dev/screens/cast/repainted-before-after.jpg`). ART-DIRECTION
 §8 now has a per-portrait approval checklist. The landing leads with the younger half of the cast (`landing/cast.ts`).
@@ -414,7 +416,7 @@ faces are in `repainted-before-after.jpg`).
 - **No "delighted" expression yet.** The review asked for the approved closed-lip "delighted" variant on marketing
   surfaces; expression variants are not generated or stored anywhere yet (it needs an image-edit route and landmarks
   per variant). The landing uses the resting portraits, curated to lead with the younger half of the cast.
-- **The default and featured lead is an owner call.** Paolo (45–49) is still first in the carousel and the default
+- **The default and featured lead is an owner call.** Eddie (45–49) is still first in the carousel and the default
   selection in onboarding; the hero opens on the first lead under 40 instead.
 - **Page length.** About 12,000 px at 1440 and 14,800 px at 375: sections were merged and phone layouts compacted, but
   a statement band and a full-bleed band were added. Cutting further (for example FAQ into the final call to action)
@@ -425,7 +427,7 @@ faces are in `repainted-before-after.jpg`).
   half of that portrait for about four seconds.
 
 **Cast**
-- **Portrait side conventions.** Paolo's vitiligo now shows clearly, on the viewer's left (the catalog says "left
+- **Portrait side conventions.** Eddie's vitiligo now shows clearly, on the viewer's left (the catalog says "left
   temple"); the illustrated face follows the catalog's side. Other signature details were not re-audited beyond the
   five repainted faces.
 - **Old names remain in files owned by the living-workforce process:** `packages/expressions/**`,
