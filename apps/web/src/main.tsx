@@ -2,6 +2,7 @@
 // ("/app/…"). The landing never downloads the app, its socket, audio engine or catalog until someone walks in.
 import { render, type ComponentType } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import { AuthGate } from './auth/AuthGate';
 import { loadApp, loadLanding, type Loader } from './lazy';
 import { forcedThemeFor, forceTheme, initTheme } from './lib/theme';
 import { lastNav, route, savedScroll } from './router';
@@ -62,7 +63,14 @@ function Root() {
     const y = savedScroll();
     if (y !== null) requestAnimationFrame(() => window.scrollTo(0, y));
   }, [name]);
-  return landing ? <Lazy key="landing" load={loadLanding} /> : <Lazy key="app" load={loadApp} />;
+  // The app loads only once the owner may be here (signed in, or sign-in off on localhost); the landing is public.
+  return landing ? (
+    <Lazy key="landing" load={loadLanding} />
+  ) : (
+    <AuthGate>
+      <Lazy key="app" load={loadApp} />
+    </AuthGate>
+  );
 }
 
 initTheme(forcedThemeFor(route.value.name));

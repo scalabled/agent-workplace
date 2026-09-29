@@ -46,6 +46,19 @@ export function hostName(host: string): string {
 }
 
 /**
+ * Host check only (DNS rebinding): the Host header and URL host must be loopback or an allowed host. Used alone for
+ * the sign-in navigations (/api/auth/google and the Google callback), which are top-level GETs that arrive
+ * cross-site by design (Sec-Fetch-Site: cross-site, no Origin) and are protected by the OAuth state instead.
+ */
+export function guardHost(req: Request, url: URL, policy: OriginPolicy): Response | null {
+  const header = req.headers.get('host');
+  for (const name of [header ? hostName(header) : null, url.hostname.toLowerCase()]) {
+    if (name !== null && !policy.hosts.has(name)) return errorResponse('forbidden', 'This address is not Headcount. Open the app at its own address instead.');
+  }
+  return null;
+}
+
+/**
  * Refuse requests that do not come from the app itself. Returns a 403 response, or null to go on.
  * - Host (header and URL) must be loopback or an allowed host: blocks DNS rebinding.
  * - A present Origin must be allowed ("null" never is): blocks cross-site fetches and sockets.
@@ -53,10 +66,8 @@ export function hostName(host: string): string {
  * - The WebSocket route requires an allowed Origin (browsers always send one on a handshake).
  */
 export function guardRequest(req: Request, url: URL, route: RouteId | null, policy: OriginPolicy): Response | null {
-  const header = req.headers.get('host');
-  for (const name of [header ? hostName(header) : null, url.hostname.toLowerCase()]) {
-    if (name !== null && !policy.hosts.has(name)) return errorResponse('forbidden', 'This address is not Headcount. Open the app at http://localhost instead.');
-  }
+  const badHost = guardHost(req, url, policy);
+  if (badHost) return badHost;
   const origin = req.headers.get('origin');
   if (origin !== null) {
     if (!policy.origins.has(origin)) return errorResponse('forbidden', 'Requests from other sites are not allowed. Open Headcount itself, or add its address to ALLOWED_ORIGINS.');

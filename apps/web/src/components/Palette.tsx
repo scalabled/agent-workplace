@@ -9,6 +9,7 @@ import { catalog, loadCatalog } from '../catalog';
 import { chiefName } from '../chief';
 import { setTheme, theme } from '../lib/theme';
 import { navigate, paths } from '../router';
+import { auth, signOut } from '../auth/session';
 import { onboarded, settings } from '../store';
 import { setAmbience, setOwnerName, setVoiceOn } from '../talk/actions';
 import { AMBIENCE_LABEL, AMBIENCE_LINE } from './AmbienceControl';
@@ -143,6 +144,8 @@ function useItems(): PaletteItem[] {
       items.push({ id: 'set:owner-name', label: 'Set your name', hint: current ? `Now ${current}` : 'Used in greetings', group: 'Settings', icon: 'user', keywords: 'my name call me first name greeting owner', run: () => askInPalette(ownerNamePrompt(current)) });
     }
     items.push({ id: 'set:chief', label: 'Switch Chief of Staff', hint: 'Pick someone else', group: 'Settings', icon: 'user', keywords: 'lead change choose', run: go(paths.onboarding) });
+    const who = auth.value;
+    if (who.status === 'signed-in') items.push({ id: 'set:signout', label: 'Sign out', hint: who.email, group: 'Settings', icon: 'user', keywords: 'log out logout account google leave', run: () => void signOut() });
     if (t !== 'dark') items.push({ id: 'set:dark', label: 'Use dark theme', group: 'Settings', icon: 'moon', keywords: 'night theme appearance', run: () => setTheme('dark') });
     if (t !== 'light') items.push({ id: 'set:light', label: 'Use light theme', group: 'Settings', icon: 'sun', keywords: 'day theme appearance', run: () => setTheme('light') });
     if (t !== 'system') items.push({ id: 'set:system', label: 'Match system theme', group: 'Settings', icon: 'sun', keywords: 'auto theme appearance', run: () => setTheme('system') });

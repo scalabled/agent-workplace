@@ -34,4 +34,15 @@ export interface Env extends ProviderEnv {
   EXPR_RENDER_PER_MIN?: string;
   /** Default and ceiling (600) of clips one pre-voice run renders (default 300). */
   EXPR_PREVOICE_MAX_CLIPS?: string;
+  /** Sign-in (src/auth/auth.ts): "google" requires a session everywhere; unset/"off" leaves only loopback hosts open. */
+  AUTH_MODE?: string;
+  /** Exact public origin (no trailing slash) used for the OAuth redirect, e.g. https://headcount.example.workers.dev. */
+  APP_ORIGIN?: string;
+  /** Google OAuth web client id (public) and secret (a Worker secret). */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  /** Allowlist of Google emails that may sign in (comma-separated). Empty: nobody. A Worker secret. */
+  OWNER_EMAILS?: string;
+  /** "true" enables tooling-only routes (POST /api/media/image). Off when deployed. */
+  ENABLE_MEDIA_TOOLS?: string;
 }

@@ -27,7 +27,7 @@ describe('generatePortrait', () => {
     expect(painting.value['lead-x']).toEqual({ status: 'painting' });
     await vi.advanceTimersByTimeAsync(10_000);
     await run;
-    expect(calls[0]).toBe('POST /api/portraits/lead-x/generate');
+    expect(calls[0]).toBe('POST /api/portraits/lead-x/generate?wait=1'); // generates in-request (DEPLOY.md H6)
     expect(gets).toBe(3);
     expect(painting.value['lead-x']).toBeUndefined();
     expect(portraitEpoch.value).toBe(epoch + 1);

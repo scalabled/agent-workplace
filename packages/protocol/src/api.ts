@@ -21,7 +21,9 @@ export type ErrorCode =
   | 'not_implemented'
   | 'provider_error'
   | 'cancelled'
-  | 'internal';
+  | 'internal'
+  /** No valid session: sign in (Google) first. Only when AUTH_MODE requires it (deployed hosts). */
+  | 'unauthenticated';
 
 /** Every non-2xx JSON response has this body. Messages are one plain sentence with its fix. */
 export interface ApiErrorBody {

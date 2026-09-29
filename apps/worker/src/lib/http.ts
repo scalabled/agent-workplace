@@ -29,6 +29,7 @@ const STATUS: Record<ErrorCode, number> = {
   provider_error: 502,
   cancelled: 499,
   internal: 500,
+  unauthenticated: 401,
 };
 
 /** Throw from a handler to produce an ApiErrorBody response. Messages: one sentence with its fix; never secrets. */

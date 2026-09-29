@@ -1,0 +1,100 @@
+// Deploy config for the Cloudflare test deployment (created from wrangler.deploy.example.jsonc).
+// Resources: Worker "headcount" (https://headcount.greg-371.workers.dev), D1 "headcount", R2 "headcount-blobs".
+// Auth: Google sign-in (Phase B adds its vars; GOOGLE_CLIENT_SECRET and OWNER_EMAILS are secrets). Not deployable until then.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // PROPOSED config for the Cloudflare TEST deployment (docs/DEPLOY.md). Not used by `pnpm dev`, tests or CI.
+  //   cp wrangler.deploy.example.jsonc wrangler.deploy.jsonc   # then fill every <…> value
+  //   node ../../scripts/deploy-preflight.mjs                  # must pass before anything below
+  //   npx wrangler deploy -c wrangler.deploy.jsonc             # owner-run, after `wrangler login`
+  // wrangler.jsonc stays the local-dev config. The preflight fails if the two disagree on Durable Object classes,
+  // bindings or migration tags, so a class added in dev cannot ship without its migration.
+  "name": "headcount",
+  "main": "src/index.ts",
+  // If your login can see several Cloudflare accounts, add "account_id": "<32-hex id>" (not a secret) or export
+  // CLOUDFLARE_ACCOUNT_ID, so wrangler never picks the wrong one.
+  // Same date and flags as wrangler.jsonc (verified with the installed workerd, docs/dev/CONTRACTS.md §3).
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // One hostname: headcount-test.<account-subdomain>.workers.dev, put behind Cloudflare Access (DEPLOY.md §4).
+  // Preview URLs are separate hostnames that the workers.dev Access toggle does not cover: keep them off.
+  "workers_dev": true,
+  "preview_urls": false,
+
+  // The SPA from the Vite build (`pnpm build` → apps/web/dist; path is relative to this file). Only /api/* (HTTP and
+  // the /api/ws WebSocket) runs the Worker; every other path is a static asset, and unknown paths such as /app/floor
+  // get index.html. Security headers, the CSP and long caching for hashed files come from apps/web/public/_headers,
+  // and apps/web/public/.assetsignore keeps dev/ (and optionally *.map) out of the upload (DEPLOY.md §3).
+  "assets": {
+    "directory": "../web/dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  // Size: `npx wrangler deploy --dry-run -c wrangler.deploy.jsonc` reports "Total Upload"; since 2026-09-04 only that
+  // uncompressed figure counts (64 MiB on Free and Paid). Today it is ~8.2 MiB. The preflight checks it.
+
+  // Workers Logs. The worker logs error messages only (never bodies, env or keys; src/index.ts toErrorResponse).
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+
+  "durable_objects": {
+    "bindings": [
+      { "name": "WORKSPACE", "class_name": "WorkspaceDO" },
+      { "name": "PROJECT", "class_name": "ProjectDO" },
+      { "name": "ROOM", "class_name": "RoomDO" },
+      { "name": "RUN", "class_name": "RunDO" }
+    ]
+  },
+  // The first deploy creates the four SQLite-backed classes. Never edit a shipped tag; add v2, v3… for changes.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["WorkspaceDO", "ProjectDO", "RoomDO", "RunDO"] }],
+
+  // npx wrangler d1 create headcount-test   → paste the printed id below
+  // npx wrangler d1 migrations apply headcount-test --remote -c wrangler.deploy.jsonc
+  "d1_databases": [
+    { "binding": "DB", "database_name": "headcount", "database_id": "080a0f85-f9fe-4aa5-9dc5-08e025f0e951", "migrations_dir": "migrations" }
+  ],
+  // npx wrangler r2 bucket create headcount-test-blobs   (private: never enable public access or r2.dev)
+  "r2_buckets": [{ "binding": "BLOBS", "bucket_name": "headcount-blobs" }],
+
+  // Non-secret settings. Keys are secrets, set with `npx wrangler secret put <NAME> -c wrangler.deploy.jsonc`:
+  // ANTHROPIC_API_KEY, OPENAI_API_KEY, XAI_API_KEY (GEMINI_API_KEY optional). Use keys made for this deployment
+  // (with provider-side spend caps), never the ones in .dev.vars, and never `wrangler secret bulk .dev.vars`.
+  "vars": {
+    // Single-owner app: keep "local" so migrated ws/local/* clips carry over (scripts/migrate-local-data.mjs).
+    "WORKSPACE_ID": "local",
+    // Stamp each deploy: npx wrangler deploy -c wrangler.deploy.jsonc --var APP_VERSION:$(git rev-parse --short HEAD)
+    "APP_VERSION": "test",
+    // Real providers only once keys are set. For a keyless first smoke deploy, pass
+    // --var ENABLE_MOCK:true --var DEFAULT_CHAT:mock --var MOCK_MEDIA:true (costs nothing).
+    "ENABLE_MOCK": "false",
+    "DEFAULT_CHAT": "auto",
+    "MOCK_DELAY_MS": "0",
+    "MOCK_MEDIA": "false",
+    // Exactly the deployed origin (https, no trailing slash). The worker 403s every other Origin and Host.
+    "ALLOWED_ORIGINS": "https://headcount.greg-371.workers.dev",
+    "AUTH_MODE": "google", // sign-in required on every route except health + the landing's read-only portraits
+    "APP_ORIGIN": "https://headcount.greg-371.workers.dev", // exact origin for the OAuth redirect (/api/auth/callback)
+    "GOOGLE_CLIENT_ID": "939412184719-eb14hbvcag2nvd53dth8pt6n28jigh55.apps.googleusercontent.com", // public; GOOGLE_CLIENT_SECRET and OWNER_EMAILS are secrets
+    // No OLLAMA_BASE_URL: a deployed Worker cannot reach Ollama on the owner's machine.
+
+    // Cloudflare Access (DEPLOY.md §4): the team domain and the application's audience (AUD) tag. The worker must
+    // verify Cf-Access-Jwt-Assertion against them (proposed src/lib/access.ts); the preflight fails until it does.
+
+    // Conservative spending limits for a test deployment (dev defaults in parentheses). Calls per UTC day unless
+    // noted; past a limit the route answers 429. Provider-side monthly caps are the real backstop.
+    "CHAT_DAILY_LIMIT": "300", // (1500) Chief of Staff, desk, room and huddle turns
+    "JOB_DAILY_LIMIT": "10", // (60) background jobs started
+    "MAX_ACTIVE_JOBS": "2", // (3) jobs running at once
+    "TTS_DAILY_LIMIT": "500", // (3000) spoken sentences
+    "STT_DAILY_LIMIT": "100", // (600) recordings transcribed
+    "PORTRAIT_DAILY_LIMIT": "10", // (200) portraits AND POST /api/media/image (shared budget)
+    "EXPR_CLIP_DAILY_LIMIT": "200", // (600) voice clip renders; R2 hits (migrated clips) are free
+    "EXPR_RENDER_PER_MIN": "10", // (30) runtime clip renders per minute
+    "EXPR_PREVOICE_MAX_CLIPS": "100", // (300) clips per pre-voice run
+
+    // POST /api/media/image is tooling for scripts/marketing-images.mjs. Once the worker gates it on this var
+    // (DEPLOY.md §6, code change C3) it stays off here; today only PORTRAIT_DAILY_LIMIT caps it.
+    "ENABLE_MEDIA_TOOLS": "false"
+  }
+}

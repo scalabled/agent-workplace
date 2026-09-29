@@ -9,7 +9,8 @@ import { handleDeskSay } from './desk/routes';
 import { handleExprAgent, handleExprAlign, handleExprCatalog, handleExprClip, handleExprPrevoice, handleExprPrevoiceStatus, handleExprRender } from './expr/routes';
 import { handleExprHuddleRender } from './expr/huddle-render';
 import { HttpError, errorResponse, type RouteContext, type RouteHandler } from './lib/http';
-import { guardRequest, originPolicy, type OriginPolicy } from './lib/origin';
+import { guardHost, guardRequest, originPolicy, type OriginPolicy } from './lib/origin';
+import { handleAuthRoute, isLoopback, requireSession } from './auth/auth';
 import { handleCapabilities } from './media/capabilities';
 import { handleMediaRoute } from './media/media-images';
 import { handleGeneratePortrait, handleGetLandmarks, handleGetPortrait, handleListPortraits, handlePutLandmarks } from './media/portraits';
@@ -95,13 +96,28 @@ export async function handle(request: Request, env: Env, ctx: ExecutionContext):
   // Everything, including matching (a malformed %-escape) and the body cap (an aborted upload), answers an ApiErrorBody.
   try {
     const url = new URL(request.url);
-    if (!url.pathname.startsWith('/api/')) return errorResponse('not_found', 'Nothing here. The app is served by Vite on :5173 in dev.');
+    // Deployed, Workers Static Assets serves everything outside /api (run_worker_first: ["/api/*"]); in dev, Vite does.
+    if (!url.pathname.startsWith('/api/')) return errorResponse('not_found', 'Nothing here.');
     const found = matchRoute(request.method, url.pathname);
-    // Only the app itself may call: no cross-site pages (CSRF, the feed socket) and no rebound host names.
-    const denied = guardRequest(request, url, found && 'match' in found ? found.match.id : null, policyFor(env));
+    const routeId = found && 'match' in found ? found.match.id : null;
+    // The sign-in navigations are cross-site by design (Google redirects back): host check only; the OAuth state
+    // protects them. Everything else: only the app itself may call (no CSRF, no cross-site feed, no rebound hosts).
+    const signInNav = url.pathname === '/api/auth/google' || url.pathname === '/api/auth/callback';
+    const denied = signInNav ? guardHost(request, url, policyFor(env)) : guardRequest(request, url, routeId, policyFor(env));
     if (denied) return denied;
+    // /api/auth/* (sign-in, outside the protocol table).
+    const auth = await handleAuthRoute(request, url, env);
+    if (auth) return auth;
+    // Every other route needs a session unless it is public (health, the landing's read-only portraits) or the
+    // host is loopback with sign-in off (local dev). Fails closed on any deployed host.
+    const unauthenticated = await requireSession(request, env, url, routeId);
+    if (unauthenticated) return unauthenticated;
     // /api/media/* (media-owned, outside the protocol table): POST /api/media/image, GET /api/media/:key.
-    if (!found) return (await handleMediaRoute(request, url, env)) ?? errorResponse('not_found', `No route for ${url.pathname}.`);
+    if (!found) {
+      // Generic image generation is tooling (marketing art): loopback dev, or ENABLE_MEDIA_TOOLS=true, only.
+      if (url.pathname === '/api/media/image' && !isLoopback(url.hostname) && env.ENABLE_MEDIA_TOOLS !== 'true') return errorResponse('not_found', `No route for ${url.pathname}.`);
+      return (await handleMediaRoute(request, url, env)) ?? errorResponse('not_found', `No route for ${url.pathname}.`);
+    }
     if ('allowed' in found) return errorResponse('method_not_allowed', `Use ${found.allowed.join(' or ')} for ${url.pathname}.`, { headers: { allow: found.allowed.join(', ') } });
 
     const { id, params } = found.match;

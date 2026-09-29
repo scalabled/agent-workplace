@@ -33,6 +33,7 @@ import type {
 } from '@headcount/protocol/ext/expressions';
 import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcount/protocol/ext/media';
 import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, RoomCancelResponse, RoomId, RoomSayAccepted, RoomSayRequest } from '@headcount/protocol/ext/rooms';
+import { noteUnauthenticated } from '../auth/session';
 import { clientId } from '../lib/client-id';
 
 export class ApiError extends Error {
@@ -54,12 +55,16 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 async function toApiError(res: Response): Promise<ApiError> {
+  let err: ApiError;
   try {
     const body = (await res.json()) as ApiErrorBody;
-    return new ApiError(res.status, body.error.code, body.error.message, body.error.missingKeys);
+    err = new ApiError(res.status, body.error.code, body.error.message, body.error.missingKeys);
   } catch {
-    return new ApiError(res.status, 'internal', `Request failed (${res.status}).`);
+    err = new ApiError(res.status, 'internal', `Request failed (${res.status}).`);
   }
+  // An expired or missing session (deployed, Google sign-in): back to the sign-in screen.
+  if (res.status === 401) noteUnauthenticated();
+  return err;
 }
 
 const jsonInit = (method: string, body: unknown): RequestInit => ({ method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -87,7 +92,9 @@ export const api = {
     return { audio: await res.arrayBuffer(), mime: res.headers.get('content-type')?.split(';')[0] || 'audio/mpeg' };
   },
   stt: (audio: Blob) => request<SttResponse>(routePath('stt'), { method: 'POST', headers: { 'content-type': audio.type || 'audio/webm' }, body: audio }),
-  generatePortrait: (personaId: string) => request<PortraitGenerateResponse>(routePath('generatePortrait', { personaId }), { method: 'POST' }),
+  // ?wait=1: generate inside the request. Deployed Workers stop waitUntil work ~30 s after the response, which could
+  // strand a paid image mid-generation (DEPLOY.md H6); the request itself may run as long as the provider takes.
+  generatePortrait: (personaId: string) => request<PortraitGenerateResponse>(`${routePath('generatePortrait', { personaId })}?wait=1`, { method: 'POST' }),
   /** Which faces have a stored portrait (one call instead of a probe per face). */
   listPortraits: () => request<PortraitListResponse>(routePath('listPortraits')),
   portraitUrl: (personaId: string) => routePath('getPortrait', { personaId }),
