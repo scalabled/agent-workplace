@@ -21,15 +21,15 @@ describe('renderMarkdown', () => {
 
 describe('palette filter', () => {
   const item = (label: string, group: PaletteItem['group'], hint = '', keywords = ''): PaletteItem => ({ id: label, label, hint, keywords, group, icon: 'user', run: () => undefined });
-  const items = [item('Talk', 'Places'), item('Floor', 'Places', 'Directory'), item('Zainab Qureshi', 'Coworkers', 'Pricing strategist'), item('Omar Aziz', 'Coworkers', 'Pricing & promotions analyst'), item('Priya Nair', 'Coworkers', 'Bookkeeper')];
+  const items = [item('Talk', 'Places'), item('Floor', 'Places', 'Directory'), item('Hira Malik', 'Coworkers', 'Pricing strategist'), item('Ilyas Bennani', 'Coworkers', 'Pricing & promotions analyst'), item('Priya Nair', 'Coworkers', 'Bookkeeper')];
 
   it('shows places and settings, not the whole staff, before typing', () => {
     expect(filterItems(items, '').map((i) => i.label)).toEqual(['Talk', 'Floor']);
   });
 
   it('ranks name prefixes first, then word prefixes, then hints', () => {
-    expect(filterItems(items, 'pri').map((i) => i.label)).toEqual(['Priya Nair', 'Omar Aziz', 'Zainab Qureshi']);
-    expect(filterItems(items, 'qur').map((i) => i.label)).toEqual(['Zainab Qureshi']);
+    expect(filterItems(items, 'pri').map((i) => i.label)).toEqual(['Priya Nair', 'Hira Malik', 'Ilyas Bennani']);
+    expect(filterItems(items, 'mal').map((i) => i.label)).toEqual(['Hira Malik']);
     expect(filterItems(items, 'directory').map((i) => i.label)).toEqual(['Floor']);
   });
 });

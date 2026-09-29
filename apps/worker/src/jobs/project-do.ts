@@ -300,7 +300,8 @@ export class ProjectDO extends DurableObject<Env> {
       const retryable = !(err instanceof WorkError) || err.retryable;
       logError(`project.job ${jobId} ${row.phase}`, err);
       if (!retryable || attempts >= MAX_ATTEMPTS) {
-        this.fail(row, 'provider_error', `I could not finish “${row.title}” because the model kept failing. Try again in a minute, or check the provider key.`, true);
+        // The reason only: the announcement and the status line already name the job ("I could not finish “…”.").
+        this.fail(row, 'provider_error', 'The model kept failing, so I stopped retrying. Try again in a minute, or check the provider key.', true);
       } else {
         this.patch(jobId, fence, { attempts, next_at: runtime.now() + 1000 * 2 ** (attempts - 1) });
       }

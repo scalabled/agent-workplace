@@ -1,5 +1,7 @@
 # Critique: the 12 lead personalities
 
+> **Names changed after this review (catalog 2.0.0, 28 September 2026).** Owner directive D3 re-cast every lead and coworker as a modern knowledge worker: new names, handles, ages, looks, accents and portraits, with some lore rewritten for the younger ages. Ids did not change. This critique is kept as written, so it uses the old names, and points about ages, looks, accents or portraits may no longer apply. Leads: Dominic → Paolo, Zuri → Neema, Grace → Sunny, Samuel → Kobby, Rafael → Mateo, Sasha → Sevan, Pao → Tou, Selam → Liya, Owen → Ellis, Jo → Renata, Juno → Rio, Kadri → Grete. Every person's old and new name is in [`catalog/renames.json`](../renames.json).
+
 Reviewer lens: novelist (character, voice, texture), UX researcher (choice, first minute, coverage), ethicist (honesty, stereotypes, vulnerable owners).
 Scope: all 12 files in `catalog/leads/`, cross-checked against `schema/lead.schema.json`, `SCHEMA.md` §6/§8/§11, `taxonomy.json` (voices, portrait conventions, honesty policy, leads), `formation.json` and the 162 personas.
 Validation baseline: on a scratch copy of the catalog, `scripts/validate.mjs` passes the leads with **0 errors and 0 warnings**. The only lead-area warning is the missing `leads/match-quiz.json`, which is designed in §11 below. The draft quiz passes the validator on the same scratch copy, and the real catalog was not touched.

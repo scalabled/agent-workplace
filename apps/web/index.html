@@ -1,13 +1,47 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#F7F5F0" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#111316" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0A0B0D" />
+    <meta name="description" content="Headcount is an AI office for small businesses. Hire a team in a sentence, watch it work, and walk in anytime." />
+    <meta property="og:title" content="Headcount — the AI Office" />
+    <meta property="og:description" content="Hire a team in a sentence. Watch it work. Walk in anytime." />
+    <meta property="og:type" content="website" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href="/fonts/inter-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin />
     <title>Headcount</title>
+    <script>
+      // Before first paint: dark by default everywhere (D3). Light only when chosen in the app (⌘K); the public
+      // landing page ("/") is always dark. On "/", preload the hero image (the landing's largest paint).
+      (function () {
+        var d = document.documentElement;
+        var landing = location.pathname === '/';
+        var t = 'dark';
+        try {
+          var v = localStorage.getItem('headcount.theme');
+          if (v === 'light') t = 'light';
+          else if (v === 'system') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        } catch (e) {}
+        d.dataset.theme = landing ? 'dark' : t;
+        var hero = '__HEADCOUNT_HERO__';
+        var heroSet = '__HEADCOUNT_HERO_SRCSET__';
+        if (landing && hero) {
+          var l = document.createElement('link');
+          l.rel = 'preload';
+          l.as = 'image';
+          l.href = hero;
+          if (heroSet) {
+            l.setAttribute('imagesrcset', heroSet);
+            l.setAttribute('imagesizes', '100vw');
+          }
+          l.type = 'image/webp';
+          l.setAttribute('fetchpriority', 'high');
+          document.head.appendChild(l);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

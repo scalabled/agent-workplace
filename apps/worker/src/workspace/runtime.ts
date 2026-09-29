@@ -17,3 +17,8 @@ export const defaultRuntime = { ...runtime };
 export function logError(where: string, err: unknown): void {
   console.error(`[${where}]`, err instanceof Error ? err.message : String(err));
 }
+
+/** Log a recoverable condition worth seeing in the dev log (no request bodies, env or keys). */
+export function logWarn(where: string, message: string): void {
+  console.warn(`[${where}]`, message);
+}

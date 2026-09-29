@@ -85,6 +85,30 @@ const TAPER_BREAKS: readonly (readonly [number, number])[] = [
 ];
 const DEFAULT_LID = 'rgb(180,140,120)';
 
+type Rgb = [number, number, number];
+
+/**
+ * Where the lid colour is sampled, in eye widths from the eye centre: two points on the brow bone and three on the
+ * upper cheek. A single point above the eye lands on the fringe of anyone with bangs (or on a glasses frame) and
+ * turns the blink into two black ovals; the median of five by brightness is skin as long as at most two are not.
+ */
+export const LID_PROBES: readonly (readonly [number, number])[] = [
+  [0, -0.55],
+  [0, -0.8],
+  [0, 0.6],
+  [-0.3, 0.8],
+  [0.3, 0.8],
+];
+
+/** The median-brightness sample as a CSS colour (the default lid when nothing could be read). */
+export function lidColor(samples: readonly (Rgb | null)[]): string {
+  const known = samples.filter((c): c is Rgb => !!c).sort((a, b) => luma(a) - luma(b));
+  const mid = known[Math.floor((known.length - 1) / 2)];
+  return mid ? `rgb(${mid[0]},${mid[1]},${mid[2]})` : DEFAULT_LID;
+}
+
+const luma = ([r, g, b]: Rgb) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
 interface Rect {
   x: number;
   y: number;
@@ -209,10 +233,12 @@ export class PortraitRenderer {
     this.rightEyeWidthPx = (lm.rightEyeWidth || 0) * w;
     // Sampled ONCE here, not on every blink frame (getImageData per frame was a stall), and in a
     // single readback for both eyes (repeated readbacks make browsers de-accelerate the canvas).
-    [this.leftLidColor, this.rightLidColor] = this.sampleSkin([
-      this.leftEyePx ? { x: this.leftEyePx.x, y: this.leftEyePx.y - this.leftEyeWidthPx * 0.8 } : null,
-      this.rightEyePx ? { x: this.rightEyePx.x, y: this.rightEyePx.y - this.rightEyeWidthPx * 0.8 } : null,
-    ]);
+    const probes = (eye: Point | null, eyeW: number) => LID_PROBES.map(([dx, dy]) => (eye && eyeW ? { x: eye.x + dx * eyeW, y: eye.y + dy * eyeW } : null));
+    const left = probes(this.leftEyePx, this.leftEyeWidthPx);
+    const right = probes(this.rightEyePx, this.rightEyeWidthPx);
+    const samples = this.sampleSkin([...left, ...right]);
+    this.leftLidColor = lidColor(samples.slice(0, LID_PROBES.length));
+    this.rightLidColor = lidColor(samples.slice(LID_PROBES.length));
 
     const allX = [...upperOuter, ...lowerOuter].map((p) => p.x);
     const mxMin = Math.min(...allX);
@@ -250,11 +276,11 @@ export class PortraitRenderer {
     this.lowerLipPx = Math.max(2, this.faceHeightPx * 0.025);
   }
 
-  /** Skin colour at each point (one getImageData over their bounding box). */
-  private sampleSkin(points: (Point | null)[]): string[] {
+  /** Colour at each point (one getImageData over their bounding box); null when unknown. */
+  private sampleSkin(points: (Point | null)[]): (Rgb | null)[] {
     const inside = points.map((p) => (p ? { x: Math.round(p.x), y: Math.round(p.y) } : null)).map((p) => (p && p.x >= 0 && p.x < this.w && p.y >= 0 && p.y < this.h ? p : null));
     const valid = inside.filter((p): p is Point => !!p);
-    if (!this.offCtx || !valid.length) return points.map(() => DEFAULT_LID);
+    if (!this.offCtx || !valid.length) return points.map(() => null);
     const x0 = Math.min(...valid.map((p) => p.x));
     const y0 = Math.min(...valid.map((p) => p.y));
     const w = Math.max(...valid.map((p) => p.x)) - x0 + 1;
@@ -262,12 +288,12 @@ export class PortraitRenderer {
     try {
       const data = this.offCtx.getImageData(x0, y0, w, h).data;
       return inside.map((p) => {
-        if (!p) return DEFAULT_LID;
+        if (!p) return null;
         const i = ((p.y - y0) * w + (p.x - x0)) * 4;
-        return data.length >= i + 3 ? `rgb(${data[i]},${data[i + 1]},${data[i + 2]})` : DEFAULT_LID;
+        return data.length >= i + 3 ? [data[i]!, data[i + 1]!, data[i + 2]!] : null;
       });
     } catch {
-      return points.map(() => DEFAULT_LID); // tainted canvas (cross-origin portrait)
+      return points.map(() => null); // tainted canvas (cross-origin portrait)
     }
   }
 

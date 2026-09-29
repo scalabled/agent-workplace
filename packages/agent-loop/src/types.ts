@@ -1,4 +1,4 @@
-import type { ChatMessage, ChatProvider, ChatRequest, FinishReason, ModelEvent, ReasoningEffort, ToolSpec } from '@headcount/models';
+import type { BudgetHint, ChatMessage, ChatProvider, ChatRequest, FinishReason, ModelEvent, ReasoningEffort, ToolSpec } from '@headcount/models';
 
 /** Outcome of one tool execution, returned to the model as a `tool` message. */
 export type ToolOutcome =
@@ -32,7 +32,12 @@ export type LoopEvent =
   | { type: 'step'; step: number; wrapUp?: boolean }
   | { type: 'tool_start'; callId: string; name: string; args: unknown }
   | { type: 'tool_end'; callId: string; name: string; ok: boolean; summary?: string; durationMs: number }
-  | { type: 'checkpoint'; step: number; injected: number };
+  | { type: 'checkpoint'; step: number; injected: number }
+  /**
+   * A model call spent its whole budget thinking and ended `length` with no text and no tool call; it is sent
+   * again once with this budget (see `RunTurnOptions.emptyLengthRetry`).
+   */
+  | { type: 'retry'; step: number; reason: 'empty_length'; maxTokens?: number; reasoningEffort?: ReasoningEffort };
 
 /** What the loop passes to `checkpoint` after each tool round, before the next model call. */
 export interface CheckpointInfo {
@@ -69,10 +74,19 @@ export interface RunTurnOptions {
   maxTokens?: number;
   temperature?: number;
   reasoningEffort?: ReasoningEffort;
+  /** What `maxTokens`/`reasoningEffort` were sized from (`callBudget`), passed on so a failover re-sizes the call. */
+  budget?: BudgetHint;
   /** Tool choice for the FIRST model call only (e.g. force a submit tool); later calls use the provider default. */
   toolChoice?: ChatRequest['toolChoice'];
   /** Structured output for every model call of the turn. */
   responseFormat?: ChatRequest['responseFormat'];
+  /**
+   * A call that ends `length` with no text and no tool call (a reasoning model spent `maxTokens` thinking) is
+   * sent again once per turn, by default with `maxTokens` doubled and the effort one notch lower
+   * (`lowerEffort`); the raised budget then holds for the rest of the turn. Pass values to override the retry
+   * budget, or `false` to return the empty `length` result instead.
+   */
+  emptyLengthRetry?: false | { maxTokens?: number; reasoningEffort?: ReasoningEffort };
   /** Called after every tool round, before the next model call: apply steering, check fences. */
   checkpoint?: (info: CheckpointInfo) => CheckpointDirective | void | Promise<CheckpointDirective | void>;
 }

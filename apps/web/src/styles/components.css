@@ -14,6 +14,7 @@
   color: var(--lamp-ink);
   font-weight: var(--weight-medium);
   white-space: nowrap;
+  box-shadow: var(--primary-glow);
   transition:
     transform var(--dur-state) var(--ease-out),
     filter var(--dur-state) var(--ease-out);
@@ -51,6 +52,7 @@
 
 .button-quiet:hover {
   border-color: var(--muted);
+  background: var(--panel-hover);
 }
 
 .button-stop {
@@ -217,6 +219,14 @@
 
 .face-hero {
   border-radius: var(--radius-stage);
+  /* The agent's own light: a hairline and a soft halo in their accent (stronger in the dark theme). */
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent),
+    0 24px 60px -24px color-mix(in srgb, var(--accent) var(--glow-mix), transparent);
+}
+
+.face-tile {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .face-initials {
@@ -238,7 +248,10 @@
   border-radius: 50%;
   border: 0;
   background: color-mix(in srgb, var(--accent) 18%, var(--panel));
-  box-shadow: var(--shadow-float);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
+    0 12px 36px -10px color-mix(in srgb, var(--accent) var(--glow-mix), transparent),
+    var(--shadow-float);
   z-index: var(--z-bubble);
   display: grid;
   touch-action: none;
@@ -332,7 +345,7 @@
 /* New messages from the Chief of Staff while you were elsewhere. */
 .bubble-badge[data-kind='unread'] {
   background: var(--hand);
-  color: #fff;
+  color: var(--hand-ink);
 }
 
 /* One pulse when news arrives (a job finished): noticeable with voice off, calm otherwise. */
@@ -368,6 +381,18 @@
   .chief-bubble {
     right: var(--space-4);
     bottom: calc(var(--bottom-tabs-height) + env(safe-area-inset-bottom) + var(--space-4));
+    transition:
+      transform var(--dur-hero) var(--ease-out),
+      opacity var(--dur-hero) var(--ease-out),
+      box-shadow var(--dur-state) var(--ease-out),
+      bottom var(--dur-hero) var(--ease-out);
+  }
+  /* Phones: it tucks away while you scroll down to read, and comes back when you scroll up (or stop at the end),
+     so it never sits on the text you are reading. Focus, listening and news bring it back at once. */
+  .chief-bubble[data-tucked]:not(:focus-visible):not([data-listening]):not([data-pulse]) {
+    transform: translate3d(0, calc(100% + var(--space-5)), 0);
+    opacity: 0;
+    pointer-events: none;
   }
 }
 
@@ -556,7 +581,8 @@
 .palette-group {
   margin-left: auto;
   font-size: var(--text-xs);
-  color: var(--faint);
+  /* Text that labels something is --muted (≥ 4.5:1); --faint is for decorative glyphs only. */
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -803,6 +829,11 @@
   gap: var(--space-2) var(--space-4);
   color: var(--muted);
   font-size: var(--text-xs);
+}
+
+/* A job that failed or was stopped: one clear next action. */
+.job-again {
+  display: flex;
 }
 
 /* Stop lives at the far end of the foot line, apart from Steer. */

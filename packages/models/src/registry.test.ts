@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { callBudget, REASONING_ALLOWANCE } from './budget';
 import { collectEvents } from './collect';
 import { MissingProviderError } from './errors';
 import { HealthCache } from './health';
@@ -185,6 +186,37 @@ describe('failover between real providers', () => {
     const e3 = (await collect(local.r.resolve('chat').provider.chat({ messages: [{ role: 'user', content: 'x' }] }))).at(-1)!;
     expect(e3).toMatchObject({ type: 'error', status: 500 });
     expect(local.f.calls.some((c) => c.url.includes('openai.com'))).toBe(false);
+  });
+
+  it('re-sizes a failed-over call for the provider that serves it: a local fallback never gets a cloud thinking budget', async () => {
+    const { r, f } = reg({ ...env, OPENAI_API_KEY: '', OLLAMA_BASE_URL: OLLAMA }, (req) => {
+      if (req.url.endsWith('/api/tags')) return jsonResponse(TAGS);
+      if (req.url.includes('anthropic')) return jsonResponse({ error: { type: 'overloaded_error', message: 'Overloaded' } }, 529);
+      return ndjsonResponse([{ message: { content: 'Local answer.' } }, { done: true, done_reason: 'stop' }]);
+    });
+    await r.warm();
+    const res = r.resolve('chat', { tier: 'reason' });
+    expect(res.providerId).toBe('anthropic');
+    const sized = callBudget(res.provider, res.model, 1500, 'medium');
+    expect(sized.reasoningEffort).toBe('medium');
+    const out = await collectEvents(res.provider.chat({ model: res.model, messages: [{ role: 'user', content: 'x' }], ...sized }));
+    expect(out.text).toBe('Local answer.');
+    const body = f.calls.find((c) => c.url.endsWith('/api/chat'))!.body as { think?: unknown; options?: { num_predict?: number } };
+    expect(body.think).not.toBe(true);
+    expect(body.options?.num_predict).toBe(1500);
+  });
+
+  it('gives a reasoning fallback its room to think when the head does not reason', async () => {
+    const { r, f } = reg(env, (req) => (req.url.includes('anthropic') ? jsonResponse({ error: { type: 'overloaded_error', message: 'Overloaded' } }, 529) : openaiText()));
+    const res = r.resolve('chat', { tier: 'voice' });
+    expect(res.model).toBe('claude-haiku-4-5');
+    const sized = callBudget(res.provider, res.model, 900, 'low');
+    expect(sized).toEqual({ maxTokens: 900, budget: { output: 900, effort: 'low' } });
+    const out = await collectEvents(res.provider.chat({ model: res.model, messages: [{ role: 'user', content: 'x' }], ...sized }));
+    expect(out.text).toBe('From OpenAI.');
+    const body = f.calls.at(-1)!.body as { max_output_tokens?: number; reasoning?: { effort?: string } };
+    expect(body.max_output_tokens).toBe(900 + REASONING_ALLOWANCE.low);
+    expect(body.reasoning?.effort).toBe('low');
   });
 
   it('never fails over once output has started', async () => {

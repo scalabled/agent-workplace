@@ -1,6 +1,7 @@
-import { runTurn, type AgentTool, type CheckpointDirective, type TurnResult } from '@headcount/agent-loop';
+import { callBudget, runTurn, type AgentTool, type CallBudget, type CheckpointDirective, type LoopEvent, type TurnResult } from '@headcount/agent-loop';
 import type { Lead } from '@headcount/catalog';
-import type { ChatProvider, JsonSchema } from '@headcount/models';
+import type { ChatProvider, JsonSchema, ReasoningEffort } from '@headcount/models';
+import { logWarn } from '../workspace/runtime';
 import { clipText, firstSentence, lowerFirst } from './job-view';
 
 // The work loop of the Everyday ProjectDO (OWNER-DIRECTIVES D2): plan → 2–4 work steps → synthesis, one
@@ -12,6 +13,35 @@ export const MAX_PLANNED_STEPS = 4;
 /** Planned steps plus follow-ups added by steering. */
 export const MAX_WORK_STEPS = 6;
 const NOTES_BUDGET = 12_000;
+
+export type WorkPhase = 'plan' | 'work' | 'synthesis';
+
+/**
+ * Per phase: the visible output a call needs (text and tool arguments) and an explicit reasoning effort. The
+ * call's max tokens add room to think on top (`callBudget`): reasoning models count thinking against the same
+ * cap, and at the provider's default effort a 1200-token work step could be spent entirely on thinking.
+ * - plan: a forced submit_plan call, a few short labels; little thinking needed.
+ * - work: notes under 200 words plus up to three findings.
+ * - synthesis: a forced submit_deliverable call with up to 600 words of Markdown.
+ */
+export const PHASE_BUDGETS: Readonly<Record<WorkPhase, { output: number; effort: ReasoningEffort }>> = {
+  plan: { output: 1000, effort: 'low' },
+  work: { output: 1500, effort: 'medium' },
+  synthesis: { output: 4000, effort: 'medium' },
+};
+
+/** Max tokens and effort for one phase on this provider and model. */
+export function phaseBudget(deps: Pick<WorkDeps, 'provider' | 'model'>, phase: WorkPhase): CallBudget {
+  const b = PHASE_BUDGETS[phase];
+  return callBudget(deps.provider, deps.model, b.output, b.effort);
+}
+
+/** Say when a call spent its whole budget thinking and was sent again with more room (agent-loop retry). */
+function watch(phase: WorkPhase, deps: WorkDeps): (e: LoopEvent) => void {
+  return (e) => {
+    if (e.type === 'retry') logWarn(`job.${phase}`, `${deps.model} used its whole budget thinking; retrying once with maxTokens=${e.maxTokens ?? 'default'}, effort=${e.reasoningEffort ?? 'default'}`);
+  };
+}
 
 export interface PlanStep {
   /** Running sentence shown while the step runs, e.g. "Comparing warranties". */
@@ -204,7 +234,8 @@ export async function planJob(deps: WorkDeps, ctx: JobContext): Promise<{ steps:
     tools: [submitPlan],
     toolChoice: { name: 'submit_plan' },
     maxSteps: 2,
-    maxTokens: 700,
+    ...phaseBudget(deps, 'plan'),
+    onEvent: watch('plan', deps),
   });
   check(result);
   const steps = normalizePlan(submitted) ?? normalizePlan(lenientJson(result.fullText));
@@ -256,11 +287,18 @@ export async function runWorkStep(deps: WorkDeps, ctx: JobContext, index: number
     tools: [recordFinding],
     checkpoint: () => hooks.checkpoint(),
     maxSteps: 5,
-    maxTokens: 1200,
+    ...phaseBudget(deps, 'work'),
+    onEvent: watch('work', deps),
   });
-  check(result);
-  const text = result.fullText.trim() || findings.map((f) => `- ${f}`).join('\n');
-  if (!text) throw new WorkError('The model returned an empty step.', true);
+  const bullets = findings.map((f) => `- ${f}`).join('\n');
+  if (result.finish === 'error' || result.finish === 'cancelled') {
+    // A step that already recorded findings is never failed: they are its notes. (A stop the owner pressed is
+    // still honoured: the ProjectDO discards the output of a fenced job.)
+    if (findings.length) return { text: [result.fullText.trim(), bullets].filter(Boolean).join('\n\n'), findings };
+    check(result);
+  }
+  const text = result.fullText.trim() || bullets;
+  if (!text) throw new WorkError(result.finish === 'length' ? 'The model used its whole budget thinking and wrote nothing, even with more room.' : 'The model returned an empty step.', true);
   return { text, findings };
 }
 
@@ -324,7 +362,8 @@ export async function synthesize(deps: WorkDeps, ctx: JobContext): Promise<{ sum
     tools: [submit],
     toolChoice: { name: 'submit_deliverable' },
     maxSteps: 2,
-    maxTokens: 3000,
+    ...phaseBudget(deps, 'synthesis'),
+    onEvent: watch('synthesis', deps),
   });
   check(result);
   const s = submitted as { summary?: unknown; markdown?: unknown } | null;

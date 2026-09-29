@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { collectEvents } from '../collect';
 import { collect, fakeFetch, jsonResponse, sseResponse, type RecordedRequest } from '../testing/fake-fetch';
 import type { ChatProvider, ToolSpec } from '../types';
-import { createGeminiProvider, pickGeminiModel, toGeminiSchema } from './gemini';
+import { REASONING_ALLOWANCE } from '../budget';
+import { createGeminiProvider, GEMINI_THINKING_BUDGET, geminiThinking, pickGeminiModel, toGeminiSchema } from './gemini';
 
 const KEY = 'AIzaTestKey0123456789';
 const tools: ToolSpec[] = [
@@ -49,7 +50,19 @@ describe('gemini adapter', () => {
     expect(body.contents).toEqual([{ role: 'user', parts: [{ text: 'hi' }] }]);
     expect(body.tools[0].functionDeclarations[1]).toEqual({ name: 'job_status', description: 'Status' });
     expect(body.toolConfig).toEqual({ functionCallingConfig: { mode: 'ANY' } });
-    expect(body.generationConfig).toEqual({ maxOutputTokens: 64, temperature: 0.1, thinkingConfig: { includeThoughts: true } });
+    expect(body.generationConfig).toEqual({ maxOutputTokens: 64, temperature: 0.1, thinkingConfig: { thinkingBudget: GEMINI_THINKING_BUDGET.low, includeThoughts: true } });
+  });
+
+  it('sends the explicit effort as a thinking budget: none turns thinking off on Flash, Pro gets its minimum', async () => {
+    expect(geminiThinking('gemini-flash-latest', 'none')).toEqual({ thinkingBudget: 0 });
+    expect(geminiThinking('gemini-flash-lite-latest', 'none')).toEqual({ thinkingBudget: 0 });
+    expect(geminiThinking('gemini-pro-latest', 'none')).toEqual({ thinkingBudget: 128 });
+    expect(geminiThinking('gemini-pro-latest', 'medium')).toEqual({ thinkingBudget: GEMINI_THINKING_BUDGET.medium, includeThoughts: true });
+    expect(geminiThinking('gemini-flash-latest', undefined)).toBeUndefined();
+    for (const e of ['low', 'medium', 'high'] as const) expect(GEMINI_THINKING_BUDGET[e]).toBeLessThan(REASONING_ALLOWANCE[e]);
+    const { f, chat } = setup(() => sseResponse([{ candidates: [{ content: { parts: [{ text: 'Done.' }] }, finishReason: 'STOP' }] }]));
+    await collect(chat.chat({ model: 'gemini-flash-latest', messages: [{ role: 'user', content: 'hi' }], maxTokens: 200, reasoningEffort: 'none' }));
+    expect((f.calls[0]!.body as { generationConfig?: unknown }).generationConfig).toEqual({ maxOutputTokens: 200, thinkingConfig: { thinkingBudget: 0 } });
   });
 
   it('emits functionCall parts as tool calls and replays their thought signatures', async () => {

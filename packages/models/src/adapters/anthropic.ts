@@ -17,6 +17,10 @@ const supportsEffort = (model: string) => !/haiku/.test(model);
 const supportsAdaptiveThinking = (model: string) => !/haiku|opus-4-[015]|sonnet-4-[05]|opus-4-1/.test(model);
 const supportsThinkingDisplay = (model: string) => /opus-5|sonnet-5|fable-5|mythos-5|opus-4-[78]/.test(model);
 const usesFallbackDefault = (model: string) => /^claude-(opus-5|fable-5|mythos-5)/.test(model);
+/** Omitting `thinking` runs adaptive thinking on these, so `reasoningEffort: 'none'` must send `{type: 'disabled'}`. */
+const thinksUnlessDisabled = (model: string) => /^claude-(opus-5(?!-5)|sonnet-5)/.test(model);
+/** Thinking cannot be switched off here (`disabled` is a 400): 'none' becomes their lowest effort. */
+const alwaysThinks = (model: string) => /^claude-(fable-5|mythos-5|opus-5-5)/.test(model);
 
 type Block = Record<string, unknown>;
 
@@ -103,8 +107,10 @@ async function* anthropicChat(http: HttpClient, req: ChatRequest, model: string)
   const tc = tools.length ? toToolChoice(req.toolChoice, names) : undefined;
   if (tc) body.tool_choice = tc;
   if (thinking) body.thinking = supportsThinkingDisplay(model) ? { type: 'adaptive', display: 'summarized' } : { type: 'adaptive' };
+  else if (req.reasoningEffort === 'none' && thinksUnlessDisabled(model)) body.thinking = { type: 'disabled' };
   const outputConfig: Record<string, unknown> = {};
   if (req.reasoningEffort && req.reasoningEffort !== 'none' && supportsEffort(model)) outputConfig.effort = req.reasoningEffort;
+  else if (req.reasoningEffort === 'none' && alwaysThinks(model)) outputConfig.effort = 'low';
   if (req.responseFormat?.type === 'json_schema') outputConfig.format = { type: 'json_schema', schema: req.responseFormat.schema };
   if (Object.keys(outputConfig).length) body.output_config = outputConfig;
   const headers: Record<string, string> = {};

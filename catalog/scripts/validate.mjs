@@ -15,6 +15,7 @@
 //   vocab        schema enums mirror taxonomy vocabularies; tool/connector/activity/artifact/voice ids exist
 //   taxonomy     every pre-assigned id present once, none extra; people fields equal the taxonomy
 //   ids          globally unique record ids; unique handles and UNIQUE FIRST NAMES across coworkers + leads
+//                (accent-folded); no first name or handle equals a voice id or a taxonomy.reserved_first_names story name
 //   refs         persona / skill / lead / recipe / connector references resolve; no self-pairing
 //   tools        persona tools (plus taxonomy.baseline_tools, which are implicit and never listed) cover the
 //                tools of every primary skill; side-effect skills are always_ask; image input needs vision_describe;
@@ -43,6 +44,7 @@
 //                approval and owner-override clauses (rules are what biz-bot exports)
 //   portraits    exact warpable prefix, closed-lip resting + delighted expressions, nothing over the mouth;
 //                lead expressions keep the head pose (no head tilt or chin movement)
+//                (warn: no backdrop, or no rim light in avatar.accent_color, per catalog/ART-DIRECTION.md)
 //   regulated    regulated domains restated in guardrails + licensed_professional escalation; every regulated
 //                recipe staffs a must_include_one_of member in composition (lean variant: warn); full_variant
 //                never counts
@@ -564,6 +566,8 @@ for (const x of recipes) if (x.rec.group && x.rec.group !== x.fileGroup) error('
 // ── handles and first names ───────────────────────────────────────────────────
 const fold = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ø/gi, 'o').replace(/ł/gi, 'l').replace(/ß/g, 'ss').replace(/æ/gi, 'ae').replace(/đ/gi, 'd').replace(/ı/g, 'i').toLowerCase();
 const firstName = (name) => String(name ?? '').trim().split(/\s+/)[0];
+// Story names used in docs (PRODUCT.md §5 owners, Chief of Staff names and story coworkers) never name a catalog person.
+const RESERVED_FIRST = new Set([...(taxonomy.reserved_first_names?.names ?? ['Dana', 'Luis', 'Priya', 'Morgan'])].map((n) => fold(n)));
 {
   const people = [...personas.map((x) => ({ ...x, kind: 'coworker' })), ...leads.map((x) => ({ ...x, kind: 'lead' }))];
   const byHandle = new Map();
@@ -581,6 +585,8 @@ const firstName = (name) => String(name ?? '').trim().split(/\s+/)[0];
       const f = fold(firstName(name));
       if (byFirst.has(f)) error('ids', x.file, where(x), `first name "${firstName(name)}" is not unique: also ${byFirst.get(f)}`);
       else byFirst.set(f, `${x.kind} ${where(x)} (${name})`);
+      if (voices.allIds.has(f)) error('ids', x.file, where(x), `first name "${firstName(name)}" equals a voice id`);
+      if (RESERVED_FIRST.has(f)) error('ids', x.file, where(x), `first name "${firstName(name)}" is reserved (taxonomy.reserved_first_names: a docs story name)`);
     }
   }
 }
@@ -653,7 +659,9 @@ function checkPortrait(file, w, avatar) {
     if (!/\blips (are |stay |fully |gently |softly |relaxed and )*(closed|together)\b|\bclosed[- ]lip|\bclosed lips\b|\bmouth (gently |softly )?closed\b/i.test(body)) warn('portraits', file, w, 'portrait_prompt body never restates the closed-lip resting expression');
     if (/\b(mustache|moustache)\b/i.test(body) && !negated(body, body.search(/\b(mustache|moustache)\b/i)) && !/trimmed|above the (upper )?lip|lips? (fully |clearly )?visible|clear of the (upper )?lip|lip line/i.test(body)) error('portraits', file, w, 'moustache without "trimmed above the lip / lips visible" (mouth must stay warpable)');
     if (/\bbeard\b/i.test(body) && !/trimmed|short|neat|close|lips? (fully |clearly )?visible|clear of the lip|groomed|clipped|cropped/i.test(body)) warn('portraits', file, w, 'beard without a length/lips-visible note');
-    if (!/background/i.test(body)) warn('portraits', file, w, 'portrait_prompt names no background (soft gradient tinted with accent_color)');
+    if (!/\b(backdrop|background)\b/i.test(body)) warn('portraits', file, w, 'portrait_prompt names no backdrop (deep charcoal seamless, catalog/ART-DIRECTION.md §3)');
+    const accent = avatar.accent_color;
+    if (typeof accent === 'string' && /^#[0-9a-f]{6}$/i.test(accent) && !(new RegExp(`${accent}\\)? rim light`, 'i').test(body))) warn('portraits', file, w, `portrait_prompt has no rim light in avatar.accent_color ${accent} (catalog/ART-DIRECTION.md §3, §6)`);
     if (!/85 ?mm|eye[- ]level|even (key )?light|soft (even )?(key )?light/i.test(body)) warn('portraits', file, w, 'portrait_prompt names no lighting/camera (soft even light, eye level, 85mm)');
   }
   const ex = avatar.expression_palette ?? {};

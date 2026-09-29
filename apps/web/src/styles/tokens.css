@@ -1,23 +1,57 @@
 /*
- * Headcount design tokens — EXPERIENCE §10 + D3: typography first, generous whitespace, one accent per
- * agent, subtle motion, matching light ("day") and dark ("night shift") themes. Nothing glows without a cause.
- * Theme: follows the OS; force with <html data-theme="light|dark">.
+ * Headcount design tokens — EXPERIENCE §10 + OWNER-DIRECTIVES D3: typography first, generous whitespace, one
+ * accent per agent, subtle motion. Dark by default everywhere ("night shift": near-black layered surfaces,
+ * hairline borders, luminous per-agent accents with a soft glow); light ("day") is an explicit choice.
+ * Theme: <html data-theme="dark|light"> (set before first paint by index.html; `src/lib/theme.ts`).
  */
-:root {
-  color-scheme: light;
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
 
-  /* ── colour (EXPERIENCE §10.2) ─────────────────────────── */
+  /* ── colour: layered near-blacks, lifted by light, not by shadow ── */
+  --surface: #0a0b0d; /* page */
+  --surface-sunken: #07080a; /* rail, wells */
+  --panel: #111317; /* cards, stages */
+  --panel-raised: #171a1f; /* popovers, captions, the active place */
+  --panel-hover: #1c2027;
+  --ink: #eeece7; /* warm off-white: easier on the eye than #fff */
+  --muted: #a0a5ae; /* ≥ 7:1 on --surface, ≥ 6:1 on --panel-raised */
+  --faint: #6e737c; /* decorative marks and secondary glyphs; text that instructs uses --muted */
+  --line: rgba(255, 255, 255, 0.065);
+  --line-strong: rgba(255, 255, 255, 0.12);
+  --lamp: #f5b85a; /* Night Shift, speaker ring, primary action */
+  --lamp-ink: #17120a; /* text on --lamp */
+  --hand: #8aabff; /* raised hands, "needs you" */
+  --hand-ink: #0b1020;
+  --blocked: #ff8f5e;
+  --proof: #6fd39b;
+  --unverified: #e8c85c;
+  --focus: #8aabff;
+  --scrim: rgba(4, 5, 7, 0.72);
+  /* Surfaces are drawn by a hairline and a faint top highlight; depth comes from a long, soft drop. */
+  --shadow-soft: 0 0 0 1px var(--line), inset 0 1px 0 rgba(255, 255, 255, 0.035), 0 10px 30px -14px rgba(0, 0, 0, 0.7);
+  --shadow-float: 0 0 0 1px var(--line-strong), inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 24px 60px -18px rgba(0, 0, 0, 0.85);
+  /* How strongly per-agent accents glow (faces, the bubble, stages). Calm: a halo, never a neon sign. */
+  --glow-mix: 42%;
+  --primary-glow: 0 8px 28px -10px color-mix(in srgb, var(--lamp) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
   --surface: #f7f5f0; /* paper */
+  --surface-sunken: #f1eee7;
   --panel: #ffffff;
   --panel-raised: #ffffff;
+  --panel-hover: #faf9f6;
   --ink: #1c1e21;
-  --muted: #6b6f76;
-  --faint: #7d8187; /* decorative marks and secondary glyphs; text that instructs uses --muted (≥ 4.5:1) */
+  --muted: #62666d;
+  --faint: #7d8187;
   --line: rgba(28, 30, 33, 0.09);
   --line-strong: rgba(28, 30, 33, 0.16);
-  --lamp: #e8a33d; /* Night Shift, speaker ring, primary action */
-  --lamp-ink: #1c1e21; /* text on --lamp */
-  --hand: #3d6fe8; /* raised hands, "needs you" */
+  --lamp: #e8a33d;
+  --lamp-ink: #1c1e21;
+  --hand: #3d6fe8;
+  --hand-ink: #ffffff;
   --blocked: #c2410c;
   --proof: #2f7d4f;
   --unverified: #8a6d00;
@@ -25,9 +59,21 @@
   --scrim: rgba(17, 19, 22, 0.32);
   --shadow-soft: 0 1px 2px rgba(28, 30, 33, 0.04), 0 8px 24px rgba(28, 30, 33, 0.06);
   --shadow-float: 0 2px 6px rgba(28, 30, 33, 0.08), 0 16px 40px rgba(28, 30, 33, 0.12);
+  --glow-mix: 16%;
+  --primary-glow: 0 1px 2px rgba(28, 30, 33, 0.08);
+}
 
+:root {
   /* Per-agent accent: set --accent on a face/desk element from catalog avatar.accent_color. */
   --accent: var(--lamp);
+
+  /* Brand spectrum (the marketing page's aurora and gradients; the app uses it sparingly). */
+  --brand-amber: #f5b85a;
+  --brand-coral: #ff7a6b;
+  --brand-violet: #9b7bff;
+  --brand-teal: #3dd6c4;
+  --brand-blue: #6aa8ff;
+  --gradient-brand: linear-gradient(100deg, var(--brand-amber), var(--brand-coral) 30%, var(--brand-violet) 62%, var(--brand-teal));
 
   /* State rings (EXPERIENCE §10.3): colour is never the only signal — pair with a glyph and words. */
   --state-idle: transparent;
@@ -37,9 +83,11 @@
   --state-speaking: var(--lamp);
   --state-raised-hand: var(--hand);
 
-  /* ── type (EXPERIENCE §10.4) ───────────────────────────── */
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-serif: 'Source Serif 4', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  /* ── type (EXPERIENCE §10.4): one humanist sans, a display cut for big moments ── */
+  /* Self-hosted (styles/fonts.css): Inter's optical-size axis gives display sizes the Inter Display cut. */
+  --font-sans: 'Inter Variable', 'Inter Fallback', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'Inter Variable', 'Inter Fallback', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-serif: 'Source Serif 4 Variable', 'Source Serif 4 Fallback', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
   --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   --text-xs: 0.75rem; /* 12 */
   --text-sm: 0.875rem; /* 14 */
@@ -48,13 +96,20 @@
   --text-xl: 1.375rem; /* 22 */
   --text-2xl: 1.75rem; /* 28 */
   --text-3xl: 2.25rem; /* 36 */
+  --text-4xl: 3rem; /* 48 */
+  --text-5xl: 4rem; /* 64 */
+  --text-6xl: 5.25rem; /* 84 */
   --leading-tight: 1.2;
+  --leading-display: 1.02;
   --leading: 1.5;
   --leading-loose: 1.7;
   --weight-regular: 400;
   --weight-medium: 520;
   --weight-semibold: 620;
+  --weight-bold: 720;
   --tracking-tight: -0.011em;
+  --tracking-display: -0.038em;
+  --tracking-caps: 0.14em;
 
   /* ── space: 8 px grid ──────────────────────────────────── */
   --space-1: 4px;
@@ -66,12 +121,14 @@
   --space-7: 48px;
   --space-8: 64px;
   --space-9: 96px;
+  --space-10: 144px;
   --measure: 68ch; /* comfortable reading width */
 
   /* ── shape ─────────────────────────────────────────────── */
   --radius-stage: 24px;
   --radius-card: 12px;
   --radius-control: 10px;
+  --radius-xl: 32px;
   --radius-pill: 999px;
   --hit: 44px; /* minimum touch target */
 
@@ -94,57 +151,6 @@
   --z-toast: 50;
 }
 
-@media (max-width: 767px) {
-  :root {
-    --bubble-size: 76px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    color-scheme: dark;
-    --surface: #111316;
-    --panel: #1a1d22;
-    --panel-raised: #20242a;
-    --ink: #eceae4;
-    --muted: #9ba0a8;
-    --faint: #80868f;
-    --line: rgba(236, 234, 228, 0.08);
-    --line-strong: rgba(236, 234, 228, 0.16);
-    --lamp: #f2b450;
-    --lamp-ink: #111316;
-    --hand: #7ea2ff;
-    --blocked: #f08a4b;
-    --proof: #6cc08e;
-    --unverified: #e0c050;
-    --focus: #7ea2ff;
-    --scrim: rgba(0, 0, 0, 0.5);
-    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
-    --shadow-float: 0 2px 6px rgba(0, 0, 0, 0.35), 0 16px 40px rgba(0, 0, 0, 0.4);
-  }
-}
-
-:root[data-theme='dark'] {
-  color-scheme: dark;
-  --surface: #111316;
-  --panel: #1a1d22;
-  --panel-raised: #20242a;
-  --ink: #eceae4;
-  --muted: #9ba0a8;
-  --faint: #80868f;
-  --line: rgba(236, 234, 228, 0.08);
-  --line-strong: rgba(236, 234, 228, 0.16);
-  --lamp: #f2b450;
-  --lamp-ink: #111316;
-  --hand: #7ea2ff;
-  --blocked: #f08a4b;
-  --proof: #6cc08e;
-  --unverified: #e0c050;
-  --focus: #7ea2ff;
-  --scrim: rgba(0, 0, 0, 0.5);
-  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
-  --shadow-float: 0 2px 6px rgba(0, 0, 0, 0.35), 0 16px 40px rgba(0, 0, 0, 0.4);
-}
 
 @media (prefers-reduced-motion: reduce) {
   :root {

@@ -110,7 +110,8 @@ function TalkHead() {
         class="talk-face-button"
         data-state={shown.state}
         data-listening={listening || undefined}
-        aria-label={`${name}, ${words}.${shown.state === 'speaking' ? ' Tap to stop.' : ''}${canHold ? ' Hold to speak.' : ''}`}
+        data-jobs={running || undefined}
+        aria-label={`${name}, ${words}${running > 0 ? `, ${running === 1 ? '1 job' : `${running} jobs`} running` : ''}.${shown.state === 'speaking' ? ' Tap to stop.' : ''}${canHold ? ' Hold to speak.' : ''}`}
         {...handlers}
       >
         <Face subject={leadSubject(lead, name)} tier="hero" state={shown.state} sampler={chiefSpeaker.mouth} class="talk-face" decorative />

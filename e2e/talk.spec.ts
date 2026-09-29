@@ -8,7 +8,7 @@ test.beforeEach(async ({ request }) => {
 });
 
 test('a reply streams in, then lands as one message', async ({ page }) => {
-  await page.goto('/talk');
+  await page.goto('/app/talk');
   await expect(page.getByRole('heading', { level: 1, name: 'Rosa' })).toBeVisible();
   await recordFrames(page);
   const before = await page.locator('.msg-chief').count();
@@ -29,7 +29,7 @@ test('a reply streams in, then lands as one message', async ({ page }) => {
 });
 
 test('delegate, ask how it is going while it runs, steer it, hear it finish', async ({ page }) => {
-  await page.goto('/talk');
+  await page.goto('/app/talk');
   await recordFrames(page);
 
   // 1. Delegate: the turn ends at once with an acknowledgement; the job runs in the Everyday project.
@@ -77,7 +77,7 @@ test('delegate, ask how it is going while it runs, steer it, hear it finish', as
 });
 
 test('stop a running job from its row', async ({ page }) => {
-  await page.goto('/talk');
+  await page.goto('/app/talk');
   await recordFrames(page);
   await say(page, 'Research standing desks under 500 dollars');
   const started = await waitForFrame(page, (f) => f.type === 'job.started' && f.live);
@@ -96,7 +96,7 @@ test('stop a running job from its row', async ({ page }) => {
 });
 
 test('steering sent while the write-up is being written is folded in, not dropped', async ({ page, request }) => {
-  await page.goto('/talk');
+  await page.goto('/app/talk');
   await recordFrames(page);
   await say(page, 'Look into bike racks for a small office');
   const started = await waitForFrame(page, (f) => f.type === 'job.started' && f.live);
@@ -113,7 +113,7 @@ test('steering sent while the write-up is being written is folded in, not droppe
 });
 
 test('a reload rebuilds the thread and jobs from the feed replay', async ({ page, request }) => {
-  await page.goto('/talk');
+  await page.goto('/app/talk');
   await recordFrames(page);
   await say(page, 'Remember this for later');
   await waitForFrame(page, (f) => f.type === 'talk.done' && f.live);
@@ -129,6 +129,6 @@ test('a reload rebuilds the thread and jobs from the feed replay', async ({ page
   expect(replayed.every((f) => !f.live)).toBe(true);
   const jobs = (await (await request.get('/api/jobs')).json()).jobs as { jobId: string; status: string }[];
   expect(jobs.length).toBeGreaterThan(0);
-  await page.goto('/projects');
+  await page.goto('/app/projects');
   await expect(page.locator('.job')).toHaveCount(jobs.length);
 });

@@ -19,10 +19,13 @@ Binding inputs: `docs/OWNER-DIRECTIVES.md` (D2 communication first, D3 minimal s
 | `pnpm test` | Vitest across all workspace projects (`vitest.config.ts` → `packages/*/vitest.config.ts`, `apps/*/vitest.config.ts`). One project: `pnpm vitest run --project worker`. |
 | `pnpm typecheck` | `tsc --noEmit` per package (worker also checks its test program; web also checks its Vite config), then root configs + e2e. Every package pins `typescript ^7.0.2` as a devDependency, so it never picks up a global `tsc` (Inc 0.5's `packages/expressions` still needs the same line). |
 | `pnpm e2e` | Playwright (Chromium with a fake mic and camera, mic permission granted, autoplay allowed) against two keyless stacks: project **chromium** on `dev.mjs --mock --fresh` (**:5183 / :8797**, state `.wrangler/e2e-state`) and project **voice** (`e2e/voice.spec.ts`) on `dev.mjs --mock --mock-media --fresh` (**:5184 / :8798**, `.wrangler/e2e-voice-state`). Keyless even when `.dev.vars` has keys (`--mock` blanks them; `--var` beats `.dev.vars`, verified). |
-| `pnpm e2e:screens` | `HEADCOUNT_SCREENS=1` run of `e2e/screens.spec.ts`: writes `docs/dev/screens/inc0/<screen>-<desktop\|mobile>-<light\|dark>.png`. Opt-in, so normal runs never rewrite docs. |
+| `pnpm e2e:screens` | `HEADCOUNT_SCREENS=1` run of `e2e/screens.spec.ts` on the Mock stack (the committed Inc 0.6 set was captured with the same spec against the keyed `pnpm dev` stack, with longer waits): writes `docs/dev/screens/inc0.6/<screen>-<desktop\|mobile>[-light].png` (landing hero, full page and wall; welcome; talk working and done; floor; profile; projects; inbox). Dark by default, with the OS asking for light. Opt-in, so normal runs never rewrite docs. |
 | `pnpm build` | Catalog bundle, `vite build` (web), `wrangler deploy --dry-run --outdir dist` (worker bundle check). |
 | `pnpm catalog:build` | Regenerates `packages/catalog/generated/*` (git-ignored). `--watch` to follow edits. |
-| `pnpm portraits:generate` | Asks the running worker to generate portraits, one at a time with `[i/n]` progress: the 12 leads by default; `--all`, `--department <id>[,id]`, `--only <id,id>`, `--force`, `--dry-run`, `--worker <url>`. Checks capabilities first, skips existing portraits, and stops on 503 (naming the key), on 429 (daily limit) or after 3 failures in a row. Uses `?wait=1`. |
+| `pnpm portraits:generate` | Asks the running worker to generate portraits, `--concurrency <1–8>` at a time (default 3) with `[i/n]` progress: the 12 leads by default; `--all` (176), `--department <id>[,id]`, `--only <id,id>`, `--force`, `--dry-run`, `--worker <url>`. Checks capabilities first, skips existing portraits, and stops starting new ones on 503 (naming the key), on 429 (daily limit) or after 3 failures in a row. Uses `?wait=1`. `--force` stores a new version and clears its landmarks. |
+| `node scripts/landmarks-precompute.mjs` | Measures landmarks for every stored portrait without them: headless Chromium opens `apps/web/public/dev/landmarks.html` on the running Vite server, which runs `@headcount/avatar`'s own MediaPipe detection and PUTs each result bound to the version it measured. `--only`, `--force`, `--delegate CPU\|GPU`, `--dry-run`, `--headed`, `--web <url>`. |
+| `node scripts/marketing-images.mjs` | Generates the landing's seven images through `POST /api/media/image` on the running worker and writes `apps/web/public/marketing/<key>.webp` (quality 74, never larger than its JPEG) + `<key>-640/1024/1600.webp` for `srcset` (each below the full width) + `.jpg` + `manifest.json` (`srcset: [{width, file}]`). `--list`, `--only`, `--force`, `--provider openai\|xai`, `--note`, `--reprocess` (re-encode the stored R2 originals), `--concurrency`, `--dry-run`, `--worker`. Needs `ffmpeg` and `cwebp`. |
+| `node scripts/voice-samples.mjs` | Pre-voices each lead's landing sample ("Hi, I'm {first}. " + the quiz's `voice_preview_line`) through `POST /api/speech/tts` (`response: "json"`) on the running worker, and writes `apps/web/public/marketing/voices/<leadId>-<n>.<ext>` plus `manifest.json` `{<leadId>: {text, provider, voice, chunks: [{file, mime, text, alignment}]}}`. Skips leads that have one unless `--force`; `--only`, `--dry-run`, `--worker`. One TTS call per sentence (`TTS_DAILY_LIMIT`). |
 
 Browser pane: `.claude/launch.json` config **headcount** runs `pnpm dev` on port 5173.
 
@@ -35,10 +38,10 @@ Builders may edit **only** inside their directories. Additive shared types go in
 |---|---|
 | **models** | `packages/models/**` |
 | **worker-core** | `apps/worker/src/workspace/**`, `apps/worker/src/jobs/**`, `packages/agent-loop/**`, `apps/worker/migrations/0001_init.sql` |
-| **media** | `apps/worker/src/media/**`, `apps/worker/migrations/0002_media.sql` (to create), `scripts/portraits-generate.mjs` |
+| **media** | `apps/worker/src/media/**`, `apps/worker/migrations/0002_media.sql`, `scripts/portraits-generate.mjs`, `scripts/landmarks-precompute.mjs`, `scripts/marketing-images.mjs`, `apps/web/public/dev/landmarks.html`, `apps/web/public/marketing/**` |
 | **avatar** | `packages/avatar/**` |
 | **audio** | `packages/audio/**` |
-| **web** | `apps/web/**` |
+| **web** | `apps/web/**` (the landing page is `apps/web/src/landing/**` + `apps/web/landing-data.ts`) |
 | **integrator** | Router `apps/worker/src/index.ts`, `apps/worker/src/env.ts`, `apps/worker/src/lib/**`, `apps/worker/src/rooms/**`, `apps/worker/src/runs/**`, `apps/worker/test/**` (fake cloud), `apps/worker/wrangler.jsonc`, `apps/worker/.dev.vars.example`, `packages/protocol/src/*.ts` (core), `packages/catalog/**`, root configs (`package.json`, `pnpm-workspace.yaml`, `tsconfig*.json`, `vitest.config.ts`, `playwright.config.ts`), `scripts/dev.mjs`, `e2e/**`, `.claude/launch.json`, this file |
 
 Needs a new binding, var, route, frame type or dependency? Ask the integrator; it is a one-line change on their side.
@@ -65,7 +68,8 @@ reference/           READ-ONLY source material (MIT, same owner)
 - **Secrets.** Provider keys exist only server-side in `apps/worker/.dev.vars` (owner-managed, git-ignored; the file now exists — never open it). Never send a key to the browser, never put one in a response, error, log line or frame. Errors name the missing **env var names** only (`missingKeys`). Never read `reference/**/.dev.vars`, `oncloudnine/config.json`, `kv-dev.json` or `demo-token.txt`.
 - **Keyless first.** Everything works with the Mock provider (tests, e2e, demo) and with Ollama (`qwen3:32b` chat with tools, `nomic-embed-text`) when it is running. A capability without a provider is **hidden** in the UI, never shown broken.
 - **Vocabulary** (PRODUCT §4, binding for UI copy): Chief of Staff, Coworker, Project / Everyday, Floor / Desk, Room, Raised hand / Inbox, Delegate. Never: assistant, bot, Righthand, Engagement. Copy voice (EXPERIENCE §10.8): plain, short, verb-first, no model names, no exclamation marks; a failure is one sentence with its fix.
-- **UI** (D3): four places only — Talk · Floor · Projects · Inbox — plus the Chief of Staff bubble on every screen. Faces are the status UI. Typography first, generous whitespace, one accent per agent, subtle motion, light + dark. Tokens: `apps/web/src/styles/tokens.css`.
+- **UI** (D3): four places only — Talk · Floor · Projects · Inbox — plus the Chief of Staff bubble on every screen. Faces are the status UI. Typography first, generous whitespace, one accent per agent, subtle motion. **Dark by default everywhere**; light is an explicit choice (⌘K), and the public landing page is always dark. Tokens: `apps/web/src/styles/tokens.css`.
+- **Marketing honesty** (D3): the landing page shows real catalog names and faces only, labels demo side-talk "Demo", marks unbuilt capabilities Planned and prices planned, and never shows testimonials, customer logos, customer counts or invented metrics.
 - **Tests.** Vitest, colocated `src/**/*.test.ts`. Worker tests run in Node with `apps/worker/test/fake-cloud.ts` (`createTestEnv()` gives in-process DOs over real SQLite via `node:sqlite`, migrated D1, in-memory R2; `cloudflare:workers` is aliased to a shim). WebSockets are covered by e2e.
 - **Runtime versions.** Node ≥22, pnpm 10, Vite 8 (Rolldown/Oxc: use `oxc` options, not `esbuild`), Vitest 5, wrangler 4.143, `compatibility_date` **2026-09-01** (verified with the installed workerd: `wrangler dev` boots with no fallback warning), `nodejs_compat` on.
 - **Catalog.** Never edit `catalog/`. The bundle builder skips unparsable files and incomplete records with a warning (`packages/catalog/generated/report.json`), so the app keeps working while the catalog is edited.
@@ -141,6 +145,14 @@ ping every 25 s).
   steps is itself a delta, so concatenated deltas equal the final text) → `talk.message {kind:'reply'|'status', jobId?}`
   → `talk.done {finish, route, usage}`. A model that acted but said nothing gets the tool's sentence as
   `talk.message` with no deltas. Announcements: `talk.message {turnId:null, kind:'announcement', jobId, cause}`.
+- **Announcements are voiced** (`workspace/announce.ts`). With a cloud fast model, the WorkspaceDO writes a
+  `pending_announcements` row in the same transaction as the mirrored `job.done`/`job.failed`/`job.cancelled {by:'owner'}`
+  and asks the fast model (thinking off: `callBudget(…, 200, 'none')`) for one or two sentences in the chosen lead's
+  voice, grounded only in the job's title, summary or failure reason; it is posted when ready, or the template after
+  2.5 s, on an error or on an ungrounded line (a number not in the facts, Markdown, a URL). The pending row makes the
+  post exactly-once and survives a restart (the template is posted). Local and Mock post the template at once. The
+  template names the job once: `job.failed.message` is the reason only ("The model kept failing, so I stopped
+  retrying. …").
 - **Mirrored job frames** keep their original `ts` and carry `cause {streamId:'p:everyday:<ws>', seq}`.
   `job.started` carries the full `JobSnapshot`; `job.progress` comes after the plan, after each step and when a
   finding is recorded (`{label, step, of, partial}`); `jobProgressPercent(job)` = `(step-1)/of` (done = 100). A steer
@@ -179,9 +191,16 @@ Every non-2xx JSON response is `ApiErrorBody = {error: {code, message, missingKe
 | `stt` | POST `/api/speech/stt[?language=xx]` | raw audio body (`audio/*` or `video/webm`, ≤ **10 MB**) | `SttResponse {text, provider, language?}`. Keyless: **503** naming the keys (the web uses browser dictation); **429** past `STT_DAILY_LIMIT` | media |
 | `listPortraits` | GET `/api/portraits` | — | `PortraitListResponse {portraits: {personaId, version, hasLandmarks}[]}` (adopts R2 images D1 lost); the web asks once instead of probing every face | media |
 | `generatePortrait` | POST `/api/portraits/:personaId/generate[?force=1][&wait=1]` | — | **202** `{status: 'generating'\|'exists'}`; with `wait=1`, **200** `PortraitGenerateResult {status:'exists', created, remainingToday}`. 503 names the image keys (Mock is never a portrait); **429 rate_limited** past `PORTRAIT_DAILY_LIMIT` | media |
-| `getPortrait` | GET `/api/portraits/:personaId` | — | image bytes with `ETag`, `private, no-cache` (304 on match) and `X-Portrait-Version`; 404 with `X-Portrait-Status: none\|generating\|failed` → illustrated face | media |
+| `getPortrait` | GET `/api/portraits/:personaId[?v=<version>]` | — | image bytes with `ETag` and `X-Portrait-Version`; `private, max-age=31536000, immutable` only when `v` is the current version **and** the stored object's `customMetadata.version` is that version (the landing asks this way; the R2 key is not versioned, so bytes a regeneration wrote before D1 moved are served `no-cache` under their own ETag), else `private, no-cache` (304 on match; the app's `api.portraitImage`); 404 with `X-Portrait-Status: none\|generating\|failed` → illustrated face | media |
 | `getLandmarks` | GET `/api/portraits/:personaId/landmarks` | — | `LandmarksResponse {personaId, landmarks: FaceLandmarks\|null}` + `X-Portrait-Version` | media |
 | `putLandmarks` | PUT `/api/portraits/:personaId/landmarks` | `PutLandmarksRequestWithVersion {landmarks, force?, portraitVersion?}` (≤110 KB) | `LandmarksResponse`. First valid write wins (409 after, unless `force`); an identical re-send is 200; a `portraitVersion` that is no longer current is 409; no portrait is 404 | media |
+
+**Media routes outside the table** (media-owned tooling; the router hands every unmatched `/api/media/*` path to
+`handleMediaRoute` after the origin guard): `POST /api/media/image` `{prompt ≤1500 chars, aspect: '16:9'|'4:3'|'1:1'|'3:4',
+provider?: 'openai'|'xai', key: <lowercase slug ≤64>}` (body ≤ 8 KB) → `{key, url, version, mime, bytes, aspect, provider,
+model, revisedPrompt?, remainingToday}`, stored in R2 at `media/<key>.<ext>` (PNG/JPEG/WebP checked by magic bytes, ≤ 10 MB;
+Mock placeholders are never stored); 503 names the image keys, 429 past `PORTRAIT_DAILY_LIMIT` (shared with portraits),
+502 on a provider failure. `GET /api/media/:key[?v=<version>]` → the stored image (ETag; immutable when `v` is current).
 
 `:personaId` accepts a catalog persona id **or** a lead id (`lead-…`). Router behaviour: **only the app itself may
 call** (`lib/origin.ts`): the Host must be loopback or a host in `ALLOWED_ORIGINS` (DNS rebinding), a present
@@ -227,14 +246,14 @@ interface RouteContext { env; ctx: ExecutionContext; route: RouteId; params; url
 
 | Class | Name | Intended RPC surface (owner may refine internals) |
 |---|---|---|
-| `WorkspaceDO` (worker-core) | `ws:<ws>` | `fetch()` = socket upgrade (hibernation API, `resume` paging); `getSettings()`, `updateSettings(patch)`; `talk(TalkRequest): TalkAccepted \| TalkRefusal` (202 path: accept, echo `talk.owner`, run the Chief of Staff turn in the background on the **fast** tier; refused past `CHAT_DAILY_LIMIT`); `ingest(MirrorBatch {source, frames, presence: {agentId, claim\|null}}) → {applied}` (ProjectDO mirrors job frames; deduplicated on `cause`); `frames(since, limit)` (debug/tests). Posts the proactive announcement on `job.done`/`job.failed`/`job.cancelled {by:'owner'}` **in the same transaction** as the mirrored frame. A fresh object clears any stale `talk` (Thinking) claim. |
+| `WorkspaceDO` (worker-core) | `ws:<ws>` | `fetch()` = socket upgrade (hibernation API, `resume` paging); `getSettings()`, `updateSettings(patch)`; `talk(TalkRequest): TalkAccepted \| TalkRefusal` (202 path: accept, echo `talk.owner`, run the Chief of Staff turn in the background on the **fast** tier; refused past `CHAT_DAILY_LIMIT`); `ingest(MirrorBatch {source, frames, presence: {agentId, claim\|null}}) → {applied}` (ProjectDO mirrors job frames; deduplicated on `cause`); `frames(since, limit)` (debug/tests). Posts the proactive announcement on `job.done`/`job.failed`/`job.cancelled {by:'owner'}`: the template **in the same transaction** as the mirrored frame (local, Mock), or a `pending_announcements` row in that transaction and the voiced line within 2.5 s (cloud; §4.2). A fresh object clears any stale `talk` (Thinking) claim. |
 | `ProjectDO` (worker-core) | `p:everyday:<ws>` | `startJob({title, brief, opId?, leadId?, chiefName?}): JobSnapshot \| JobRefusal` (refused `rate_limited` at `MAX_ACTIVE_JOBS` running or past `JOB_DAILY_LIMIT`); `listJobs(limit = 20)`, `getJob(id)`; `steerJob(id, text, opId?) → SteerJobAccepted \| JobRefusal {accepted:false, code:'not_found'\|'conflict'\|'bad_request', message}`; `cancelJob(id, reason?, by = 'owner') → CancelJobAccepted \| JobRefusal` (refusals are returned, not thrown, so they survive RPC); `alarm()` = one checkpoint per due job (plan → 2–4 work steps → synthesis, **reason** tier, each checkpoint with its own 5-minute `deadlineSignal` budget), queued steers applied between steps, between tool calls, and after the write-up (a steer that arrived while it was being written is applied and the write-up is written again, never dropped); each job's frames are mirrored as soon as its checkpoint ends; the Chief of Staff claims no presence for background work (available while working, D2); cancel fences the job and aborts the in-flight call, 3 attempts with backoff then `job.failed`. Mock pacing: with `MOCK_DELAY_MS > 0` checkpoints are 2.5 s apart (a Mock job takes 12–15 s). |
 | `RoomDO` (integrator stub) | `rm:<id>` | `ping()`; rooms arrive in Inc 2 |
 | `RunDO` (integrator stub) | `run:<jobId>` | `ping()`; available for long jobs |
 
 - **D1**: `0001_init.sql` (worker-core): `workspaces`, `ledger_events (stream, seq) PK` (both streams, `INSERT OR IGNORE`), `jobs`. `0002_media.sql` (media): `portraits` keyed by `persona_id` (image row, version, generation lock, landmarks) and `media_usage (ws_id, day, kind)` daily counters. Migrations apply on every `pnpm dev`.
 - **DO SQLite**: each DO keeps its own ledger (gap-free `seq` per stream, hot window 50k rows, replay 500 per page).
-- **R2** keys: portraits at **`portraits/<personaId>.<ext>`** (png, jpg or webp; catalog faces are the same in every workspace, so not per-workspace), metadata on the object. Later (ARCHITECTURE §15.3): `.tile.webp`/`.token.webp` variants, `ws/<ws>/audio/<lineId>.wav`, `ws/<ws>/align/<lineId>.json`.
+- **R2** keys: portraits at **`portraits/<personaId>.<ext>`** (png, jpg or webp; catalog faces are the same in every workspace, so not per-workspace), metadata on the object; generated media at `media/<key>.<ext>`. Later (ARCHITECTURE §15.3): `.tile.webp`/`.token.webp` variants, `ws/<ws>/audio/<lineId>.wav`, `ws/<ws>/align/<lineId>.json`.
 
 ### 4.6 Provider fabric — `packages/models`
 
@@ -244,7 +263,8 @@ type ModelEvent = {type:'text',delta} | {type:'reasoning',delta} | {type:'tool_c
   | {type:'done',finish:'stop'|'tool_calls'|'length'|'refusal'|'incomplete'|'cancelled'} | {type:'error',message,code?,status?,retryable?}
 type ChatMessage = {role:'user',content} | {role:'assistant',content,toolCalls?} | {role:'tool',toolCallId,name,content,isError?}
 interface ChatRequest { model?; system?; messages; tools?: ToolSpec[]; toolChoice?; maxTokens?; temperature?;
-                        reasoningEffort?; responseFormat?: {type:'json_schema',name,schema}; signal? }
+                        reasoningEffort?; budget?: {output, effort} /* what maxTokens/effort were sized from */;
+                        responseFormat?: {type:'json_schema',name,schema}; signal? }
 interface ToolSpec { name; description; parameters: JsonSchema; mock?: MockToolHints }
 interface ChatProvider { id; kind; family; defaultModel(tier?); chat(req): AsyncIterable<ModelEvent> }
 interface SpeechProvider { id; kind; family; tts?(TtsRequest): Promise<TtsResult>; stt?(SttRequest): Promise<SttResult> }
@@ -266,7 +286,19 @@ deadlineSignal(ms, parent?)                 // per-call time budget carried on t
 ```
 
 - Callers in Inc 0: talk resolves `chat {tier:'fast', needs:['tools']}`; job checkpoints `chat {tier:'reason', needs:['tools']}`
-  with `deadlineSignal(300_000, jobSignal)`; portraits `image {allowMock:false}`; speech `tts`/`stt {allowMock: MOCK_MEDIA}`.
+  with `deadlineSignal(300_000, jobSignal)`; portraits and `/api/media/image` `image {allowMock:false}`; speech
+  `tts`/`stt {allowMock: MOCK_MEDIA}`; announcements `chat {tier:'fast'}` (cloud only).
+- **Anthropic thinking**: `reasoningEffort` sets adaptive thinking and `output_config.effort`; `'none'` sends
+  `thinking: {type:'disabled'}` on models that think when it is omitted (Opus 5, Sonnet 5) and the lowest effort on
+  models that cannot turn it off (Fable 5, Mythos 5, Opus 5.5). Thinking counts against `max_tokens`: size calls with
+  `callBudget` (§4.7).
+- **Gemini thinking**: an explicit `reasoningEffort` becomes `thinkingConfig.thinkingBudget` (`GEMINI_THINKING_BUDGET`:
+  low 2048, medium 6144, high 12288, each under its `REASONING_ALLOWANCE`, with `includeThoughts`); `'none'` sends
+  `thinkingBudget: 0` on Flash and Flash-Lite and the minimum 128 on Pro (which always thinks). No effort → no config.
+- **Failover re-sizing**: `wrapChat` sends the head of the chain the request as sized; a fallback candidate gets
+  `resizeRequest(req, candidate, model)`: re-sized with `callBudget` from `req.budget` when present (a local fallback
+  never gets a cloud effort; a reasoning fallback gets its allowance), else at least without `reasoningEffort` when the
+  fallback is local or Mock.
 - `ProviderInstance` gains optional `health: {key, check(signal)}` for local providers; the reachability cache
   (`sharedHealth`, ~30 s) is module-level, so unit tests pass `health: new HealthCache()` and a fake `fetch` whenever
   they set `OLLAMA_BASE_URL` (`createTestEnv` does not set it, so worker tests stay offline).
@@ -296,6 +328,25 @@ interface TurnResult { text; fullText; finish: FinishReason | 'error'; endedBy?;
                        usage: {input, output, usd}; steps; toolCalls; error?: {message, retryable?} }
 ```
 
+```ts
+callBudget(provider, model, output, effort): {maxTokens, reasoningEffort?, budget: {output, effort}}
+  // (lives in @headcount/models, re-exported here) mock/local → {maxTokens: output}; cloud reasoning model (catalog
+  // flags) → output + REASONING_ALLOWANCE[effort] (low 4000, medium 8000, high 16000; 'none' gets the low allowance)
+  // and the explicit effort; a cloud model the catalog does not know (an OpenAI-compatible gateway, a pinned id) →
+  // output only (gateways cap output; the empty-length retry doubles it); non-reasoning model → output only.
+  // `budget` rides on the request so a failover re-sizes it (§4.6).
+lowerEffort(effort)                         // high → medium → low; low/none/undefined stay
+RunTurnOptions.budget?: {output, effort}   // passed through to every call; the retry doubles output and lowers effort
+RunTurnOptions.emptyLengthRetry?: false | {maxTokens?, reasoningEffort?}
+LoopEvent |= {type:'retry', step, reason:'empty_length', maxTokens?, reasoningEffort?}
+```
+
+Budgets in use: talk 900 visible tokens at `low`; job plan 1000 at `low`, work step 1500 at `medium`, write-up 4000
+at `medium` (`PHASE_BUDGETS` in `jobs/work-loop.ts`); announcements 200 at `none`. A call that ends `length` with no
+text and no tool call (all thinking) is sent again once per turn with twice the budget and one notch less effort
+(or the override), which then holds for the rest of the turn; it emits `retry`. A work step that recorded findings
+is never failed: its findings become its notes.
+
 Parallel tool calls per step; unparseable arguments go back as `argsError`; unknown tool → error outcome; an
 identical failing call is not retried forever; tool output over 20,000 chars is clipped; `endTurn` ends the turn
 after the tool; the `checkpoint` hook runs between tool rounds (steering is injected there); after `maxSteps` one
@@ -308,6 +359,11 @@ definitions) and finishes `length`. A cancelled signal returns `finish: 'cancell
 - `@headcount/catalog/full` → `catalogFull`, `fullIndex` (**worker only**; ~3.6 MB).
 - `@headcount/catalog/slim` → `catalogSlim`, `slimIndex` (**web**, lazy: `import('@headcount/catalog/slim')`, ~210 kB gzip): leads in full; personas `{id, name, handle, pronouns, title, department, seniority, one_liner, backstory, intro_line, skills, voice, avatar: {appearance, accent_color, portrait_prompt}}`; departments `{id, name, icon, description, personaIds}`; skills index; `matchQuiz` (from `catalog/leads/match-quiz.json`, 8 questions now; when it is absent the web uses its built-in 4-question quiz weighted by each lead's personality sliders).
 - Ordering follows `catalog/taxonomy.json`. `report.warnings` lists skipped files/records.
+- **Cast (catalog v2.0.0)**: 12 leads + 164 coworkers, re-cast as modern knowledge workers (`catalog/renames.json`
+  maps every old name, handle, age and accent to the new one; `catalog/ART-DIRECTION.md` is the shared portrait
+  direction). First names are unique, never a voice id and never in `taxonomy.reserved_first_names` (story names such
+  as Rosa and Morgan); `node catalog/scripts/validate.mjs` enforces it. Code and tests must not hard-code people's
+  names: look them up by id.
 
 ### 4.9 Faces and voice shared types — `packages/protocol/src/face.ts`, `voice.ts`
 
@@ -393,32 +449,41 @@ is dropped after 400 ms). Browser speech is cut at 60 tokens, and its text-timed
 
 ### 4.12 Web — `apps/web`
 
-- Routes (`src/router.ts`, History API, ids not names): `/` → `/welcome` until a lead is chosen, else `/talk`; `/welcome` (Onboarding: pick your Chief of Staff), `/talk`, `/floor` (Directory), `/desk/:personaId/profile` (CoworkerProfile), `/projects`, `/inbox`. `paths.*` builds them.
+- Routes (`src/router.ts`, History API, ids not names): `/` = the public **landing** page; the app is under `APP_BASE = '/app'`: `/app` → `/app/welcome` until a lead is chosen, else `/app/talk`; `/app/welcome` (Onboarding: pick your Chief of Staff), `/app/talk`, `/app/floor` (Directory), `/app/desk/:personaId/profile` (CoworkerProfile), `/app/projects`, `/app/inbox`. `paths.*` builds them (`paths.landing`, `paths.app`). `legacyRedirect(path)` maps the Inc 0 paths (`/talk`, `/welcome`, …) to `/app/…`; the router replaces them on load and `navigate()` accepts them.
+- Entry (`src/main.tsx`): a tiny shell (router, theme, tokens, base) that lazy-loads `landing/Landing` for `/` or `app` for everything else (`src/lazy.ts`; `prefetchApp()` on CTA hover, focus or touch). The landing never loads the app, feed socket, audio engine or slim catalog.
+- Landing (`src/landing/**`): data from `virtual:headcount-landing` (`landing-data.ts` Vite plugin over the generated slim bundle (the full bundle only for coworker age ranges), `public/marketing/manifest.json` and `public/marketing/voices/manifest.json`: `leads` (with `age`), `coworkers` (3 per department, with `pronouns` and `age`), `counts`, `voicePreview`, `images` (with `srcset`), `voiceSamples` (files only; the lip-sync timing is fetched from the voices manifest on the first ▶)); portraits through `GET /api/portraits` and versioned image URLs; "Hear …" plays the pre-voiced sample when one ships, else the `tts` route when available, else is absent. Casting (`landing/cast.ts`): the hero and the wall lead with the under-40s, interleave pronouns, keep at most one 45+ per row and vary neighbouring rim colours. Every capability on the page carries a status chip (Works today / In the works / Planned); `landing.test.tsx` checks that only built items say "Works today".
+- Fonts (`src/styles/fonts.css`): self-hosted Inter 4 variable (weights and optical size; display sizes get the Inter Display cut) and Source Serif 4 variable, Latin + Latin Extended subsets by `unicode-range`, metric-matched fallbacks; `index.html` preloads the regular Latin Inter file.
+- Per-agent accents (`src/lib/accent.ts`): `accentFor(hex)` paints `--accent` with `nightAccent(hex)` on the dark theme (same OKLCH hue, lightness 0.74–0.8, chroma ≤ 0.16, in gamut) and the catalog value on light; the landing always uses the night accent. Canvases keep the catalog value.
+- Theme (`src/lib/theme.ts`): `ThemeChoice = 'dark' | 'light' | 'system'`, default **dark** (stored in `localStorage['headcount.theme']` only when not dark); `setTheme`, `resolveTheme`, `resolvedTheme` (signal), `forceTheme('dark' | null)`, `forcedThemeFor(routeName)` and `initTheme(pinned)`: `main.tsx` pins the route's theme before the first render and `Root` on every route change, so the landing never paints light. `index.html` applies it before first paint; `<html data-theme>` is always set.
+- Scroll: `navigate()` saves `scrollY` on the entry it leaves (`history.state.scrollY`); `lastNav()` is `init | push | replace | pop`. Root scrolls to the top on a push between the landing and the app, restores `savedScroll()` on Back/Forward and leaves the first render alone; the landing scrolls to `location.hash` once it has rendered (`/#pricing`).
 - Store (`src/store/index.ts`, signals): `settings`, `capabilities`, `connection`, `lastSeq`, `replayThrough`, `thread: ThreadItem[]`, `jobs`, `presence`, `localPresence`, computed `onboarded`, `activeJobs`, `jobList`, `chiefPresence`; `applyFrame(frame) → 'applied'|'ignored'|'resync'` (ignores replayed seqs); `onFrame(cb(frame, {live}))` (replayed frames are never spoken); `presenceFor(agentId)` / `setLocalPresence` (client `speaking`/`listening` merged by priority); `addPendingOwner`/`markOwnerAccepted`/`markOwnerFailed` (opId reconciliation, failed sends keep their text with Retry); `mergeJobs(snapshots)` (newer wins); `acceptSettings(next)` (settings only move forward).
 - API client (`src/api/client.ts`): `api.health/capabilities/getWorkspace/putWorkspace/talk/listJobs/getJob/steerJob/cancelJob/tts/ttsAudio/stt/listPortraits/generatePortrait/portraitUrl/portraitImage/portraitBlob/getLandmarks/putLandmarks(id, lm, portraitVersion?)`; errors throw `ApiError {status, code, message, missingKeys}`.
 - Feed (`src/api/ws.ts`): `connectFeed({onFrame, onStatus, since}) → {close(), reconnect()}` with replay paging (§4.2).
 - Voice (`src/voice/*`): one `AudioEngine`; `AgentSpeaker` per speaker feeds live deltas into `createSpeechStream` (TTS per sentence with `response:'json'` when TTS is available, else the browser voice); `chiefSpeaker.mouth` drives every Chief of Staff face; `bargeIn()` on send, push-to-talk, Esc or a tap on the face; push-to-talk uses provider STT when available, else browser dictation, and is hidden when neither exists.
 - Dev builds expose `window.__headcount = {store, applyFrame, chiefSpeaker}` for e2e.
-- On Talk below 1280 px the floating bubble is hidden (it covered the thread); the Talk header face takes its gestures.
+- On Talk the floating bubble is hidden at every width; the Talk header face takes its gestures and wears the lamp's working arc while any job runs (`data-jobs`). On phones the bubble is 56 px and tucks away while the owner scrolls down (it returns on scroll up, at the end of the page, on focus, listening or news). Failed and stopped jobs offer **Ask again** (the brief back in the composer).
 - Catalog (`src/catalog.ts`): `loadCatalog()` → `catalog` signal of `slimIndex`.
-- Design tokens: `src/styles/tokens.css` (EXPERIENCE §10.2 colours, 8 px grid, radii 24/12, motion 200/250/400/1200 ms, light + dark via `prefers-color-scheme` or `data-theme`), `src/styles/base.css` (shell: left rail ≥1024, icon rail 768–1023, bottom tabs <768; bubble 56/76 px).
+- Design tokens: `src/styles/tokens.css` (EXPERIENCE §10.2 colours, 8 px grid, radii 24/12, motion 200/250/400/1200 ms, dark by default under `:root`/`[data-theme='dark']`, light under `[data-theme='light']`, a brand spectrum and display type sizes for the landing), `src/styles/base.css` (shell: left rail ≥1024, icon rail 768–1023, bottom tabs <768 at 97% opacity; bubble 56 px).
 
 ## 5. Inc 0 flows (how the pieces meet)
 
-1. **Pick a Chief of Staff.** `/welcome` shows the 12 leads from the slim bundle: face (portrait if `GET /api/portraits/<leadId>` is 200, else `setAppearanceFallback`), voice sample (`api.tts({text: quiz.try_before_choosing.voice_preview_line ?? lead.communication.greeting, voiceRef: leadVoiceRef(lead), speakerId: CHIEF_ID})` → `audio.speak`, or `speak(text)` when TTS is unavailable), backstory teaser, `best_for_owners_who`, match quiz (`scoreMatchQuiz`, top 3). Choose + rename → `PUT /api/workspace {leadId, chiefName}`.
+0. **Landing.** `/` shows the landing page; **Enter the office** → `/app` (onboarding or Talk).
+1. **Pick a Chief of Staff.** `/app/welcome` shows the 12 leads from the slim bundle: face (portrait if `GET /api/portraits/<leadId>` is 200, else `setAppearanceFallback`), voice sample (`api.tts({text: quiz.try_before_choosing.voice_preview_line ?? lead.communication.greeting, voiceRef: leadVoiceRef(lead), speakerId: CHIEF_ID})` → `audio.speak`, or `speak(text)` when TTS is unavailable), backstory teaser, `best_for_owners_who`, match quiz (`scoreMatchQuiz`, top 3). Choose + rename → `PUT /api/workspace {leadId, chiefName}`.
 2. **Talk (text).** `POST /api/talk {text, opId}` → 202. WorkspaceDO appends `talk.owner`, emits `presence thinking`, builds the system prompt from the lead (personality, communication, backstory, origin moments, honesty note, guardrails — worker imports `@headcount/catalog/full`), runs `runTurn` with lead tools, streams `talk.delta`, ends with `talk.message` + `talk.done`.
 3. **Voice.** Hold the bubble / the mic / Space → `createPushToTalk` → `api.stt(blob)` (or dictation when STT is unavailable) → `api.talk(text, 'voice')`. When `voiceOn`, the web feeds the Chief of Staff's live deltas into audio's `createSpeechStream({synthesize})` (TTS per sentence with `leadVoiceRef(lead)`, `response:'json'` for alignment) and passes the stream to `audio.speak`; every Chief of Staff face is attached to `audio.sampler(CHIEF_ID)` — the mouth follows the audio actually playing. **Barge-in**: owner starts talking or sends a message → `audio.stopSpeaker(CHIEF_ID)` at once, pending TTS requests are aborted, and a newer owner message cuts a still-streaming reply server-side.
 4. **Delegate.** "Look into X" → the Chief of Staff's `delegate` tool → `ProjectDO.startJob` → `job.started` (Activity row shows `label`) → alarm-driven checkpoints → `job.progress` sentences. The talk turn ends immediately ("I started it") — the conversation never waits on the work (D2).
 5. **Status.** "How's it going?" → a read tool over `ProjectDO.listJobs()` (live `JobSnapshot`: status, label, step/of, partial, steers) → answered from state (`talk.message kind:'status'`); the job is never paused or re-run.
 6. **Steer.** "Also check Y" → `steer_job` tool or `POST /api/jobs/:id/steer` → `job.steered {status:'queued'}` → applied at the next checkpoint → `job.steered {status:'applied'}`. Cancel → `job.cancelled`.
 7. **Completion.** `job.done` → WorkspaceDO posts `talk.message {kind:'announcement', jobId}`; spoken when `voiceOn`.
-8. **Floor.** `/floor` lists ~160 catalog coworkers (face, name, title, one-liner), filter by department; click → `/desk/:personaId/profile`.
+8. **Floor.** `/app/floor` lists the 164 catalog coworkers (face, name, title, one-liner), filter by department; click → `/app/desk/:personaId/profile`.
 
 ## 6. Status (Inc 0 integrated)
 
 - Verified: `pnpm install`, `pnpm typecheck` (TypeScript 7 everywhere), `pnpm test`, `pnpm build`, `pnpm e2e`
   (chromium + voice projects), `pnpm e2e:screens`, and the full flow over HTTP/WebSocket on real workerd with Mock
   and with Ollama `qwen3:32b`. Details, numbers, the demo script and known gaps: `docs/dev/INC0.md`.
+- Inc 0.6 (landing, dark theme, new cast, media, job fix) is integrated and verified the same way, plus the full flow
+  on the keyed stack with Anthropic (INC0.md §4, §4a).
 - Still stubs: `RoomDO`, `RunDO` (later increments).
 
 ## 7. Heads-up: D5 / Inc 0.5 (added to the plan while this scaffold was built)

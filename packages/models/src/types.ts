@@ -59,6 +59,12 @@ export type FinishReason = 'stop' | 'tool_calls' | 'length' | 'refusal' | 'incom
 
 export type ReasoningEffort = 'none' | 'low' | 'medium' | 'high';
 
+/** The visible output and thinking effort a call was sized from (see `callBudget`). */
+export interface BudgetHint {
+  output: number;
+  effort: ReasoningEffort;
+}
+
 export interface ChatRequest {
   /** Provider model id; omitted → the provider's default for the tier. */
   model?: string;
@@ -69,6 +75,12 @@ export interface ChatRequest {
   maxTokens?: number;
   temperature?: number;
   reasoningEffort?: ReasoningEffort;
+  /**
+   * What `maxTokens` and `reasoningEffort` were sized from (`callBudget`). A failover chain re-sizes the call
+   * for the candidate that actually answers, so a local fallback never gets a cloud thinking effort and a
+   * reasoning fallback gets its room to think. Adapters ignore it.
+   */
+  budget?: BudgetHint;
   /**
    * Structured output. Mock generates schema-valid JSON from it. `strict` asks providers that support it
    * for strict schema adherence (default: false on OpenAI, true on xAI — as in biz-bot).

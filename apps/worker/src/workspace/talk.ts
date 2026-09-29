@@ -1,6 +1,6 @@
-import { runTurn, type TurnResult } from '@headcount/agent-loop';
+import { callBudget, runTurn, type TurnResult } from '@headcount/agent-loop';
 import { fullIndex, catalogFull } from '@headcount/catalog/full';
-import { MissingProviderError, type ChatMessage, type Registry } from '@headcount/models';
+import { MissingProviderError, type ChatMessage, type ReasoningEffort, type Registry } from '@headcount/models';
 import { CHIEF_ID, ids, type Frame, type JobId, type JobSnapshot, type MessageId, type OpId, type TalkFinish, type TurnId, type UsageSummary, type WorkspaceSettings } from '@headcount/protocol';
 import { buildChiefSystemPrompt, honestyPolicyText } from './chief-prompt';
 import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
@@ -13,7 +13,10 @@ export const HISTORY_MESSAGES = 40;
 export const HISTORY_CHARS = 24_000;
 /** Conversation turns are short; the talk loop is the fast tier (D2). */
 export const TALK_MAX_STEPS = 4;
+/** Visible output per call; reasoning models get room to think on top (`callBudget`), so a reply is never all thinking. */
 export const TALK_MAX_TOKENS = 900;
+/** Replies are short and must start fast (D2): think briefly. */
+export const TALK_EFFORT: ReasoningEffort = 'low';
 
 export interface TalkHost {
   feed: Feed;
@@ -169,7 +172,7 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
       tools,
       signal,
       maxSteps: TALK_MAX_STEPS,
-      maxTokens: TALK_MAX_TOKENS,
+      ...callBudget(resolved.provider, resolved.model, TALK_MAX_TOKENS, TALK_EFFORT),
       onEvent: (e) => {
         if (state.closed) return;
         if (e.type === 'step') newStep = true;

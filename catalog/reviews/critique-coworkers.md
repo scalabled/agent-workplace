@@ -1,5 +1,7 @@
 # Critique: coworker, skill and team-recipe catalog
 
+> **Names changed after this review (catalog 2.0.0, 28 September 2026).** Owner directive D3 re-cast every lead and coworker as a modern knowledge worker: new names, handles, ages, looks, accents and portraits, with some lore rewritten for the younger ages. Ids did not change. This critique is kept as written, so it uses the old names, and points about ages, looks, accents or portraits may no longer apply. Every person's old and new name is in [`catalog/renames.json`](../renames.json) (`old_name` → `new_name`, by id).
+
 Reviewer role: ruthless but constructive critic. Scope: `catalog/personas/*`, `catalog/skills/*`, `catalog/teams/*`, `catalog/formation.json`, plus the taxonomy and validator where they shape those records. Leads are touched only where they affect the first ten minutes.
 
 Evidence base: 76 coworkers read field by field, covering all 18 departments. 84 skills read in full, covering all 22 categories. All 47 recipes read in compact form, with 4 of them (monthly-close-pack, crisis-response, hire-a-role, churn-rescue) read in full. I also read formation.json, SCHEMA.md and the relevant parts of taxonomy.json. Catalog-wide statistics come from scripts run over all 162 personas, 309 skills and 47 recipes. The validator (`node catalog/scripts/validate.mjs --no-write --verbose`) passes with 0 errors and 28 warnings, and every number below is reproducible from the data.

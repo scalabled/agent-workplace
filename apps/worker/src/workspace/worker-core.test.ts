@@ -1,17 +1,50 @@
 // Worker-core integration tests (Mock provider, in-process DOs over real SQLite via test/fake-cloud).
-import { createMockProvider, createRegistry, type ChatProvider, type ChatRequest, type ModelEvent } from '@headcount/models';
+import { CHAT_CATALOG, createMockProvider, createRegistry, normalizeTier, type ChatProvider, type ChatRequest, type ModelEvent } from '@headcount/models';
 import { CHIEF_ID, ids, parseFrame, type Frame, type FrameType, type JobSnapshot } from '@headcount/protocol';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createTestEnv, type TestEnv } from '../../test/fake-cloud';
 import type { Env } from '../env';
 import { handle } from '../index';
 import type { ProjectDO } from '../jobs/project-do';
+import { announceConfig } from './announce';
 import { defaultRuntime, runtime } from './runtime';
 import { WorkspaceDO } from './workspace-do';
 
+const ANNOUNCE_TIMEOUT = announceConfig.timeoutMs;
 afterEach(() => {
   Object.assign(runtime, defaultRuntime);
+  announceConfig.timeoutMs = ANNOUNCE_TIMEOUT;
 });
+
+const isAnnouncement = (req: ChatRequest) => typeof req.messages[0]?.content === 'string' && req.messages[0].content.startsWith('<job_result>');
+
+/**
+ * A cloud provider (as Anthropic, keyed) that behaves like Mock for talk and jobs and answers the announcement
+ * request with `voice(req)` (after `delayMs`). Returns the recorded announcement requests.
+ */
+function useCloudVoice(voice: (req: ChatRequest) => ModelEvent[], delayMs = 0) {
+  const asked: ChatRequest[] = [];
+  const mock = createMockProvider().chat;
+  const chat: ChatProvider = {
+    id: 'anthropic',
+    kind: 'cloud',
+    family: 'claude',
+    defaultModel: (tier) => CHAT_CATALOG.anthropic.defaults[normalizeTier(tier)],
+    async *chat(req) {
+      if (!isAnnouncement(req)) return yield* mock.chat(req);
+      asked.push(req);
+      if (delayMs) await new Promise<void>((resolve) => {
+        const t = setTimeout(resolve, delayMs);
+        req.signal?.addEventListener('abort', () => (clearTimeout(t), resolve()));
+      });
+      if (req.signal?.aborted) return yield { type: 'done', finish: 'cancelled' };
+      for (const e of voice(req)) yield e;
+    },
+  };
+  runtime.registry = (env: Env) => createRegistry(env, { providers: { anthropic: () => ({ chat }) } });
+  return asked;
+}
+const CLOUD_ENV = { ANTHROPIC_API_KEY: 'sk-ant-test-key', DEFAULT_CHAT: 'anthropic' } as Partial<Env>;
 
 /** Wrap the Mock chat provider: record every request and optionally hold one (to prove talk never waits on work). */
 function useProvider(
@@ -136,7 +169,7 @@ describe('talk (conversation loop)', () => {
     await s.talk('thanks');
     const system = requests.at(-1)!.system!;
     expect(system).toContain('You are Rosa');
-    expect(system).toContain('Samuel Addo');
+    expect(system).toContain('Kobby Owusu');
     expect(system).toContain('Profitable on paper');
     expect(system).toContain('LIVE WORK STATE');
     expect(system).toContain('“Office chairs under $500” — running, planning; now: Making a plan for “Office chairs under $500”');
@@ -503,7 +536,50 @@ describe('background jobs (work loop)', () => {
     expect((await s.lastOf('job.failed')).data).toMatchObject({ jobId: job.jobId, retryable: true });
     const announcement = await s.lastOf('talk.message');
     expect(announcement.data.kind).toBe('announcement');
-    expect(announcement.data.text).toContain('I could not finish “Office chairs”');
+    expect(announcement.data.text).toBe('I could not finish “Office chairs”. The model kept failing, so I stopped retrying. Try again in a minute, or check the provider key.');
+    expect(announcement.data.text.match(/I could not finish/g)).toHaveLength(1);
+  });
+
+  it("announces a finished job in the lead's voice from the fast model", async () => {
+    const s = await setup(CLOUD_ENV);
+    const asked = useCloudVoice(() => [{ type: 'text', delta: 'Rosa here: office chairs are sorted, and there is a clear pick. The full write-up is in Projects.' }, { type: 'done', finish: 'stop' }]);
+    await s.talk('look into office chairs under $500');
+    await s.runJobs();
+    const done = await s.lastOf('job.done');
+    const announcement = await s.lastOf('talk.message');
+    expect(announcement.data).toMatchObject({ kind: 'announcement', jobId: done.data.jobId, turnId: null, agentId: CHIEF_ID, text: 'Rosa here: office chairs are sorted, and there is a clear pick. The full write-up is in Projects.' });
+    expect(announcement.cause).toEqual({ streamId: 'ws:local', seq: done.seq });
+    // One call, on the fast tier, grounded in the job's own result, in the chosen lead's voice.
+    expect(asked).toHaveLength(1);
+    expect(asked[0]!.model).toBe('claude-sonnet-5');
+    expect(asked[0]!.system).toContain('You are Rosa');
+    expect(asked[0]!.messages[0]!.content).toContain(`Answer (summary of the write-up): ${done.data.summary}`);
+    // Posted exactly once; nothing pending is left behind.
+    expect((await s.ofType('talk.message')).filter((f) => f.data.kind === 'announcement')).toHaveLength(1);
+    expect(s.t.namespaces.WORKSPACE.state('ws:local').storage.sql.exec('SELECT * FROM pending_announcements').toArray()).toEqual([]);
+  });
+
+  it('falls back to the templated announcement when the fast model is too slow', async () => {
+    announceConfig.timeoutMs = 30;
+    const s = await setup(CLOUD_ENV);
+    const asked = useCloudVoice(() => [{ type: 'text', delta: 'Too late.' }, { type: 'done', finish: 'stop' }], 5_000);
+    await s.talk('look into office chairs under $500');
+    await s.runJobs();
+    expect(asked).toHaveLength(1);
+    const announcement = await s.lastOf('talk.message');
+    expect(announcement.data.kind).toBe('announcement');
+    expect(announcement.data.text).toMatch(/^“Office chairs under \$500” is done\. .+ The full write-up is in Projects\.$/);
+  });
+
+  it('posts the template for an announcement whose voice was still being written when the object restarted', async () => {
+    const s = await setup(CLOUD_ENV);
+    const state = s.t.namespaces.WORKSPACE.state('ws:local');
+    const frame = { type: 'talk.message', data: { turnId: null, messageId: 'msg_stranded', agentId: CHIEF_ID, text: '“Office chairs” is done. Buy the Aeron. The full write-up is in Projects.', kind: 'announcement', jobId: 'job_1' }, actor: CHIEF_ID, cause: { streamId: 'ws:local', seq: 1 } };
+    state.storage.sql.exec('INSERT INTO pending_announcements (cause_seq, facts, frame, at) VALUES (1, ?, ?, 0)', JSON.stringify({ kind: 'done', title: 'Office chairs', summary: 'Buy the Aeron.' }), JSON.stringify(frame));
+    const revived = new WorkspaceDO(state as unknown as DurableObjectState, s.t.env);
+    const posted = (await revived.frames(0)).filter((f) => f.type === 'talk.message');
+    expect(posted.map((f) => f.data)).toEqual([frame.data]);
+    expect(state.storage.sql.exec('SELECT * FROM pending_announcements').toArray()).toEqual([]);
   });
 
   it('runs two jobs side by side', async () => {

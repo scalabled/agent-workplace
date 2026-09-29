@@ -8,6 +8,7 @@ import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
 import { paths } from '../router';
 import './floor.css';
+import { accentFor } from '../lib/accent';
 
 export function Floor() {
   useEffect(() => void loadCatalog(), []);
@@ -116,7 +117,7 @@ export function Floor() {
 
 function CoworkerCard({ persona: p }: { persona: PersonaSlim }) {
   return (
-    <Link href={paths.coworker(p.id)} class="cw-card" style={{ '--accent': p.avatar.accent_color }}>
+    <Link href={paths.coworker(p.id)} class="cw-card" style={{ '--accent': accentFor(p.avatar.accent_color) }}>
       <Face subject={personaSubject(p)} tier="token" decorative lazy />
       <span class="cw-text">
         <span class="cw-name">{p.name}</span>

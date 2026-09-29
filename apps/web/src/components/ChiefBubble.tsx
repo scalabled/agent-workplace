@@ -7,8 +7,41 @@ import { bargeIn, chiefIsSpeaking, chiefSpeaker } from '../voice/chief-voice';
 import { ptt, pttMode } from '../voice/ptt';
 import { Face, leadSubject, stateWords } from './Face';
 import { useHoldToTalk } from './useHoldToTalk';
+import { accentFor } from '../lib/accent';
 
 const PULSE_MS = 2400;
+/** Scrolled this far down past the last turn-around before the bubble tucks away (phones only). */
+const TUCK_AFTER_PX = 48;
+
+/**
+ * Phones: tuck the bubble away while the owner scrolls down to read, show it again on any scroll up, near the
+ * end of the page, or after a route change. Wider screens keep it in place (it sits in the margin there).
+ */
+function useTuckOnScroll(): boolean {
+  const [tucked, setTucked] = useState(false);
+  const path = route.value.path;
+  useEffect(() => setTucked(false), [path]);
+  useEffect(() => {
+    if (typeof matchMedia !== 'function') return;
+    const phone = matchMedia('(max-width: 767px)');
+    let anchor = window.scrollY;
+    let last = window.scrollY;
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (!phone.matches) return setTucked(false);
+      const doc = document.scrollingElement ?? document.documentElement;
+      const atEnd = y + window.innerHeight >= doc.scrollHeight - 24;
+      if (y < last || atEnd || y < TUCK_AFTER_PX) {
+        anchor = y;
+        setTucked(false);
+      } else if (y - anchor > TUCK_AFTER_PX) setTucked(true);
+      last = y;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+  return tucked;
+}
 
 /**
  * The Chief of Staff bubble on every screen but Talk (EXPERIENCE §2.2): the face is the status (its ring shows
@@ -33,6 +66,7 @@ export function ChiefBubble() {
     const t = setTimeout(() => setPulse(false), PULSE_MS);
     return () => clearTimeout(t);
   }, [bump]);
+  const tucked = useTuckOnScroll();
   const handlers = useHoldToTalk({
     canHold,
     onTap: () => {
@@ -55,7 +89,8 @@ export function ChiefBubble() {
       data-listening={listening || undefined}
       data-jobs={jobs || undefined}
       data-pulse={pulse || undefined}
-      style={lead ? { '--accent': lead.avatar.accent_color } : undefined}
+      data-tucked={tucked || undefined}
+      style={lead ? { '--accent': accentFor(lead.avatar.accent_color) } : undefined}
       aria-label={label}
       title={canHold ? `Tap to talk to ${name}. Hold to speak.` : `Talk to ${name}`}
       {...handlers}

@@ -1,5 +1,17 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { onboarded, recordFrames, say, setWorkspace, waitForFrame } from './helpers';
+
+/** Pre-voiced landing samples shipped with the page (apps/web/public/marketing/voices). */
+function voiceSamples(): Record<string, { chunks: { file: string }[] }> {
+  try {
+    return JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'apps/web/public/marketing/voices/manifest.json'), 'utf8'));
+  } catch {
+    return {};
+  }
+}
 
 // The voice path in a real browser (project "voice": worker with --mock-media, Chromium's fake mic).
 // Mock TTS returns silent audio with character timing, so the whole pipeline runs: TTS per sentence → the one
@@ -35,7 +47,7 @@ test('with a speech provider, voice controls show and the lead voice sample play
   expect(caps.modalities.tts.available).toBe(true);
   expect(caps.modalities.stt.available).toBe(true);
   await setWorkspace(request, { leadId: null });
-  await page.goto('/welcome');
+  await page.goto('/app/welcome');
   const sample = page.getByRole('button', { name: /^Hear .+'s voice$/ });
   await expect(sample).toBeVisible();
   const tts = page.waitForRequest((r) => r.url().includes('/api/speech/tts') && r.method() === 'POST');
@@ -46,8 +58,35 @@ test('with a speech provider, voice controls show and the lead voice sample play
   await expect(page.getByRole('button', { name: /^Stop .+'s voice sample$/ })).toBeVisible();
 });
 
+test('the landing page plays each lead in their own voice when a speech provider exists', async ({ page }) => {
+  await page.goto('/');
+  const cards = page.locator('.lp-lead');
+  await expect(cards.first()).toBeAttached(); // the landing page loads lazily after the entry
+  const count = await cards.count();
+  expect(count).toBeGreaterThan(0);
+  // One ▶ per lead, named by the catalog first name shown on the card.
+  await expect(page.locator('.lp-voice')).toHaveCount(count);
+  const first = cards.first();
+  const name = ((await first.locator('.lp-lead-name').textContent()) ?? '').trim().split(/\s+/)[0]!;
+  // A pre-voiced sample (static audio with its timing) plays without the TTS route; otherwise the route speaks.
+  const leadId = await first.evaluate((el) => el.getAttribute('data-lead') ?? '');
+  const sample = voiceSamples()[leadId];
+  const fetched = sample
+    ? page.waitForRequest((r) => r.url().includes('/marketing/voices/') && r.method() === 'GET')
+    : page.waitForRequest((r) => r.url().includes('/api/speech/tts') && r.method() === 'POST');
+  await first.getByRole('button', { name: `Hear ${name}'s voice` }).click();
+  const req = await fetched;
+  if (!sample) {
+    const body = req.postDataJSON() as { voiceRef: { openai?: string; xai?: string }; speakerId: string };
+    expect(body.voiceRef.openai ?? body.voiceRef.xai).toBeTruthy();
+  } else expect(req.url()).toContain(sample.chunks[0]!.file);
+  await expect(first.getByRole('button', { name: `Stop ${name}'s voice sample` })).toBeVisible();
+  // The sample ends by itself and the control resets.
+  await expect(first.getByRole('button', { name: `Hear ${name}'s voice` })).toBeVisible({ timeout: 30_000 });
+});
+
 test('a spoken reply moves the mouth with the audio, and sending a message barges in', async ({ page }) => {
-  await page.goto('/talk');
+  await page.goto('/app/talk');
   await expect(page.getByRole('button', { name: /Voice on/ })).toBeVisible();
   await recordFrames(page);
   await page.locator('#composer').click(); // a gesture arms audio, as for a real owner
@@ -80,7 +119,7 @@ test('a spoken reply moves the mouth with the audio, and sending a message barge
 });
 
 test('push-to-talk records the microphone and sends what was said', async ({ page }) => {
-  await page.goto('/talk');
+  await page.goto('/app/talk');
   await recordFrames(page);
   const mic = page.getByRole('button', { name: /^Talk: hold/ });
   await expect(mic).toBeVisible();

@@ -208,9 +208,10 @@ describe('complexion marks follow the catalog side and place', () => {
   });
 
   it('places the catalog\'s marks on the named side of the drawn face', () => {
-    const dominic = catalogSlim.leads.find((l) => l.name === 'Dominic Reyes');
-    if (!dominic) return;
-    const look = lookFromAppearance({ appearance: dominic.avatar.appearance, accent: dominic.avatar.accent_color, name: dominic.name });
+    const lead = catalogSlim.leads.find((l) => l.id === 'lead-steady-operator');
+    expect(lead, 'lead-steady-operator is in the slim catalog').toBeDefined();
+    if (!lead) return;
+    const look = lookFromAppearance({ appearance: lead.avatar.appearance, accent: lead.avatar.accent_color, name: lead.name });
     expect(look.vitiligo.map((m) => m.side)).toEqual(expect.arrayContaining([1]));
     const ctx = new FakeContext();
     new ProceduralRenderer(look).render(asCtx(ctx), STILL_POSE, { scale: 1, x: 0, y: 0 });

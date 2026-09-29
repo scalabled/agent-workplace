@@ -12,6 +12,7 @@ import { navigate, paths } from '../router';
 import { localPresence, onboarded } from '../store';
 import { prefillComposer } from '../talk/draft';
 import './floor.css';
+import { accentFor } from '../lib/accent';
 
 const SENIORITY: Record<PersonaSlim['seniority'], string> = { specialist: 'Specialist', senior: 'Senior', lead: 'Lead', principal: 'Principal' };
 
@@ -57,7 +58,7 @@ function Profile({ persona: p }: { persona: PersonaSlim }) {
   const secondary = known(p.skills.secondary);
 
   return (
-    <article class="page profile" aria-labelledby="profile-title" style={{ '--accent': p.avatar.accent_color }}>
+    <article class="page profile" aria-labelledby="profile-title" style={{ '--accent': accentFor(p.avatar.accent_color) }}>
       <BackToFloor />
       <header class="profile-hero">
         <Face subject={personaSubject(p)} tier="hero" state={speaking ? 'speaking' : 'idle'} sampler={speaker.mouth} label={`${p.name}, ${p.title}`} class="profile-face" />

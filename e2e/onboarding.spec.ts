@@ -7,8 +7,9 @@ test.beforeEach(async ({ request }) => {
 });
 
 test('the gallery shows all twelve leads with faces, a story teaser and fit', async ({ page }) => {
-  await page.goto('/');
-  await expect(page).toHaveURL(/\/welcome$/);
+  // First run: /app sends you to pick your Chief of Staff.
+  await page.goto('/app');
+  await expect(page).toHaveURL(/\/app\/welcome$/);
   await expect(page.getByRole('heading', { name: 'Choose your Chief of Staff' })).toBeVisible();
   const cards = page.getByRole('list', { name: 'Chiefs of Staff' }).getByRole('button');
   await expect(cards).toHaveCount(12);
@@ -35,7 +36,7 @@ test('the gallery shows all twelve leads with faces, a story teaser and fit', as
 });
 
 test('the match quiz suggests a top three and explains why', async ({ page }) => {
-  await page.goto('/welcome');
+  await page.goto('/app/welcome');
   await page.getByRole('button', { name: /Find your match/ }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
@@ -62,7 +63,7 @@ test('the match quiz suggests a top three and explains why', async ({ page }) =>
 });
 
 test('naming the choice saves it and lands in Talk under that name', async ({ page, request }) => {
-  await page.goto('/welcome');
+  await page.goto('/app/welcome');
   const stage = page.locator('article.stage');
   const field = stage.getByRole('textbox');
   await field.fill('Juniper');

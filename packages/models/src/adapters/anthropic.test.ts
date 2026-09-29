@@ -122,6 +122,39 @@ describe('anthropic adapter', () => {
     expect(JSON.stringify(err)).toContain('ANTHROPIC_API_KEY');
   });
 
+  it("switches thinking off for reasoningEffort 'none' where omitting it would think, and reports a thinking-only max_tokens stop as length", async () => {
+    const thoughtOnly = [
+      ['message_start', { type: 'message_start', message: { usage: { input_tokens: 10 } } }],
+      ['content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '' } }],
+      ['content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'Weighing the options…' } }],
+      ['content_block_stop', { type: 'content_block_stop', index: 0 }],
+      ['message_delta', { type: 'message_delta', delta: { stop_reason: 'max_tokens' }, usage: { output_tokens: 1200 } }],
+      ['message_stop', { type: 'message_stop' }],
+    ] as [string, object][];
+    const { f, chat } = setup(() => sseResponse(thoughtOnly));
+    const out = await collectEvents(chat.chat({ model: 'claude-opus-5', messages: [{ role: 'user', content: 'x' }], maxTokens: 1200, reasoningEffort: 'medium' }));
+    expect(out).toMatchObject({ text: '', toolCalls: [], finish: 'length' });
+    expect(f.calls[0]!.body).toMatchObject({ thinking: { type: 'adaptive' }, output_config: { effort: 'medium' } });
+    const body = async (model: string) => {
+      await collectEvents(chat.chat({ model, messages: [{ role: 'user', content: 'x' }], reasoningEffort: 'none' }));
+      return f.calls.at(-1)!.body as Record<string, any>;
+    };
+    // Opus 5 and Sonnet 5 think when `thinking` is omitted: 'none' must say disabled (and send no effort).
+    for (const model of ['claude-opus-5', 'claude-sonnet-5']) {
+      const b = await body(model);
+      expect(b.thinking).toEqual({ type: 'disabled' });
+      expect(b.output_config).toBeUndefined();
+    }
+    // Fable 5 cannot switch thinking off (disabled is a 400): omit it and ask for the lowest effort.
+    const fable = await body('claude-fable-5');
+    expect(fable.thinking).toBeUndefined();
+    expect(fable.output_config).toEqual({ effort: 'low' });
+    // Older models do not think unless asked.
+    const opus48 = await body('claude-opus-4-8');
+    expect(opus48.thinking).toBeUndefined();
+    expect((await body('claude-haiku-4-5')).thinking).toBeUndefined();
+  });
+
   it('picks models per tier', () => {
     const { chat } = setup(() => jsonResponse({}));
     expect([chat.defaultModel('reason'), chat.defaultModel('fast'), chat.defaultModel('voice')]).toEqual(['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-4-5']);

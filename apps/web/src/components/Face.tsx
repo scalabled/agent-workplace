@@ -5,6 +5,7 @@ import { FaceView } from '@headcount/avatar';
 import { initials, type Appearance, type Lead, type PersonaSlim } from '@headcount/catalog';
 import type { FaceTier, MouthSampler, PresenceState } from '@headcount/protocol';
 import { portraitEpoch, portraitFor, saveLandmarks } from '../lib/portraits';
+import { accentFor } from '../lib/accent';
 
 export interface FaceSubject {
   /** Portrait id: catalog persona id or lead id. */
@@ -111,7 +112,7 @@ export function Face({ subject, tier, state = 'idle', label, sampler = null, laz
       ref={host}
       class={`face face-${tier}${cls ? ` ${cls}` : ''}`}
       data-state={state}
-      style={subject ? { '--accent': subject.accent } : undefined}
+      style={subject ? { '--accent': accentFor(subject.accent) } : undefined}
       aria-hidden={decorative || undefined}
     >
       {!mounted && subject && (
@@ -125,7 +126,7 @@ export function Face({ subject, tier, state = 'idle', label, sampler = null, laz
 
 /**
  * What follows the name in the face's accessible label: FaceView already starts it with the name, so a caller
- * label of "{name}, …" is passed without its name (no "Samuel Addo, Samuel Addo, …").
+ * label of "{name}, …" is passed without its name (never "<name>, <name>, …").
  */
 export function presenceText(subject: FaceSubject | null | undefined, state: PresenceState, label?: string): string {
   if (!label) return stateWords(state);

@@ -1,4 +1,4 @@
-import { useEffect } from 'preact/hooks';
+import { useEffect, useLayoutEffect } from 'preact/hooks';
 import { api } from './api/client';
 import { connectFeed, type Feed } from './api/ws';
 import { loadCatalog } from './catalog';
@@ -22,6 +22,7 @@ import { startUnread } from './ui/unread';
 import { bargeIn, chiefIsSpeaking, chiefSpeaker, startChiefVoice } from './voice/chief-voice';
 import { armAudio } from './voice/engine';
 import { cancelPtt, endPtt, ptt, pttMode, startPtt } from './voice/ptt';
+import './styles/components.css';
 
 async function loadSettings(attempt = 0): Promise<void> {
   try {
@@ -120,7 +121,9 @@ export function spaceStartsPtt(target: EventTarget | null): boolean {
 }
 
 function useGlobalKeys() {
-  useEffect(() => {
+  // Layout effect: the shortcuts are live before the first paint (the app loads lazily, so a ⌘K pressed as the
+  // first screen appears is not lost).
+  useLayoutEffect(() => {
     let spaceHeld = false;
     // Space pressed in the empty composer: talk once it is held, type a space if it is let go quickly.
     let composerTimer: ReturnType<typeof setTimeout> | undefined;

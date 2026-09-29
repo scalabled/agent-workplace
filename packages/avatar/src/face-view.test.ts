@@ -85,14 +85,14 @@ describe('FaceView', () => {
     const host = document.createElement('div');
     const face = new FaceView({ tier: 'token' });
     face.mount(host);
-    face.setAppearanceFallback({ appearance: {}, accent: '#1F5F6B', name: 'Harriet Osei' });
+    face.setAppearanceFallback({ appearance: {}, accent: '#1F5F6B', name: 'Esi Mensah' });
     face.setState('thinking');
     face.attachSampler({ sample: () => ({ openness: 0.5, width: 0, round: 0, energy: 0.4 }) });
     const canvas = host.querySelector('canvas');
     expect(canvas?.getAttribute('role')).toBe('img');
-    expect(canvas?.getAttribute('aria-label')).toBe('Harriet Osei, thinking');
+    expect(canvas?.getAttribute('aria-label')).toBe('Esi Mensah, thinking');
     face.setState('working', 'Reading 14 outdoor-retail reports');
-    expect(canvas?.getAttribute('aria-label')).toBe('Harriet Osei, Reading 14 outdoor-retail reports');
+    expect(canvas?.getAttribute('aria-label')).toBe('Esi Mensah, Reading 14 outdoor-retail reports');
     face.destroy();
     expect(host.querySelector('canvas')).toBeNull();
     expect(loop.scheduler.stats().faces).toBe(0);
@@ -102,7 +102,7 @@ describe('FaceView', () => {
     const host = document.createElement('div');
     const face = new FaceView({ tier: 'hero', reducedMotion: false });
     face.mount(host);
-    face.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Samuel Reyes' });
+    face.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Kobby Owusu' });
     loop.frames(1);
     const ctx = ctxOf(host);
     expect(face.stats().renderer).toBe('procedural');
@@ -156,7 +156,7 @@ describe('FaceView', () => {
     const host = document.createElement('div');
     const face = new FaceView({ tier: 'hero', reducedMotion: true });
     face.mount(host);
-    face.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Samuel Reyes' });
+    face.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Kobby Owusu' });
     loop.frames(3);
     expect(loop.pending.size, 'nothing to animate → the loop sleeps').toBe(0);
     face.attachSampler(openSampler);
@@ -214,7 +214,7 @@ describe('FaceView', () => {
     // A portrait that fails to load leaves the illustrated face in place.
     const c = new FaceView({ tier: 'tile' });
     c.mount(document.createElement('div'));
-    c.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Samuel Reyes' });
+    c.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Kobby Owusu' });
     await c.setPortrait({ url: '/api/portraits/broken', landmarks: null });
     expect(c.stats().renderer).toBe('procedural');
     // Stored landmarks skip detection entirely; tokens never detect.
@@ -249,7 +249,7 @@ describe('FaceView', () => {
     const host = document.createElement('div');
     const face = new FaceView({ tier: 'hero', reducedMotion: false, detectLandmarks: false });
     face.mount(host);
-    face.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Samuel Reyes' });
+    face.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Kobby Owusu' });
     await face.setPortrait({ url: '/p.png', landmarks: null });
     const ctx = ctxOf(host);
     ctx.reset();
@@ -296,11 +296,11 @@ describe('FaceView', () => {
 
   it('seeds motion per person: two faces never sway in lockstep', () => {
     const phase = (f: FaceView) => (f as unknown as { motion: { swayPhase: number } }).motion.swayPhase;
-    const a = new FaceView({ name: 'Dominic Reyes' });
-    const b = new FaceView({ name: 'Grace Park' });
+    const a = new FaceView({ name: 'Paolo Bautista' });
+    const b = new FaceView({ name: 'Sunny Baek' });
     expect(phase(a)).not.toBe(phase(b));
     const late = new FaceView();
-    late.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Grace Park' });
+    late.setAppearanceFallback({ appearance, accent: '#2A9D8F', name: 'Sunny Baek' });
     expect(phase(late)).toBe(phase(b));
     [a, b, late].forEach((f) => f.destroy());
   });

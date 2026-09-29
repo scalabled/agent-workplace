@@ -11,7 +11,7 @@ export const currentLead = computed<Lead | undefined>(() => {
   return id ? catalog.value?.lead(id) : undefined;
 });
 
-/** "Dominic", or the owner's chosen name. */
+/** The lead's first name from the catalog, or the owner's chosen name. */
 export const chiefName = computed(() => chiefDisplayName(currentLead.value, settings.value?.chiefName));
 
 export const chiefVoiceRef = computed<VoiceRef | null>(() => (currentLead.value ? leadVoiceRef(currentLead.value) : null));

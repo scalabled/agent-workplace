@@ -20,7 +20,9 @@ export function portraitDailyLimit(env: Env): number {
 
 /** How long one generation may take before it is abandoned. */
 export const PORTRAIT_TIMEOUT_MS = 180_000;
-const USAGE_KIND = 'portrait';
+/** The daily image budget (media_usage kind) shared by portraits and POST /api/media/image, capped by PORTRAIT_DAILY_LIMIT. */
+export const IMAGE_USAGE_KIND = 'portrait';
+const USAGE_KIND = IMAGE_USAGE_KIND;
 const flag = (url: URL, name: string) => ['1', 'true', 'yes'].includes(url.searchParams.get(name) ?? '');
 
 /**
@@ -163,16 +165,19 @@ function notFound(personaId: string, row: PortraitRow | null): Response {
   return errorResponse('not_found', message, { headers: { [PORTRAIT_HEADERS.status]: state } });
 }
 
-/** GET /api/portraits/:personaId → the image (ETag, revalidated on every use), or 404 + X-Portrait-Status. */
+/** GET /api/portraits/:personaId[?v=<version>] → the image (ETag, revalidated unless `v` is current), or 404 + X-Portrait-Status. */
 export const handleGetPortrait: RouteHandler = async (req, rc) => {
   const { env } = rc;
   const personaId = subjectIdParam(rc.params.personaId);
   const { ready, row } = await readyPortrait(env, personaId, findSubject(personaId)?.kind);
   if (!ready) return notFound(personaId, row);
   const etag = `"${ready.version}"`;
+  const asked = rc.url.searchParams.get('v');
   const headers = new Headers({
     etag,
     // Revalidate every time: a forced regeneration must reach the face renderer before it measures landmarks.
+    // A versioned URL (?v=<X-Portrait-Version>, as listed by GET /api/portraits) names one image forever, so it
+    // may be cached for good (set below, once the stored bytes are known to be that version).
     'cache-control': 'private, no-cache',
     'x-content-type-options': 'nosniff',
     [PORTRAIT_HEADERS.version]: ready.version,
@@ -185,6 +190,12 @@ export const handleGetPortrait: RouteHandler = async (req, rc) => {
     await forgetImage(env.DB, personaId, ready.r2_key);
     return notFound(personaId, null);
   }
+  // The R2 key is not versioned: a regeneration overwrites it before D1 moves to the new version (and stays that
+  // way if the job then fails). Only bytes stamped with the asked-for version may be cached for good; anything
+  // else is served revalidating, under the ETag of what it really is.
+  const stored = obj.customMetadata?.version;
+  if (asked && asked === ready.version && stored === ready.version) headers.set('cache-control', 'private, max-age=31536000, immutable');
+  else if (stored && stored !== ready.version) headers.set('etag', `"${stored}"`);
   headers.set('content-type', ready.mime);
   headers.set('content-length', String(obj.size));
   return new Response(obj.body, { headers });

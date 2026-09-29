@@ -8,6 +8,7 @@ import { handleHealth } from './lib/health';
 import { HttpError, errorResponse, type RouteContext, type RouteHandler } from './lib/http';
 import { guardRequest, originPolicy, type OriginPolicy } from './lib/origin';
 import { handleCapabilities } from './media/capabilities';
+import { handleMediaRoute } from './media/media-images';
 import { handleGeneratePortrait, handleGetLandmarks, handleGetPortrait, handleListPortraits, handlePutLandmarks } from './media/portraits';
 import { handleStt, handleTts } from './media/speech';
 import { handleGetWorkspace, handlePutWorkspace, handleTalk, handleWs } from './workspace/routes';
@@ -82,7 +83,8 @@ export async function handle(request: Request, env: Env, ctx: ExecutionContext):
     // Only the app itself may call: no cross-site pages (CSRF, the feed socket) and no rebound host names.
     const denied = guardRequest(request, url, found && 'match' in found ? found.match.id : null, policyFor(env));
     if (denied) return denied;
-    if (!found) return errorResponse('not_found', `No route for ${url.pathname}.`);
+    // /api/media/* (media-owned, outside the protocol table): POST /api/media/image, GET /api/media/:key.
+    if (!found) return (await handleMediaRoute(request, url, env)) ?? errorResponse('not_found', `No route for ${url.pathname}.`);
     if ('allowed' in found) return errorResponse('method_not_allowed', `Use ${found.allowed.join(' or ')} for ${url.pathname}.`, { headers: { allow: found.allowed.join(', ') } });
 
     const { id, params } = found.match;

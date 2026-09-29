@@ -3,7 +3,7 @@
 import type { FaceLandmarks } from '@headcount/protocol';
 import { describe, expect, it } from 'vitest';
 import { STILL_POSE, type FacePose } from './motion';
-import { PortraitRenderer } from './portrait-renderer';
+import { LID_PROBES, PortraitRenderer, lidColor } from './portrait-renderer';
 import { asCtx, FakeCanvas, FakeContext, paths, rgba, stopsOf, type Op } from './test-utils/fake-canvas';
 import { VISEMES } from './visemes';
 
@@ -177,6 +177,17 @@ describe('PortraitRenderer (PG FaceLipSync port)', () => {
     still.renderer.render(asCtx(still.ctx), pose(VISEMES.OPEN_WIDE, { blink: 0.8, brow: 0.6 }));
     expect(still.renderer.tier).toBe(3);
     expect(still.ctx.count('drawImage'), 'no landmarks → still photo only').toBe(1);
+  });
+
+  it('takes the lid colour from skin, not from a fringe or a glasses frame over one probe', () => {
+    const skin: [number, number, number] = [196, 150, 122];
+    const hair: [number, number, number] = [12, 10, 9];
+    expect(LID_PROBES).toHaveLength(5);
+    // Dark bangs over both brow-bone probes: the median is still skin (a lone high probe drew black lids).
+    expect(lidColor([hair, hair, skin, [190, 146, 118], [201, 155, 126]])).toBe('rgb(190,146,118)');
+    // Platinum bangs are no better a lid than black ones.
+    expect(lidColor([[240, 236, 226], [236, 232, 220], skin, skin, skin])).toBe('rgb(196,150,122)');
+    expect(lidColor([null, null, null, null, null]), 'nothing readable (tainted canvas) → the default lid').toBe('rgb(180,140,120)');
   });
 
   it('samples both lid colours in a single readback', () => {

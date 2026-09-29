@@ -8,7 +8,7 @@ import { Announcer } from './components/Announcer';
 import { ChiefBubble } from './components/ChiefBubble';
 import { catalog } from './catalog';
 import { JobRow } from './components/JobRow';
-import { navigate, path } from './router';
+import { navigate, path, paths } from './router';
 import { Floor } from './routes/Floor';
 import { headlineWithoutName, Onboarding, quizIntro } from './routes/Onboarding';
 import { Talk } from './routes/Talk';
@@ -67,7 +67,7 @@ afterEach(() => {
 
 describe('Onboarding', () => {
   it('shows all twelve leads and chooses one with a name, then lands in Talk', async () => {
-    navigate('/welcome');
+    navigate(paths.onboarding);
     respond = (c) => json({ ...settings.value, ...(c.body as object), updatedAt: 'now' });
     await mount(<Onboarding />);
     expect(host.querySelectorAll('.gallery-card')).toHaveLength(slimIndex.catalog.leads.length);
@@ -82,7 +82,7 @@ describe('Onboarding', () => {
     await flush();
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ leadId: second.id, chiefName: 'Robin' });
     expect(settings.value?.leadId).toBe(second.id);
-    expect(path.value).toBe('/talk');
+    expect(path.value).toBe(paths.talk);
   });
 
   it('runs the match quiz (catalog or built-in) and marks the top three', async () => {
@@ -157,6 +157,38 @@ describe('JobRow', () => {
   });
 });
 
+describe('JobRow: a failed job', () => {
+  it('offers Ask again, which puts the same ask in the composer and opens Talk', async () => {
+    const { draft } = await import('./talk/draft');
+    draft.value = '';
+    const failed: JobSnapshot = {
+      jobId: 'job_2',
+      projectId: 'everyday',
+      title: 'Packaging suppliers',
+      brief: 'look into packaging suppliers',
+      status: 'failed',
+      label: '',
+      step: 2,
+      of: 5,
+      agentId: CHIEF_ID,
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      steers: [],
+      error: { code: 'provider_error', message: 'The model kept failing.' },
+    };
+    navigate(paths.projects);
+    await mount(<JobRow job={failed} defaultOpen />);
+    await click([...host.querySelectorAll('button')].find((b) => b.textContent === 'Ask again'));
+    expect(draft.value).toBe('look into packaging suppliers');
+    expect(path.value).toBe(paths.talk);
+  });
+
+  it('labels the write-up instead of repeating the job title', async () => {
+    await mount(<JobRow job={{ jobId: 'job_3', projectId: 'everyday', title: 'Coffee suppliers', brief: 'b', status: 'done', label: '', step: 3, of: 3, agentId: CHIEF_ID, startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), steers: [], summary: 'Done.', result: '## x' }} defaultOpen />);
+    expect(host.querySelector('.deliverable-title')?.textContent).toBe('The write-up');
+  });
+});
+
 describe('Floor', () => {
   it('lists every coworker by department and filters by search', async () => {
     await mount(<Floor />);
@@ -167,7 +199,7 @@ describe('Floor', () => {
     expect(names.length).toBeGreaterThan(0);
     expect(names.length).toBeLessThan(10);
     expect(host.querySelector('.floor-count')?.textContent).toMatch(/coworker/);
-    expect(host.querySelector('.cw-card')?.getAttribute('href')).toMatch(/^\/desk\/[^/]+\/profile$/);
+    expect(host.querySelector('.cw-card')?.getAttribute('href')).toMatch(/^\/app\/desk\/[^/]+\/profile$/);
   });
 });
 
@@ -201,7 +233,7 @@ describe('renamed Chief of Staff', () => {
     const lead = slimIndex.catalog.leads.find((l) => l.communication.greeting.includes(l.name.split(' ')[0]!))!;
     const first = lead.name.split(' ')[0]!;
     settings.value = { workspaceId: 'local', leadId: lead.id, chiefName: 'Rosa', voiceOn: false, updatedAt: 'x' };
-    navigate('/talk');
+    navigate(paths.talk);
     await mount(<Talk />);
     const greeting = host.querySelector('.msg[data-first] .msg-body')?.textContent ?? '';
     expect(greeting).toContain('Rosa');
@@ -211,7 +243,7 @@ describe('renamed Chief of Staff', () => {
   });
 
   it('labels Choose with the typed name', async () => {
-    navigate('/welcome');
+    navigate(paths.onboarding);
     await mount(<Onboarding />);
     await typeInto(host.querySelector('.stage-name-field input'), 'Robin');
     expect([...host.querySelectorAll('button')].some((b) => b.textContent === 'Choose Robin')).toBe(true);
@@ -220,8 +252,12 @@ describe('renamed Chief of Staff', () => {
 
 describe('onboarding copy', () => {
   it('shows each name once in the match list and never promises voices keyless', () => {
-    expect(headlineWithoutName('Samuel: explains the why, so you grow', 'Samuel')).toBe('explains the why, so you grow');
-    expect(headlineWithoutName('Calm plans', 'Samuel')).toBe('Calm plans');
+    // Data-driven: every lead's first name is stripped from a headline that starts with it.
+    for (const lead of slimIndex.catalog.leads) {
+      const first = lead.name.split(' ')[0]!;
+      expect(headlineWithoutName(`${first}: explains the why, so you grow`, first)).toBe('explains the why, so you grow');
+      expect(headlineWithoutName('Calm plans', first)).toBe('Calm plans');
+    }
     const intro = "Eight quick taps, about a minute. You'll hear your top three before you choose, and you can switch any time.";
     expect(quizIntro(intro, true)).toBe(intro);
     expect(quizIntro(intro, false)).toBe('Eight quick taps, about a minute. You can switch any time.');
@@ -238,7 +274,7 @@ describe('news while you are elsewhere', () => {
     lastSeq.value = 0;
     replayThrough.value = 0;
     jobs.value = {};
-    navigate('/floor');
+    navigate(paths.floor);
     const stop = startUnread();
     await mount(
       <>
@@ -251,7 +287,7 @@ describe('news while you are elsewhere', () => {
     expect(host.querySelector('.bubble-badge[data-kind="unread"]')?.textContent).toBe('1');
     expect(host.querySelector('.chief-bubble')?.hasAttribute('data-pulse')).toBe(true);
     expect(host.querySelector('[data-announcer]')?.textContent).toContain('is done');
-    await act(() => navigate('/talk'));
+    await act(() => navigate(paths.talk));
     expect(unread.value).toBe(0);
     stop();
   });

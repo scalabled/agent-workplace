@@ -1,4 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
+import { fullIndex } from '@headcount/catalog/full';
+import type { ChatProvider } from '@headcount/models';
 import {
   CHIEF_ID,
   DEFAULT_WORKSPACE_ID,
@@ -20,13 +22,13 @@ import {
 import type { Env } from '../env';
 import { DailyCounter, dailyLimit, limitMessage } from '../lib/limits';
 import type { MirrorBatch } from '../jobs/project-do';
-import { clipText } from '../jobs/job-view';
 import { projectStub } from '../lib/stubs';
+import { composeAnnouncement, templateAnnouncement, type AnnouncementFacts } from './announce';
 import type { ProjectApi } from './chief-tools';
 import { Feed, PresenceBoard, type FeedSocket } from './feed';
 import { Ledger } from './ledger';
 import { rollupEvents, upsertWorkspace } from './rollup';
-import { logError, runtime } from './runtime';
+import { logError, logWarn, runtime } from './runtime';
 import { closeTurn, newTurnState, runChiefTurn, type TurnState } from './talk';
 
 /** Idempotency records for owner commands (ARCHITECTURE §3.4: 24 h). */
@@ -37,7 +39,22 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS mirrored (src_stream TEXT NOT NULL, src_seq INTEGER NOT NULL, seq INTEGER NOT NULL, PRIMARY KEY (src_stream, src_seq))`,
   `CREATE TABLE IF NOT EXISTS jobs_seen (job_id TEXT PRIMARY KEY, title TEXT NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+  // An announcement being written in the lead's voice. Inserted in the same transaction as the mirrored frame
+  // that causes it, so it is never lost: if the object dies while the model writes, the template is posted.
+  `CREATE TABLE IF NOT EXISTS pending_announcements (cause_seq INTEGER PRIMARY KEY, facts TEXT NOT NULL, frame TEXT NOT NULL, at INTEGER NOT NULL)`,
 ];
+
+/** The fast model that phrases announcements (a cloud model; local and Mock use the template). */
+interface Announcer {
+  provider: ChatProvider;
+  model: string;
+}
+
+/** An announcement to post: what it may say, and the templated frame (its text is the fallback). */
+interface AnnouncementPlan {
+  facts: AnnouncementFacts;
+  frame: FrameInput<'talk.message'>;
+}
 
 /** A talk command the WorkspaceDO refused (RPC-safe: returned, not thrown). */
 export interface TalkRefusal {
@@ -81,6 +98,7 @@ export class WorkspaceDO extends DurableObject<Env> {
     this.feed = new Feed(this.workspaceId, this.ledger, this.presence, () => this.ctx.getWebSockets() as unknown as FeedSocket[], runtime.now);
     this.usage = new DailyCounter(ctx.storage);
     this.recoverInterruptedTurn();
+    this.postStrandedAnnouncements();
   }
 
   private get workspaceId(): string {
@@ -209,15 +227,19 @@ export class WorkspaceDO extends DurableObject<Env> {
   /**
    * Mirror a project's persisted frames into the owner feed. Each source (stream, seq) lands once, in
    * order, with a new seq and `cause = {source, seq}`. Finished and failed jobs get a proactive
-   * announcement from the Chief of Staff. The presence claim updates the merged face state.
+   * announcement from the Chief of Staff: in the lead's voice from the fast model when a cloud model is
+   * configured (posted within 2.5 s, else the template), otherwise the template at once. The presence
+   * claim updates the merged face state.
    */
   async ingest(batch: MirrorBatch): Promise<{ applied: number }> {
     let applied = 0;
     let lastSeq: number | null = null;
+    let announcer: Announcer | null | undefined;
+    const voicing: { causeSeq: number; plan: AnnouncementPlan; announcer: Announcer }[] = [];
     for (const f of batch.frames) {
       if (typeof f.seq !== 'number' || !isPersisted(f.type)) continue;
-      // The mirrored frame, its dedupe row and the announcement it causes commit together: a retry after a
-      // crash is deduplicated, so an announcement written later could be lost for good.
+      // The mirrored frame, its dedupe row and the announcement it causes (or the pending row that guarantees it)
+      // commit together: a retry after a crash is deduplicated, so an announcement written later could be lost.
       const written = this.ledger.tx(() => {
         const seen = this.ctx.storage.sql.exec('SELECT seq FROM mirrored WHERE src_stream = ? AND src_seq = ?', batch.source, f.seq).toArray()[0];
         if (seen) return null;
@@ -227,8 +249,13 @@ export class WorkspaceDO extends DurableObject<Env> {
         );
         this.ctx.storage.sql.exec('INSERT INTO mirrored (src_stream, src_seq, seq) VALUES (?, ?, ?)', batch.source, f.seq, m.seq);
         if (f.type === 'job.started') this.ctx.storage.sql.exec('INSERT OR REPLACE INTO jobs_seen (job_id, title) VALUES (?, ?)', f.data.job.jobId, f.data.job.title);
-        const input = this.announcement(m as Frame);
-        return { mirrored: m, announcement: input ? this.ledger.append(input) : null };
+        const plan = this.announcementPlan(m as Frame);
+        if (!plan) return { mirrored: m, announcement: null };
+        if (announcer === undefined) announcer = this.announcer();
+        if (!announcer) return { mirrored: m, announcement: this.ledger.append(plan.frame) };
+        this.ctx.storage.sql.exec('INSERT INTO pending_announcements (cause_seq, facts, frame, at) VALUES (?, ?, ?, ?)', m.seq, JSON.stringify(plan.facts), JSON.stringify(plan.frame), runtime.now());
+        voicing.push({ causeSeq: m.seq!, plan, announcer });
+        return { mirrored: m, announcement: null };
       });
       if (!written) continue;
       applied++;
@@ -244,32 +271,88 @@ export class WorkspaceDO extends DurableObject<Env> {
       this.feed.claim(batch.presence.agentId, batch.source, claim ? { ...claim, causeSeq: lastSeq ?? claim.causeSeq } : null);
     }
     if (applied) this.scheduleRollup();
+    // The mirror never waits for the voice: the model writes in the background and the line is posted when ready.
+    for (const v of voicing) this.ctx.waitUntil(this.voiceAnnouncement(v.causeSeq, v.plan, v.announcer));
     return { applied };
   }
 
   /**
-   * The Chief of Staff tells the owner when a job ends (talk.message kind 'announcement'): finished, failed,
+   * What the Chief of Staff tells the owner when a job ends (talk.message kind 'announcement'): finished, failed,
    * or stopped from the UI (a stop the Chief of Staff made on the owner's word was already said in the turn).
+   * The frame carries the templated text; the facts are all a voiced line may use.
    */
-  private announcement(frame: Frame): FrameInput<'talk.message'> | null {
-    let text: string;
+  private announcementPlan(frame: Frame): AnnouncementPlan | null {
+    let facts: AnnouncementFacts;
     let jobId: JobId;
     if (frame.type === 'job.done') {
       jobId = frame.data.jobId;
-      text = `“${this.jobTitle(jobId)}” is done. ${clipText(frame.data.summary, 400)} The full write-up is in Projects.`;
+      facts = { kind: 'done', title: this.jobTitle(jobId), summary: frame.data.summary };
     } else if (frame.type === 'job.failed') {
       jobId = frame.data.jobId;
-      text = `I could not finish “${this.jobTitle(jobId)}”. ${frame.data.message}`;
+      facts = { kind: 'failed', title: this.jobTitle(jobId), reason: frame.data.message };
     } else if (frame.type === 'job.cancelled' && frame.data.by === 'owner') {
       jobId = frame.data.jobId;
-      text = `Stopped “${this.jobTitle(jobId)}”. Nothing more will run on it; say the word if you want it started again.`;
+      facts = { kind: 'stopped', title: this.jobTitle(jobId) };
     } else return null;
     return {
-      type: 'talk.message',
-      data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text: text.replace(/\s+/g, ' ').trim(), kind: 'announcement', jobId },
-      actor: CHIEF_ID,
-      cause: { streamId: frame.streamId as StreamId, seq: frame.seq! },
+      facts,
+      frame: {
+        type: 'talk.message',
+        data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text: templateAnnouncement(facts), kind: 'announcement', jobId },
+        actor: CHIEF_ID,
+        cause: { streamId: frame.streamId as StreamId, seq: frame.seq! },
+      },
     };
+  }
+
+  /** The fast cloud model for voiced announcements, or null (local, Mock or none: the template is used). */
+  private announcer(): Announcer | null {
+    try {
+      const r = runtime.registry(this.env).tryResolve('chat', { tier: 'fast' });
+      return r && r.provider.kind === 'cloud' ? { provider: r.provider, model: r.model } : null;
+    } catch (err) {
+      logError('workspace.announce', err);
+      return null;
+    }
+  }
+
+  /** Phrase a pending announcement in the chosen lead's voice (≤ 2.5 s, else the template) and post it once. */
+  private async voiceAnnouncement(causeSeq: number, plan: AnnouncementPlan, announcer: Announcer): Promise<void> {
+    let text = plan.frame.data.text;
+    try {
+      const settings = await this.getSettings();
+      const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
+      const r = await composeAnnouncement({ provider: announcer.provider, model: announcer.model, lead, chiefName: settings.chiefName, facts: plan.facts });
+      text = r.text;
+      if (r.source === 'template') logWarn('workspace.announce', `used the template (${r.fallback}) after ${r.ms} ms`);
+    } catch (err) {
+      logError('workspace.announce', err);
+    }
+    this.postAnnouncement(causeSeq, { ...plan.frame, data: { ...plan.frame.data, text } });
+  }
+
+  /** Post a pending announcement exactly once (the pending row is the guard). */
+  private postAnnouncement(causeSeq: number, frame: FrameInput<'talk.message'>): void {
+    const posted = this.ledger.tx(() => {
+      const pending = this.ctx.storage.sql.exec('DELETE FROM pending_announcements WHERE cause_seq = ?', causeSeq);
+      return pending.rowsWritten > 0 ? this.ledger.append(frame) : null;
+    });
+    if (!posted) return;
+    this.feed.broadcast(posted);
+    this.scheduleRollup();
+  }
+
+  /** Announcements whose voice was still being written when the object last stopped: post their template now. */
+  private postStrandedAnnouncements(): void {
+    const rows = this.ctx.storage.sql.exec<{ cause_seq: number; frame: string }>('SELECT cause_seq, frame FROM pending_announcements ORDER BY cause_seq').toArray();
+    for (const r of rows) {
+      try {
+        this.postAnnouncement(Number(r.cause_seq), JSON.parse(r.frame) as FrameInput<'talk.message'>);
+      } catch (err) {
+        logError('workspace.announce', err);
+        this.ctx.storage.sql.exec('DELETE FROM pending_announcements WHERE cause_seq = ?', r.cause_seq);
+      }
+    }
   }
 
   private jobTitle(jobId: string): string {

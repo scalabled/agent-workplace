@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Landmarks precompute</title>
+<!--
+  Dev tool (owned by media): measures face landmarks for stored portraits that have none, with the app's own
+  code — @headcount/avatar's detectLandmarks (MediaPipe tasks-vision, same pinned CDN config and the same
+  mesh → geometry mapping and normalizeLandmarks validation) — and saves them with PUT
+  /api/portraits/:id/landmarks, bound to the image version it measured.
+
+  Needs the Vite dev server (pnpm dev): the avatar module is imported through Vite (/@id/@headcount/avatar).
+  Driven headlessly by scripts/landmarks-precompute.mjs; open it by hand and press "Measure missing" too.
+  URL options: ?run=1 (start at once) · ?only=id,id · ?force=1 (re-measure and replace saved landmarks)
+  · ?delegate=CPU|GPU (default: the app's GPU → CPU fallback).
+-->
+<style>
+  :root { color-scheme: dark; --bg: #0a0a0d; --panel: #141419; --text: #ececf1; --muted: #9a9aa8; --accent: #5eead4; --bad: #fb7185; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 ui-sans-serif, system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px; }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  p { color: var(--muted); margin: 0 0 16px; }
+  button { background: var(--accent); color: #041311; border: 0; border-radius: 10px; padding: 10px 16px; font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  ol { background: var(--panel); border-radius: 12px; padding: 12px 12px 12px 40px; font: 12px/1.6 ui-monospace, monospace; max-height: 60vh; overflow: auto; }
+  ol:empty { display: none; }
+  .bad { color: var(--bad); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Landmarks precompute</h1>
+  <p id="status">Loading the face mapper…</p>
+  <button id="run" disabled>Measure missing</button>
+  <ol id="log"></ol>
+</main>
+<script type="module">
+  const params = new URLSearchParams(location.search);
+  const statusEl = document.getElementById('status');
+  const logEl = document.getElementById('log');
+  const runButton = document.getElementById('run');
+  const setStatus = (text) => { statusEl.textContent = text; };
+  const log = (text, bad = false) => {
+    const li = document.createElement('li');
+    li.textContent = text;
+    if (bad) li.className = 'bad';
+    logEl.append(li);
+    li.scrollIntoView({ block: 'nearest' });
+  };
+
+  const api = {
+    async list() {
+      const res = await fetch('/api/portraits', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`GET /api/portraits answered ${res.status}`);
+      return (await res.json()).portraits;
+    },
+  };
+
+  function loadImage(url) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('the image did not decode'));
+      img.src = url;
+    });
+  }
+
+  let avatar = null;
+  let ready = null;
+
+  /** Detect and save one portrait's landmarks. Resolves {status, ms, message?}; never rejects. */
+  async function measure(personaId, { force = false } = {}) {
+    const started = performance.now();
+    const out = (status, message) => ({ personaId, status, ms: Math.round(performance.now() - started), ...(message ? { message } : {}) });
+    let objectUrl = null;
+    try {
+      await ready;
+      const res = await fetch(`/api/portraits/${encodeURIComponent(personaId)}`, { cache: 'no-store' });
+      if (res.status === 404) return out('no_portrait', 'there is no stored portrait');
+      if (!res.ok) return out('error', `GET portrait answered ${res.status}`);
+      const version = res.headers.get('X-Portrait-Version');
+      objectUrl = URL.createObjectURL(await res.blob());
+      const img = await loadImage(objectUrl);
+      // The app's detector and normalization (packages/avatar landmarks.ts → protocol normalizeLandmarks).
+      const landmarks = await avatar.detectLandmarks(img);
+      if (!landmarks) return out('no_face', 'no face was found in the image');
+      const put = await fetch(`/api/portraits/${encodeURIComponent(personaId)}/landmarks`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ landmarks, ...(version ? { portraitVersion: version } : {}), ...(force ? { force: true } : {}) }),
+      });
+      if (put.ok) return out('saved');
+      const body = await put.json().catch(() => ({}));
+      const message = body?.error?.message ?? `PUT answered ${put.status}`;
+      if (put.status === 409) return out(/changed/i.test(message) ? 'stale' : 'exists', message);
+      return out('error', message);
+    } catch (err) {
+      return out('error', err instanceof Error ? err.message : String(err));
+    } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  async function runAll() {
+    runButton.disabled = true;
+    const force = params.get('force') === '1';
+    const only = (params.get('only') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    try {
+      const portraits = await api.list();
+      const todo = portraits.filter((p) => (only.length ? only.includes(p.personaId) : force || !p.hasLandmarks)).map((p) => p.personaId);
+      if (!todo.length) {
+        setStatus(`All ${portraits.length} stored portraits have landmarks.`);
+        return;
+      }
+      let saved = 0;
+      for (const [i, id] of todo.entries()) {
+        setStatus(`Measuring ${i + 1} of ${todo.length}…`);
+        const r = await measure(id, { force });
+        if (r.status === 'saved') saved++;
+        log(`[${i + 1}/${todo.length}] ${id}: ${r.status}${r.message ? ` (${r.message})` : ''} · ${r.ms} ms`, r.status === 'error' || r.status === 'no_face');
+      }
+      setStatus(`Done: ${saved} of ${todo.length} saved.`);
+    } catch (err) {
+      setStatus(`Failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      runButton.disabled = false;
+    }
+  }
+
+  window.__landmarks = { ready: false, error: null, measure, list: api.list };
+  ready = (async () => {
+    avatar = await import('/@id/@headcount/avatar');
+    const delegate = params.get('delegate');
+    if (delegate === 'CPU' || delegate === 'GPU') avatar.configureLandmarks({ delegate });
+    await avatar.preloadLandmarker();
+    if (!avatar.isLandmarkerReady()) throw new Error('MediaPipe could not load (offline, or the CDN is blocked).');
+  })();
+  ready.then(
+    () => {
+      window.__landmarks.ready = true;
+      setStatus('Ready. Measures every stored portrait that has no landmarks yet.');
+      runButton.disabled = false;
+      runButton.onclick = runAll;
+      if (params.get('run') === '1') runAll();
+    },
+    (err) => {
+      const message = err instanceof Error ? err.message : String(err);
+      window.__landmarks.error = message;
+      setStatus(`The face mapper did not load: ${message} Open this page from the Vite dev server (pnpm dev).`);
+    },
+  );
+</script>
+</body>
+</html>

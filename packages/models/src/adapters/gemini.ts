@@ -210,6 +210,25 @@ export function pickGeminiModel(models: { name?: string; supportedGenerationMeth
   return pool[0] ?? null;
 }
 
+/**
+ * Thinking tokens per effort (Gemini's `thinkingBudget`). Each stays under callBudget's allowance for that effort,
+ * so thoughts never eat the visible answer's room.
+ */
+export const GEMINI_THINKING_BUDGET: Readonly<Record<'low' | 'medium' | 'high', number>> = { low: 2048, medium: 6144, high: 12288 };
+/** The smallest budget on models that cannot switch thinking off (Pro). */
+const GEMINI_MIN_THINKING = 128;
+
+/**
+ * The explicit effort as a `thinkingConfig` (never the model's default when an effort is given): 'none' turns
+ * thinking off on Flash and Flash-Lite (`thinkingBudget: 0`) and asks Pro, which always thinks, for its minimum.
+ * No effort → no config (the model's default).
+ */
+export function geminiThinking(model: string, effort: ChatRequest['reasoningEffort']): Record<string, unknown> | undefined {
+  if (!effort) return undefined;
+  if (effort === 'none') return { thinkingBudget: /-pro/.test(model) ? GEMINI_MIN_THINKING : 0 };
+  return { thinkingBudget: GEMINI_THINKING_BUDGET[effort], includeThoughts: true };
+}
+
 async function* geminiChat(http: HttpClient, req: ChatRequest, requested: string, tierOf: (model: string) => ModelTier): AsyncGenerator<ModelEvent> {
   const names = ToolNames.forRequest(req.tools, req.messages);
   const body: Record<string, unknown> = { contents: toGeminiContents(req.messages, names) };
@@ -229,7 +248,8 @@ async function* geminiChat(http: HttpClient, req: ChatRequest, requested: string
     gen.responseMimeType = 'application/json';
     gen.responseSchema = toGeminiSchema(req.responseFormat.schema);
   }
-  if (req.reasoningEffort && req.reasoningEffort !== 'none') gen.thinkingConfig = { includeThoughts: true };
+  const thinking = geminiThinking(requested, req.reasoningEffort);
+  if (thinking) gen.thinkingConfig = thinking;
   if (Object.keys(gen).length) body.generationConfig = gen;
 
   const tier = tierOf(requested);

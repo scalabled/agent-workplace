@@ -5,7 +5,9 @@ import { jobProgressPercent } from '@headcount/protocol/ext/worker-core';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
 import { ago, now } from '../lib/time';
+import { navigate, paths } from '../router';
 import { steerJob, stopJob } from '../talk/actions';
+import { prefillComposer } from '../talk/draft';
 import { Icon } from './Icon';
 import { Markdown } from './Markdown';
 
@@ -170,7 +172,22 @@ export function JobDetail({ job, showDeliverable = true }: { job: JobSnapshot; s
         </ul>
       )}
       {running && <SteerForm job={job} />}
-      {showDeliverable && job.status === 'done' && job.result && <Deliverable job={job} />}
+      {(job.status === 'failed' || job.status === 'cancelled') && (
+        <div class="job-again">
+          <button
+            type="button"
+            class="button-primary"
+            onClick={() => {
+              // The obvious next action (D3): the same ask, ready to send (or edit) in Talk.
+              prefillComposer(job.brief);
+              navigate(paths.talk);
+            }}
+          >
+            Ask again
+          </button>
+        </div>
+      )}
+      {showDeliverable && job.status === 'done' && job.result && <Deliverable job={job} label="The write-up" />}
       <div class="job-foot tabular">
         <span>
           Started {ago(job.startedAt)}
@@ -250,14 +267,14 @@ function SteerForm({ job }: { job: JobSnapshot }) {
 }
 
 /** A finished job's result, expandable in place. Long-form reads in the serif. */
-export function Deliverable({ job, startOpen = false }: { job: JobSnapshot; startOpen?: boolean }) {
+export function Deliverable({ job, startOpen = false, label }: { job: JobSnapshot; startOpen?: boolean; /** Instead of the job title, where the title is already shown above. */ label?: string }) {
   const [open, setOpen] = useState(startOpen);
   if (!job.result) return null;
   return (
     <div class="deliverable" data-open={open || undefined}>
       <button type="button" class="deliverable-head" aria-expanded={open} onClick={() => setOpen(!open)}>
         <Icon name="check" size={18} />
-        <span class="deliverable-title">{job.title}</span>
+        <span class="deliverable-title">{label ?? job.title}</span>
         <span class="deliverable-action">{open ? 'Hide' : 'Read'}</span>
       </button>
       {open && <Markdown text={job.result} class="deliverable-body" />}

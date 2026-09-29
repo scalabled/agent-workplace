@@ -149,6 +149,42 @@ describe('POST /api/portraits/:personaId/generate', () => {
     expect(cached.status).toBe(304);
   });
 
+  it('caches a versioned URL for good, and a force regeneration bumps the version, clears landmarks and relists', async () => {
+    const { t, reg } = await withImage();
+    await invoke(t, reg, 'POST', `/api/portraits/${lead.id}/generate?wait=1`);
+    const v1 = (await body(await invoke(t, reg, 'GET', '/api/portraits'))).portraits[0].version as string;
+    expect((await invoke(t, reg, 'GET', `/api/portraits/${lead.id}?v=${v1}`)).headers.get('cache-control')).toBe('private, max-age=31536000, immutable');
+    expect((await invoke(t, reg, 'GET', `/api/portraits/${lead.id}?v=old`)).headers.get('cache-control')).toBe('private, no-cache');
+    const put = await invoke(t, reg, 'PUT', `/api/portraits/${lead.id}/landmarks`, {
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ landmarks: landmarks(), portraitVersion: v1 }),
+    });
+    expect(put.status).toBe(200);
+    expect((await body(await invoke(t, reg, 'GET', '/api/portraits'))).portraits[0]).toEqual({ personaId: lead.id, version: v1, hasLandmarks: true });
+
+    expect((await invoke(t, reg, 'POST', `/api/portraits/${lead.id}/generate?force=1&wait=1`)).status).toBe(200);
+    const [after] = (await body(await invoke(t, reg, 'GET', '/api/portraits'))).portraits;
+    expect(after.version).not.toBe(v1);
+    expect(after.hasLandmarks).toBe(false);
+    expect((await getRow(t.env.DB, lead.id))!.landmarks).toBeNull();
+    // The old versioned URL is no longer pinned; the new one is.
+    expect((await invoke(t, reg, 'GET', `/api/portraits/${lead.id}?v=${v1}`)).headers.get('cache-control')).toBe('private, no-cache');
+    expect((await invoke(t, reg, 'GET', `/api/portraits/${lead.id}?v=${after.version}`)).headers.get('cache-control')).toBe('private, max-age=31536000, immutable');
+  });
+
+  it('never pins bytes a regeneration wrote before D1 moved to their version (the R2 key is not versioned)', async () => {
+    const { t, reg } = await withImage();
+    await invoke(t, reg, 'POST', `/api/portraits/${lead.id}/generate?wait=1`);
+    const v1 = (await getRow(t.env.DB, lead.id))!.version!;
+    // A forced regeneration has put the new image in place but not yet completed (or its completion failed).
+    const obj = t.r2.objects.get(`portraits/${lead.id}.png`)!;
+    obj.customMetadata = { ...obj.customMetadata, version: 'v2-in-flight' };
+    const res = await invoke(t, reg, 'GET', `/api/portraits/${lead.id}?v=${v1}`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('private, no-cache');
+    expect(res.headers.get('etag')).toBe('"v2-in-flight"');
+  });
+
   it('is idempotent: returns the existing portrait unless ?force=1', async () => {
     const { t, fake, reg } = await withImage();
     await invoke(t, reg, 'POST', `/api/portraits/${persona.id}/generate?wait=1`);

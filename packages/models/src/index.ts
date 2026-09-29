@@ -9,6 +9,7 @@ export * from './collect';
 export * from './schema-fill';
 export * from './wav';
 export * from './model-catalog';
+export * from './budget';
 export { deadlineSignal, setProviderDeadline, providerDeadlineMs, isDeadline, redact, fetchWithRetry, PROVIDER_TIMEOUT_MS, PROVIDER_STREAM_TIMEOUT_MS, PROVIDER_RETRIES } from './lib/http';
 export { parseSSE, parseNDJSON, sseResponse, type SseRecord, type SseProducer } from './lib/sse';
 export { parseLenientJson, readJson, tokenizeJson } from './lib/lenient-json';

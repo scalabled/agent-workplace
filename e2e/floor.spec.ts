@@ -7,7 +7,7 @@ test.beforeEach(async ({ request }) => {
 });
 
 test('the Directory lists every coworker by department, with faces', async ({ page }) => {
-  await page.goto('/floor');
+  await page.goto('/app/floor');
   const lede = page.getByText(/(\d+) coworkers across (\d+) departments/);
   await expect(lede).toBeVisible();
   const [, total] = (await lede.textContent())!.match(/(\d+) coworkers/)!;
@@ -20,7 +20,7 @@ test('the Directory lists every coworker by department, with faces', async ({ pa
 });
 
 test('search and the department filter narrow the Directory', async ({ page }) => {
-  await page.goto('/floor');
+  await page.goto('/app/floor');
   await expect(page.getByText(/coworkers across \d+ departments/)).toBeVisible();
   const all = await page.locator('.cw-card').count();
   expect(all).toBeGreaterThan(100);
@@ -42,7 +42,7 @@ test('search and the department filter narrow the Directory', async ({ page }) =
 });
 
 test('a coworker profile shows the face, story and methods', async ({ page }) => {
-  await page.goto('/floor');
+  await page.goto('/app/floor');
   await expect(page.locator('.cw-card').first()).toBeVisible();
   const card = page.locator('.cw-card').first();
   const name = (await card.locator('.cw-name').textContent())!.trim();

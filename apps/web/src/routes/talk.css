@@ -50,6 +50,26 @@
     box-shadow var(--dur-state) var(--ease-out);
 }
 
+/* Faces are the status UI (D3): while background work runs, the face wears the lamp's working arc (the same one
+   the bubble wears elsewhere), and it stays available (D2). Still under reduced motion. */
+.talk-face-button {
+  position: relative;
+}
+
+.talk-face-button[data-jobs]::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  z-index: 1;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--state-working);
+  border-right-color: color-mix(in srgb, var(--state-working) 45%, transparent);
+  box-shadow: 0 0 18px -4px color-mix(in srgb, var(--state-working) 55%, transparent);
+  animation: bubble-work 2.4s linear infinite;
+  pointer-events: none;
+}
+
 .talk-face-button[data-listening] {
   transform: scale(1.05);
   box-shadow:
@@ -103,7 +123,10 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  border: 1.5px solid var(--faint);
+  /* Available: a filled, lit dot (proof), never a hollow grey ring. */
+  border: 1.5px solid var(--proof);
+  background: var(--proof);
+  box-shadow: 0 0 8px -1px color-mix(in srgb, var(--proof) 70%, transparent);
 }
 
 .state-glyph[data-state='speaking'] {
@@ -111,26 +134,34 @@
   width: 12px;
   height: 10px;
   border-radius: 1px;
+  box-shadow: none;
   background: linear-gradient(90deg, var(--lamp) 0 2px, transparent 2px 5px, var(--lamp) 5px 7px, transparent 7px 10px, var(--lamp) 10px 12px);
 }
 
 .state-glyph[data-state='listening'] {
   border-color: var(--hand);
   background: var(--hand);
+  box-shadow: 0 0 8px -1px color-mix(in srgb, var(--hand) 70%, transparent);
 }
 
 .state-glyph[data-state='thinking'] {
   border-style: dotted;
   border-color: var(--muted);
+  background: none;
+  box-shadow: none;
   animation: breathe 1.6s var(--ease-in-out) infinite;
 }
 
 .state-glyph[data-state='working'] {
   border-color: var(--lamp);
+  background: var(--lamp);
+  box-shadow: 0 0 8px -1px color-mix(in srgb, var(--lamp) 70%, transparent);
 }
 
 .state-glyph[data-state='raised_hand'] {
   border-color: var(--hand);
+  background: var(--hand);
+  box-shadow: 0 0 8px -1px color-mix(in srgb, var(--hand) 70%, transparent);
 }
 
 /* ── thread ─────────────────────────────────────────────── */
@@ -359,7 +390,8 @@
   position: relative;
 }
 
-.activity-dismiss {
+/* Two classes: `.icon-button-sm { position: relative }` (components.css) loads after this file and would win. */
+.activity-row .activity-dismiss {
   position: absolute;
   top: 6px;
   right: 40px;
@@ -477,7 +509,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .typing span,
-  .state-glyph[data-state='thinking'] {
+  .state-glyph[data-state='thinking'],
+  .talk-face-button[data-jobs]::before {
     animation: none;
   }
 }

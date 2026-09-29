@@ -32,7 +32,7 @@ test('capabilities are keyless-safe', async ({ request }) => {
 });
 
 test('shell shows the four places and the Chief of Staff bubble', async ({ page }) => {
-  await page.goto('/floor');
+  await page.goto('/app/floor');
   const nav = page.getByRole('navigation', { name: 'Places' });
   for (const place of ['Talk', 'Floor', 'Projects', 'Inbox']) await expect(nav.getByRole('link', { name: place })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Talk to / })).toBeVisible();
@@ -42,7 +42,7 @@ test('shell shows the four places and the Chief of Staff bubble', async ({ page 
 
 test('choosing a Chief of Staff lands in Talk', async ({ page, request }) => {
   await request.put('/api/workspace', { data: { leadId: null, chiefName: null } });
-  await page.goto('/welcome');
+  await page.goto('/app/welcome');
   await page.getByRole('button', { name: /^Choose / }).first().click();
   await expect(page).toHaveURL(/\/talk$/);
 });
@@ -55,7 +55,7 @@ test('only the app itself may call the worker (cross-site pages are refused)', a
   const plain = await request.post('/api/talk', { headers: { 'content-type': 'text/plain;application/json' }, data: JSON.stringify(talk) });
   expect(plain.status()).toBe(415);
   // The app's own page (same origin through the Vite proxy) is allowed, and so is its feed socket.
-  await page.goto('/floor');
+  await page.goto('/app/floor');
   const ok = await page.evaluate(async () => {
     const res = await fetch('/api/workspace', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ voiceOn: false }) });
     return res.status;

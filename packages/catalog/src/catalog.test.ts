@@ -50,9 +50,9 @@ describe('build tolerance', () => {
 
 describe('helpers', () => {
   it('names the chief', () => {
-    expect(chiefDisplayName({ name: 'Samuel Addo' }, null)).toBe('Samuel');
-    expect(chiefDisplayName({ name: 'Samuel Addo' }, ' Rosa ')).toBe('Rosa');
-    expect(initials('Mei-Lin Chen')).toBe('MC');
+    expect(chiefDisplayName({ name: 'Kobby Owusu' }, null)).toBe('Kobby');
+    expect(chiefDisplayName({ name: 'Kobby Owusu' }, ' Rosa ')).toBe('Rosa');
+    expect(initials('Anne-Marie Chen')).toBe('AC');
   });
   it('scores the match quiz with normalisation and autonomy tie-break', () => {
     const quiz: MatchQuiz = {
@@ -76,17 +76,17 @@ describe('helpers', () => {
 });
 
 describe('renameLine', () => {
-  const lead = { name: 'Dominic Reyes' };
+  const lead = { name: 'Paolo Bautista' };
   it('replaces the catalog first name with the chosen one, whole words only', () => {
-    expect(renameLine("I'm Dominic. Give me the messy version.", lead, 'Rosa')).toBe("I'm Rosa. Give me the messy version.");
-    expect(renameLine('Dominica and Dominic’s plan', lead, 'Rosa')).toBe('Dominica and Rosa’s plan');
+    expect(renameLine("I'm Paolo. Give me the messy version.", lead, 'Rosa')).toBe("I'm Rosa. Give me the messy version.");
+    expect(renameLine('Paolozzi and Paolo’s plan', lead, 'Rosa')).toBe('Paolozzi and Rosa’s plan');
     expect(renameLine('Costs $5', lead, '$& Rosa')).toBe('Costs $5');
-    expect(renameLine('Hi Dominic', lead, '$1 Lu')).toBe('Hi $1 Lu');
+    expect(renameLine('Hi Paolo', lead, '$1 Lu')).toBe('Hi $1 Lu');
   });
   it('leaves the line alone without a different name', () => {
-    expect(renameLine("I'm Dominic.", lead, null)).toBe("I'm Dominic.");
-    expect(renameLine("I'm Dominic.", lead, 'Dominic')).toBe("I'm Dominic.");
-    expect(renameLine('Hello, I’m Jo.', { name: 'Jo Castañeda' }, 'Ana')).toBe('Hello, I’m Ana.');
+    expect(renameLine("I'm Paolo.", lead, null)).toBe("I'm Paolo.");
+    expect(renameLine("I'm Paolo.", lead, 'Paolo')).toBe("I'm Paolo.");
+    expect(renameLine('Hello, I’m Tou.', { name: 'Tou Moua' }, 'Ana')).toBe('Hello, I’m Ana.');
   });
   it('covers every catalog greeting', () => {
     for (const l of catalogFull.leads) {

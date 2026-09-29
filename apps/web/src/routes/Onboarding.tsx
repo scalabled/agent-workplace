@@ -17,6 +17,7 @@ import { updateSettings } from '../talk/actions';
 import { greetOnArrival } from '../talk/draft';
 import { armAudio } from '../voice/engine';
 import './onboarding.css';
+import { accentFor } from '../lib/accent';
 
 const matches = signal<Match[]>([]);
 
@@ -104,7 +105,7 @@ export function Onboarding() {
               const rank = top.find((m) => m.lead.id === l.id)?.rank;
               return (
                 <li key={l.id}>
-                  <button type="button" class="gallery-card" aria-pressed={l.id === selected.id} onClick={() => select(l.id, true)} style={{ '--accent': l.avatar.accent_color }}>
+                  <button type="button" class="gallery-card" aria-pressed={l.id === selected.id} onClick={() => select(l.id, true)} style={{ '--accent': accentFor(l.avatar.accent_color) }}>
                     <Face subject={leadSubject(l)} tier="token" decorative lazy />
                     <span class="gallery-name">{firstName(l.name)}</span>
                     <span class="gallery-arch">{l.archetype}</span>
@@ -175,7 +176,7 @@ function Stage({ lead, match, previewLine }: { lead: Lead; match: Match | undefi
   };
 
   return (
-    <article class="stage" style={{ '--accent': lead.avatar.accent_color }} aria-labelledby="stage-name">
+    <article class="stage" style={{ '--accent': accentFor(lead.avatar.accent_color) }} aria-labelledby="stage-name">
       <div class="stage-face">
         <Face subject={leadSubject(lead)} tier="hero" state={speaking ? 'speaking' : 'idle'} sampler={speaker.mouth} label={`${lead.name}, ${lead.archetype}`} />
         <PortraitAction lead={lead} />
@@ -261,7 +262,7 @@ function MatchList({ matches: list, selectedId, onSelect }: { matches: Match[]; 
       <ol>
         {list.map((m) => (
           <li key={m.lead.id}>
-            <button type="button" class="match" aria-pressed={m.lead.id === selectedId} onClick={() => onSelect(m.lead.id)} style={{ '--accent': m.lead.avatar.accent_color }}>
+            <button type="button" class="match" aria-pressed={m.lead.id === selectedId} onClick={() => onSelect(m.lead.id)} style={{ '--accent': accentFor(m.lead.avatar.accent_color) }}>
               <Face subject={leadSubject(m.lead)} tier="token" decorative />
               <span class="match-text">
                 <span class="match-name">
@@ -277,7 +278,7 @@ function MatchList({ matches: list, selectedId, onSelect }: { matches: Match[]; 
   );
 }
 
-/** The catalog headline already starts with the name ("Samuel: explains the why…"); the list shows the name once. */
+/** The catalog headline already starts with the name ("<First>: explains the why…"); the list shows the name once. */
 export function headlineWithoutName(headline: string, first: string): string {
   const escaped = first.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const rest = headline.replace(new RegExp(`^${escaped}\\s*[:·—–-]\\s*`), '');

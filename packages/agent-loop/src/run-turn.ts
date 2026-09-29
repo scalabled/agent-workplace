@@ -1,6 +1,7 @@
 // Ported from oncloudnine/server/lib/agentRuntime.ts (runAgentLoop: step ceiling, argsError, wrap-up turn)
 // and biz-bot/public/js/agent.js (runBotTurn: parallel tool calls, identical-failure guard, text across steps).
 import { collectEvents, type ChatMessage, type ChatRequest, type ToolCall } from '@headcount/models';
+import { lowerEffort } from './budget';
 import type { AgentTool, CheckpointDirective, LoopEvent, RunTurnOptions, ToolOutcome, TurnResult } from './types';
 
 export const DEFAULT_MAX_STEPS = 8;
@@ -13,8 +14,9 @@ export const IDENTICAL_FAILURE_LIMIT = 2;
 /**
  * One agent turn: call the model, run any tool calls (in parallel), feed results back, repeat until the
  * model stops or the step ceiling is hit (then one tool-free wrap-up call). Between tool rounds the
- * optional `checkpoint` hook can inject steering or stop the turn. Never throws for model or tool
- * failures: they come back as `finish: 'error'` (with the partial text) or as tool error outcomes.
+ * optional `checkpoint` hook can inject steering or stop the turn. A call that spends its whole budget thinking
+ * (ends `length` with nothing to show) is sent again once with more room and less effort. Never throws for model
+ * or tool failures: they come back as `finish: 'error'` (with the partial text) or as tool error outcomes.
  */
 export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
   const maxSteps = Math.min(Math.max(1, Math.floor(opts.maxSteps ?? DEFAULT_MAX_STEPS)), HARD_MAX_STEPS);
@@ -36,7 +38,17 @@ export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
   let steps = 0;
   let toolCalls = 0;
   let text = '';
+  // The call budget; raised once (and for the rest of the turn) after a call that only thought.
+  let maxTokens = opts.maxTokens;
+  let reasoningEffort = opts.reasoningEffort;
+  let budget = opts.budget;
+  let lengthRetryLeft = opts.emptyLengthRetry !== false;
 
+  const addUsage = (u: TurnResult['usage']) => {
+    usage.input += u.input;
+    usage.output += u.output;
+    usage.usd = usage.usd === null || u.usd === null ? null : usage.usd + u.usd;
+  };
   const push = (m: ChatMessage) => {
     transcript.push(m);
     produced.push(m);
@@ -58,30 +70,43 @@ export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
     steps++;
     emit({ type: 'step', step: steps, ...(wrapUp ? { wrapUp: true } : {}) });
 
-    const req: ChatRequest = { system: opts.system, messages: [...transcript], signal };
-    if (opts.model !== undefined) req.model = opts.model;
-    if (specs.length) {
-      req.tools = specs;
-      // Wrap-up keeps the tool definitions (providers reject tool results without them) but forbids calls.
-      if (wrapUp) req.toolChoice = 'none';
-      else if (steps === 1 && opts.toolChoice !== undefined) req.toolChoice = opts.toolChoice;
-    }
-    if (opts.maxTokens !== undefined) req.maxTokens = opts.maxTokens;
-    if (opts.temperature !== undefined) req.temperature = opts.temperature;
-    if (opts.reasoningEffort !== undefined) req.reasoningEffort = opts.reasoningEffort;
-    if (opts.responseFormat !== undefined) req.responseFormat = opts.responseFormat;
-
     let collected;
-    try {
-      collected = await collectEvents(opts.provider.chat(req), emit);
-    } catch (err) {
-      // Adapters should end with an `error` event, but a thrown stream is handled the same way.
-      if (signal.aborted) return result('cancelled');
-      return result('error', { error: { message: err instanceof Error ? err.message : String(err) } });
+    for (;;) {
+      const req: ChatRequest = { system: opts.system, messages: [...transcript], signal };
+      if (opts.model !== undefined) req.model = opts.model;
+      if (specs.length) {
+        req.tools = specs;
+        // Wrap-up keeps the tool definitions (providers reject tool results without them) but forbids calls.
+        if (wrapUp) req.toolChoice = 'none';
+        else if (steps === 1 && opts.toolChoice !== undefined) req.toolChoice = opts.toolChoice;
+      }
+      if (maxTokens !== undefined) req.maxTokens = maxTokens;
+      if (opts.temperature !== undefined) req.temperature = opts.temperature;
+      if (reasoningEffort !== undefined) req.reasoningEffort = reasoningEffort;
+      if (budget !== undefined) req.budget = budget;
+      if (opts.responseFormat !== undefined) req.responseFormat = opts.responseFormat;
+
+      try {
+        collected = await collectEvents(opts.provider.chat(req), emit);
+      } catch (err) {
+        // Adapters should end with an `error` event, but a thrown stream is handled the same way.
+        if (signal.aborted) return result('cancelled');
+        return result('error', { error: { message: err instanceof Error ? err.message : String(err) } });
+      }
+      const onlyThought = !collected.error && collected.finish === 'length' && !collected.text.trim() && !collected.toolCalls.length;
+      if (!onlyThought || !lengthRetryLeft || signal.aborted) break;
+      // The model spent the whole budget thinking and produced nothing: once per turn, give it more room and
+      // ask for less thinking, then send the same call again.
+      lengthRetryLeft = false;
+      addUsage(collected.usage);
+      const override = opts.emptyLengthRetry || undefined;
+      maxTokens = override?.maxTokens ?? (maxTokens !== undefined ? maxTokens * 2 : undefined);
+      reasoningEffort = override?.reasoningEffort ?? lowerEffort(reasoningEffort);
+      // A failover candidate re-sizes from the hint: it gets the same doubling and the same lower effort.
+      if (budget) budget = { output: budget.output * 2, effort: override?.reasoningEffort ?? lowerEffort(budget.effort) };
+      emit({ type: 'retry', step: steps, reason: 'empty_length', ...(maxTokens !== undefined ? { maxTokens } : {}), ...(reasoningEffort !== undefined ? { reasoningEffort } : {}) });
     }
-    usage.input += collected.usage.input;
-    usage.output += collected.usage.output;
-    usage.usd = usage.usd === null || collected.usage.usd === null ? null : usage.usd + collected.usage.usd;
+    addUsage(collected.usage);
     text = collected.text;
     if (collected.text) texts.push(collected.text);
 

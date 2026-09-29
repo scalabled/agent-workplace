@@ -168,5 +168,5 @@ export function topMatches(quiz: MatchQuiz, answers: QuizAnswers, leads: Lead[],
     });
 }
 
-/** Name the owner sees in buttons: "Choose Dominic". */
+/** Name the owner sees in buttons: "Choose <first name>". */
 export const leadFirst = (lead: Lead) => firstName(lead.name);

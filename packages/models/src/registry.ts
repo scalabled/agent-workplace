@@ -14,6 +14,7 @@ import { PREFERENCE, PROVIDERS, isLocalProvider, isProviderId, type ProviderDesc
 import { MissingProviderError, ProviderError } from './errors';
 import { sharedHealth } from './health';
 import { createMockProvider } from './mock';
+import { resizeRequest } from './budget';
 import { modelFlags } from './model-catalog';
 import {
   normalizeTier,
@@ -238,9 +239,12 @@ export function createRegistry(env: ProviderEnv, opts: RegistryOptions = {}): Re
             continue;
           }
           const model = i === 0 ? req.model || c.model : c.model;
+          // The call was sized for the head of the chain; a fallback is re-sized for itself (a local model never
+          // gets a cloud thinking effort, a reasoning model gets its room to think).
+          const sized = i === 0 ? { ...req, model } : resizeRequest(req, c.provider, model);
           let started = false;
           let failure: Extract<ModelEvent, { type: 'error' }> | null = null;
-          for await (const ev of c.provider.chat({ ...req, model })) {
+          for await (const ev of c.provider.chat(sized)) {
             if (!started && ev.type === 'error' && !req.signal?.aborted) {
               if (c.local && ev.code === 'unreachable') {
                 failure = ev;

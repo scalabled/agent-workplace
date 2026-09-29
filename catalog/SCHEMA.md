@@ -38,8 +38,8 @@ catalog/
 |---|---|---|
 | Records: department, skill category, persona, skill, lead, team group, recipe | kebab-case `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`, ≤48 chars, **globally unique across all record kinds** | `brand-strategist`, `five-forces-analysis`, `positioning-sprint` |
 | Lead ids | `lead-` + archetype slug | `lead-steady-operator` |
-| Persona ids | Name the **role**, never the person, so a rename never breaks a reference | `fractional-cfo`, not `harriet-osei` |
-| Handles | Lowercase ASCII-folded first name, unique across coworkers and leads, never equal to a voice id. Owners write `@FirstName`. | `ayse` (Ayşe), `ji-woo`, `mei-lin` |
+| Persona ids | Name the **role**, never the person, so a rename never breaks a reference | `fractional-cfo`, not `esi-mensah` |
+| Handles | Lowercase ASCII-folded first name, unique across coworkers and leads, never equal to a voice id. First names are unique (accent-folded) and never a voice id or a `taxonomy.reserved_first_names` story name. Owners write `@FirstName`. | `joelle` (Joëlle), `oskar` (Óskar), `andres` (Andrés) |
 | Vocabulary: tools, activity types, artifact types, modalities, model needs | snake_case `^[a-z][a-z0-9_]*$`, matching biz-bot tool and activity ids | `web_search`, `request_owner_decision`, `audio_briefing` |
 | Connectors | kebab-case, matching biz-bot's connector catalog | `cloudflare-docs`, `google-workspace` |
 | Voices | Exact lowercase provider ids, per product surface | `marin`, `ara` |
@@ -114,7 +114,7 @@ A coworker is an AI specialist with a face, a voice, skills, tools and a persona
 | `instanceOf` | `"lead"` (required by the validator for every coworker) | The persona inherits the owner's preferences and standing rules from the lead layer ("never discount above 10%", "no posts on Sundays"), and keeps its own voice. Exports as biz-bot `"principal"`. |
 | `team_roles[]` | 1–6 of `lead`, `co_owner`, `reviewer`, `sceptic`, `facilitator`, `specialist` | Roles they can credibly play. |
 | `pairs_well_with[]` | 2–6 persona ids | Never themselves. |
-| `productive_tension_with[]` | 1–3 `{persona_id, why}` | The *useful* friction, e.g. "Diego wants to test now; Adaeze wants to choose first". |
+| `productive_tension_with[]` | 1–3 `{persona_id, why}` | The *useful* friction, e.g. "Enzo wants to test now; Amara wants to choose first". |
 | `skills` | `{primary[2–6], secondary[0–8]}` skill ids | Primary skills are ones they own; secondary skills are ones they can run or review. |
 | `tools[]` | 2–16 non-lead tool ids | **Differentiating tools only**: `baseline_tools` are implicit and not listed. Together with the baseline they **must include every tool listed by their primary skills** (checked by the index builder). A persona with `image` in `modalities.inputs` needs `vision_describe`. |
 | `connectors[]` | 0–10 connector ids | Used when the owner has enabled them. |
@@ -395,9 +395,9 @@ It **warns** when:
 - No voice cloning.
 
 **Portraits.**
-- `portrait_prompt` begins with `portrait_conventions.prompt_prefix` verbatim, then follows `prompt_order`: age and presence; skin and complexion; hair and head covering; facial hair (lips visible); eyewear (clear lenses) and accessories; attire; a calm, lips-closed expression; a soft background tinted with `accent_color`; even light, eye level, 85mm look.
+- `portrait_prompt` begins with `portrait_conventions.prompt_prefix` verbatim, then follows `prompt_order`: age and presence; skin and complexion; hair and head covering; facial hair (lips visible); eyewear (clear lenses) and accessories; attire; a calm, lips-closed expression; the deep charcoal seamless backdrop with a soft rim light in `accent_color`; a large soft key light that lights the whole face evenly, eye level, 85mm look. The full template and worked examples are in [`ART-DIRECTION.md`](ART-DIRECTION.md) §6.
 - Use the taxonomy `look_hint`. Never reference a real person or a brand. Follow `portrait_conventions.cultural_rules`: never ask a generator for moko or other genealogical or sacred markings; keep that heritage in lore and everyday adornment unless a cultural adviser from the community has approved a depiction.
-- Near-twins are avoided: coworkers who often appear together (for example `fractional-cfo` and `chief-strategist`) differ in signature detail, palette and background.
+- Near-twins are avoided: coworkers who often appear together (for example `fractional-cfo` and `chief-strategist`) differ in signature detail, palette and accent.
 - `expression_palette` values are short edit instructions relative to the resting portrait. `delighted` is a *closed-lip* smile.
 - `appearance.procedural` fills every oncloudnine field, so the CSS-bust fallback works before a portrait exists. Never set size or brightness fields to 0.
 
