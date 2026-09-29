@@ -15,6 +15,13 @@ export const LIMITS = {
   chat: { env: 'CHAT_DAILY_LIMIT', fallback: 1500, what: 'Replies' },
   /** Background jobs started per day. */
   job: { env: 'JOB_DAILY_LIMIT', fallback: 60, what: 'New background jobs' },
+  /** Team projects proposed per day (Inc 1: each runs ~3 model calls per step plus the deliverable). */
+  project: { env: 'PROJECT_DAILY_LIMIT', fallback: 10, what: 'New team projects' },
+  /**
+   * The interruption budget (EXPERIENCE §8): unprompted updates the Chief of Staff says aloud per day (a team
+   * project's halfway point). Past it, the update is a quiet line in Talk. Answers to the owner never count.
+   */
+  ping: { env: 'INTERRUPTION_BUDGET', fallback: 6, what: 'Unprompted updates' },
 } as const;
 
 export type LimitKind = keyof typeof LIMITS;

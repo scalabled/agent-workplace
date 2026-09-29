@@ -8,6 +8,7 @@ import { chiefName, currentLead } from '../chief';
 import { catalog, loadCatalog } from '../catalog';
 import { Face, leadSubject } from '../components/Face';
 import { Icon } from '../components/Icon';
+import { Link } from '../components/Link';
 import { Deliverable, JobRow } from '../components/JobRow';
 import { Markdown } from '../components/Markdown';
 import { useHoldToTalk } from '../components/useHoldToTalk';
@@ -15,7 +16,7 @@ import { VoiceElsewhere } from '../components/VoiceElsewhere';
 import { ago, now } from '../lib/time';
 import { bubbles, liveCaptions } from '../living/captions';
 import { navigate, paths } from '../router';
-import { activeJobs, can, chiefPresence, connection, dismissThreadItem, jobList, jobs, onboarded, settings, thread, type ThreadItem } from '../store';
+import { activeJobs, can, chiefPresence, connection, dismissThreadItem, jobList, jobs, onboarded, settings, teamProjects, thread, type ThreadItem } from '../store';
 import { retryOwnerMessage, sendOwnerMessage, setVoiceOn } from '../talk/actions';
 import { draft, focusComposer, greetedThisSession, greetOnArrival, prefillComposer } from '../talk/draft';
 import { notice } from '../ui/notice';
@@ -298,7 +299,21 @@ function Message({ item, name, grouped }: { item: ThreadItem; name: string; grou
       {item.text ? <Markdown text={item.text} class="msg-body" /> : <p class="msg-body msg-thinking">Thinking…</p>}
       {item.interrupted && <span class="msg-note">Interrupted</span>}
       {item.kind === 'announcement' && job?.status === 'done' && <Deliverable job={job} />}
+      {item.projectId && !item.streaming && <ProjectLink projectId={item.projectId} />}
     </li>
+  );
+}
+
+/** A Chief message about a team project links to it: the plan while it waits, the deliverable once it is done. */
+function ProjectLink({ projectId }: { projectId: string }) {
+  const p = teamProjects.value[projectId];
+  const words = !p ? 'Open the project' : p.status === 'proposed' ? 'See the team and plan' : p.status === 'done' ? 'Read the deliverable' : 'Open the project';
+  return (
+    <Link class="msg-project" href={paths.project(projectId)}>
+      {words}
+      {p && <span class="visually-hidden">: {p.title}</span>}
+      <Icon name="chevronRight" size={14} />
+    </Link>
   );
 }
 
@@ -328,6 +343,7 @@ function NoteLine({ item }: { item: ThreadItem }) {
       </svg>
       <span class="visually-hidden">In the office: </span>
       <p class="msg-body">{item.text}</p>
+      {item.projectId && <ProjectLink projectId={item.projectId} />}
     </li>
   );
 }

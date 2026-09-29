@@ -36,7 +36,8 @@ import {
   type RoomSayAccepted,
   type RoomSayRequest,
 } from '@headcount/protocol/ext/rooms';
-import { closeDeskTurn, newDeskTurnState, runDeskTurn, type DeskHost, type DeskTurnState } from '../desk/desk';
+import { closeDeskTurn, isDirection, newDeskTurnState, noteTargetOf, runDeskTurn, type DeskHost, type DeskTurnState } from '../desk/desk';
+import type { StaffingContext } from '@headcount/protocol/ext/projects';
 import type { Env } from '../env';
 import { exprLexicon } from '../expr/catalog';
 import { DESK_PER_MIN } from '../expr/config';
@@ -70,6 +71,8 @@ const SCHEMA = [
   // An announcement being written in the lead's voice. Inserted in the same transaction as the mirrored frame
   // that causes it, so it is never lost: if the object dies while the model writes, the template is posted.
   `CREATE TABLE IF NOT EXISTS pending_announcements (cause_seq INTEGER PRIMARY KEY, facts TEXT NOT NULL, frame TEXT NOT NULL, at INTEGER NOT NULL)`,
+  // Inc 1: team project milestones already told (one each per project).
+  `CREATE TABLE IF NOT EXISTS project_milestones (project_id TEXT NOT NULL, kind TEXT NOT NULL, seq INTEGER NOT NULL, PRIMARY KEY (project_id, kind))`,
 ];
 
 /** The fast model that phrases announcements (a cloud model; local and Mock use the template). */
@@ -517,7 +520,18 @@ export class WorkspaceDO extends DurableObject<Env> {
           return;
         }
       }
-      await runDeskTurn(this.deskHost(), { persona, ownerSeq: owner.seq!, signal: controller.signal }, state);
+      // Inc 1: someone on a team project talks about their live work, and direction the owner gives them here
+      // reaches their next step (a project note); sibling steps keep going.
+      const staffing = await this.staffingOf(persona.id);
+      const target = noteTargetOf(staffing);
+      if (target && isDirection(req.text)) {
+        try {
+          await projectStub(this.env).noteProject(target.projectId, { text: req.text, toId: persona.id, via: 'desk', opId: req.opId });
+        } catch (err) {
+          logError('desk.note', err);
+        }
+      }
+      await runDeskTurn(this.deskHost(), { persona, ownerSeq: owner.seq!, signal: controller.signal, staffing }, state);
     })()
       .catch((err) => logError('desk', err))
       .finally(() => {
@@ -734,6 +748,8 @@ export class WorkspaceDO extends DurableObject<Env> {
         );
         this.ctx.storage.sql.exec('INSERT INTO mirrored (src_stream, src_seq, seq) VALUES (?, ?, ?)', batch.source, f.seq, m.seq);
         if (f.type === 'job.started') this.ctx.storage.sql.exec('INSERT OR REPLACE INTO jobs_seen (job_id, title) VALUES (?, ?)', f.data.job.jobId, f.data.job.title);
+        const milestone = this.milestoneFrame(m as Frame);
+        if (milestone) return { mirrored: m, announcement: this.ledger.append(milestone) };
         const plan = this.announcementPlan(m as Frame);
         if (!plan) return { mirrored: m, announcement: null };
         if (announcer === undefined) announcer = this.announcer();
@@ -781,7 +797,48 @@ export class WorkspaceDO extends DurableObject<Env> {
    * or stopped from the UI (a stop the Chief of Staff made on the owner's word was already said in the turn).
    * The frame carries the templated text; the facts are all a voiced line may use.
    */
+  /**
+   * A team project's halfway point, told once (Inc 1: proactive milestones). While the interruption budget lasts the
+   * Chief of Staff announces it in Talk (their own message, named and timed); past it (or at 0) it is a quiet line
+   * that is never voiced or counted unread.
+   */
+  private milestoneFrame(frame: Frame): FrameInput<'talk.message'> | null {
+    if (frame.type !== 'project.updated' || frame.data.project.status !== 'running') return null;
+    const p = frame.data.project;
+    const done = p.steps.filter((s) => s.status === 'done');
+    if (p.steps.length < 3 || done.length * 2 < p.steps.length || done.length === p.steps.length) return null;
+    const inserted = this.ctx.storage.sql.exec(`INSERT OR IGNORE INTO project_milestones (project_id, kind, seq) VALUES (?, 'halfway', ?)`, p.projectId, frame.seq!).rowsWritten;
+    if (!inserted) return null;
+    const first = (id: string) => p.team.find((m) => m.personaId === id)?.name.split(' ')[0] ?? 'Someone';
+    const now = p.steps.find((s) => s.status === 'working' || s.status === 'reviewing' || s.status === 'revising');
+    const doneWords = done.length <= 2 ? done.map((s) => `“${s.title}”`).join(' and ') : `${done.length} of ${p.steps.length} steps`;
+    const next = now ? ` ${first(now.status === 'reviewing' ? now.reviewerIds[0] ?? now.ownerId : now.ownerId)} is on “${now.title}” now.` : '';
+    const text = `Halfway on “${p.title}”: ${doneWords} done and reviewed.${next}`;
+    const budget = dailyLimit(this.env, 'ping');
+    const spoken = this.usage.take('ping', budget, runtime.now()).allowed;
+    return {
+      type: 'talk.message',
+      data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text, kind: spoken ? 'announcement' : 'note', projectId: p.projectId },
+      actor: CHIEF_ID,
+      cause: { streamId: frame.streamId as StreamId, seq: frame.seq! },
+    };
+  }
+
   private announcementPlan(frame: Frame): AnnouncementPlan | null {
+    // Inc 1: a team project finished or failed (emitted once per terminal state).
+    if (frame.type === 'project.updated' && (frame.data.project.status === 'done' || frame.data.project.status === 'failed')) {
+      const p = frame.data.project;
+      const projectFacts: AnnouncementFacts = p.status === 'done' ? { kind: 'done', title: p.title, summary: p.summary ?? '' } : { kind: 'failed', title: p.title, reason: p.error ?? 'The team could not finish.' };
+      return {
+        facts: projectFacts,
+        frame: {
+          type: 'talk.message',
+          data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text: templateAnnouncement(projectFacts), kind: 'announcement', projectId: p.projectId },
+          actor: CHIEF_ID,
+          cause: { streamId: frame.streamId as StreamId, seq: frame.seq! },
+        },
+      };
+    }
     let facts: AnnouncementFacts;
     let jobId: JobId;
     if (frame.type === 'job.done') {
@@ -870,6 +927,14 @@ export class WorkspaceDO extends DurableObject<Env> {
       listJobs: () => stub.listJobs() as unknown as ReturnType<ProjectApi['listJobs']>,
       steerJob: (jobId, text, opId) => stub.steerJob(jobId, text, opId) as unknown as ReturnType<ProjectApi['steerJob']>,
       cancelJob: (jobId, reason, by) => stub.cancelJob(jobId, reason, by) as unknown as ReturnType<ProjectApi['cancelJob']>,
+      proposeProject: (req) => stub.proposeProject(req) as unknown as ReturnType<ProjectApi['proposeProject']>,
+      approveProject: (projectId) => stub.approveProject(projectId) as unknown as ReturnType<ProjectApi['approveProject']>,
+      cancelProject: (projectId, reason) => stub.cancelProject(projectId, reason) as unknown as ReturnType<ProjectApi['cancelProject']>,
+      activeProjects: () => stub.activeProjects() as unknown as ReturnType<ProjectApi['activeProjects']>,
+      stopAll: (by) => stub.stopAll(by) as unknown as ReturnType<ProjectApi['stopAll']>,
+      noteProject: (projectId, req) => stub.noteProject(projectId, req) as unknown as ReturnType<ProjectApi['noteProject']>,
+      pauseProject: (projectId) => stub.pauseProject(projectId) as unknown as ReturnType<ProjectApi['pauseProject']>,
+      resumeProject: (projectId) => stub.resumeProject(projectId) as unknown as ReturnType<ProjectApi['resumeProject']>,
     };
   }
 
@@ -891,6 +956,16 @@ export class WorkspaceDO extends DurableObject<Env> {
         ended: (turnId: TurnId) => this.expr.turnEnded(turnId),
       },
     };
+  }
+
+  /** A coworker's part in the team projects under way ([] when none, or when the project store cannot be read). */
+  private async staffingOf(personaId: string): Promise<StaffingContext[]> {
+    try {
+      return (await projectStub(this.env).staffingOf(personaId)) as unknown as StaffingContext[];
+    } catch (err) {
+      logError('desk.staffing', err);
+      return [];
+    }
   }
 
   private deskHost(): DeskHost {

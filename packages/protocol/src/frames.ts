@@ -15,6 +15,7 @@ import type {
 import type { PresenceData } from './presence';
 import type { VoiceClaimOp, VoiceOwnerData } from './ext/voice-owner';
 import type { RoomId, RoomTurnData } from './ext/rooms';
+import type { DecisionFrameData, ProjectFrameData } from './ext/projects';
 
 /**
  * Event envelope (ARCHITECTURE §3.1, trimmed for Inc 0).
@@ -91,6 +92,8 @@ export interface FrameDataMap {
     kind: 'reply' | 'announcement' | 'status' | 'reflex' | 'note';
     /** Job this message is about, if any. */
     jobId?: JobId;
+    /** Team project this message is about, if any (Inc 1). */
+    projectId?: string;
     surface?: TalkSurface;
     /** `kind: 'reflex'` only: the intent and catalog line that produced the text. */
     intent?: ExprIntentId;
@@ -129,6 +132,13 @@ export interface FrameDataMap {
    * it in the thread), 'chief' when the Chief of Staff stopped it on their word (and already said so).
    */
   'job.cancelled': { jobId: JobId; reason?: string; by?: 'owner' | 'chief' };
+
+  /** Inc 1: a team project was staffed and its plan proposed; the plan-approval decision is open. Persisted. */
+  'project.proposed': ProjectFrameData & DecisionFrameData;
+  /** A team project changed (approved, a step moved, done, failed, cancelled). Sentence-rate. Persisted. */
+  'project.updated': ProjectFrameData;
+  /** A raised hand was answered (approved or declined). Persisted. */
+  'decision.resolved': DecisionFrameData;
 
   /** A face state claim. Ephemeral; recomputable from the ledger. */
   presence: PresenceData;
@@ -171,6 +181,9 @@ export const PERSISTED_FRAME_TYPES: ReadonlySet<FrameType> = new Set<FrameType>(
   'job.done',
   'job.failed',
   'job.cancelled',
+  'project.proposed',
+  'project.updated',
+  'decision.resolved',
   'workspace.updated',
 ]);
 

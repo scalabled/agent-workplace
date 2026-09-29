@@ -1,5 +1,5 @@
 import { paths } from '../router';
-import { activeJobs, raisedHands } from '../store';
+import { activeJobs, projectList, raisedHands } from '../store';
 import { unread } from '../ui/unread';
 import { openPalette } from './Palette';
 import { Icon, type IconName } from './Icon';
@@ -19,7 +19,7 @@ const PLACES: { href: string; label: string; icon: IconName; prefix?: boolean }[
  */
 export function Nav() {
   const hands = raisedHands.value;
-  const running = activeJobs.value.length;
+  const running = activeJobs.value.length + projectList.value.filter((p) => p.status === 'running').length;
   const fresh = unread.value;
   return (
     <nav class="nav" aria-label="Places">

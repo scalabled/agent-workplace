@@ -34,6 +34,7 @@ import type {
 import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcount/protocol/ext/media';
 import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, RoomCancelResponse, RoomId, RoomSayAccepted, RoomSayRequest } from '@headcount/protocol/ext/rooms';
 import { noteUnauthenticated } from '../auth/session';
+import type { ProjectActionAccepted, ProjectResponse, ProjectsResponse, StopAllResponse } from '@headcount/protocol/ext/projects';
 import { clientId } from '../lib/client-id';
 
 export class ApiError extends Error {
@@ -80,6 +81,17 @@ export const api = {
   getJob: (id: string) => request<JobResponse>(routePath('getJob', { id })),
   steerJob: (id: string, text: string, opId: string = ids.op()) => request<SteerJobAccepted>(routePath('steerJob', { id }), jsonInit('POST', { text, opId, clientId: clientId() })),
   cancelJob: (id: string) => request<CancelJobAccepted>(routePath('cancelJob', { id }), { method: 'POST' }),
+  // Inc 1 team projects.
+  listProjects: () => request<ProjectsResponse>(routePath('listProjects')),
+  getProject: (id: string) => request<ProjectResponse>(routePath('getProject', { id })),
+  approveProject: (id: string) => request<ProjectActionAccepted>(routePath('approveProject', { id }), { method: 'POST' }),
+  cancelProject: (id: string) => request<ProjectActionAccepted>(routePath('cancelProject', { id }), { method: 'POST' }),
+  noteProject: (id: string, text: string, toId?: string, opId: string = ids.op()) =>
+    request<ProjectActionAccepted>(routePath('noteProject', { id }), jsonInit('POST', { text, opId, ...(toId ? { toId } : {}) })),
+  pauseProject: (id: string) => request<ProjectActionAccepted>(routePath('pauseProject', { id }), { method: 'POST' }),
+  resumeProject: (id: string) => request<ProjectActionAccepted>(routePath('resumeProject', { id }), { method: 'POST' }),
+  /** "Everyone stop": every running job and team project halts; the feed carries each stop. */
+  stopAll: () => request<StopAllResponse>(routePath('stopAll'), { method: 'POST' }),
   /** Raw audio response (Content-Type audio/*). Throws ApiError not_configured when no TTS provider. */
   async tts(req: TtsRequest, signal?: AbortSignal): Promise<Response> {
     const res = await fetch(routePath('tts'), { ...jsonInit('POST', req), ...(signal ? { signal } : {}) });

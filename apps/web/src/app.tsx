@@ -16,9 +16,10 @@ import { Floor } from './routes/Floor';
 import { Inbox } from './routes/Inbox';
 import { Onboarding } from './routes/Onboarding';
 import { Projects } from './routes/Projects';
+import { ProjectDetail } from './routes/ProjectDetail';
 import { Talk } from './routes/Talk';
 import * as store from './store';
-import { acceptSettings, applyFrame, capabilities, clearServerPresence, connection, lastSeq, mergeJobs, onboarded, settings } from './store';
+import { acceptSettings, applyFrame, capabilities, clearServerPresence, connection, lastSeq, mergeJobs, mergeProjects, onboarded, settings } from './store';
 import { draft } from './talk/draft';
 import { startUnread } from './ui/unread';
 import { bargeIn, chiefIsSpeaking, chiefSpeaker, startChiefVoice } from './voice/chief-voice';
@@ -43,6 +44,11 @@ function refreshJobs() {
   void api
     .listJobs()
     .then((r) => mergeJobs(r.jobs))
+    .catch(() => undefined);
+  // Team projects and the Inbox's raised hands (Inc 1).
+  void api
+    .listProjects()
+    .then((r) => mergeProjects(r))
     .catch(() => undefined);
 }
 
@@ -265,6 +271,8 @@ function Screen() {
       return <CoworkerProfile personaId={r.params.personaId!} />;
     case 'projects':
       return <Projects />;
+    case 'project':
+      return <ProjectDetail projectId={r.params.projectId!} />;
     case 'inbox':
       return <Inbox />;
     default:

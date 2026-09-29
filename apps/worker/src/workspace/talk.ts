@@ -6,6 +6,7 @@ import { CHIEF_ID, ids, ownerFirstNameOf, type AgentId, type Frame, type JobId, 
 import type { ExprIntentId, ReactHint, TalkSurface } from '@headcount/protocol/ext/expressions';
 import { buildChiefSystemPrompt, honestyPolicyText } from './chief-prompt';
 import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
+import type { TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { Feed } from './feed';
 import type { Ledger } from './ledger';
 import { logError } from './runtime';
@@ -213,12 +214,13 @@ export function closeTurn(feed: Feed, state: TurnState, finish: TalkFinish, usag
   state.closed = true;
   const route = state.log.route();
   const jobId = state.log.jobId() as JobId | undefined;
+  const projectId = state.log.projectId();
   const said = state.text.trim();
   const { turnId, opId, replyId } = state;
   if (said) {
     feed.append({
       type: 'talk.message',
-      data: { turnId, messageId: replyId, agentId: CHIEF_ID, text: said, kind: route === 'status' ? 'status' : 'reply', ...(jobId ? { jobId } : {}) },
+      data: { turnId, messageId: replyId, agentId: CHIEF_ID, text: said, kind: route === 'status' ? 'status' : 'reply', ...(jobId ? { jobId } : {}), ...(projectId ? { projectId } : {}) },
       actor: CHIEF_ID,
       opId,
     });
@@ -341,8 +343,9 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     const settings = await host.settings();
     const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
     let jobs: JobSnapshot[] | null = null;
+    let projects: TeamProjectSnapshot[] | null = null;
     try {
-      jobs = await host.project().listJobs();
+      [jobs, projects] = await Promise.all([host.project().listJobs(), host.project().activeProjects()]);
     } catch (err) {
       logError('talk.jobs', err);
     }
@@ -360,11 +363,12 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     // Floor quick-chats and office rooms share the ledger: read more rows so the Chief still sees its own recent turns.
     const messages = historyFromFrames(host.ledger.recent(['talk.owner', 'talk.message'], HISTORY_MESSAGES * 6).filter(isChiefConversation).slice(-HISTORY_MESSAGES));
     const turnNote = turnNoteFor(spec.cues, messages.filter((m) => m.role === 'assistant').map((m) => (typeof m.content === 'string' ? m.content : '')));
-    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings) });
+    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings) });
     const tools = createChiefTools({
       project: host.project(),
       turnId,
       jobs: jobs ?? [],
+      projects: projects ?? [],
       log,
       leadId: settings.leadId,
       chiefName: settings.chiefName,

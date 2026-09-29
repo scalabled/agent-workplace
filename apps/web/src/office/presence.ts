@@ -2,9 +2,10 @@
 // (diffed, so a frame costs one comparison per agent), speaking follows the audio actually playing in this tab, and
 // real work overrides ambient life: the Chief's running job shows as work at their place (monitor lit, the running
 // sentence as the status; the server never claims the Chief busy, D2) and sets their activity (research walks them to
-// the library), and anyone the owner is talking to stays where they are while the conversation lasts and 20 s after.
+// the library), coworkers staffed on a running team project show their step as work (reviewers think), and anyone
+// the owner is talking to stays where they are while the conversation lasts and 20 s after.
 import { effect, type ReadonlySignal } from '@preact/signals';
-import { activityOf, type OfficeLife, type OfficeScene, type PresenceBadge, type PresenceState } from '@headcount/office';
+import { activityOf, type OfficeLife, type OfficeScene, type PresenceBadge, type PresenceState, type WorkActivity } from '@headcount/office';
 import { CHIEF_ID, mergePresence, type JobSnapshot, type PresenceData } from '@headcount/protocol';
 
 /** A person stays pinned this long after the owner stops talking with them. */
@@ -29,13 +30,22 @@ export interface ShownClaim {
  * The server's claim merged with local listening (local speaking is the office's own speaking halo, never a state) and,
  * for the Chief, their running job as work (the lowest claim: a conversation still shows as thinking or listening).
  */
-export function shownClaim(server: PresenceData | undefined, local: { listening?: boolean } | undefined, work?: { label: string } | null): ShownClaim {
+export function shownClaim(server: PresenceData | undefined, local: { listening?: boolean } | undefined, work?: TeamWorkClaim | { label: string } | null): ShownClaim {
   const claims: { state: PresenceState; label: string }[] = [];
   if (local?.listening) claims.push({ state: 'listening', label: DEFAULT_LABELS.listening! });
   if (server) claims.push({ state: server.state, label: server.label || DEFAULT_LABELS[server.state] || '' });
-  if (work) claims.push({ state: 'working', label: work.label || DEFAULT_LABELS.working! });
+  if (work) {
+    const state = 'state' in work ? work.state : 'working';
+    claims.push({ state, label: work.label || DEFAULT_LABELS[state]! });
+  }
   const m = mergePresence(claims as { state: Exclude<PresenceState, 'blocked' | 'away'>; label: string }[]) ?? { state: 'idle' as const, label: DEFAULT_LABELS.idle! };
   return { state: m.state, label: m.label, badges: server?.badges?.slice() ?? [] };
+}
+
+/** A staffed coworker's part in a running team project (the store's teamWork). */
+export interface TeamWorkClaim {
+  state: 'working' | 'thinking' | 'raised_hand';
+  label: string;
 }
 
 export interface PresenceBindingDeps {
@@ -45,6 +55,8 @@ export interface PresenceBindingDeps {
   presence: ReadonlySignal<Record<string, PresenceData>>;
   localPresence: ReadonlySignal<Record<string, { speaking?: boolean; listening?: boolean }>>;
   jobs: ReadonlySignal<Record<string, JobSnapshot>>;
+  /** Coworkers on running team projects, keyed by agent id (Inc 1). */
+  teamWork?: ReadonlySignal<Record<string, TeamWorkClaim>>;
   /** The Chief's merged state (Talk's): thinking, speaking or listening means a conversation. */
   chiefState: ReadonlySignal<string>;
   /** Whose bubble has its reply field open (a quick chat). */
@@ -73,11 +85,10 @@ export function bindPresence(d: PresenceBindingDeps): () => void {
       const server = d.presence.value;
       const local = d.localPresence.value;
       const work = chiefJob(d.jobs.value);
-      const seen = new Set<string>();
-      const ids = [...Object.keys(server), ...Object.keys(local), ...applied.keys(), ...(work ? [CHIEF_ID] : [])];
+      const team = d.teamWork?.value ?? {};
+      const ids = [...Object.keys(server), ...Object.keys(local), ...applied.keys(), ...Object.keys(team), ...(work ? [CHIEF_ID] : [])];
       for (const id of new Set(ids)) {
-        seen.add(id);
-        const c = shownClaim(server[id], local[id], id === CHIEF_ID ? work : null);
+        const c = shownClaim(server[id], local[id], id === CHIEF_ID ? work : (team[id] ?? null));
         const key = `${c.state}|${c.label}|${c.badges.join(',')}`;
         if (applied.get(id) === key) continue;
         if (!applied.has(id) && c.state === 'idle' && !c.badges.length && !server[id]) continue;
@@ -91,17 +102,20 @@ export function bindPresence(d: PresenceBindingDeps): () => void {
   for (const id of d.speakingNow()) d.scene.setSpeaking(id, true);
   disposers.push(d.onSpeakingChange((id, on) => d.scene.setSpeaking(id, on)));
 
-  // ── the Chief's running job → where they work ──
-  let activityKey = '';
+  // ── real work → where they work (the Chief's running job, team steps) ──
+  let activities = new Map<string, WorkActivity | null>();
+  let activityLife: OfficeLife | null = null;
   disposers.push(
     effect(() => {
       const life = d.life.value;
       const running = chiefJob(d.jobs.value);
-      const activity = running ? activityOf(running.label) : null;
-      const key = `${life ? 1 : 0}|${activity ?? ''}`;
-      if (key === activityKey) return;
-      activityKey = key;
-      life?.setActivity(CHIEF_ID, activity);
+      const next = new Map<string, WorkActivity | null>([[CHIEF_ID, running ? activityOf(running.label) : null]]);
+      for (const [id, w] of Object.entries(d.teamWork?.value ?? {})) if (w.state === 'working') next.set(id, activityOf(w.label));
+      const fresh = life !== activityLife;
+      for (const [id, a] of next) if (fresh || activities.get(id) !== a) life?.setActivity(id, a);
+      for (const id of activities.keys()) if (!next.has(id)) life?.setActivity(id, null);
+      activities = next;
+      activityLife = life;
     }),
   );
 

@@ -1,9 +1,13 @@
-// Projects (Inc 0): the Everyday project and its jobs. Staffed projects with plans arrive in Inc 1.
+// Projects: team projects (Inc 1: staffed from the catalog, a reviewed plan, a deliverable) and the Everyday project's jobs.
 import { chiefName } from '../chief';
 import { Icon } from '../components/Icon';
 import { JobRow } from '../components/JobRow';
+import { ProjectCard } from '../components/ProjectCard';
+import { loadCatalog } from '../catalog';
 import { navigate, paths } from '../router';
-import { activeJobs, jobList } from '../store';
+import { useEffect, useState } from 'preact/hooks';
+import { stopAllBusy, stopAllResult, stopAllWork } from '../projects/actions';
+import { activeJobs, jobList, projectList } from '../store';
 import { prefillComposer } from '../talk/draft';
 import './pages.css';
 
@@ -16,12 +20,64 @@ export function Projects() {
     prefillComposer('Look into ');
     navigate(paths.talk);
   };
+  const staff = () => {
+    prefillComposer('Put together a team to ');
+    navigate(paths.talk);
+  };
+  const teams = projectList.value;
+  useEffect(() => {
+    void loadCatalog();
+    // The Everyone stop outcome belongs to this visit.
+    return () => void (stopAllResult.value = null);
+  }, []);
   return (
     <section class="page projects" aria-labelledby="projects-title">
-      <header class="page-head">
-        <h1 id="projects-title">Projects</h1>
-        <p class="page-lede">Each project keeps its work, its team and its results in one place.</p>
+      <header class="page-head projects-head">
+        <div>
+          <h1 id="projects-title">Projects</h1>
+          <p class="page-lede">Each project keeps its work, its team and its results in one place.</p>
+        </div>
+        <EveryoneStop working={running + teams.filter((p) => p.status === 'running' || p.status === 'paused').length} />
       </header>
+      {stopAllResult.value && (
+        <p class="page-fine" role="status">
+          {stopAllResult.value}
+        </p>
+      )}
+
+      <section class="panel project" aria-labelledby="teams-title">
+        <header class="project-head">
+          <div>
+            <h2 id="teams-title">Team projects</h2>
+            <p class="project-sub">Outcomes {name} staffs with a team, a reviewed plan and a deliverable</p>
+          </div>
+          {teams.length > 0 && (
+            <div class="project-actions">
+              <button type="button" class="button-primary" onClick={staff}>
+                Staff a team
+              </button>
+            </div>
+          )}
+        </header>
+        {teams.length ? (
+          <div class="project-grid">
+            {teams.map((p) => (
+              <ProjectCard key={p.projectId} project={p} />
+            ))}
+          </div>
+        ) : (
+          <div class="empty">
+            <Icon name="projects" size={28} class="empty-icon" />
+            <p class="empty-title">Hire a team in a sentence</p>
+            <p class="empty-text">
+              Tell {name} the outcome: “put together a team to launch our spring menu”. They pick the right specialists from the office, draft a plan where every step is reviewed, and ask for your OK before anyone starts.
+            </p>
+            <button type="button" class="button-primary" onClick={staff}>
+              Staff a team
+            </button>
+          </div>
+        )}
+      </section>
 
       <section class="panel project" aria-labelledby="everyday-title">
         <header class="project-head">
@@ -61,5 +117,39 @@ export function Projects() {
         )}
       </section>
     </section>
+  );
+}
+
+/** "Everyone stop" (MVP-PLAN Inc 1): halts every running job and team project, after one confirming tap. */
+function EveryoneStop({ working }: { working: number }) {
+  const [asking, setAsking] = useState(false);
+  if (!working && !stopAllBusy.value) return null;
+  if (!asking)
+    return (
+      <button type="button" class="button-quiet everyone-stop" onClick={() => setAsking(true)}>
+        <Icon name="close" size={16} />
+        Everyone stop
+      </button>
+    );
+  return (
+    <div class="everyone-stop-confirm" role="group" aria-label="Stop all work?">
+      <span>
+        Stop {working === 1 ? 'the one thing' : `all ${working} things`} running?
+      </span>
+      <button
+        type="button"
+        class="button-primary"
+        disabled={stopAllBusy.value}
+        onClick={async () => {
+          await stopAllWork();
+          setAsking(false);
+        }}
+      >
+        {stopAllBusy.value ? 'Stopping…' : 'Stop everything'}
+      </button>
+      <button type="button" class="button-quiet" onClick={() => setAsking(false)}>
+        Keep going
+      </button>
+    </div>
   );
 }

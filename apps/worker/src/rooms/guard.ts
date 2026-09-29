@@ -313,11 +313,22 @@ function metricClaim(s: string, owner: OwnerContext, ownedFigures: boolean): boo
 const SINGULAR_PROMISE_RE =
   /\b(?:I(?:'ll| will| can| could| shall)|let me|I can have)\s+(?:(?!not\b|never\b)\w+\s+){0,3}?(?:do|send|draft|write|have(?! to\b)|get|pull|put|prepare|look|research|dig|start|finish|build|book|email)\b/i;
 
+/**
+ * A coworker staffed on a project really is working, so "I'm drafting the offer" is true; what they still cannot do
+ * is act outside: send, book, pay, publish, contact, deploy.
+ */
+const EXTERNAL_CLAIM_RE = /\b(I|I'm|I've|I'll|we|we're|we've|we'll)\b[^.?!]{0,40}\b(sent|emailed|booked|paid|published|posted|deployed|shipped|called|contacted|texted|messaged)\b/i;
+const EXTERNAL_PROMISE_RE =
+  /\b(?:(?:I|we)(?:'ll| will| can| could| shall)|let me|let us)\s+(?:(?!not\b|never\b)\w+\s+){0,3}?(?:send|email|book|pay|publish|post|deploy|ship|call|contact|text|message)\b/i;
+
 export interface SentenceCheckOptions {
   /** What the owner said in this conversation (their figures and stated movements may be said back). */
   owner?: OwnerContext;
-  /** 'strict' (quick chat): any "I/we will, can, could + work verb" is a promise. 'room': only "I…" promises are. */
-  work?: 'strict' | 'room';
+  /**
+   * 'strict' (quick chat): any "I/we will, can, could + work verb" is a promise. 'room': only "I…" promises are.
+   * 'staffed' (a quick chat with someone on a project): only claims and promises of outside actions are.
+   */
+  work?: 'strict' | 'room' | 'staffed';
 }
 
 /**
@@ -327,7 +338,8 @@ export interface SentenceCheckOptions {
 export function sentenceHit(sentence: string, allowed: ReadonlySet<string>, o: SentenceCheckOptions = {}): GuardHit | null {
   const owner = o.owner ?? { ...NO_OWNER, figures: allowed };
   const s = normaliseSentence(sentence);
-  if (o.work === 'room' ? WORK_CLAIM_RE.test(s) || SINGULAR_PROMISE_RE.test(s) : claimsWork(sentence)) return 'work';
+  const work = o.work === 'staffed' ? EXTERNAL_CLAIM_RE.test(s) || EXTERNAL_PROMISE_RE.test(s) : o.work === 'room' ? WORK_CLAIM_RE.test(s) || SINGULAR_PROMISE_RE.test(s) : claimsWork(sentence);
+  if (work) return 'work';
   // Figures: the owner's own may be said back; a clock time or a small count with no metric beside it is not a figure.
   let owned = 0;
   for (const f of figureTokens(s)) {
@@ -362,8 +374,8 @@ export interface ReplyGuardOptions {
   experienceLine?: string;
   /** Sentences released at most; the rest is dropped. */
   maxSentences: number;
-  /** 'room' treats "we could…" as advice; 'strict' (default) as a promise (quick chat). */
-  work?: 'strict' | 'room';
+  /** 'room' treats "we could…" as advice; 'strict' (default) as a promise (quick chat); 'staffed' checks outside actions only. */
+  work?: 'strict' | 'room' | 'staffed';
   /** Log tag (kinds only, never text). */
   where?: string;
 }

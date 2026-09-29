@@ -30,6 +30,8 @@ import { rollupEvents, upsertJobs } from '../workspace/rollup';
 import { logError, runtime } from '../workspace/runtime';
 import { clipText, firstSentence, titleFromRequest } from './job-view';
 import { MAX_WORK_STEPS, WorkCancelled, WorkError, planJob, runWorkStep, synthesize, type JobContext, type PlanStep, type StepNote, type WorkDeps } from './work-loop';
+import type { Decision, ProjectNote, StaffingContext, StopAllResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import { TeamProjects, type ProjectRefusal, type ProposeRequest } from '../projects/team-host';
 
 /** What the Chief of Staff hands to the Everyday project when the owner delegates. */
 export interface StartJobRequest {
@@ -153,6 +155,8 @@ export class ProjectDO extends DurableObject<Env> {
   private flushChain: Promise<void> = Promise.resolve();
   private lastClaimKey: string | null = null;
   private readonly usage: DailyCounter;
+  /** Inc 1 team projects, hosted here (their tables, lifecycle and frames: src/projects/team-host.ts). */
+  private readonly team: TeamProjects;
   /** Signals waiting for the next mirror batch (sent even when no frame is pending). */
   private readonly signals: WorkSignal[] = [];
 
@@ -161,6 +165,7 @@ export class ProjectDO extends DurableObject<Env> {
     for (const stmt of SCHEMA) ctx.storage.sql.exec(stmt);
     this.ledger = new Ledger(ctx.storage, this.streamId, runtime.now);
     this.usage = new DailyCounter(ctx.storage);
+    this.team = new TeamProjects({ storage: ctx.storage, env, usage: this.usage, append: (input) => this.append(input), flush: () => this.flush(), armAlarm: (at) => this.armAlarm(at) });
   }
 
   private get workspaceId(): string {
@@ -217,6 +222,69 @@ export class ProjectDO extends DurableObject<Env> {
   }
 
   /** Live state of recent jobs, newest first: the source for "how's it going?". Never waits on work. */
+  // ── Inc 1 team projects (src/projects/team-host.ts) ──────────────────────────────
+
+  /** Staff a team and propose its plan (raises the plan-approval hand in the Inbox). */
+  proposeProject(req: ProposeRequest): Promise<{ project: TeamProjectSnapshot; decision: Decision } | ProjectRefusal> {
+    return this.team.propose(req);
+  }
+
+  approveProject(projectId: string): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal> {
+    return this.team.approve(projectId);
+  }
+
+  cancelProject(projectId: string, reason?: string): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal> {
+    return this.team.cancel(projectId, reason);
+  }
+
+  /** Owner direction for a project under way; it reaches the next step that starts. */
+  async noteProject(projectId: string, req: { text: string; toId?: string; via: ProjectNote['via']; opId?: string }): Promise<{ accepted: true; project: TeamProjectSnapshot; note: ProjectNote } | ProjectRefusal> {
+    return this.team.note(projectId, req);
+  }
+
+  async pauseProject(projectId: string): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal> {
+    return this.team.pause(projectId);
+  }
+
+  async resumeProject(projectId: string): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal> {
+    const r = await this.team.resume(projectId);
+    if (r.accepted) await this.reschedule();
+    return r;
+  }
+
+  /** A coworker's part in the projects under way (their desk quick chat reads it). */
+  async staffingOf(personaId: string): Promise<StaffingContext[]> {
+    return this.team.staffingOf(personaId);
+  }
+
+  async listProjects(limit = 20): Promise<{ projects: TeamProjectSnapshot[]; decisions: Decision[] }> {
+    return this.team.list(limit);
+  }
+
+  async getProject(projectId: string): Promise<TeamProjectSnapshot | null> {
+    return this.team.get(projectId);
+  }
+
+  /** Proposed and running projects, for the Chief of Staff's live work state. */
+  async activeProjects(): Promise<TeamProjectSnapshot[]> {
+    return this.team.active();
+  }
+
+  /** "Everyone stop": halt every running job and team project at once. Plans waiting for the owner's OK stay. */
+  async stopAll(by: 'owner' | 'chief' = 'owner'): Promise<StopAllResponse> {
+    const jobs = this.ctx.storage.sql.exec<{ job_id: string }>(`SELECT job_id FROM jobs WHERE status IN ('running','queued')`).toArray();
+    let stoppedJobs = 0;
+    for (const j of jobs) if ((await this.cancelJob(j.job_id, 'Everyone stop.', by)).accepted) stoppedJobs++;
+    let stoppedProjects = 0;
+    for (const p of this.team.active()) {
+      if (p.status !== 'running' && p.status !== 'paused') continue;
+      if ((await this.team.cancel(p.projectId, 'Everyone stop: the owner halted all work.')).accepted) stoppedProjects++;
+    }
+    await this.flush();
+    await this.reschedule();
+    return { stoppedJobs, stoppedProjects };
+  }
+
   async listJobs(limit = 20): Promise<JobSnapshot[]> {
     const rows = this.ctx.storage.sql.exec<JobRow>('SELECT * FROM jobs ORDER BY started_at DESC, job_id DESC LIMIT ?', Math.max(1, Math.min(100, limit))).toArray();
     return rows.map((r) => this.snapshot(r));
@@ -274,7 +342,7 @@ export class ProjectDO extends DurableObject<Env> {
       .exec<{ job_id: string }>(`SELECT job_id FROM jobs WHERE status = 'running' AND next_at <= ? ORDER BY started_at ASC`, now)
       .toArray()
       .filter((r) => !this.inflight.has(r.job_id));
-    await Promise.all(due.map((r) => this.advance(r.job_id)));
+    await Promise.all([...due.map((r) => this.advance(r.job_id)), this.team.tick(now)]);
     await this.flush();
     await this.reschedule();
   }
@@ -562,8 +630,11 @@ export class ProjectDO extends DurableObject<Env> {
 
   private async reschedule(): Promise<void> {
     const now = runtime.now();
-    const next = this.ctx.storage.sql.exec<{ at: number | null }>(`SELECT MIN(next_at) AS at FROM jobs WHERE status = 'running'`).toArray()[0]?.at;
-    if (next !== null && next !== undefined) await this.ctx.storage.setAlarm(Math.max(Number(next), now + 10));
+    const jobsNext = this.ctx.storage.sql.exec<{ at: number | null }>(`SELECT MIN(next_at) AS at FROM jobs WHERE status = 'running'`).toArray()[0]?.at;
+    const teamNext = this.team.nextDue();
+    const candidates = [jobsNext, teamNext].filter((x): x is number => x !== null && x !== undefined).map(Number);
+    const next = candidates.length ? Math.min(...candidates) : null;
+    if (next !== null) await this.ctx.storage.setAlarm(Math.max(next, now + 10));
     else if (this.ledger.unforwarded(1).length) await this.ctx.storage.setAlarm(now + 5000);
     else await this.ctx.storage.deleteAlarm();
   }

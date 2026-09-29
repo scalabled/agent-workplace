@@ -275,7 +275,8 @@ test('the conference roundtable: invite two, ask, two answers as captions in ord
   await expect(page.locator('li.msg[data-kind="note"]').filter({ hasText: String(note.data.text) })).toHaveCount(1);
   await expect(page.locator('li.msg[data-kind="note"]').last()).toContainText('Skyline room with');
   const thread = await talkThread(page);
-  const roomLines = /Our reorder rate went up nine points|What would you test first, everyone|Keep it short, please/;
+  // The room's own wording: an earlier spec in this file says the first sentence at a desk (shared workspace).
+  const roomLines = /nine points after the relaunch\. What do you all think|What would you test first, everyone|Keep it short, please/;
   expect(thread.filter((m) => roomLines.test(m.text))).toEqual([]);
   // The desk side-threads hold no room lines either.
   expect(await sideThreads(page)).not.toMatch(roomLines);

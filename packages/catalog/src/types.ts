@@ -271,6 +271,8 @@ export interface CatalogFull {
   recipes: Record<string, unknown>[];
   formation: Record<string, unknown> | null;
   honestyPolicy: unknown;
+  /** TTS voice id → presentation (feminine, masculine, neutral) per provider, from the taxonomy. */
+  voices?: { openai: Record<string, string>; xai: Record<string, string> };
   report: CatalogReport;
 }
 

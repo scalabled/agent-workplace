@@ -3,7 +3,7 @@
 // redirect to their "/app" equivalents, so old links and bookmarks keep working.
 import { computed, signal } from '@preact/signals';
 
-export type RouteName = 'landing' | 'home' | 'onboarding' | 'talk' | 'floor' | 'coworker' | 'projects' | 'inbox' | 'notFound';
+export type RouteName = 'landing' | 'home' | 'onboarding' | 'talk' | 'floor' | 'coworker' | 'projects' | 'project' | 'inbox' | 'notFound';
 
 export interface CurrentRoute {
   name: RouteName;
@@ -21,6 +21,7 @@ const PATTERNS: [RouteName, RegExp, string[]][] = [
   ['floor', /^\/app\/floor\/?$/, []],
   ['coworker', /^\/app\/desk\/([^/]+)\/profile\/?$/, ['personaId']],
   ['projects', /^\/app\/projects\/?$/, []],
+  ['project', /^\/app\/projects\/(prj_[a-z0-9]+)\/?$/, ['projectId']],
   ['inbox', /^\/app\/inbox\/?$/, []],
 ];
 
@@ -90,6 +91,7 @@ export const paths = {
   talk: `${APP_BASE}/talk`,
   floor: `${APP_BASE}/floor`,
   projects: `${APP_BASE}/projects`,
+  project: (projectId: string) => `${APP_BASE}/projects/${encodeURIComponent(projectId)}`,
   inbox: `${APP_BASE}/inbox`,
   onboarding: `${APP_BASE}/welcome`,
   coworker: (personaId: string) => `${APP_BASE}/desk/${encodeURIComponent(personaId)}/profile`,

@@ -24,6 +24,11 @@ export interface Env extends ProviderEnv {
   STT_DAILY_LIMIT?: string;
   CHAT_DAILY_LIMIT?: string;
   JOB_DAILY_LIMIT?: string;
+  /** Team projects proposed per UTC day (default 10) and running at once (default 2). */
+  PROJECT_DAILY_LIMIT?: string;
+  /** Unprompted spoken updates a day (the interruption budget; default 6, 0 = never). */
+  INTERRUPTION_BUDGET?: string;
+  MAX_ACTIVE_PROJECTS?: string;
   /** Background jobs that may run at once (default 3). */
   MAX_ACTIVE_JOBS?: string;
   /** Comma-separated origins allowed to call the API and open the feed (scripts/dev.mjs passes the dev ports). */

@@ -4,7 +4,7 @@ import { signal } from '@preact/signals';
 import { describe, expect, it, vi } from 'vitest';
 import type { OfficeLife } from '@headcount/office';
 import { CHIEF_ID, type JobSnapshot, type PresenceData } from '@headcount/protocol';
-import { bindPresence, shownClaim, UNPIN_AFTER_MS } from './presence';
+import { bindPresence, shownClaim, UNPIN_AFTER_MS, type TeamWorkClaim } from './presence';
 
 const job = (over: Partial<JobSnapshot>): JobSnapshot =>
   ({ jobId: 'job_1', projectId: 'p_everyday', title: 'Secret plan', brief: 'b', status: 'running', label: 'Researching supplier prices', step: 1, of: 3, agentId: CHIEF_ID, startedAt: '2026-09-29T10:00:00Z', updatedAt: '2026-09-29T10:00:00Z', steers: [], ...over }) as JobSnapshot;
@@ -30,6 +30,7 @@ function rig() {
   const presence = signal<Record<string, PresenceData>>({});
   const localPresence = signal<Record<string, { speaking?: boolean; listening?: boolean }>>({});
   const jobs = signal<Record<string, JobSnapshot>>({});
+  const teamWork = signal<Record<string, TeamWorkClaim>>({});
   const chiefState = signal('idle');
   const replying = signal<string | null>(null);
   let onSpeak: ((id: string, on: boolean) => void) | null = null;
@@ -40,6 +41,7 @@ function rig() {
     presence,
     localPresence,
     jobs,
+    teamWork,
     chiefState,
     replying,
     ids: () => [CHIEF_ID, 'cw_kate'],
@@ -57,7 +59,7 @@ function rig() {
   const flush = () => {
     for (const t of timers.splice(0)) if (!t.cancelled) t.fn();
   };
-  return { calls, speaking, lifeSig, life, presence, localPresence, jobs, chiefState, replying, pins, unpins, activities, stop, flush, timers, speak: (id: string, on: boolean) => onSpeak?.(id, on) };
+  return { calls, speaking, lifeSig, life, presence, localPresence, jobs, teamWork, chiefState, replying, pins, unpins, activities, stop, flush, timers, speak: (id: string, on: boolean) => onSpeak?.(id, on) };
 }
 
 describe('presence in the office', () => {
@@ -91,6 +93,28 @@ describe('presence in the office', () => {
     r.stop();
     r.speak('cw_kate', true);
     expect(r.speaking).toHaveLength(2);
+  });
+
+  it('shows team project work: the step owner works at their workplace, the reviewer thinks, and both clear after', () => {
+    const r = rig();
+    r.lifeSig.value = r.life;
+    r.teamWork.value = { cw_kate: { state: 'working', label: 'Researching the competition' }, cw_omar: { state: 'thinking', label: 'Reviewing: Draft the offer' } };
+    expect(r.calls).toEqual(
+      expect.arrayContaining([
+        { id: 'cw_kate', state: 'working', label: 'Researching the competition', badges: [] },
+        { id: 'cw_omar', state: 'thinking', label: 'Reviewing: Draft the offer', badges: [] },
+      ]),
+    );
+    expect(r.activities).toContainEqual(['cw_kate', 'research']);
+    expect(r.activities.some(([id]) => id === 'cw_omar')).toBe(false);
+    // A live conversation still outranks the step (speaking > thinking > working).
+    r.presence.value = { cw_kate: { agentId: 'cw_kate', state: 'thinking', label: 'Thinking', causeSeq: 1 } };
+    expect(r.calls.at(-1)).toMatchObject({ id: 'cw_kate', state: 'thinking' });
+    r.presence.value = {};
+    r.teamWork.value = {};
+    expect(r.calls.filter((c) => c.state === 'idle').map((c) => c.id).sort()).toEqual(['cw_kate', 'cw_omar']);
+    expect(r.activities.at(-1)).toEqual(['cw_kate', null]);
+    r.stop();
   });
 
   it("sets the Chief's activity from the running job (research → the library), once life runs", () => {

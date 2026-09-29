@@ -1,4 +1,5 @@
 import { CHIEF_ID, makeFrame, type Frame, type FrameInput, type FrameType } from '@headcount/protocol';
+import type { Decision, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   addPendingOwner,
@@ -14,7 +15,13 @@ import {
   markOwnerAccepted,
   markOwnerFailed,
   mergeJobs,
+  mergeProjects,
   onFrame,
+  openDecisions,
+  presenceFor,
+  raisedHands,
+  teamProjects,
+  upsertProject,
   settings,
   presence,
   replayThrough,
@@ -204,5 +211,86 @@ describe('Floor quick-chats (Inc 0.5)', () => {
     applyFrame(ready(0));
     applyFrame(ready(0));
     expect(feedEpoch.value).toBe(before + 2);
+  });
+});
+
+describe('team projects (Inc 1)', () => {
+  const step = (id: string, over: Partial<TeamProjectSnapshot['steps'][number]> = {}): TeamProjectSnapshot['steps'][number] => ({
+    id,
+    title: `Step ${id}`,
+    brief: 'b',
+    acceptance: 'a',
+    ownerId: 'maya',
+    reviewerIds: ['omar'],
+    dependsOn: [],
+    status: 'waiting',
+    ...over,
+  });
+  const proj = (over: Partial<TeamProjectSnapshot> = {}): TeamProjectSnapshot => ({
+    projectId: 'prj_abcdefgh',
+    title: 'Spring menu launch',
+    goal: 'Launch our spring menu',
+    recipeId: 'r',
+    recipeName: 'Launch',
+    staffingNote: 'Maya leads.',
+    team: [],
+    steps: [step('s1'), step('s2', { ownerId: 'lee' })],
+    status: 'proposed',
+    decisionId: 'dec_1',
+    createdAt: '2026-09-29T10:00:00Z',
+    updatedAt: '2026-09-29T10:00:00Z',
+    ...over,
+  });
+  const decision = (over: Partial<Decision> = {}): Decision => ({ decisionId: 'dec_1', kind: 'plan_approval', projectId: 'prj_abcdefgh', title: 'Start?', body: 'b', status: 'open', createdAt: '2026-09-29T10:00:00Z', ...over });
+
+  beforeEach(() => {
+    lastSeq.value = 0;
+    replayThrough.value = 0;
+    teamProjects.value = {};
+    openDecisions.value = {};
+    presence.value = {};
+    localPresence.value = {};
+  });
+
+  it('a proposal raises a hand in the Inbox; resolving it lowers the hand', () => {
+    applyFrame(f({ type: 'project.proposed', data: { project: proj(), decision: decision() } }, 1));
+    expect(raisedHands.value).toBe(1);
+    expect(teamProjects.value.prj_abcdefgh?.status).toBe('proposed');
+    applyFrame(f({ type: 'project.updated', data: { project: proj({ status: 'running', updatedAt: '2026-09-29T10:01:00Z' }) } }, 2));
+    applyFrame(f({ type: 'decision.resolved', data: { decision: decision({ status: 'approved' }) } }, 3));
+    expect(raisedHands.value).toBe(0);
+    expect(teamProjects.value.prj_abcdefgh?.status).toBe('running');
+  });
+
+  it('never reopens a hand for a project that has moved on, nor rolls a project back', () => {
+    mergeProjects({ projects: [proj({ status: 'running', updatedAt: '2026-09-29T10:05:00Z' })], decisions: [] });
+    applyFrame(f({ type: 'project.proposed', data: { project: proj(), decision: decision() } }, 1));
+    expect(raisedHands.value).toBe(0);
+    expect(teamProjects.value.prj_abcdefgh?.status).toBe('running');
+  });
+
+  it('keeps the full output it already holds when a clipped frame arrives', () => {
+    const full = 'A'.repeat(3000);
+    upsertProject(proj({ status: 'done', updatedAt: '2026-09-29T11:00:00Z', steps: [step('s1', { status: 'done', output: full })], deliverable: full }));
+    upsertProject(proj({ status: 'done', updatedAt: '2026-09-29T11:00:00Z', steps: [step('s1', { status: 'done', output: `${'A'.repeat(1200)}…` })], deliverable: `${'A'.repeat(1200)}…` }));
+    expect(teamProjects.value.prj_abcdefgh?.steps[0]?.output).toBe(full);
+    expect(teamProjects.value.prj_abcdefgh?.deliverable).toBe(full);
+  });
+
+  it('raises a hand on the lead’s face while the plan waits for the owner', () => {
+    upsertProject(proj({ team: [{ personaId: 'lee', name: 'Lee Park', title: 'PM', role: 'specialist', why: '' }, { personaId: 'maya', name: 'Maya Cruz', title: 'Growth', role: 'lead', why: '' }] }));
+    expect(presenceFor('cw_maya')).toEqual({ state: 'raised_hand', label: 'Waiting on you: Spring menu launch' });
+    expect(presenceFor('cw_lee').state).toBe('idle');
+    upsertProject(proj({ status: 'running', updatedAt: '2026-09-29T10:01:00Z' }));
+    expect(presenceFor('cw_maya').state).toBe('idle');
+  });
+
+  it('shows staffed coworkers as working on their step, and reviewers as thinking', () => {
+    upsertProject(proj({ status: 'running', steps: [step('s1', { status: 'working', title: 'Draft the offer' }), step('s2', { ownerId: 'lee', status: 'reviewing', title: 'Price it', reviewerIds: ['omar'] })] }));
+    expect(presenceFor('cw_maya')).toEqual({ state: 'working', label: 'Draft the offer' });
+    expect(presenceFor('cw_omar')).toEqual({ state: 'thinking', label: 'Reviewing: Price it' });
+    expect(presenceFor('cw_lee').state).toBe('idle');
+    upsertProject(proj({ status: 'cancelled', updatedAt: '2026-09-29T10:09:00Z' }));
+    expect(presenceFor('cw_maya').state).toBe('idle');
   });
 });

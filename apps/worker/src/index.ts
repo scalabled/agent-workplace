@@ -17,6 +17,7 @@ import { handleGeneratePortrait, handleGetLandmarks, handleGetPortrait, handleLi
 import { handleStt, handleTts } from './media/speech';
 import { handleOfficePeople } from './rooms/people';
 import { handleRoomCancel, handleRoomSay } from './rooms/routes';
+import { handleApproveProject, handleCancelProject, handleGetProject, handleListProjects, handleNoteProject, handlePauseProject, handleResumeProject, handleStopAll } from './projects/routes';
 import { handleGetWorkspace, handlePutWorkspace, handleTalk, handleWs } from './workspace/routes';
 
 export { ProjectDO } from './jobs/project-do';
@@ -54,6 +55,14 @@ export const HANDLERS: Record<RouteId, RouteHandler> = {
   roomCancel: handleRoomCancel,
   officePeople: handleOfficePeople,
   exprHuddleRender: handleExprHuddleRender,
+  listProjects: handleListProjects,
+  getProject: handleGetProject,
+  approveProject: handleApproveProject,
+  stopAll: handleStopAll,
+  noteProject: handleNoteProject,
+  pauseProject: handlePauseProject,
+  resumeProject: handleResumeProject,
+  cancelProject: handleCancelProject,
 };
 
 /** Reject bodies over the route's cap before the handler runs (Content-Length, or by counting a streamed body). */

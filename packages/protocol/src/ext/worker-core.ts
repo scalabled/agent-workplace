@@ -16,10 +16,10 @@ export function jobProgressPercent(job: Pick<JobSnapshot, 'status' | 'step' | 'o
  * What a Chief of Staff turn did; carried in `talk.done.route` (ARCHITECTURE §5.2, Inc 0 subset).
  * `reflex` (Inc 0.5): a phatic turn ("thanks", "bye") answered from the expression catalog without a model call.
  */
-export type TalkRoute = 'answer' | 'delegate' | 'status' | 'steer' | 'cancel' | 'reflex';
+export type TalkRoute = 'answer' | 'delegate' | 'status' | 'steer' | 'cancel' | 'reflex' | 'project';
 
 /** The Chief of Staff's tools in Inc 0 (names are stable; the web may show them as chips). */
-export const CHIEF_TOOL_NAMES = ['start_background_job', 'job_status', 'steer_job', 'cancel_job'] as const;
+export const CHIEF_TOOL_NAMES = ['start_background_job', 'job_status', 'steer_job', 'cancel_job', 'start_team_project', 'approve_team_project', 'team_project_status', 'cancel_team_project', 'steer_team_project', 'pause_team_project', 'stop_all_work'] as const;
 export type ChiefToolName = (typeof CHIEF_TOOL_NAMES)[number];
 
 /**

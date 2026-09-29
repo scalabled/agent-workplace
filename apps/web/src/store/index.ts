@@ -17,6 +17,7 @@ import {
   type WorkspaceSettings,
 } from '@headcount/protocol';
 import type { DeskSayAccepted } from '@headcount/protocol/ext/expressions';
+import type { Decision, ProjectsResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { FeedStatus } from '../api/ws';
 import { applyServerVoice } from '../voice/owner';
 
@@ -35,6 +36,8 @@ export interface ThreadItem {
   /** A note's room (`skyline`, `garden`, `huddle:<hash>`). */
   roomId?: string;
   jobId?: JobId;
+  /** The team project a Chief message is about (Inc 1): Talk links to its page. */
+  projectId?: string;
   via?: 'text' | 'voice';
   opId?: OpId;
   /** Owner messages only: pending until accepted, failed when the send failed (text is never lost). */
@@ -71,8 +74,59 @@ export const onboarded = computed(() => Boolean(settings.value?.leadId));
 export const activeJobs = computed(() => Object.values(jobs.value).filter((j) => j.status === 'queued' || j.status === 'running'));
 /** Every job, newest first. */
 export const jobList = computed(() => Object.values(jobs.value).sort((a, b) => (a.startedAt < b.startedAt ? 1 : a.startedAt > b.startedAt ? -1 : 0)));
-/** Raised hands waiting in the Inbox (none exist in Inc 0; the count can reach zero, X1). */
-export const raisedHands = computed(() => 0);
+// ── Inc 1 team projects and the Inbox ─────────────────────────────────────────
+export const teamProjects = signal<Record<string, TeamProjectSnapshot>>({});
+export const openDecisions = signal<Record<string, Decision>>({});
+export const projectList = computed(() => Object.values(teamProjects.value).sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0)));
+export const decisionList = computed(() => Object.values(openDecisions.value).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)));
+/** The Inbox counts raised hands only, so it can reach zero (X1). */
+export const raisedHands = computed(() => Object.keys(openDecisions.value).length);
+
+/**
+ * Keep full outputs: frames carry clipped step outputs and deliverables, GET /api/projects/:id the full text. A
+ * newer snapshot replaces an older one, but never shortens text we already hold for the same step.
+ */
+export function upsertProject(p: TeamProjectSnapshot): void {
+  const cur = teamProjects.value[p.projectId];
+  if (cur && cur.updatedAt > p.updatedAt) return;
+  const longer = (a?: string, b?: string) => (a && b && a.length > b.length && a.startsWith(b.replace(/…$/, '').slice(0, 200)) ? a : (b ?? a));
+  const steps = p.steps.map((s) => {
+    const old = cur?.steps.find((o) => o.id === s.id);
+    const output = longer(old?.output, s.output);
+    return output ? { ...s, output } : s;
+  });
+  const deliverable = longer(cur?.deliverable, p.deliverable);
+  teamProjects.value = { ...teamProjects.value, [p.projectId]: { ...p, steps, ...(deliverable ? { deliverable } : {}) } };
+}
+
+export function mergeProjects(r: ProjectsResponse): void {
+  for (const p of r.projects) upsertProject(p);
+  const open: Record<string, Decision> = {};
+  for (const d of r.decisions) if (d.status === 'open') open[d.decisionId] = d;
+  openDecisions.value = open;
+}
+
+/**
+ * Who is doing team work now, keyed by agent id: step owners work, reviewers think, and the lead of a plan waiting
+ * for the owner's OK raises a hand. Drives faces and the office.
+ */
+export const teamWork = computed(() => {
+  const out: Record<string, { state: 'working' | 'thinking' | 'raised_hand'; label: string }> = {};
+  for (const p of Object.values(teamProjects.value)) {
+    if (p.status === 'proposed') {
+      const lead = p.team.find((m) => m.role === 'lead') ?? p.team[0];
+      if (lead) out[`cw_${lead.personaId}`] = { state: 'raised_hand', label: `Waiting on you: ${p.title}` };
+      continue;
+    }
+    // Paused: a step already under way still finishes, so its people still show it.
+    if (p.status !== 'running' && p.status !== 'paused') continue;
+    for (const st of p.steps) {
+      if (st.status === 'working' || st.status === 'revising') out[`cw_${st.ownerId}`] = { state: 'working', label: st.status === 'revising' ? `Revising: ${st.title}` : st.title };
+      else if (st.status === 'reviewing' && st.reviewerIds[0]) out[`cw_${st.reviewerIds[0]}`] = { state: 'thinking', label: `Reviewing: ${st.title}` };
+    }
+  }
+  return out;
+});
 
 /**
  * Settings only move forward: a copy older than the one held (a slow GET, a stale frame) is ignored, so the app
@@ -113,6 +167,8 @@ export function presenceFor(agentId: string): ShownPresence {
   if (local?.listening) claims.push({ state: 'listening', label: DEFAULT_LABELS.listening });
   const server = presence.value[agentId];
   if (server) claims.push({ state: server.state, label: server.label || DEFAULT_LABELS[server.state] });
+  const team = teamWork.value[agentId];
+  if (team) claims.push(team);
   return mergePresence(claims) ?? { state: 'idle', label: DEFAULT_LABELS.idle };
 }
 
@@ -236,6 +292,8 @@ export function resetFeedState(): void {
   sideThreads.value = side;
   jobs.value = {};
   presence.value = {};
+  teamProjects.value = {};
+  openDecisions.value = {};
 }
 
 // ── Floor quick-chats ───────────────────────────────────────────────────────────
@@ -415,6 +473,7 @@ function reduce(frame: Frame, live: boolean): void {
         streaming: false,
         kind: frame.data.kind,
         ...(frame.data.jobId ? { jobId: frame.data.jobId } : {}),
+        ...(frame.data.projectId ? { projectId: frame.data.projectId } : {}),
         ...(frame.data.kind === 'note' && frame.data.roomId ? { roomId: frame.data.roomId } : {}),
         ts: frame.ts,
       });
@@ -432,6 +491,19 @@ function reduce(frame: Frame, live: boolean): void {
     case 'job.started':
       jobs.value = { ...jobs.value, [frame.data.job.jobId]: frame.data.job };
       break;
+    case 'project.proposed':
+      upsertProject(frame.data.project);
+      // A replayed proposal must not reopen a hand the project has already moved past.
+      if (frame.data.decision.status === 'open' && teamProjects.value[frame.data.project.projectId]?.status === 'proposed') openDecisions.value = { ...openDecisions.value, [frame.data.decision.decisionId]: frame.data.decision };
+      break;
+    case 'project.updated':
+      upsertProject(frame.data.project);
+      break;
+    case 'decision.resolved': {
+      const { [frame.data.decision.decisionId]: _gone, ...rest } = openDecisions.value;
+      openDecisions.value = rest;
+      break;
+    }
     case 'job.progress':
       patchJob(frame.data.jobId, { status: 'running', label: frame.data.label, step: frame.data.step, of: frame.data.of, ...(frame.data.partial ? { partial: frame.data.partial } : {}) }, frame.ts);
       break;

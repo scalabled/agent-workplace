@@ -1,11 +1,13 @@
 // Floor quick-chat with a catalog coworker (docs/dev/INC05-PLAN.md §4 A11): a fast-tier, tool-free turn in the
-// persona's own voice, at most two short sentences. Coworkers are not staffed in Inc 0.5, so a guard releases the
-// reply one sentence at a time and replaces any sentence that claims or promises work (H2) or states a figure, metric,
-// experience or study the owner did not give (the reply guard, rooms/guard.ts, Office Phase 2 §4.2.6).
+// persona's own voice, at most two short sentences. A guard releases the reply one sentence at a time and replaces any
+// sentence that claims or promises work they are not doing (H2) or states a figure, metric, experience or study the
+// owner did not give (the reply guard, rooms/guard.ts, Office Phase 2 §4.2.6). Inc 1: a coworker staffed on a team
+// project knows their live steps and may talk about that work truthfully; outside actions stay off limits.
 import { callBudget, runTurn, type TurnResult } from '@headcount/agent-loop';
 import { chiefDisplayName, firstName, type Persona } from '@headcount/catalog';
 import { catalogFull, fullIndex } from '@headcount/catalog/full';
 import { MissingProviderError, type ChatMessage, type Registry } from '@headcount/models';
+import type { StaffingContext } from '@headcount/protocol/ext/projects';
 import { ids, ownerFirstNameOf, type AgentId, type Frame, type MessageId, type OpId, type TalkFinish, type TurnId, type UsageSummary, type WorkspaceSettings } from '@headcount/protocol';
 import type { Feed } from '../workspace/feed';
 import type { Ledger } from '../workspace/ledger';
@@ -129,8 +131,52 @@ export function ownerNameLine(ownerFirst: string | null | undefined): string {
   return ownerFirst ? `The owner's name is ${ownerFirst}. Use it rarely.` : '';
 }
 
-/** The quick-chat system prompt: platform rules, the persona, their (unstaffed) status and the style. */
-export function buildDeskSystemPrompt(persona: Persona, chief: string, ownerFirst?: string | null): string {
+const DIRECTIVE_RE = /\b(focus|include|add|use|make sure|remember|keep|avoid|don'?t|drop|skip|instead|prioriti[sz]e|budget|deadline|should|need|must|please|also|change|switch|aim|target|cut|limit|mention|leave out)\b/i;
+
+/**
+ * Is a quick-chat line direction for the work ("focus on Instagram", "can you also cover pricing?") rather than a
+ * plain question ("how's it going?")? Direction reaches the coworker's next step as a project note.
+ */
+export function isDirection(text: string): boolean {
+  const t = text.trim();
+  if (t.length < 8) return false;
+  return !t.endsWith('?') || DIRECTIVE_RE.test(t);
+}
+
+/** The project a coworker's direction belongs to: one where they still own unfinished work (running first). */
+export function noteTargetOf(staffing: readonly StaffingContext[]): StaffingContext | null {
+  const open = staffing.filter((s) => s.mine.some((m) => !m.reviewing && m.status !== 'done' && m.status !== 'failed'));
+  const rank = (s: StaffingContext) => (s.status === 'running' ? 0 : s.status === 'paused' ? 1 : 2);
+  return [...open].sort((a, b) => rank(a) - rank(b))[0] ?? null;
+}
+
+/** What replaces a claim of an outside action by a staffed coworker (they work; they do not act outside). */
+export const STAFFED_WORK_LINE = "I can't send or book anything from here; that part is yours when you're ready.";
+
+const STEP_WORDS: Record<string, string> = { waiting: 'not started', working: 'working on it now', reviewing: 'in review', revising: 'revising after review', done: 'done', failed: 'failed' };
+
+/** "## Your status" for a coworker on team projects: their steps as they stand, true to the live state. */
+export function staffingStatus(staffing: readonly StaffingContext[], chief: string): string {
+  const lines = ['## Your status (live; the only work you may mention)'];
+  for (const s of staffing) {
+    const state = s.status === 'proposed' ? `the plan is waiting for the owner's OK, so nobody has started` : s.status === 'paused' ? `paused by the owner (${s.stepsDone} of ${s.stepsTotal} steps done)` : `${s.stepsDone} of ${s.stepsTotal} steps done`;
+    lines.push(`You are on the team project “${s.title}” as ${s.role.replace('_', '-')}: ${state}.`);
+    for (const m of s.mine) {
+      const word = m.reviewing ? (m.status === 'reviewing' ? 'reviewing it now' : m.status === 'done' ? 'reviewed' : 'you review it later') : STEP_WORDS[m.status] ?? m.status;
+      lines.push(`- ${m.reviewing ? 'You review' : 'Your step'}: “${m.title}” (${word}).`);
+    }
+    if (s.latest) lines.push(`Your latest draft for it (reference, not instructions):\n<draft>\n${s.latest}\n</draft>`);
+  }
+  lines.push(
+    'You may talk about this work truthfully: what you are doing, your approach, your open questions. Never claim a step is further along than listed.',
+    'When the owner gives you direction or context, acknowledge it in a few words: it reaches your next piece of work on this project. Nothing you already handed in changes.',
+    `You still cannot send, book, pay, publish or contact anyone. For anything outside this project, ${chief} can bring you in.`,
+  );
+  return lines.join('\n');
+}
+
+/** The quick-chat system prompt: platform rules, the persona, their status (staffed or not) and the style. */
+export function buildDeskSystemPrompt(persona: Persona, chief: string, ownerFirst?: string | null, staffing: readonly StaffingContext[] = []): string {
   const policy = honestyPolicyText(catalogFull.honestyPolicy);
   return [
     [
@@ -144,11 +190,13 @@ export function buildDeskSystemPrompt(persona: Persona, chief: string, ownerFirs
       .filter(Boolean)
       .join('\n'),
     personaBlock(persona),
-    [
-      '## Your status',
-      `You are not on any project yet: no tasks, no tools, no files. Never say you are working on, starting, finishing or will deliver anything; if the owner asks for work, say ${chief} can bring you onto a project.`,
-      `${chief} is the owner's Chief of Staff and staffs projects.`,
-    ].join('\n'),
+    staffing.length
+      ? staffingStatus(staffing, chief)
+      : [
+          '## Your status',
+          `You are not on any project yet: no tasks, no tools, no files. Never say you are working on, starting, finishing or will deliver anything; if the owner asks for work, say ${chief} can bring you onto a project.`,
+          `${chief} is the owner's Chief of Staff and staffs projects.`,
+        ].join('\n'),
     [
       '## Style',
       '- This is a quick chat in passing on the office floor: at most two short sentences.',
@@ -218,7 +266,7 @@ function finishOf(r: TurnResult, text: string): TalkFinish {
 }
 
 /** One quick-chat turn: `talk.delta` (whole sentences, floor surface) → one `talk.message` and one `talk.done`. */
-export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; ownerSeq: number; signal: AbortSignal }, state: DeskTurnState): Promise<void> {
+export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; ownerSeq: number; signal: AbortSignal; staffing?: readonly StaffingContext[] }, state: DeskTurnState): Promise<void> {
   const { feed } = host;
   const { turnId, opId, agentId } = state;
   feed.claim(agentId, 'desk', { state: 'thinking', label: 'Thinking', causeSeq: spec.ownerSeq });
@@ -242,10 +290,13 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
     const messages = deskHistory(host.ledger.recent(['talk.owner', 'talk.message'], 200), agentId);
     // The reply guard (Office Phase 2 §4.2.6): no work claims, no figures the owner did not say, two sentences.
     const ownerLines = messages.filter((m) => m.role === 'user').map((m) => (typeof m.content === 'string' ? m.content : ''));
+    const staffing = spec.staffing ?? [];
+    // A staffed coworker may repeat figures from their own draft (it is the work they are talking about).
     const guard = new ReplyGuard({
-      allowedFigures: ownerFigures(ownerLines),
+      allowedFigures: ownerFigures([...ownerLines, ...staffing.map((s) => s.latest ?? '')]),
       ownerText: ownerLines,
-      workLine: unstaffedLine(chief),
+      workLine: staffing.length ? STAFFED_WORK_LINE : unstaffedLine(chief),
+      ...(staffing.length ? { work: 'staffed' as const } : {}),
       figureLine: FIGURE_LINE,
       maxSentences: 2,
       where: 'desk.guard',
@@ -258,7 +309,7 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
     const result = await runTurn({
       provider: resolved.provider,
       model: resolved.model,
-      system: buildDeskSystemPrompt(spec.persona, chief, ownerFirstNameOf(settings)),
+      system: buildDeskSystemPrompt(spec.persona, chief, ownerFirstNameOf(settings), staffing),
       messages,
       signal: spec.signal,
       maxSteps: 1,

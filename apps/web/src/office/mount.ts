@@ -37,7 +37,7 @@ import { registerFace } from '../living/faces';
 import type { LivingRuntime } from '../living/types';
 import { activeDesk } from '../living/useDesk';
 import { officeStage } from '../living/viewer';
-import { chiefPresence, jobs, localPresence, presence, settings } from '../store';
+import { chiefPresence, jobs, localPresence, presence, projectList, settings, teamWork } from '../store';
 import { showNotice } from '../ui/notice';
 import { audio } from '../voice/engine';
 import { claimUnsettled, mayVoice } from '../voice/owner';
@@ -49,7 +49,7 @@ import { groundingEvents } from './grounding';
 import { createHuddleLines, type HuddlePersonInfo } from './huddles';
 import { createJoin, type JoinDeps } from './join';
 import { createListen } from './listen';
-import { firstOf, lifePeopleOf, officeRoster } from './people';
+import { firstOf, lifePeopleOf, officeRoster, podsOf } from './people';
 import { bindPresence } from './presence';
 import { clearDeepLink, floorView, readDeepLink } from './view';
 
@@ -185,7 +185,8 @@ export function mountOffice(o: OfficeMountOptions): OfficeMount {
   let stage: StageBindingLike | null = null;
 
   // ── people ──
-  let roster = officeRoster(c, currentLead.peek(), chiefNameSig.peek());
+  let roster = officeRoster(c, currentLead.peek(), chiefNameSig.peek(), podsOf(projectList.peek()));
+  let chiefKey = `${currentLead.peek()?.id ?? ''}|${chiefNameSig.peek()}`;
   const personOf = new Map(roster.people.map((p) => [p.id, p]));
   const dtoOf = new Map<string, OfficePersonDto>();
   const nameOf = (id: string) => personOf.get(id)?.name ?? id;
@@ -443,6 +444,7 @@ export function mountOffice(o: OfficeMountOptions): OfficeMount {
       presence,
       localPresence,
       jobs,
+      teamWork,
       chiefState: computed(() => chiefPresence.value.state),
       replying: replyingAgent,
       ids: () => roster.people.map((p) => p.id),
@@ -473,13 +475,17 @@ export function mountOffice(o: OfficeMountOptions): OfficeMount {
   );
   disposers.push(
     effect(() => {
-      const next = officeRoster(c, currentLead.value, chiefNameSig.value);
+      // Inc 1: a team project under way seats its people together in a pod; they go back when it ends.
+      const next = officeRoster(c, currentLead.value, chiefNameSig.value, podsOf(projectList.value));
       if (next.key === roster.key) return;
+      const newChief = `${currentLead.peek()?.id ?? ''}|${chiefNameSig.peek()}` !== chiefKey;
+      chiefKey = `${currentLead.peek()?.id ?? ''}|${chiefNameSig.peek()}`;
       roster = next;
       personOf.clear();
       for (const p of roster.people) personOf.set(p.id, p);
       scene.setPeople(roster.people, roster.groups, CHIEF_ID);
       lifeSig.peek()?.setPeople(lifePeopleOf(roster.people, [...dtoOf.values()]));
+      if (!newChief) return;
       // A new Chief of Staff has a new profile: fetch the roster again.
       void officePeople(`${settings.peek()?.leadId ?? ''}|${chiefNameSig.peek()}`).then((r) => {
         if (destroyed || !r) return;

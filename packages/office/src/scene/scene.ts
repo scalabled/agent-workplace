@@ -2087,8 +2087,9 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     manageFaces();
     reportViewport();
     // Keyboard users land on the first participant; otherwise the stage itself takes focus (no ring), so Esc, I and
-    // C work at once.
+    // C work at once. A picker opened meanwhile (I pressed as the stage appears) keeps its focus.
     later(() => {
+      if (picker) return;
       if (lastKeyboard) stage.focusFirst();
       else if (root.contains(doc.activeElement) || doc.activeElement === doc.body || !doc.activeElement) stage.el.focus({ preventScroll: true });
     }, animate ? 260 : 0);

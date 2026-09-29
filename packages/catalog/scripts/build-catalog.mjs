@@ -177,6 +177,11 @@ export function buildCatalog({ catalogDir = CATALOG_DIR } = {}) {
     recipes,
     formation,
     honestyPolicy: taxonomy.honesty_policy ?? null,
+    // TTS voice ids → presentation per provider (formation voice_assignment falls back by presentation).
+    voices: {
+      openai: Object.fromEntries(Object.entries(taxonomy.voices?.openai_tts?.voices ?? {}).map(([id, v]) => [id, v?.presentation ?? 'neutral'])),
+      xai: Object.fromEntries(Object.entries(taxonomy.voices?.xai_tts?.voices ?? {}).map(([id, v]) => [id, v?.presentation ?? 'neutral'])),
+    },
     report,
   };
 
