@@ -7,6 +7,7 @@ import { PromptViewer } from '../agents/PromptViewer';
 import { chiefName } from '../chief';
 import { Link } from '../components/Link';
 import { paths } from '../router';
+import { PageTitle } from '../links/CopyLink';
 import './pages.css';
 
 export function ChiefPrompt() {
@@ -25,7 +26,7 @@ export function ChiefPrompt() {
         <Link href={paths.talk}>Talk</Link>
       </p>
       <header class="page-head">
-        <h1 id="chief-title">How {name} works</h1>
+        <PageTitle id="chief-title">How {name} works</PageTitle>
         <p class="page-lede">The exact instructions {name} answers from in Talk, and the tools {name} can use. The live work state is read fresh at the start of every reply.</p>
       </header>
       {error && (

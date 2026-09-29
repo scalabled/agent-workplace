@@ -10,7 +10,11 @@ import { handleExprAgent, handleExprAlign, handleExprCatalog, handleExprClip, ha
 import { handleExprHuddleRender } from './expr/huddle-render';
 import { HttpError, errorResponse, type RouteContext, type RouteHandler } from './lib/http';
 import { guardHost, guardRequest, originPolicy, type OriginPolicy } from './lib/origin';
-import { handleAuthRoute, isLoopback, requireSession } from './auth/auth';
+import { authorize, handleAuthRoute, isLoopback } from './auth/auth';
+import { handleAdminConfig, handleAdminUsage, handleListMembers, handlePutAdminConfig, handlePutMember, handlePutPrices, handleRemoveMember } from './admin/routes';
+import { metered } from './usage/meter';
+import { d1Sink } from './usage/store';
+import { configured, loadConfig } from './admin/config';
 import { handleCapabilities } from './media/capabilities';
 import { handleMediaRoute } from './media/media-images';
 import { handleGeneratePortrait, handleGetLandmarks, handleGetPortrait, handleListPortraits, handlePutLandmarks } from './media/portraits';
@@ -123,6 +127,13 @@ export const HANDLERS: Record<RouteId, RouteHandler> = {
   addCard: handleAddCard,
   getCard: handleGetCard,
   removeCard: handleRemoveCard,
+  adminConfig: handleAdminConfig,
+  putAdminConfig: handlePutAdminConfig,
+  listMembers: handleListMembers,
+  putMember: handlePutMember,
+  removeMember: handleRemoveMember,
+  adminUsage: handleAdminUsage,
+  putPrices: handlePutPrices,
 };
 
 /** Reject bodies over the route's cap before the handler runs (Content-Length, or by counting a streamed body). */
@@ -160,8 +171,11 @@ function policyFor(env: Env): OriginPolicy {
   return cachedPolicy.policy;
 }
 
-export async function handle(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+export async function handle(request: Request, deployed: Env, ctx: ExecutionContext): Promise<Response> {
   let route: RouteId | 'router' = 'router';
+  // The admin page's settings over the deployment's environment (cached; read again every few seconds).
+  await loadConfig(deployed);
+  const env = configured(deployed);
   // Everything, including matching (a malformed %-escape) and the body cap (an aborted upload), answers an ApiErrorBody.
   try {
     const url = new URL(request.url);
@@ -179,8 +193,8 @@ export async function handle(request: Request, env: Env, ctx: ExecutionContext):
     if (auth) return auth;
     // Every other route needs a session unless it is public (health, the landing's read-only portraits) or the
     // host is loopback with sign-in off (local dev). Fails closed on any deployed host.
-    const unauthenticated = await requireSession(request, env, url, routeId);
-    if (unauthenticated) return unauthenticated;
+    const allowed = await authorize(request, env, url, routeId);
+    if (allowed instanceof Response) return allowed;
     // /api/media/* (media-owned, outside the protocol table): POST /api/media/image, GET /api/media/:key.
     if (!found) {
       // Generic image generation is tooling (marketing art): loopback dev, or ENABLE_MEDIA_TOOLS=true, only.
@@ -196,7 +210,7 @@ export async function handle(request: Request, env: Env, ctx: ExecutionContext):
     if (capped instanceof Response) return capped;
 
     let registry: Registry | undefined;
-    const rc: RouteContext = { env, ctx, route: id, params, url, registry: () => (registry ??= createRegistry(env)) };
+    const rc: RouteContext = { env, identity: allowed.identity, ctx, route: id, params, url, registry: () => (registry ??= metered(createRegistry(env), d1Sink(env), { surface: id === 'generatePortrait' ? 'image' : 'speech' })) };
     return await HANDLERS[id](capped, rc);
   } catch (err) {
     return toErrorResponse(err, route);

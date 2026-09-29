@@ -10,6 +10,7 @@ import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
 import { navigate, paths } from '../router';
 import { canvasList, upsertCanvas } from '../store';
+import { PageTitle } from '../links/CopyLink';
 import './pages.css';
 
 const when = (at: string) => new Date(at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -33,7 +34,7 @@ export function Canvas() {
   return (
     <section class="page canvas-page" aria-labelledby="canvas-page-title">
       <header class="page-head">
-        <h1 id="canvas-page-title">Canvas</h1>
+        <PageTitle id="canvas-page-title">Canvas</PageTitle>
         <p class="page-lede">
           Apps and documents made for you: a calculator, a tracker, a planner, a proposal, a one-page plan. Ask {chiefName.value} in <Link href={paths.talk}>Talk</Link>, or describe it here. Each one can be downloaded as HTML or exported to PDF.
         </p>
@@ -93,7 +94,7 @@ function MakeSomething() {
     }
   };
   return (
-    <form class="panel canvas-make" onSubmit={make} aria-label="Make something">
+    <form class="panel canvas-make needs-contributor" onSubmit={make} aria-label="Make something">
       <label class="visually-hidden" for="canvas-brief">
         What should it make?
       </label>

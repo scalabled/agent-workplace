@@ -10,7 +10,7 @@ import { FileReadError, readFile } from './files';
 import { Handbook } from './handbook';
 import { chunk } from './recall';
 import { MemoryStore } from './store';
-import { runtime, logError } from '../workspace/runtime';
+import { logError, models } from '../workspace/runtime';
 
 export interface KnowledgePorts {
   sql: SqlStorage;
@@ -45,7 +45,7 @@ export class Knowledge {
 
   private async embed(texts: string[]): Promise<{ vectors: number[][]; model: string } | null> {
     try {
-      const r = runtime.registry(this.p.env).resolve('embeddings');
+      const r = models(this.p.env, { surface: 'memory' }).resolve('embeddings');
       const out = await r.provider.embed({ texts });
       return { vectors: out.vectors, model: `${out.provider}:${out.model}` };
     } catch {
@@ -55,7 +55,7 @@ export class Knowledge {
 
   private fast(): FastModel | null {
     try {
-      const r = runtime.registry(this.p.env).resolve('chat', { tier: 'fast', needs: ['tools'] });
+      const r = models(this.p.env, { surface: 'memory' }).resolve('chat', { tier: 'fast', needs: ['tools'] });
       return { provider: r.provider, model: r.model };
     } catch (err) {
       if (!(err instanceof MissingProviderError)) logError('memory.model', err);

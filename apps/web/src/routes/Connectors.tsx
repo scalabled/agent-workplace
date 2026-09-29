@@ -6,7 +6,10 @@ import { useEffect, useState } from 'preact/hooks';
 import { api, ApiError } from '../api/client';
 import { chiefName } from '../chief';
 import { teamProjects } from '../store';
+import { PageTitle } from '../links/CopyLink';
+import { CopyLink } from '../links/CopyLink';
 import './pages.css';
+import { paths } from '../router';
 
 const STATUS_WORDS: Record<ConnectorView['status'], string> = { ready: 'Ready', needs_key: 'Needs a key', error: 'Cannot connect', untested: 'Not tested' };
 const APPROVAL_WORDS: Record<ConnectorApproval, string> = { ask: 'Every call', writes: 'Calls that change things', never: 'Never ask' };
@@ -38,7 +41,7 @@ export function Connectors() {
   return (
     <section class="page connectors-page" aria-labelledby="connectors-title">
       <header class="page-head">
-        <h1 id="connectors-title">Connectors</h1>
+        <PageTitle id="connectors-title">Connectors</PageTitle>
         <p class="page-lede">
           Outside services your coworkers and {chiefName.value} can use, through the Model Context Protocol. Keys stay on the server and never come back to this page. Calls that change things wait for your OK.
         </p>
@@ -117,7 +120,7 @@ function CatalogEntry({ entry, connected, canStoreKeys, onAdded }: { entry: Conn
           </span>
         ) : (
           !open && (
-            <button type="button" class="button-quiet button-small" aria-label={`Connect ${entry.name}`} onClick={() => (keyed ? setOpen(true) : void connect(new Event('submit')))} disabled={busy}>
+            <button type="button" class="button-quiet button-small needs-owner" aria-label={`Connect ${entry.name}`} onClick={() => (keyed ? setOpen(true) : void connect(new Event('submit')))} disabled={busy}>
               {busy ? 'Connecting…' : 'Connect'}
             </button>
           )
@@ -190,7 +193,7 @@ function CustomServer({ canStoreKeys, onAdded }: { canStoreKeys: boolean; onAdde
     }
   };
   return (
-    <form class="panel connector-custom" onSubmit={add}>
+    <form class="panel connector-custom needs-owner" onSubmit={add}>
       <h3 class="panel-title">A server by URL</h3>
       <p class="page-fine">Any MCP server reachable over https (Streamable HTTP). Private and local addresses are refused.</p>
       <label class="field">
@@ -260,6 +263,7 @@ function ConnectorCard({ connector: c, onChange, onRemoved }: { connector: Conne
       <header class="connector-card-head">
         <div>
           <h3 id={`cn-${c.connectorId}`} class="connector-name">
+            <CopyLink page={paths.connectors} at={`cn-${c.connectorId}`} label={`Copy link to ${c.name}`} what="Link to this connector" />
             {c.name}
           </h3>
           <p class="connector-url">{c.url}</p>
@@ -275,7 +279,7 @@ function ConnectorCard({ connector: c, onChange, onRemoved }: { connector: Conne
         {c.calls ? ` · ${c.calls} ${c.calls === 1 ? 'call' : 'calls'}, last ${ago(c.lastCallAt)}` : ''}
       </p>
 
-      <div class="connector-controls">
+      <div class="connector-controls needs-owner">
         <label class="field field-inline">
           <span class="field-label">Ask me before</span>
           <select class="field-input" value={c.approval} disabled={!!busy} onChange={(e) => void patch('approval', { approval: (e.target as HTMLSelectElement).value as ConnectorApproval })}>
@@ -303,7 +307,7 @@ function ConnectorCard({ connector: c, onChange, onRemoved }: { connector: Conne
       </div>
 
       {keyed && (
-        <div class="connector-key">
+        <div class="connector-key needs-owner">
           <p class="connector-meta">{c.hasKey ? 'A key is stored (it never leaves the server).' : 'No key stored.'}</p>
           {keyOpen ? (
             <form
@@ -392,7 +396,7 @@ function ConnectorCard({ connector: c, onChange, onRemoved }: { connector: Conne
           {error}
         </p>
       )}
-      <div class="settings-actions connector-actions">
+      <div class="settings-actions connector-actions needs-owner">
         <button type="button" class="button-quiet button-small" disabled={!!busy} onClick={() => void run('test', () => api.testConnector(c.connectorId))}>
           {busy === 'test' ? 'Testing…' : 'Test'}
         </button>

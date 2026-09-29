@@ -10,6 +10,8 @@ import { Link } from '../components/Link';
 import { ContextFiles } from '../memory/ContextFiles';
 import { scopeLabel } from '../memory/upload';
 import { paths } from '../router';
+import { PageTitle } from '../links/CopyLink';
+import { CopyLink } from '../links/CopyLink';
 import './pages.css';
 
 export const KIND_WORDS: Record<MemoryKind, string> = { fact: 'Fact', preference: 'Preference', decision: 'Decision', person: 'Person', client: 'Client', rule: 'Rule', excerpt: 'From a file' };
@@ -46,7 +48,7 @@ export function Memory() {
   return (
     <section class="page memory-page" aria-labelledby="memory-title">
       <header class="page-head">
-        <h1 id="memory-title">Memory</h1>
+        <PageTitle id="memory-title">Memory</PageTitle>
         <p class="page-lede">
           What {chiefName.value} and the team remember: from your conversations, meetings and the files you share. It comes back when it bears on the work. Change, pin or forget anything here; the bigger picture is in the{' '}
           <Link href={paths.handbook}>Handbook</Link>.
@@ -72,7 +74,7 @@ export function Memory() {
           ))}
         </select>
         {!adding && (
-          <button type="button" class="button-quiet" onClick={() => setAdding(true)}>
+          <button type="button" class="button-quiet needs-contributor" onClick={() => setAdding(true)}>
             <Icon name="plus" size={16} /> Add
           </button>
         )}
@@ -181,7 +183,7 @@ function MemoryRow({ memory: m, onChange, onRemoved }: { memory: MemoryItem; onC
       setEditing(false);
     });
   return (
-    <li class="memory-row" data-pinned={m.pinned || undefined} data-kind={m.kind}>
+    <li class="memory-row" id={m.memoryId} data-pinned={m.pinned || undefined} data-kind={m.kind}>
       <div class="memory-main">
         {editing ? (
           <form
@@ -223,8 +225,9 @@ function MemoryRow({ memory: m, onChange, onRemoved }: { memory: MemoryItem; onC
         </p>
         {error && <p class="connector-error">{error}</p>}
       </div>
+      {!editing && <CopyLink page={paths.memory} at={m.memoryId} label="Copy link to this memory" what="Link to this memory" />}
       {!editing && (
-        <span class="memory-actions">
+        <span class="memory-actions needs-contributor">
           {m.kind !== 'excerpt' && (
             <button
               type="button"

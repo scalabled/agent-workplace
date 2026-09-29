@@ -21,6 +21,7 @@ const KIND_LABEL: Record<Decision['kind'], string> = {
   automation: 'Automation',
 };
 
+import { CopyLink } from '../links/CopyLink';
 export function DecisionCard({ decision: d, showProject = true }: { decision: Decision; showProject?: boolean }) {
   const [text, setText] = useState('');
   const project = teamProjects.value[d.projectId];
@@ -32,7 +33,7 @@ export function DecisionCard({ decision: d, showProject = true }: { decision: De
   const words = d.kind === 'input' || d.kind === 'review' || d.kind === 'deliverable';
   const placeholder = d.kind === 'input' ? 'Your answer…' : 'Or give direction: what should change…';
   return (
-    <article class="panel decision decision-card" data-kind={d.kind} aria-labelledby={`dec-${d.decisionId}`}>
+    <article class="panel decision decision-card" id={d.decisionId} data-kind={d.kind} aria-labelledby={`dec-${d.decisionId}`}>
       <div class="decision-hand" aria-hidden={asker ? undefined : 'true'}>
         {asker ? <Face subject={personaSubject(asker)} tier="token" state="raised_hand" label={asker.name} agentId={`cw_${asker.id}`} /> : '✋'}
       </div>
@@ -48,9 +49,12 @@ export function DecisionCard({ decision: d, showProject = true }: { decision: De
             </>
           )}
         </p>
-        <h2 id={`dec-${d.decisionId}`} class="decision-title">
-          {d.title}
-        </h2>
+        <div class="page-title-row">
+          <h2 id={`dec-${d.decisionId}`} class="decision-title">
+            {d.title}
+          </h2>
+          <CopyLink page={paths.inbox} at={d.decisionId} label="Copy link to this" what="Link to it" />
+        </div>
         {d.automation ? (
           <>
             <p class="decision-text">{d.automation.describe}</p>
@@ -80,7 +84,7 @@ export function DecisionCard({ decision: d, showProject = true }: { decision: De
         )}
         {words && (
           <form
-            class="decision-answer"
+            class="decision-answer needs-contributor"
             onSubmit={(e) => {
               e.preventDefault();
               if (text.trim()) answer('answer');
@@ -98,7 +102,7 @@ export function DecisionCard({ decision: d, showProject = true }: { decision: De
           </p>
         )}
       </div>
-      <div class="decision-actions">
+      <div class="decision-actions needs-contributor">
         {d.kind === 'plan_approval' && (
           <>
             <button type="button" class="button-primary" disabled={busy} onClick={() => answer('approve')}>

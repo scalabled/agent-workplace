@@ -20,9 +20,11 @@ import { RunInspector } from '../projects/RunInspector';
 import { StepEditor } from '../projects/StepEditor';
 import { TeamChannel } from '../projects/TeamChannel';
 import { Meetings } from '../projects/Meetings';
-import { navigate, paths } from '../router';
+import { navigate, paths, linkTarget } from '../router';
 import { decisionList, presenceFor, teamProjects } from '../store';
 import { ContextFiles } from '../memory/ContextFiles';
+import { PageTitle } from '../links/CopyLink';
+import { CopyLink } from '../links/CopyLink';
 import './pages.css';
 
 function roleWord(role: string): string {
@@ -53,6 +55,10 @@ function StepCard({ step, project, index, onInspect }: { step: ProjectStep; proj
   const reviews = step.reviews ?? (step.verdict ? [step.verdict] : []);
   const canOpen = !!step.output || reviews.length > 0 || !!step.error;
   const canEdit = editable(project) && step.status !== 'done';
+  // A link to this step opens it.
+  useEffect(() => {
+    if (linkTarget.value === `step-${step.id}` && canOpen) setOpen(true);
+  }, [linkTarget.value]);
   return (
     <li class="step" id={`step-${step.id}`} data-status={step.status}>
       <div class="step-head">
@@ -77,8 +83,9 @@ function StepCard({ step, project, index, onInspect }: { step: ProjectStep; proj
           </p>
         </div>
         <span class="step-status">{STEP_STATUS_WORDS[step.status]}</span>
+        <CopyLink page={paths.project(project.projectId)} at={`step-${step.id}`} label={`Copy link to “${step.title}”`} what="Link to this step" />
         {canEdit && !editing && (
-          <button type="button" class="icon-button" aria-label={`Edit ${step.title}`} onClick={() => setEditing(true)}>
+          <button type="button" class="icon-button needs-contributor" aria-label={`Edit ${step.title}`} onClick={() => setEditing(true)}>
             <Icon name="edit" size={16} />
           </button>
         )}
@@ -162,7 +169,7 @@ function TeamNotes({ project }: { project: TeamProjectSnapshot }) {
         </ul>
       )}
       {open && (
-        <form class="note-form" onSubmit={send}>
+        <form class="note-form needs-contributor" onSubmit={send}>
           <label class="visually-hidden" for="note-text">
             Tell the team
           </label>
@@ -199,7 +206,7 @@ function PlanSettings({ project }: { project: TeamProjectSnapshot }) {
       </p>
     );
   return (
-    <div class="plan-settings">
+    <div class="plan-settings needs-contributor">
       <label class="field field-inline">
         <span class="field-label">Deliverable</span>
         <select class="field-input" value={kind} onChange={(e) => void editPlan(project.projectId, { deliverableKind: (e.target as HTMLSelectElement).value as DeliverableKind })}>
@@ -264,7 +271,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
         <p class="page-crumb">
           <Link href={paths.projects}>Projects</Link>
         </p>
-        <h1 id="project-title">{project.title}</h1>
+        <PageTitle id="project-title">{project.title}</PageTitle>
         <p class="project-status-line">
           <span class="job-glyph" data-status={projectGlyph(project.status)} aria-hidden="true" />
           {PROJECT_STATUS_WORDS[project.status]}
@@ -321,15 +328,15 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
             <span style={{ width: `${Math.max(4, pct)}%` }} />
           </span>
           {project.status === 'running' ? (
-            <button type="button" class="button-quiet" disabled={!!busy} onClick={() => void pauseProject(projectId)}>
+            <button type="button" class="button-quiet needs-contributor" disabled={!!busy} onClick={() => void pauseProject(projectId)}>
               {busy === 'pause' ? 'Pausing…' : 'Pause'}
             </button>
           ) : (
-            <button type="button" class="button-primary" disabled={!!busy} onClick={() => void resumeProject(projectId)}>
+            <button type="button" class="button-primary needs-contributor" disabled={!!busy} onClick={() => void resumeProject(projectId)}>
               {busy === 'resume' ? 'Resuming…' : 'Resume'}
             </button>
           )}
-          <button type="button" class="button-quiet" disabled={!!busy} onClick={() => void cancelProject(projectId)}>
+          <button type="button" class="button-quiet needs-contributor" disabled={!!busy} onClick={() => void cancelProject(projectId)}>
             {busy === 'cancel' ? 'Stopping…' : 'Stop project'}
           </button>
         </div>
@@ -394,11 +401,11 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
         </ol>
         {editable(project) &&
           (adding ? (
-            <div class="step-add">
+            <div class="step-add needs-contributor">
               <StepEditor project={project} onDone={() => setAdding(false)} />
             </div>
           ) : (
-            <button type="button" class="button-quiet step-add-button" onClick={() => setAdding(true)}>
+            <button type="button" class="button-quiet step-add-button needs-contributor" onClick={() => setAdding(true)}>
               <Icon name="plus" size={16} /> Add a step
             </button>
           ))}

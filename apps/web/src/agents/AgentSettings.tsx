@@ -4,6 +4,7 @@
 import type { AgentView, ModelsResponse, ReasoningChoice, ToolGrantId } from '@headcount/protocol/ext/agents';
 import { INSTRUCTIONS_MAX } from '@headcount/protocol/ext/agents';
 import { useEffect, useState } from 'preact/hooks';
+import { isOwner } from '../auth/session';
 import { api, ApiError } from '../api/client';
 import { Link } from '../components/Link';
 import { Markdown } from '../components/Markdown';
@@ -41,6 +42,8 @@ export function AgentSettings({ view, onChange }: { view: AgentView; onChange: (
   const provider = models?.providers.find((p) => p.id === choice.provider);
   return (
     <div class="agent-settings">
+      {/* Only owners change how a coworker works; everyone else sees it. */}
+      <fieldset class="plain-fieldset" disabled={!isOwner.value}>
       <section class="profile-block" aria-labelledby="instr-title">
         <h2 id="instr-title">
           How {first} works {view.edited && <span class="prompt-origin">Your words</span>}
@@ -251,6 +254,7 @@ export function AgentSettings({ view, onChange }: { view: AgentView; onChange: (
           {error ?? saved}
         </p>
       )}
+      </fieldset>
     </div>
   );
 }

@@ -9,7 +9,7 @@ import { catalog, loadCatalog } from '../catalog';
 import { chiefName } from '../chief';
 import { setTheme, theme } from '../lib/theme';
 import { navigate, paths } from '../router';
-import { auth, signOut } from '../auth/session';
+import { auth, isOwner, signOut } from '../auth/session';
 import { onboarded, settings } from '../store';
 import { setAmbience, setOwnerName, setVoiceOn } from '../talk/actions';
 import { AMBIENCE_LABEL, AMBIENCE_LINE } from './AmbienceControl';
@@ -146,6 +146,13 @@ function useItems(): PaletteItem[] {
       { id: 'place:memory', label: 'Memory', hint: 'What the team remembers, and your files', group: 'Places', icon: 'memory', keywords: 'remember recall facts knowledge files documents upload pdf forget context', run: go(paths.memory) },
       { id: 'place:automations', label: 'Automations', hint: 'Work that starts by itself', group: 'Places', icon: 'retry', keywords: 'schedule recurring every watch page monitor trigger', run: go(paths.automations) },
       { id: 'place:connectors', label: 'Connectors', hint: 'Services coworkers can use', group: 'Places', icon: 'plus', keywords: 'mcp integrations github notion connect services tools', run: go(paths.connectors) },
+      ...(isOwner.value
+        ? [
+            { id: 'place:admin', label: 'Admin', hint: 'Settings, people and costs', group: 'Places' as const, icon: 'edit' as const, keywords: 'settings configuration preferences options admin', run: go(paths.admin()) },
+            { id: 'place:usage', label: 'Usage and costs', hint: 'Tokens, calls and limits', group: 'Places' as const, icon: 'expand' as const, keywords: 'tokens cost spend metrics usage billing limits performance', run: go(paths.admin('usage')) },
+            { id: 'place:people', label: 'People and roles', hint: 'Who can sign in', group: 'Places' as const, icon: 'user' as const, keywords: 'invite members users team access roles contributor reader owner', run: go(paths.admin('people')) },
+          ]
+        : []),
       { id: 'place:chief', label: `How ${name} works`, hint: 'Their prompt and tools', group: 'Places', icon: 'code', keywords: 'prompt system instructions tools transparency chief', run: go(paths.chief) },
     ];
     if (s && onboarded.value) items.push({ id: 'set:voice', label: s.voiceOn ? 'Turn voice off' : 'Turn voice on', hint: 'Spoken replies', group: 'Settings', icon: s.voiceOn ? 'voiceOff' : 'voiceOn', keywords: 'speak mute sound audio', run: () => void setVoiceOn(!s.voiceOn) });

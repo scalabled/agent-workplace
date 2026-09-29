@@ -3,7 +3,7 @@
 import type { ChatProvider } from '@headcount/models';
 import type { Env } from '../env';
 import { dailyLimit, limitMessage, type DailyCounter } from '../lib/limits';
-import { runtime } from '../workspace/runtime';
+import { models, runtime } from '../workspace/runtime';
 import { researchTools, type ResearchGrants, type ResearchKit } from './research';
 import type { SourceCollector } from './web-search';
 
@@ -19,7 +19,7 @@ export function researchKitFactory(env: Env, usage: DailyCounter, provider: Pick
   return (sources) =>
     researchTools({
       provider,
-      registry: runtime.registry(env),
+      registry: models(env, { surface: 'search' }),
       grants: g,
       sources,
       take: (kind) => {

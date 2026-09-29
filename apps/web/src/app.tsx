@@ -11,7 +11,7 @@ import { PttCaption } from './components/PttCaption';
 import { clientId } from './lib/client-id';
 import { startClock } from './lib/time';
 import { startLiving } from './living';
-import { navigate, paths, route } from './router';
+import { linkTarget, navigate, paths, route } from './router';
 import { CoworkerProfile } from './routes/CoworkerProfile';
 import { Floor } from './routes/Floor';
 import { Inbox } from './routes/Inbox';
@@ -23,6 +23,11 @@ import { Connectors } from './routes/Connectors';
 import { Automations } from './routes/Automations';
 import { Canvas, CanvasItem } from './routes/Canvas';
 import { Handbook } from './routes/Handbook';
+import { Admin } from './routes/Admin';
+import { actualRole, role, viewAs } from './auth/session';
+import { revealLinked } from './links/links';
+import { Toast } from './links/Toast';
+import './routes/admin.css';
 import { Memory } from './routes/Memory';
 import { ChiefPrompt } from './routes/ChiefPrompt';
 import { Talk } from './routes/Talk';
@@ -298,6 +303,8 @@ function Screen() {
       return <Memory />;
     case 'handbook':
       return <Handbook />;
+    case 'admin':
+      return <Admin section={r.params.section} />;
     case 'skill':
       return <SkillPage skillId={r.params.skillId!} />;
     case 'chief':
@@ -322,6 +329,8 @@ function conferencePress(t: PttTarget | null): boolean {
 export function App() {
   useBoot();
   useGlobalKeys();
+  // A link to an item (`?at=`): take the reader to it once the page has it.
+  useEffect(() => revealLinked(), [route.value.path, linkTarget.value]);
   const name = route.value.name;
   const bare = name === 'onboarding';
   return (
@@ -329,6 +338,14 @@ export function App() {
       <a class="skip-link" href="#main">
         Skip to content
       </a>
+      {actualRole.value && (
+        <p class="viewas-bar" role="status">
+          You are previewing the office as a {role.value}.{' '}
+          <button type="button" class="link-button" onClick={() => void viewAs(null)}>
+            Back to {actualRole.value}
+          </button>
+        </p>
+      )}
       {!bare && <Nav />}
       <main class="main" id="main" tabIndex={-1}>
         <Screen />
@@ -338,6 +355,7 @@ export function App() {
       {/* The conference dock shows its own listening line; everything else (Talk, a joined huddle) shows this one. */}
       {!conferencePress(pttPressTarget.value) && <PttCaption />}
       <Announcer />
+      <Toast />
       <Palette />
     </div>
   );

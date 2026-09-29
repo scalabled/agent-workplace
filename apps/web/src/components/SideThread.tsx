@@ -9,6 +9,18 @@ import { CHIEF_ID, ids, personaIdFromAgentId, type OpId } from '@headcount/proto
 import { sideThreads, thread, type ThreadItem } from '../store';
 import { retryOwnerMessage, sendDeskMessage, sendOwnerMessage } from '../talk/actions';
 import { Icon } from './Icon';
+import { CopyLink } from '../links/CopyLink';
+import { paths } from '../router';
+
+/** A line's own link, on the coworker's profile (the Chief's lines live in Talk). */
+const lineId = (m: ThreadItem) => (m.messageId.startsWith('msg_') ? m.messageId : undefined);
+
+function LineLink({ agentId, item }: { agentId: string; item: ThreadItem }) {
+  const at = lineId(item);
+  if (!at || item.streaming) return null;
+  const page = agentId === CHIEF_ID ? paths.talk : paths.coworker(personaIdFromAgentId(agentId) ?? '');
+  return <CopyLink page={page} at={at} label="Copy link to this message" what="Link to this message" class="msg-link" />;
+}
 
 /** After this many exchanges in a bubble, it offers the profile (or Talk) to keep going (§8.2). */
 export const EXCHANGES_BEFORE_DESK = 3;
@@ -82,7 +94,7 @@ export function SideThread({ agentId, first, compact = false, autoFocus = false,
 
   const field = (
     <form
-      class="side-form"
+      class="side-form needs-contributor"
       onSubmit={(e) => {
         e.preventDefault();
         send();
@@ -154,7 +166,8 @@ export function SideThread({ agentId, first, compact = false, autoFocus = false,
         <ol class="side-log">
           {items.map((m) =>
             m.from === 'owner' ? (
-              <li key={m.messageId} class="side-line" data-from="owner" data-status={m.status}>
+              <li key={m.messageId} id={lineId(m)} class="side-line" data-from="owner" data-status={m.status}>
+                <LineLink agentId={agentId} item={m} />
                 <span class="side-who">You</span> {m.text}
                 {m.status === 'failed' && (
                   <span class="side-error" role="alert">
@@ -167,7 +180,8 @@ export function SideThread({ agentId, first, compact = false, autoFocus = false,
                 )}
               </li>
             ) : (
-              <li key={m.messageId} class="side-line" data-from="agent" data-kind={m.kind} data-streaming={m.streaming || undefined}>
+              <li key={m.messageId} id={lineId(m)} class="side-line" data-from="agent" data-kind={m.kind} data-streaming={m.streaming || undefined}>
+                <LineLink agentId={agentId} item={m} />
                 <span class="side-who">{first}</span> {m.text ? speakable(m.text) : '…'}
                 {m.interrupted && <span class="msg-note"> Interrupted</span>}
               </li>

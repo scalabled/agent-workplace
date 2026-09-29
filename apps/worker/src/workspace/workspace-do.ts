@@ -1,3 +1,4 @@
+import { configured, loadConfig } from '../admin/config';
 import { DurableObject } from 'cloudflare:workers';
 import { catalogFull, fullIndex } from '@headcount/catalog/full';
 import { sniffOwnerText, type AffectCues } from '@headcount/expressions';
@@ -71,7 +72,7 @@ import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
 import { Feed, PresenceBoard, type FeedSocket } from './feed';
 import { Ledger } from './ledger';
 import { rollupEvents, upsertWorkspace } from './rollup';
-import { logError, logWarn, runtime } from './runtime';
+import { logError, logWarn, models, runtime } from './runtime';
 import { closeReflexTurn, closeTurn, newTurnState, runChiefTurn, type TurnState } from './talk';
 import { VoiceOwnership } from './voice';
 import { isPhatic, planFloor, type FloorCandidate } from '../rooms/floor';
@@ -206,7 +207,8 @@ export class WorkspaceDO extends DurableObject<Env> {
   private readonly approvalWaiters = new Map<string, (v: 'approved' | 'declined') => void>();
 
   constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
+    super(ctx, configured(env));
+    void ctx.blockConcurrencyWhile(() => loadConfig(env));
     for (const stmt of SCHEMA) ctx.storage.sql.exec(stmt);
     this.ledger = new Ledger(ctx.storage, workspaceStream(this.workspaceId), runtime.now);
     this.presence = new PresenceBoard(ctx.storage);
@@ -254,7 +256,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       presence: (agentId) => this.presence.merged(agentId).state,
       sockets: () => this.ctx.getWebSockets(),
       settings: () => this.getSettings(),
-      registry: () => runtime.registry(this.env),
+      registry: () => models(this.env, { surface: 'speech' }),
       mockMedia: () => mockMediaEnabled(this.env),
       now: () => runtime.now(),
       jobTitle: (jobId) => this.ctx.storage.sql.exec<{ title: string }>('SELECT title FROM jobs_seen WHERE job_id = ?', jobId).toArray()[0]?.title ?? null,
@@ -298,6 +300,11 @@ export class WorkspaceDO extends DurableObject<Env> {
       logError('expr.connect', err);
     }
     this.voice.connected();
+  }
+
+  /** Today's use of the daily limits this object counts (the admin page). */
+  async dailyCounts(): Promise<Record<string, number>> {
+    return this.usage.today(runtime.now());
   }
 
   /** An owner action over HTTP from a tab (a steer): that tab becomes the voice owner. */
@@ -516,7 +523,21 @@ export class WorkspaceDO extends DurableObject<Env> {
   /** The voice front's acknowledgement for a spoken turn, within its daily cap. */
   private async *frontAck(req: Omit<AckRequest, 'signal'>, signal: AbortSignal): AsyncGenerator<FrontPart> {
     if (!this.usage.take('front', dailyLimit(this.env, 'front'), runtime.now()).allowed) return;
-    yield* realtimeAck(this.env, { ...req, signal });
+    const started = runtime.now();
+    let reported = false;
+    const record = runtime.usage(this.env);
+    try {
+      yield* realtimeAck(this.env, { ...req, signal }, undefined, (u) => {
+        reported = true;
+        record({ at: started, surface: 'voice', agentId: CHIEF_ID, projectId: '', provider: 'xai', model: u.model, capability: 'realtime', input: u.input, output: u.output, cached: u.cached, usd: null, ms: runtime.now() - started, ok: true });
+      });
+    } catch (err) {
+      reported = true;
+      record({ at: started, surface: 'voice', agentId: CHIEF_ID, projectId: '', provider: 'xai', model: this.env.REALTIME_VOICE_MODEL || 'realtime', capability: 'realtime', input: 0, output: 0, cached: 0, usd: null, ms: runtime.now() - started, ok: false, error: err instanceof Error ? err.message.slice(0, 200) : 'failed' });
+      throw err;
+    } finally {
+      if (!reported && voiceFrontOf(this.env) === 'xai') record({ at: started, surface: 'voice', agentId: CHIEF_ID, projectId: '', provider: 'xai', model: this.env.REALTIME_VOICE_MODEL || 'realtime', capability: 'realtime', input: 0, output: 0, cached: 0, usd: null, ms: runtime.now() - started, ok: true });
+    }
   }
 
   /** Wait (a little) for the owner to answer a raised hand the Chief's turn depends on. */
@@ -1267,7 +1288,7 @@ export class WorkspaceDO extends DurableObject<Env> {
   /** The fast cloud model for voiced announcements, or null (local, Mock or none: the template is used). */
   private announcer(): Announcer | null {
     try {
-      const r = runtime.registry(this.env).tryResolve('chat', { tier: 'fast' });
+      const r = models(this.env, { surface: 'announce', agentId: CHIEF_ID }).tryResolve('chat', { tier: 'fast' });
       return r && r.provider.kind === 'cloud' ? { provider: r.provider, model: r.model } : null;
     } catch (err) {
       logError('workspace.announce', err);
@@ -1350,7 +1371,7 @@ export class WorkspaceDO extends DurableObject<Env> {
     return {
       feed: this.feed,
       ledger: this.ledger,
-      registry: () => runtime.registry(this.env),
+      registry: () => models(this.env, { surface: 'talk', agentId: CHIEF_ID }),
       project: () => this.project(),
       settings: () => this.getSettings(),
       // The current turn, or one that finished writing after a newer turn that is already over (it may clear Thinking).
@@ -1389,7 +1410,7 @@ export class WorkspaceDO extends DurableObject<Env> {
     return {
       feed: this.feed,
       ledger: this.ledger,
-      registry: () => runtime.registry(this.env),
+      registry: (agentId?: string) => models(this.env, { surface: 'desk', ...(agentId ? { agentId } : {}) }),
       settings: () => this.getSettings(),
       isCurrent: (agentId, turnId) => this.deskTurns.get(agentId)?.turnId === turnId,
       knowledge: (query, personaId) => this.knowledge.block(query, [`coworker:${personaId}`]),
@@ -1402,7 +1423,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       feed: this.feed,
       ledger: this.ledger,
       streamId: this.ledger.streamId,
-      registry: () => runtime.registry(this.env),
+      registry: (agentId?: string) => models(this.env, { surface: 'room', ...(agentId ? { agentId } : {}) }),
       settings: () => this.getSettings(),
       isCurrent: (gen) => this.room?.gen === gen,
       takeRate: () => this.expr.takeRate('room', ROOM_TURNS_PER_MIN),

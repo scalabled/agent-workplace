@@ -156,7 +156,7 @@ export const handleExprRender: RouteHandler = async (req, rc) => {
   }
   const perMin = exprLimit(rc.env, 'renderPerMin');
   if (!(await ws.exprTakeRate('render', perMin))) {
-    throw new HttpError('rate_limited', `Voice renders are paused for a minute: the limit of ${perMin} a minute is used up. Raise EXPR_RENDER_PER_MIN in apps/worker/.dev.vars to allow more.`);
+    throw new HttpError('rate_limited', `Voice renders are paused for a minute: the limit of ${perMin} a minute is used up. An owner can raise it in Admin → Settings (EXPR_RENDER_PER_MIN).`);
   }
   const scope = scopeOf(u.fills, { chiefRenamed: chiefRenamed(settings), agentId: profile.agentId });
   const clip = await renderClip(rc.env, rc.registry(), { delivery, clipKey: key, scope, text: u.caption, lineId: u.lineId, fillKey: u.fillKey, voiceKey, catalogVersion: EXPR_CATALOG_VERSION });
@@ -256,7 +256,7 @@ export const handleExprPrevoice: RouteHandler = async (req, rc) => {
   const counts = { planned: unique.length, alreadyCached: stored.size, toRender: renderKeys.size, estAudioMs };
   if (body.dryRun) return json<ExprPrevoiceAccepted>({ ...base, runId: null, ...counts, dryRun: true });
   if (renderKeys.size && plan.provider !== 'mock' && remainingToday <= 0) {
-    throw new HttpError('rate_limited', `Nothing fits today's voice budget: the limit of ${exprLimit(rc.env, 'clipDaily')} clip renders is used up. Raise EXPR_CLIP_DAILY_LIMIT in apps/worker/.dev.vars to allow more.`);
+    throw new HttpError('rate_limited', `Nothing fits today's voice budget: the limit of ${exprLimit(rc.env, 'clipDaily')} clip renders is used up. An owner can raise it in Admin → Settings (EXPR_CLIP_DAILY_LIMIT).`);
   }
   if (cachedItems.length) {
     await ws.exprRecordClips(

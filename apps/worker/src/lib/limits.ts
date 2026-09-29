@@ -58,7 +58,7 @@ export function maxActiveJobs(env: Env): number {
 /** One sentence naming the var that raises the limit. */
 export function limitMessage(kind: LimitKind, limit: number): string {
   const l = LIMITS[kind];
-  return `${l.what} are paused until tomorrow (UTC): today's limit of ${limit} is used up. Raise ${l.env} in apps/worker/.dev.vars to allow more.`;
+  return `${l.what} are paused until tomorrow (UTC): today's limit of ${limit} is used up. An owner can raise it in Admin → Settings (${l.env}).`;
 }
 
 /**
@@ -101,6 +101,12 @@ export class DailyCounter {
     const used = Number(row?.count ?? limit + 1);
     this.storage.sql.exec('DELETE FROM usage_daily WHERE day < ?', utcDay(new Date(now - 7 * 86_400_000)));
     return { allowed: used <= limit, used };
+  }
+
+  /** Today's counts by kind (the admin page's limits). */
+  today(now: number): Record<string, number> {
+    const rows = this.storage.sql.exec<{ kind: string; count: number }>('SELECT kind, count FROM usage_daily WHERE day = ?', utcDay(new Date(now))).toArray();
+    return Object.fromEntries(rows.map((r) => [r.kind, Number(r.count)]));
   }
 
   /** Give one back (the command was refused later for another reason). */

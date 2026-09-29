@@ -4,9 +4,11 @@
 // are called, heard and joined from the Meetings panel.
 import type { ChannelEntry, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { linkTarget, paths } from '../router';
 import { api, ApiError } from '../api/client';
 import { MemberFace } from '../components/ProjectCard';
 import { mergeChannel, projectChannels } from '../store';
+import { CopyLink } from '../links/CopyLink';
 
 const KIND: Record<ChannelEntry['kind'], string> = {
   owner: 'You',
@@ -45,6 +47,12 @@ export function TeamChannel({ project }: { project: TeamProjectSnapshot }) {
     const el = list.current;
     if (el && pinned.current) el.scrollTop = el.scrollHeight;
   }, [entries.length]);
+  // A link to one line: show every line and stay with it.
+  useEffect(() => {
+    if (!linkTarget.value?.startsWith('ch-')) return;
+    pinned.current = false;
+    setAll(true);
+  }, [linkTarget.value]);
   const member = (who: string) => project.team.find((m) => m.personaId === who);
   const nameOf = (who?: string) => (!who ? 'the team' : who === 'owner' ? 'you' : who === 'chief' ? 'Chief of Staff' : (member(who)?.name.split(' ')[0] ?? who));
   const open = project.status !== 'cancelled';
@@ -88,7 +96,7 @@ export function TeamChannel({ project }: { project: TeamProjectSnapshot }) {
         {shown.map((e) => {
           const who = e.fromId === 'owner' || e.fromId === 'chief' ? null : member(e.fromId);
           return (
-            <li key={e.seq} class="channel-entry" data-kind={e.kind} data-owner={e.fromId === 'owner' || undefined}>
+            <li key={e.seq} id={`ch-${e.seq}`} class="channel-entry" data-kind={e.kind} data-owner={e.fromId === 'owner' || undefined}>
               <span class="channel-face" aria-hidden="true">
                 {who ? <MemberFace member={who} /> : <span class="face-initials">{e.fromId === 'owner' ? 'You' : 'CoS'}</span>}
               </span>
@@ -96,6 +104,7 @@ export function TeamChannel({ project }: { project: TeamProjectSnapshot }) {
                 <p class="channel-head">
                   <span class="channel-who">{e.fromId === 'owner' ? 'You' : nameOf(e.fromId)}</span>
                   {e.toId && <span class="channel-to"> → {nameOf(e.toId)}</span>}
+                  <CopyLink page={paths.project(id)} at={`ch-${e.seq}`} label="Copy link to this line" what="Link to this line" class="channel-link" />
                   {e.kind !== 'owner' && <span class="channel-kind">{e.kind === 'discussion' && e.phase ? (e.phase === 'moderator' || e.phase === 'reply' ? PHASE[e.phase] : `${PHASE[e.phase]} · round ${e.round ?? 1}`) : KIND[e.kind]}</span>}
                 </p>
                 <p class="channel-text">{e.text}</p>
@@ -105,7 +114,7 @@ export function TeamChannel({ project }: { project: TeamProjectSnapshot }) {
         })}
       </ol>
       {open && (
-        <form class="note-form channel-form" onSubmit={post}>
+        <form class="note-form channel-form needs-contributor" onSubmit={post}>
           <label class="visually-hidden" for="channel-text">
             Write to the team
           </label>

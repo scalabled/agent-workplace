@@ -3,7 +3,7 @@
 // redirect to their "/app" equivalents, so old links and bookmarks keep working.
 import { computed, signal } from '@preact/signals';
 
-export type RouteName = 'landing' | 'home' | 'onboarding' | 'talk' | 'floor' | 'coworker' | 'projects' | 'project' | 'inbox' | 'skills' | 'skill' | 'chief' | 'connectors' | 'automations' | 'canvas' | 'canvasItem' | 'memory' | 'handbook' | 'notFound';
+export type RouteName = 'landing' | 'home' | 'onboarding' | 'talk' | 'floor' | 'coworker' | 'projects' | 'project' | 'inbox' | 'skills' | 'skill' | 'chief' | 'connectors' | 'automations' | 'canvas' | 'canvasItem' | 'memory' | 'handbook' | 'admin' | 'notFound';
 
 export interface CurrentRoute {
   name: RouteName;
@@ -32,6 +32,7 @@ const PATTERNS: [RouteName, RegExp, string[]][] = [
   ['canvasItem', /^\/app\/canvas\/(cnv_[a-f0-9]+)\/?$/, ['canvasId']],
   ['memory', /^\/app\/memory\/?$/, []],
   ['handbook', /^\/app\/handbook\/?$/, []],
+  ['admin', /^\/app\/admin(?:\/([a-z]+))?\/?$/, ['section']],
 ];
 
 const LEGACY = [/^\/(welcome|talk|floor|projects|inbox)\/?$/, /^\/desk\/[^/]+\/profile\/?$/];
@@ -44,7 +45,7 @@ export function legacyRedirect(path: string): string | null {
 export function matchPath(path: string): CurrentRoute {
   for (const [name, re, keys] of PATTERNS) {
     const m = re.exec(path);
-    if (m) return { name, path, params: Object.fromEntries(keys.map((k, i) => [k, decodeURIComponent(m[i + 1]!)])) };
+    if (m) return { name, path, params: Object.fromEntries(keys.flatMap((k, i) => (m[i + 1] === undefined ? [] : [[k, decodeURIComponent(m[i + 1]!)]]))) };
   }
   return { name: 'notFound', path, params: {} };
 }
@@ -58,6 +59,34 @@ function canonicalize(): string {
 
 export const path = signal(typeof location !== 'undefined' ? canonicalize() : '/');
 export const route = computed(() => matchPath(path.value));
+/** The query string (`?at=…&tab=…`): every place and item has a link, and the query carries where on the page. */
+export const search = signal(typeof location !== 'undefined' ? location.search : '');
+/** The item a link points at on this page (`?at=<anchor id>`), or null. */
+export const linkTarget = computed(() => new URLSearchParams(search.value).get('at'));
+/** One query parameter of the current address. */
+export const queryParam = (name: string): string | null => new URLSearchParams(search.value).get(name);
+
+/** A page's link to one item on it: `/app/memory?at=mem_…`. */
+export function linkTo(page: string, at?: string | null, extra: Record<string, string> = {}): string {
+  const q = new URLSearchParams(extra);
+  if (at) q.set('at', at);
+  const qs = q.toString();
+  return qs ? `${page}?${qs}` : page;
+}
+
+/** Change the query on this page (a tab, a filter) without a new page. */
+export function setQuery(params: Record<string, string | null>, opts: { replace?: boolean } = { replace: true }): void {
+  const q = new URLSearchParams(location.search);
+  for (const [k, v] of Object.entries(params)) {
+    if (v === null || v === '') q.delete(k);
+    else q.set(k, v);
+  }
+  const qs = q.toString();
+  const next = `${location.pathname}${qs ? `?${qs}` : ''}`;
+  if (opts.replace) history.replaceState(history.state, '', next);
+  else history.pushState(null, '', next);
+  search.value = location.search;
+}
 
 /** How the current page was reached: the first load, an in-app navigation, or Back/Forward. */
 export type NavKind = 'init' | 'push' | 'replace' | 'pop';
@@ -72,7 +101,10 @@ export function savedScroll(): number | null {
 
 export function navigate(to: string, opts: { replace?: boolean } = {}): void {
   const target = legacyRedirect(to) ?? to;
-  if (target === path.value) return;
+  const [targetPath] = target.split(/[?#]/);
+  if (target === path.value + search.value) return;
+  // Same page, another item on it (`?at=`): no new page, no jump to the top; the deep link scrolls to it.
+  const samePage = targetPath === path.value;
   if (opts.replace) history.replaceState(null, '', target);
   else {
     // Remember where the owner was on the page they leave, so Back returns them there.
@@ -84,13 +116,15 @@ export function navigate(to: string, opts: { replace?: boolean } = {}): void {
     history.pushState(null, '', target);
     // A new page starts at the top (the Floor never opens mid-directory at Talk's scroll position); Talk then follows
     // its thread to the end itself. Back and Forward restore the saved position instead (main.tsx).
-    try {
-      window.scrollTo(0, 0);
-    } catch {
-      /* no window scrolling (tests) */
-    }
+    if (!samePage)
+      try {
+        window.scrollTo(0, 0);
+      } catch {
+        /* no window scrolling (tests) */
+      }
   }
   navKind = opts.replace ? 'replace' : 'push';
+  search.value = location.search;
   path.value = location.pathname;
 }
 
@@ -113,10 +147,12 @@ export const paths = {
   canvasItem: (canvasId: string) => `${APP_BASE}/canvas/${encodeURIComponent(canvasId)}`,
   memory: `${APP_BASE}/memory`,
   handbook: `${APP_BASE}/handbook`,
+  admin: (section?: string) => `${APP_BASE}/admin${section ? `/${section}` : ''}`,
 } as const;
 
 if (typeof window !== 'undefined')
   window.addEventListener('popstate', () => {
     navKind = 'pop';
+    search.value = location.search;
     path.value = canonicalize();
   });

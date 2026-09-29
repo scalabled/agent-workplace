@@ -69,7 +69,15 @@ export function ackInstructions(r: Pick<AckRequest, 'chiefName' | 'style'>): str
 }
 
 /** The acknowledgement as it streams: audio pieces (base64 PCM16) and its words. Ends at response.done. */
-export async function* realtimeAck(env: Env, req: AckRequest, connect: FrontConnect = workersConnect): AsyncGenerator<FrontPart> {
+/** Tokens the realtime model reports for one acknowledgement (token usage). */
+export interface FrontUsage {
+  model: string;
+  input: number;
+  output: number;
+  cached: number;
+}
+
+export async function* realtimeAck(env: Env, req: AckRequest, connect: FrontConnect = workersConnect, onUsage?: (u: FrontUsage) => void): AsyncGenerator<FrontPart> {
   const provider = voiceFrontOf(env);
   if (!provider) return;
   if (provider === 'mock') {
@@ -101,7 +109,7 @@ export async function* realtimeAck(env: Env, req: AckRequest, connect: FrontConn
     };
     let grace: ReturnType<typeof setTimeout> | null = null;
     socket.addEventListener('message', (e) => {
-      let m: { type?: string; delta?: unknown; error?: { message?: string } };
+      let m: { type?: string; delta?: unknown; error?: { message?: string }; response?: { usage?: { input_tokens?: number; output_tokens?: number; input_token_details?: { cached_tokens?: number } } } };
       try {
         m = JSON.parse(typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data as ArrayBuffer));
       } catch {
@@ -113,7 +121,11 @@ export async function* realtimeAck(env: Env, req: AckRequest, connect: FrontConn
         ask();
       } else if ((m.type === 'response.output_audio.delta' || m.type === 'response.audio.delta') && typeof m.delta === 'string') push({ audio: m.delta });
       else if ((m.type === 'response.output_audio_transcript.delta' || m.type === 'response.audio_transcript.delta') && typeof m.delta === 'string') push({ text: m.delta });
-      else if (m.type === 'response.done') push({ end: true });
+      else if (m.type === 'response.done') {
+        const u = m.response?.usage;
+        if (u) onUsage?.({ model, input: Number(u.input_tokens ?? 0), output: Number(u.output_tokens ?? 0), cached: Number(u.input_token_details?.cached_tokens ?? 0) });
+        push({ end: true });
+      }
       else if (m.type === 'error') push({ error: String(m.error?.message ?? 'realtime error').slice(0, 200) });
     });
     socket.addEventListener('close', () => push({ end: true }));

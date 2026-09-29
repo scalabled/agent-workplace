@@ -72,7 +72,7 @@ export const handleExprHuddleRender: RouteHandler = async (req, rc) => {
   if (existing) return json<ExprClipRef>({ clipKey: key, url: clipUrl(key), alignmentUrl: clipAlignmentUrl(key), durationMs: existing.durationMs, scope: existing.scope, cached: true });
   const perMin = exprLimit(rc.env, 'renderPerMin');
   if (!(await ws.exprTakeRate('render', perMin))) {
-    throw new HttpError('rate_limited', `Voice renders are paused for a minute: the limit of ${perMin} a minute is used up. Raise EXPR_RENDER_PER_MIN in apps/worker/.dev.vars to allow more.`);
+    throw new HttpError('rate_limited', `Voice renders are paused for a minute: the limit of ${perMin} a minute is used up. An owner can raise it in Admin → Settings (EXPR_RENDER_PER_MIN).`);
   }
   const scope = huddleScopeOf(u.fills as Record<string, string>, settings, profile.agentId === CHIEF_ID ? profile.firstName : (profileFor(CHIEF_ID, settings)?.firstName ?? null));
   const voiceKey = exprVoiceKey(profile.voice, provider);

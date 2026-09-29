@@ -6,6 +6,8 @@
 //
 // Safety: prompts are capped at 1500 characters, bodies at 8 KB, images at 10 MB and checked by magic bytes
 // (PNG, JPEG or WebP only); the request never names a URL to fetch, and Mock placeholders are never stored.
+import { metered } from '../usage/meter';
+import { d1Sink } from '../usage/store';
 import { ProviderError, createRegistry, type Registry } from '@headcount/models';
 import type { ProviderId } from '@headcount/protocol';
 import type { Env } from '../env';
@@ -34,7 +36,7 @@ const PROVIDER_LABEL: Record<MediaProvider, string> = { openai: 'OpenAI', xai: '
 
 /** Test seam: the registry these routes resolve providers from (tests swap it; production uses the env's). */
 export const mediaRuntime = {
-  registry: (env: Env): Registry => createRegistry(env),
+  registry: (env: Env): Registry => metered(createRegistry(env), d1Sink(env), { surface: 'image' }),
 };
 export const defaultMediaRuntime = { ...mediaRuntime };
 
@@ -144,7 +146,7 @@ export async function handleGenerateMediaImage(req: Request, env: Env): Promise<
   const limit = portraitDailyLimit(env);
   const use = await consumeDaily(env.DB, env.WORKSPACE_ID, IMAGE_USAGE_KIND, limit);
   if (!use.allowed) {
-    throw new HttpError('rate_limited', `Image generation is paused until tomorrow (UTC): today's limit of ${limit} (shared with portraits) is used up. Raise PORTRAIT_DAILY_LIMIT in apps/worker/.dev.vars to allow more.`);
+    throw new HttpError('rate_limited', `Image generation is paused until tomorrow (UTC): today's limit of ${limit} (shared with portraits) is used up. An owner can raise it in Admin → Settings (PORTRAIT_DAILY_LIMIT).`);
   }
 
   let result;

@@ -14,7 +14,7 @@ import { fullIndex } from '@headcount/catalog/full';
 import type { Persona } from '@headcount/catalog';
 import type { AgentTool } from '@headcount/agent-loop';
 import { MissingProviderError, deadlineSignal } from '@headcount/models';
-import type { FrameInput, FrameType } from '@headcount/protocol';
+import { coworkerAgentId, type FrameInput, type FrameType } from '@headcount/protocol';
 import type { ProjectUsage, RunTrace } from '@headcount/protocol/ext/agents';
 import {
   DECISION_ANSWER_MAX,
@@ -47,7 +47,7 @@ import { WorkCancelled, WorkError } from '../jobs/work-loop';
 import { DailyCounter, dailyLimit, limitMessage } from '../lib/limits';
 import { researchKitFactory } from '../tools/kit';
 import { mergeSources, type Source } from '../tools/web-search';
-import { logError, runtime } from '../workspace/runtime';
+import { logError, models, runtime } from '../workspace/runtime';
 import { MAX_EDITED_STEPS, forecastOf, forecastSentence, normalizePlan, ownersOf, readySteps, recipesOf, shortlist, staffingNote, stepEditError, stepsFrom, teamFrom, titleFromGoal, type Recipe } from './staffing';
 import { chooseRecipe, consultCoworker, discussionTurn, doStepWork, planProject, qaDeliverable, replyToOwner, reviewStep, reviseStep, writeDeliverable, type Captured, type DiscussionPhase, type ProjectBrief, type Worker } from './team-work';
 import { TeamChannel, mentionsIn } from './channel';
@@ -206,6 +206,8 @@ export const TEAM_SCHEMA = [
      note_id TEXT PRIMARY KEY, project_id TEXT NOT NULL, op_id TEXT, to_id TEXT, via TEXT NOT NULL, text TEXT NOT NULL,
      status TEXT NOT NULL, at TEXT NOT NULL, applied_at TEXT, applied_step TEXT)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS tnotes_op ON tnotes (op_id) WHERE op_id IS NOT NULL`,
+  // Running totals per project (runs are pruned to the newest RUNS_KEPT; the totals and the token budget never are).
+  `CREATE TABLE IF NOT EXISTS tusage (project_id TEXT PRIMARY KEY, in_tokens INTEGER NOT NULL DEFAULT 0, out_tokens INTEGER NOT NULL DEFAULT 0, usd REAL NOT NULL DEFAULT 0, unknown INTEGER NOT NULL DEFAULT 0, calls INTEGER NOT NULL DEFAULT 0)`,
   `CREATE TABLE IF NOT EXISTS truns (
      run_id TEXT PRIMARY KEY, project_id TEXT NOT NULL, step_id TEXT, phase TEXT NOT NULL, persona_id TEXT NOT NULL,
      at TEXT NOT NULL, in_tokens INTEGER NOT NULL DEFAULT 0, out_tokens INTEGER NOT NULL DEFAULT 0, usd REAL, data TEXT NOT NULL)`,
@@ -364,7 +366,7 @@ export class TeamProjects {
     let recipe: Recipe | undefined = list[0];
     let title = (req.title ?? '').trim();
     try {
-      const resolved = runtime.registry(this.p.env).resolve('chat', { tier: 'fast', needs: ['tools'] });
+      const resolved = models(this.p.env, { surface: 'project' }).resolve('chat', { tier: 'fast', needs: ['tools'] });
       const pick = await chooseRecipe({ provider: resolved.provider, model: resolved.model, signal: deadlineSignal(30_000) }, goal, list);
       if (pick) {
         recipe = list.find((r) => r.id === pick.recipeId) ?? recipe;
@@ -1005,7 +1007,7 @@ export class TeamProjects {
       this.emit(projectId);
       void this.p.flush();
       try {
-        const w = this.worker(t.id, setup, deadlineSignal(120_000, signal));
+        const w = this.worker(t.id, setup, deadlineSignal(120_000, signal), undefined, 'meeting');
         const said = await discussionTurn(w, this.briefOf(projectId), d.question, t.phase, this.transcriptFor(meetingId, t.id, team, chiefName), t.round, d.rounds, t.addressed);
         if (!this.meetingLive(projectId, fence)) {
           this.closeMeeting(meetingId, 'stopped');
@@ -1143,11 +1145,11 @@ export class TeamProjects {
   }
 
   /** One coworker ready to work (their model, grants and tools). Throws MissingProviderError. */
-  private worker(personaId: string, setup: AgentSetup, signal: AbortSignal, extra?: Pick<Worker, 'extraTools' | 'extraDescribe'>): Worker {
+  private worker(personaId: string, setup: AgentSetup, signal: AbortSignal, extra?: Pick<Worker, 'extraTools' | 'extraDescribe'>, surface: 'project' | 'meeting' = 'project'): Worker {
     const persona = this.persona(personaId);
     if (!persona) throw new WorkError(`${personaId} is not in the catalog.`, false);
     const agent = agentOf(persona, setup);
-    const resolved = resolveAgentModel(runtime.registry(this.p.env), agent);
+    const resolved = resolveAgentModel(models(this.p.env, { surface, agentId: coworkerAgentId(personaId) }), agent);
     const web = agent.granted('web_search');
     const read = agent.granted('fetch_page');
     return {
@@ -1583,11 +1585,19 @@ export class TeamProjects {
       'INSERT INTO truns (run_id, project_id, step_id, phase, persona_id, at, in_tokens, out_tokens, usd, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       trace.runId, projectId, stepId, phase, trace.personaId, `${c.startedAt}|${trace.runId}`, r.usage.input, r.usage.output, r.usage.usd, JSON.stringify(trace),
     );
+    this.sql.exec(
+      `INSERT INTO tusage (project_id, in_tokens, out_tokens, usd, unknown, calls) VALUES (?, ?, ?, ?, ?, 1)
+       ON CONFLICT (project_id) DO UPDATE SET in_tokens = in_tokens + excluded.in_tokens, out_tokens = out_tokens + excluded.out_tokens, usd = usd + excluded.usd, unknown = unknown + excluded.unknown, calls = calls + 1`,
+      projectId, r.usage.input, r.usage.output, r.usage.usd ?? 0, r.usage.usd === null ? 1 : 0,
+    );
     const n = Number(this.sql.exec<{ n: number }>('SELECT count(*) AS n FROM truns WHERE project_id = ?', projectId).toArray()[0]?.n ?? 0);
     if (n > RUNS_KEPT) this.sql.exec('DELETE FROM truns WHERE run_id IN (SELECT run_id FROM truns WHERE project_id = ? ORDER BY at ASC LIMIT ?)', projectId, n - RUNS_KEPT);
   }
 
   usage(projectId: string): ProjectUsage {
+    const t = this.sql.exec<{ in_tokens: number; out_tokens: number; usd: number; unknown: number; calls: number }>('SELECT * FROM tusage WHERE project_id = ?', projectId).toArray()[0];
+    if (t) return { input: Number(t.in_tokens), output: Number(t.out_tokens), usd: Number(t.unknown) > 0 ? null : Number(t.usd), calls: Number(t.calls) };
+    // A project from before the running totals: what its kept runs add up to.
     const r = this.sql
       .exec<{ i: number | null; o: number | null; usd: number | null; unknown: number | null; n: number }>(
         'SELECT SUM(in_tokens) AS i, SUM(out_tokens) AS o, SUM(usd) AS usd, SUM(CASE WHEN usd IS NULL THEN 1 ELSE 0 END) AS unknown, count(*) AS n FROM truns WHERE project_id = ?',

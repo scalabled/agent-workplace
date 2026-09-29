@@ -4,6 +4,7 @@
 // sandboxed frame (an app: scripts only, in an opaque origin; a document: no scripts at all), so model-written code
 // never reaches the page around it. An app that throws errors says so, and the owner can have them fixed. Export:
 // Download HTML, Export PDF (the print dialog's "Save as PDF"), the source (Markdown for a document).
+import { CopyLink } from '../links/CopyLink';
 import { CANVAS_REPORT_TYPE, type CanvasProgress, type CanvasSnapshot } from '@headcount/protocol/ext/canvas';
 import { routePath } from '@headcount/protocol';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
@@ -128,9 +129,12 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
             {c.kind === 'app' ? 'App' : 'Document'} · {statusLine(c, progress)}
             {c.by === 'chief' ? ` · asked of ${chiefName.value}` : ''}
           </p>
-          <h1 id="canvas-title" class="canvas-title">
-            {c.title}
-          </h1>
+          <div class="page-title-row">
+            <h1 id="canvas-title" class="canvas-title">
+              {c.title}
+            </h1>
+            <CopyLink page={paths.canvasItem(canvasId)} label="Copy link to this" />
+          </div>
         </div>
         <div class="canvas-actions">
           {versions.length > 1 && (
@@ -222,7 +226,7 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
         {c.status === 'failed' && (
           <div class="canvas-failed">
             <p>{c.error ?? 'The build failed.'}</p>
-            <button type="button" class="button-primary button-small" disabled={busy} onClick={() => void run(() => api.retryCanvas(c.canvasId), 'That did not start.')}>
+            <button type="button" class="button-primary button-small needs-contributor" disabled={busy} onClick={() => void run(() => api.retryCanvas(c.canvasId), 'That did not start.')}>
               Build it again
             </button>
           </div>
@@ -233,7 +237,7 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
         <div class="canvas-report" role="alert">
           <p>
             It reported {reported.length === 1 ? 'a problem' : `${reported.length} problems`} when it ran.{' '}
-            <button type="button" class="button-primary button-small" disabled={busy} onClick={() => void run(() => api.repairCanvas(c.canvasId, reported), 'That did not start.')}>
+            <button type="button" class="button-primary button-small needs-contributor" disabled={busy} onClick={() => void run(() => api.repairCanvas(c.canvasId, reported), 'That did not start.')}>
               Fix {reported.length === 1 ? 'it' : 'them'}
             </button>
           </p>
@@ -252,7 +256,7 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
 
       {ready && (
         <form
-          class="canvas-change"
+          class="canvas-change needs-contributor"
           onSubmit={(e) => {
             e.preventDefault();
             if (change.trim()) void run(() => api.reviseCanvas(c.canvasId, change.trim()), 'That did not start.').then((ok) => ok && setChange(''));
@@ -300,7 +304,7 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
             </button>
           </span>
         ) : (
-          <button type="button" class="button-quiet button-small" onClick={() => setConfirm(true)}>
+          <button type="button" class="button-quiet button-small needs-contributor" onClick={() => setConfirm(true)}>
             <Icon name="trash" size={14} /> Delete
           </button>
         )}

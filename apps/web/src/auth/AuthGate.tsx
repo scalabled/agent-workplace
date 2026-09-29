@@ -6,7 +6,7 @@ import { auth, checkAuth, signInHref, type SignInReason } from './session';
 import './auth.css';
 
 const REASON_TEXT: Record<SignInReason, string> = {
-  denied: 'That Google account is not on this office’s owner list. Try the account you set up Headcount with.',
+  denied: 'That Google account has not been invited to this office. Ask an owner to add you on the People page.',
   failed: 'Google sign-in did not finish. Please try again.',
   expired: 'Your session ended. Sign in again to pick up where you left off.',
   unconfigured: 'Sign-in is not set up on this server yet (the Google client secret is missing).',
@@ -41,7 +41,7 @@ export function SignIn({ reason }: { reason: SignInReason | null }) {
           <GoogleMark />
           Continue with Google
         </a>
-        <p class="signin-fine">Only the owner’s Google account can sign in. Everyone here is an AI coworker.</p>
+        <p class="signin-fine">Only people the owner invited can sign in. Everyone else here is an AI coworker.</p>
       </div>
     </main>
   );

@@ -9,6 +9,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { stopAllBusy, stopAllResult, stopAllWork } from '../projects/actions';
 import { activeJobs, jobList, projectList } from '../store';
 import { prefillComposer } from '../talk/draft';
+import { PageTitle } from '../links/CopyLink';
 import './pages.css';
 
 export function Projects() {
@@ -34,7 +35,7 @@ export function Projects() {
     <section class="page projects" aria-labelledby="projects-title">
       <header class="page-head projects-head">
         <div>
-          <h1 id="projects-title">Projects</h1>
+          <PageTitle id="projects-title">Projects</PageTitle>
           <p class="page-lede">Each project keeps its work, its team and its results in one place.</p>
         </div>
         <EveryoneStop working={running + teams.filter((p) => p.status === 'running' || p.status === 'paused').length} />

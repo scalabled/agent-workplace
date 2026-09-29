@@ -18,12 +18,14 @@ import { useHoldToTalk } from '../components/useHoldToTalk';
 import { VoiceElsewhere } from '../components/VoiceElsewhere';
 import { ago, now } from '../lib/time';
 import { bubbles, liveCaptions } from '../living/captions';
-import { navigate, paths } from '../router';
+import { linkTarget, navigate, paths } from '../router';
 import { activeJobs, can, canvases, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, onboarded, settings, teamProjects, thread, type ThreadItem } from '../store';
 import { retryOwnerMessage, sendOwnerMessage, setVoiceOn } from '../talk/actions';
 import { draft, focusComposer, greetedThisSession, greetOnArrival, prefillComposer } from '../talk/draft';
 import { notice, showNotice } from '../ui/notice';
+import { mayContribute } from '../auth/session';
 import { FILE_ACCEPT, uploadFiles } from '../memory/upload';
+import { CopyLink, PageTitle } from '../links/CopyLink';
 import { bargeIn, chiefIsSpeaking, chiefSpeaker } from '../voice/chief-voice';
 import { armAudio, audioSupport } from '../voice/engine';
 import { mayVoice } from '../voice/owner';
@@ -97,7 +99,7 @@ export function Talk() {
       aria-labelledby="talk-title"
       data-drop={dropping || undefined}
       onDragOver={(e) => {
-        if (!hasFiles(e)) return;
+        if (!hasFiles(e) || !mayContribute.value) return;
         e.preventDefault();
         setDropping(true);
       }}
@@ -121,7 +123,13 @@ export function Talk() {
       <div class="talk-dock" ref={dock}>
         <ChiefAsks />
         <Activity />
-        <Composer name={name} />
+        {mayContribute.value ? (
+          <Composer name={name} />
+        ) : (
+          <p class="composer-readonly" role="note">
+            You can read along. To talk with {name}, ask an owner to make you a contributor.
+          </p>
+        )}
       </div>
     </section>
   );
@@ -167,7 +175,7 @@ function TalkHead() {
       </button>
       <FaceBubble />
       <div class="talk-id">
-        <h1 id="talk-title">{name}</h1>
+        <PageTitle id="talk-title">{name}</PageTitle>
         <p class="talk-state" data-state={shown.state}>
           <span class="state-glyph" data-state={shown.state} aria-hidden="true" />
           <span>
@@ -248,6 +256,10 @@ function Thread({ greeting, name, stick }: { greeting: string; name: string; sti
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+  // A link to one message: stay with it instead of following the conversation to the end.
+  useLayoutEffect(() => {
+    if (linkTarget.value) stick.current = false;
+  }, [linkTarget.value]);
   useLayoutEffect(() => {
     if (stick.current) scrollToEnd();
   }, [items.length, last?.text, last?.status, thinking]);
@@ -293,10 +305,19 @@ function Thread({ greeting, name, stick }: { greeting: string; name: string; sti
 
 const sameSpeaker = (a: ThreadItem, b: ThreadItem) => a.from === b.from && a.from !== 'system';
 
+/** A server message's own link (pending and error lines have none). */
+const anchorOf = (item: ThreadItem) => (item.messageId.startsWith('msg_') ? item.messageId : undefined);
+
+function MessageLink({ item }: { item: ThreadItem }) {
+  const at = anchorOf(item);
+  return at && !item.streaming ? <CopyLink page={paths.talk} at={at} label="Copy link to this message" what="Link to this message" class="msg-link" /> : null;
+}
+
 function Message({ item, name, grouped }: { item: ThreadItem; name: string; grouped: boolean }) {
   if (item.from === 'owner') {
     return (
-      <li class="msg msg-owner" data-status={item.status}>
+      <li class="msg msg-owner" id={anchorOf(item)} data-status={item.status}>
+        <MessageLink item={item} />
         <span class="visually-hidden">You{item.via === 'voice' ? ' (spoken)' : ''}: </span>
         <p class="msg-body">{item.text}</p>
         {item.via === 'voice' && !item.status && <Icon name="mic" size={14} class="msg-via" />}
@@ -318,7 +339,12 @@ function Message({ item, name, grouped }: { item: ThreadItem; name: string; grou
         <span class="msg-sys-dot" aria-hidden="true" />
         <p>
           {item.text}
-          {item.missingKeys?.length ? <span class="msg-keys"> Add {item.missingKeys.join(' or ')} in apps/worker/.dev.vars.</span> : null}
+          {item.missingKeys?.length ? (
+            <span class="msg-keys">
+              {' '}
+              An owner can add a key for {item.missingKeys.join(' or ')} in <Link href={paths.admin('keys')}>Admin → Provider keys</Link>.
+            </span>
+          ) : null}
         </p>
         <button type="button" class="icon-button icon-button-sm" aria-label="Dismiss" onClick={() => dismissThreadItem(item.messageId)}>
           <Icon name="close" size={16} />
@@ -332,7 +358,8 @@ function Message({ item, name, grouped }: { item: ThreadItem; name: string; grou
   const announcement = item.kind === 'announcement';
   void now.value; // keep "2 min ago" moving
   return (
-    <li class="msg msg-chief" data-kind={item.kind} data-streaming={item.streaming || undefined}>
+    <li class="msg msg-chief" id={anchorOf(item)} data-kind={item.kind} data-streaming={item.streaming || undefined}>
+      <MessageLink item={item} />
       {!grouped && (
         <span class="msg-from">
           {name}

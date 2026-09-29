@@ -303,6 +303,11 @@ export async function createTestEnv(overrides: Partial<Env> = {}): Promise<TestE
   const { ProjectDO } = await import('../src/jobs/project-do');
   const { RoomDO } = await import('../src/rooms/room-do');
   const { RunDO } = await import('../src/runs/run-do');
+  const { resetConfigCache } = await import('../src/admin/config');
+  const { clearRoleCache, clearSessionCache } = await import('../src/auth/auth');
+  resetConfigCache();
+  clearRoleCache();
+  clearSessionCache();
   const d1 = new FakeD1();
   await applyMigrations(d1);
   const r2 = new FakeR2();
@@ -331,8 +336,10 @@ export async function createTestEnv(overrides: Partial<Env> = {}): Promise<TestE
     passThroughOnException: () => {},
     props: {},
     async drain() {
+      const { flushUsage } = await import('../src/usage/store');
       while (waiting.length) await Promise.all(waiting.splice(0));
       for (const ns of Object.values(namespaces)) for (const { state } of ns.instances.values()) await state.drain();
+      await flushUsage();
     },
   } as unknown as TestEnv['ctx'];
   return { env, d1, r2, namespaces, ctx };

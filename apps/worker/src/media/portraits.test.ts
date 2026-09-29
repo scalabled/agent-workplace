@@ -29,7 +29,7 @@ async function invoke(t: T, registry: Registry, method: string, path: string, in
   const found = matchRoute(method, url.pathname);
   if (!found || !('match' in found)) throw new Error(`no route ${method} ${path}`);
   const { id, params } = found.match;
-  const rc: RouteContext = { env: t.env, ctx: t.ctx, route: id, params, url, registry: () => registry };
+  const rc: RouteContext = { env: t.env, identity: { email: '', name: '', role: 'owner', actualRole: 'owner' }, ctx: t.ctx, route: id, params, url, registry: () => registry };
   try {
     return await HANDLERS[id](new Request(url, { method, ...init }), rc);
   } catch (err) {

@@ -76,7 +76,7 @@ export const handleGeneratePortrait: RouteHandler = async (_req, rc) => {
   const use = await consumeDaily(env.DB, env.WORKSPACE_ID, USAGE_KIND, limit);
   if (!use.allowed) {
     await releaseJob(env.DB, personaId, jobId);
-    throw new HttpError('rate_limited', `Portrait generation is paused until tomorrow (UTC): today's limit of ${limit} is used up. Raise PORTRAIT_DAILY_LIMIT in apps/worker/.dev.vars to allow more.`);
+    throw new HttpError('rate_limited', `Portrait generation is paused until tomorrow (UTC): today's limit of ${limit} is used up. An owner can raise it in Admin → Settings (PORTRAIT_DAILY_LIMIT).`);
   }
 
   const job = runPortraitJob(env, { subject, jobId, resolved, day: use.day, previousKey: ready?.r2_key ?? null });

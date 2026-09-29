@@ -251,7 +251,7 @@ export function closeDeskTurn(feed: Feed, state: DeskTurnState, finish: TalkFini
 export interface DeskHost {
   feed: Feed;
   ledger: Ledger;
-  registry(): Registry;
+  registry(agentId?: string): Registry;
   settings(): Promise<WorkspaceSettings>;
   /** False once a newer message to this coworker took over (then this turn must not reset presence). */
   isCurrent(agentId: AgentId, turnId: TurnId): boolean;
@@ -280,7 +280,7 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
     const chief = chiefDisplayName(lead, settings.chiefName);
     let resolved;
     try {
-      resolved = host.registry().resolve('chat', { tier: 'fast' });
+      resolved = host.registry(agentId).resolve('chat', { tier: 'fast' });
     } catch (err) {
       if (err instanceof MissingProviderError) {
         feed.emit({ type: 'error', data: { code: 'not_configured', message: err.message, missingKeys: err.missingKeys, turnId, opId } });

@@ -7,6 +7,7 @@ import { chiefName } from '../chief';
 import { DecisionCard } from '../components/DecisionCard';
 import { Icon } from '../components/Icon';
 import { decisionList } from '../store';
+import { PageTitle } from '../links/CopyLink';
 import './pages.css';
 
 export function Inbox() {
@@ -19,7 +20,7 @@ export function Inbox() {
   return (
     <section class="page inbox" aria-labelledby="inbox-title">
       <header class="page-head">
-        <h1 id="inbox-title">Inbox</h1>
+        <PageTitle id="inbox-title">Inbox</PageTitle>
         {decisions.length > 0 && <p class="page-lede">{decisions.length === 1 ? 'One decision needs you.' : `${decisions.length} decisions need you.`}</p>}
       </header>
       {decisions.length === 0 && (

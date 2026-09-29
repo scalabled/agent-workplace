@@ -71,7 +71,7 @@ export function newRoomTurn(p: Omit<RoomTurnState, 'remaining' | 'current' | 'sp
 export interface RoomHost {
   feed: Feed;
   ledger: Ledger;
-  registry(): Registry;
+  registry(agentId?: string): Registry;
   settings(): Promise<WorkspaceSettings>;
   /** False once a newer room turn took over. */
   isCurrent(gen: number): boolean;
@@ -274,7 +274,7 @@ async function modelReply(
   const { feed } = host;
   let resolved;
   try {
-    resolved = host.registry().resolve('chat', { tier: 'fast' });
+    resolved = host.registry(reply.agentId).resolve('chat', { tier: 'fast' });
   } catch (err) {
     if (err instanceof MissingProviderError) {
       closeRoomReply(feed, t, reply, 'error');

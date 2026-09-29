@@ -7,6 +7,7 @@ import { catalog, loadCatalog } from '../catalog';
 import { Link } from '../components/Link';
 import { Markdown } from '../components/Markdown';
 import { navigate, paths } from '../router';
+import { PageTitle } from '../links/CopyLink';
 import './pages.css';
 
 export function Skills() {
@@ -29,7 +30,7 @@ export function Skills() {
   return (
     <section class="page skills-page" aria-labelledby="skills-title">
       <header class="page-head">
-        <h1 id="skills-title">Skills</h1>
+        <PageTitle id="skills-title">Skills</PageTitle>
         <p class="page-lede">The methods your coworkers work by. Each coworker’s prompt lists their skills; the full method loads when a piece of work calls for it. Edit one and every coworker who has it uses your version.</p>
       </header>
       <label class="visually-hidden" for="skill-search">
@@ -109,9 +110,9 @@ export function SkillPage({ skillId }: { skillId: string }) {
       {skill && (
         <>
           <header class="page-head">
-            <h1 id="skill-title">
+            <PageTitle id="skill-title">
               {skill.icon} {skill.name}
-            </h1>
+            </PageTitle>
             <p class="page-lede">{skill.one_liner}</p>
             <p class="page-fine tabular">
               v{skill.version}
@@ -126,7 +127,7 @@ export function SkillPage({ skillId }: { skillId: string }) {
               {!editing && (
                 <button
                   type="button"
-                  class="button-quiet button-small"
+                  class="button-quiet button-small needs-owner"
                   onClick={() => {
                     setText(skill.instructions);
                     setNote('');

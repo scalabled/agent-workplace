@@ -11,11 +11,13 @@ import { Icon } from '../components/Icon';
 import { listen, nowPlaying, stopListening } from '../meetings/listen';
 import { projectChannels, upsertProject } from '../store';
 import { takeVoice } from '../voice/handoff';
+import { linkTarget, paths } from '../router';
 
 const KIND: Record<MeetingSummary['kind'], string> = { kickoff: 'Kickoff', review: 'Review', discussion: 'Discussion' };
 const errorOf = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
 const when = (at: string) => new Date(at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+import { CopyLink } from '../links/CopyLink';
 export function Meetings({ project }: { project: TeamProjectSnapshot }) {
   const [list, setList] = useState<MeetingSummary[] | null>(null);
   const [calling, setCalling] = useState(false);
@@ -94,7 +96,7 @@ function CallMeeting({ project, onDone }: { project: TeamProjectSnapshot; onDone
     }
   };
   return (
-    <form class="channel-discuss" onSubmit={start} aria-label="Call a meeting">
+    <form class="channel-discuss needs-contributor" onSubmit={start} aria-label="Call a meeting">
       <label class="field field-inline">
         <span class="field-label">Meeting</span>
         <select class="field-input" value={kind} onChange={(e) => setKind((e.target as HTMLSelectElement).value as 'discussion' | 'review')}>
@@ -146,8 +148,12 @@ function MeetingRow({ project, meeting: m, onListen }: { project: TeamProjectSna
       .catch(() => undefined);
   }, [open, m.meetingId, m.lines, lines]);
   const speaker = live && project.discussion?.meetingId === m.meetingId ? first(project.discussion.speakerId) : null;
+  // A link to this meeting opens its transcript.
+  useEffect(() => {
+    if (linkTarget.value === m.meetingId) setOpen(true);
+  }, [linkTarget.value]);
   return (
-    <li class="meeting" data-status={m.status}>
+    <li class="meeting" id={m.meetingId} data-status={m.status}>
       <div class="meeting-head">
         <div class="meeting-main">
           <p class="meeting-title">
@@ -158,6 +164,7 @@ function MeetingRow({ project, meeting: m, onListen }: { project: TeamProjectSna
           </p>
         </div>
         <div class="meeting-actions">
+          <CopyLink page={paths.project(project.projectId)} at={m.meetingId} label="Copy link to this meeting" what="Link to this meeting" />
           {playing ? (
             <button type="button" class="button-quiet button-small" onClick={stopListening}>
               <Icon name="stop" size={14} /> Stop
@@ -216,7 +223,7 @@ function TakeTheFloor({ project, meetingId }: { project: TeamProjectSnapshot; me
     }
   };
   return (
-    <form class="meeting-floor" onSubmit={send} aria-label="Take the floor">
+    <form class="meeting-floor needs-contributor" onSubmit={send} aria-label="Take the floor">
       <label class="visually-hidden" for={`floor-${meetingId}`}>
         Say something to the meeting
       </label>

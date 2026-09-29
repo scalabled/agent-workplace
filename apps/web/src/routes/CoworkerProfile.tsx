@@ -14,6 +14,7 @@ import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
 import { SideThread } from '../components/SideThread';
 import { ContextFiles } from '../memory/ContextFiles';
+import { PageTitle } from '../links/CopyLink';
 import { useSampleSpeaker, VoiceSample } from '../components/VoiceSample';
 import { navigate, paths } from '../router';
 import { localPresence, onboarded } from '../store';
@@ -74,7 +75,7 @@ function Profile({ persona: p }: { persona: PersonaSlim }) {
           <p class="profile-dept">
             {dept?.name ?? p.department} · {SENIORITY[p.seniority]}
           </p>
-          <h1 id="profile-title">{p.name}</h1>
+          <PageTitle id="profile-title">{p.name}</PageTitle>
           <p class="profile-title">{p.title}</p>
           <p class="profile-line">{p.one_liner}</p>
           <div class="profile-actions">

@@ -15,6 +15,8 @@ import { api, ApiError } from '../api/client';
 import { chiefName } from '../chief';
 import { Link } from '../components/Link';
 import { paths } from '../router';
+import { PageTitle } from '../links/CopyLink';
+import { CopyLink } from '../links/CopyLink';
 import './pages.css';
 
 const GATE_WORDS: Record<AutomationGate, string> = { on: 'After every run', quiet: 'Only when it matters', off: 'Never (just keep the history)' };
@@ -45,7 +47,7 @@ export function Automations() {
   return (
     <section class="page automations-page" aria-labelledby="automations-title">
       <header class="page-head">
-        <h1 id="automations-title">Automations</h1>
+        <PageTitle id="automations-title">Automations</PageTitle>
         <p class="page-lede">
           Work that starts by itself: on a schedule, or when a public page changes. Each run is a background job or a team project, and {chiefName.value} tells you as you choose. You can also just ask {chiefName.value}: “every Monday
           morning, check…”.
@@ -72,7 +74,7 @@ export function Automations() {
             }}
           />
         ) : (
-          <button type="button" class="button-primary automation-add" onClick={() => setAdding(true)}>
+          <button type="button" class="button-primary automation-add needs-owner" onClick={() => setAdding(true)}>
             Add an automation
           </button>
         ))}
@@ -111,12 +113,13 @@ function AutomationCard({ automation: a, onChange, onRemoved }: { automation: Au
       <header class="connector-card-head">
         <div>
           <h2 id={`aut-${a.automationId}`} class="connector-name">
+            <CopyLink page={paths.automations} at={`aut-${a.automationId}`} label={`Copy link to ${a.name}`} what="Link to this automation" />
             {a.name}
             {a.createdBy === 'chief' && <span class="connector-tag">Set up by {chiefName.value}</span>}
           </h2>
           <p class="connector-desc">{a.describe}</p>
         </div>
-        <label class="grant-label automation-switch">
+        <label class="grant-label automation-switch needs-owner">
           <input type="checkbox" checked={a.enabled} disabled={busy} aria-label={`${a.name}: ${a.enabled ? 'on' : 'paused'}`} onChange={(e) => void run(() => api.putAutomation(a.automationId, { enabled: (e.target as HTMLInputElement).checked }))} />
           <span class="grant-name">{a.enabled ? 'On' : 'Paused'}</span>
         </label>
@@ -154,7 +157,7 @@ function AutomationCard({ automation: a, onChange, onRemoved }: { automation: Au
           {error}
         </p>
       )}
-      <div class="settings-actions connector-actions">
+      <div class="settings-actions connector-actions needs-owner">
         <button type="button" class="button-quiet button-small" disabled={busy} onClick={() => void run(() => api.runAutomation(a.automationId))}>
           Run now
         </button>

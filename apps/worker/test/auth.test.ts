@@ -61,7 +61,7 @@ describe('auth: local dev', () => {
   it('leaves loopback hosts open when AUTH_MODE is unset', async () => {
     const t = await createTestEnv();
     expect((await send(t, '/api/workspace', { base: 'http://localhost' })).status).toBe(200);
-    expect(await (await send(t, '/api/auth/me', { base: 'http://localhost' })).json()).toEqual({ mode: 'off', signedIn: true });
+    expect(await (await send(t, '/api/auth/me', { base: 'http://localhost' })).json()).toEqual({ mode: 'off', signedIn: true, role: 'owner' });
   });
 
   it('requires sign-in on loopback when AUTH_MODE=google', async () => {
@@ -135,7 +135,7 @@ describe('auth: Google sign-in', () => {
     expect(stored).toEqual({ token_hash: await hash(session), email: OWNER });
     const headers = { cookie: `hc_session=${session}`, origin: HOST };
     expect((await send(t, '/api/workspace', { headers })).status).toBe(200);
-    expect(await (await send(t, '/api/auth/me', { headers })).json()).toEqual({ mode: 'google', signedIn: true, email: OWNER, name: 'Owner' });
+    expect(await (await send(t, '/api/auth/me', { headers })).json()).toEqual({ mode: 'google', signedIn: true, email: OWNER, name: 'Owner', role: 'owner' });
   });
 
   it('refuses an email that is not on the allowlist', async () => {

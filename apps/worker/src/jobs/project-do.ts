@@ -1,3 +1,4 @@
+import { configured, loadConfig } from '../admin/config';
 import { DurableObject } from 'cloudflare:workers';
 import { fullIndex } from '@headcount/catalog/full';
 import { chiefDisplayName } from '@headcount/catalog';
@@ -30,7 +31,7 @@ import type { AgentSetup } from '../agents/store';
 import type { PresenceClaim } from '../workspace/feed';
 import { Ledger } from '../workspace/ledger';
 import { rollupEvents, upsertJobs } from '../workspace/rollup';
-import { logError, runtime } from '../workspace/runtime';
+import { logError, models, runtime } from '../workspace/runtime';
 import { clipText, firstSentence, titleFromRequest } from './job-view';
 import { MAX_WORK_STEPS, WorkCancelled, WorkError, planJob, runWorkStep, synthesize, type JobContext, type PlanStep, type StepNote, type WorkDeps } from './work-loop';
 import type { ChannelEntry, Decision, DecisionAnswer, PlanEdit, ProjectNote, StaffingContext, StepEdit, StopAllResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
@@ -176,7 +177,8 @@ export class ProjectDO extends DurableObject<Env> {
   private readonly signals: WorkSignal[] = [];
 
   constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
+    super(ctx, configured(env));
+    void ctx.blockConcurrencyWhile(() => loadConfig(env));
     for (const stmt of SCHEMA) ctx.storage.sql.exec(stmt);
     this.ledger = new Ledger(ctx.storage, this.streamId, runtime.now);
     this.usage = new DailyCounter(ctx.storage);
@@ -246,7 +248,7 @@ export class ProjectDO extends DurableObject<Env> {
       append: (input) => this.ledger.append(input),
       flush: () => this.flush(),
       model: () => {
-        const r = runtime.registry(env).resolve('chat', { tier: 'reason' });
+        const r = models(env, { surface: 'canvas' }).resolve('chat', { tier: 'reason' });
         return { provider: r.provider, model: r.model, mock: r.providerId === 'mock' };
       },
       take: () => this.usage.take('canvas', dailyLimit(env, 'canvas'), runtime.now()).allowed,
@@ -263,11 +265,17 @@ export class ProjectDO extends DurableObject<Env> {
 
   // ── RPC ─────────────────────────────────────────────────────────────────────────
 
+  /** Today's use of the daily limits this object counts (the admin page). */
+  async dailyCounts(): Promise<Record<string, number>> {
+    return this.usage.today(runtime.now());
+  }
+
   /**
    * Start a background job. Returns at once with its snapshot; the work runs on alarms. Refused (rate_limited)
    * when MAX_ACTIVE_JOBS are already running or JOB_DAILY_LIMIT is used up, so a model that keeps delegating
    * cannot spend without bound.
    */
+
   async startJob(req: StartJobRequest): Promise<JobSnapshot | JobRefusal> {
     if (req.opId) {
       const existing = this.ctx.storage.sql.exec<JobRow>('SELECT * FROM jobs WHERE op_id = ?', req.opId).toArray()[0];
@@ -514,7 +522,7 @@ export class ProjectDO extends DurableObject<Env> {
       let deps: WorkDeps;
       let pace = 0;
       try {
-        const resolved = runtime.registry(this.env).resolve('chat', { tier: 'reason', needs: ['tools'] });
+        const resolved = models(this.env, { surface: 'job' }).resolve('chat', { tier: 'reason', needs: ['tools'] });
         // Each checkpoint gets its own time budget (a local 32B model can take minutes on a work step).
         deps = { provider: resolved.provider, model: resolved.model, signal: deadlineSignal(CHECKPOINT_BUDGET_MS, ac.signal), research: researchKitFactory(this.env, this.usage, resolved.provider) };
         if (resolved.providerId === 'mock' && Number(this.env.MOCK_DELAY_MS ?? 0) > 0) pace = MOCK_CHECKPOINT_MS;

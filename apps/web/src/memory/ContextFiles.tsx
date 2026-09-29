@@ -6,8 +6,17 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, ApiError } from '../api/client';
 import { Icon } from '../components/Icon';
 import { FILE_ACCEPT, scopeLabel, sizeOf, uploadFiles } from './upload';
+import { CopyLink } from '../links/CopyLink';
+import { paths } from '../router';
 
 const KIND_WORDS: Record<CardKind, string> = { pdf: 'PDF', docx: 'Word', xlsx: 'Excel', csv: 'CSV', text: 'Text' };
+
+/** Where a file lives: its project, its coworker's profile, or the Memory page. */
+function pageOfScope(scope: string): string {
+  if (scope.startsWith('project:')) return paths.project(scope.slice(8));
+  if (scope.startsWith('coworker:')) return `${paths.coworker(scope.slice(9))}?tab=work`;
+  return paths.memory;
+}
 /** The full summary is written in the background: look again once. */
 const SUMMARY_RECHECK_MS = 8000;
 
@@ -51,7 +60,7 @@ export function ContextFiles({ scope, all = false, title = 'Files', hint }: { sc
       </h2>
       {hint && <p class="page-fine">{hint}</p>}
       <div
-        class="file-drop"
+        class="file-drop needs-contributor"
         data-over={over || undefined}
         data-busy={busy ? true : undefined}
         onDragOver={(e) => {
@@ -121,7 +130,7 @@ function CardRow({ card: c, showScope, onRemoved }: { card: ContextCard; showSco
     }
   };
   return (
-    <li class="card-row">
+    <li class="card-row" id={c.cardId}>
       <span class="card-row-icon" aria-hidden="true">
         <Icon name="file" size={18} />
       </span>
@@ -148,8 +157,9 @@ function CardRow({ card: c, showScope, onRemoved }: { card: ContextCard; showSco
         </details>
         {error && <p class="connector-error">{error}</p>}
       </div>
+      <CopyLink page={pageOfScope(c.scope)} at={c.cardId} label={`Copy link to ${c.name}`} what="Link to this file" />
       {confirm ? (
-        <span class="card-row-confirm">
+        <span class="card-row-confirm needs-contributor">
           <button type="button" class="button-quiet button-danger" onClick={() => void remove()}>
             Remove
           </button>
@@ -158,7 +168,7 @@ function CardRow({ card: c, showScope, onRemoved }: { card: ContextCard; showSco
           </button>
         </span>
       ) : (
-        <button type="button" class="icon-button icon-button-sm" aria-label={`Remove ${c.name}`} title="Remove (its text is forgotten too)" onClick={() => setConfirm(true)}>
+        <button type="button" class="icon-button icon-button-sm needs-contributor" aria-label={`Remove ${c.name}`} title="Remove (its text is forgotten too)" onClick={() => setConfirm(true)}>
           <Icon name="trash" size={16} />
         </button>
       )}

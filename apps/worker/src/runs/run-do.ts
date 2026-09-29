@@ -1,3 +1,4 @@
+import { configured, loadConfig } from '../admin/config';
 import { DurableObject } from 'cloudflare:workers';
 import { newId } from '@headcount/protocol';
 import type { ExprPrevoiceStatus, ExprPrevoiceTier, ExprTtsProvider } from '@headcount/protocol/ext/expressions';
@@ -7,7 +8,7 @@ import { renderClip, type ClipScope } from '../expr/clips';
 import type { ManifestRow } from '../expr/host';
 import { HttpError } from '../lib/http';
 import { workspaceStub } from '../lib/stubs';
-import { logError, runtime } from '../workspace/runtime';
+import { logError, models, runtime } from '../workspace/runtime';
 
 /** Clips rendered at once per tick (A3). */
 export const PREVOICE_PARALLEL = 3;
@@ -115,7 +116,8 @@ function status(r: RunRow): ExprPrevoiceStatus {
  */
 export class RunDO extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
+    super(ctx, configured(env));
+    void ctx.blockConcurrencyWhile(() => loadConfig(env));
     for (const stmt of SCHEMA) ctx.storage.sql.exec(stmt);
     // A run that was in flight when the object stopped resumes on the next alarm.
     void ctx.blockConcurrencyWhile(async () => {
@@ -232,7 +234,7 @@ export class RunDO extends DurableObject<Env> {
       await this.rearm();
       return;
     }
-    const registry = runtime.registry(this.env);
+    const registry = models(this.env, { surface: 'speech' });
     let budgetOut: string | null = null;
     const rows: ManifestRow[] = [];
     const results = await Promise.allSettled(

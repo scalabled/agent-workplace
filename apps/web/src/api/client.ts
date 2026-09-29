@@ -36,6 +36,7 @@ import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, 
 import { noteUnauthenticated } from '../auth/session';
 import type { ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, MeetingResponse, MeetingSay, MeetingsResponse, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
 import type { CanvasCreate, CanvasListResponse, CanvasResponse } from '@headcount/protocol/ext/canvas';
+import type { ConfigResponse, MemberPut, MembersResponse, ModelPrice, UsageResponse } from '@headcount/protocol/ext/admin';
 import type { CardResponse, CardsResponse, HandbookResponse, HandbookSectionId, MemoryCreate, MemoryItem, MemoryKind, MemoryListResponse, MemoryPatch } from '@headcount/protocol/ext/memory';
 import type { AutomationPatch, AutomationResponse, AutomationsResponse } from '@headcount/protocol/ext/automations';
 import type { ConnectorCreate, ConnectorPatch, ConnectorResponse, ConnectorsResponse } from '@headcount/protocol/ext/connectors';
@@ -109,6 +110,14 @@ export const api = {
     if (!res.ok) throw new ApiError(res.status, 'not_found', 'The source could not be read.', []);
     return res.text();
   },
+  // Admin: settings, people and roles, token usage.
+  adminConfig: () => request<ConfigResponse>(routePath('adminConfig')),
+  putAdminConfig: (values: Record<string, string | null>) => request<ConfigResponse>(routePath('putAdminConfig'), jsonInit('PUT', { values })),
+  listMembers: () => request<MembersResponse>(routePath('listMembers')),
+  putMember: (email: string, m: MemberPut) => request<MembersResponse>(routePath('putMember', { email }), jsonInit('PUT', m)),
+  removeMember: (email: string) => request<MembersResponse>(routePath('removeMember', { email }), { method: 'DELETE' }),
+  adminUsage: (days = 7) => request<UsageResponse>(`${routePath('adminUsage')}?days=${days}`),
+  putPrices: (prices: ModelPrice[]) => request<{ prices: ModelPrice[] }>(routePath('putPrices'), jsonInit('PUT', { prices })),
   // Inc 4: context and memory.
   listMemory: (o: { q?: string; scope?: string; kind?: MemoryKind } = {}) => {
     const q = new URLSearchParams(Object.entries(o).filter((e): e is [string, string] => !!e[1])).toString();

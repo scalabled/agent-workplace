@@ -1,16 +1,21 @@
 // Google sign-in for the deployed app (docs/DEPLOY.md, Phase B). Ported from personagram-ai's authRoute and
 // user() (src/worker/security.ts): OAuth 2.0 authorization code + PKCE (S256), a one-time state stored hashed in D1
 // and echoed in a short-lived cookie, the verified Google email checked against OWNER_EMAILS, and a random session
-// token whose SHA-256 is the only thing stored. Single-owner: there is no users table.
+// token whose SHA-256 is the only thing stored. Who may sign in: the owners named in OWNER_EMAILS, and the members an
+// owner invited on the admin page (D1 `members`), each with a role: owner, contributor or reader. Every API route
+// names the least role it needs (packages/protocol/src/routes.ts); an owner can preview a lower role ("view as").
 //
 // Fail closed: sign-in is required unless AUTH_MODE is "off" AND the request's host is loopback (local dev). With
 // AUTH_MODE unset, loopback hosts are open and every other host requires a session.
-import type { RouteId } from '@headcount/protocol';
+import { ROUTES, type RouteId } from '@headcount/protocol';
+import { atLeast, ROLE_RANK, type Me, type Role } from '@headcount/protocol/ext/admin';
 import type { Env } from '../env';
 import { errorResponse, json } from '../lib/http';
 
 export const SESSION_COOKIE = 'hc_session';
 export const STATE_COOKIE = 'hc_oauth';
+/** An owner's (or contributor's) preview of a lower role. It can only lower what they may do, never raise it. */
+export const VIEW_AS_COOKIE = 'hc_view_as';
 const SESSION_TTL_S = 30 * 86_400;
 const STATE_TTL_S = 600;
 const SESSION_CACHE_MS = 30_000;
@@ -27,6 +32,14 @@ export type AuthMode = 'google' | 'off';
 export interface Session {
   email: string;
   name: string;
+}
+
+/** Who is asking, and what they may do. Local mode (loopback, sign-in off) is the owner, with no email. */
+export interface Identity {
+  email: string;
+  name: string;
+  role: Role;
+  actualRole: Role;
 }
 
 export function isLoopback(hostname: string): boolean {
@@ -127,12 +140,71 @@ export async function sessionFor(req: Request, env: Pick<Env, 'DB'>, now = Date.
   return session;
 }
 
+const roles = new Map<string, { role: Role | null; until: number }>();
+
+export function clearRoleCache(): void {
+  roles.clear();
+}
+
+const isRole = (v: unknown): v is Role => v === 'owner' || v === 'contributor' || v === 'reader';
+
+/** A signed-in email's role: an owner named in the deployment, an invited member, or null (not allowed in). */
+export async function roleFor(env: Pick<Env, 'OWNER_EMAILS' | 'DB' | 'WORKSPACE_ID'>, email: string, now = Date.now()): Promise<Role | null> {
+  const e = email.trim().toLowerCase();
+  if (ownerEmails(env).has(e)) return 'owner';
+  const hit = roles.get(e);
+  if (hit && hit.until > now) return hit.role;
+  let role: Role | null = null;
+  try {
+    const row = await env.DB.prepare('SELECT role FROM members WHERE ws_id = ? AND email = ?').bind(env.WORKSPACE_ID || 'local', e).first<{ role: string }>();
+    role = isRole(row?.role) ? row.role : null;
+  } catch {
+    role = null; // an unmigrated database: owners only
+  }
+  roles.set(e, { role, until: now + SESSION_CACHE_MS });
+  if (roles.size > 500) roles.delete(roles.keys().next().value as string);
+  return role;
+}
+
+/** The lower of a role and the "view as" preview. */
+function viewed(req: Request, actual: Role): Role {
+  const want = readCookie(req, VIEW_AS_COOKIE);
+  return isRole(want) && ROLE_RANK[want] < ROLE_RANK[actual] ? want : actual;
+}
+
+/** Who this request comes from, or null when it needs a session it does not have (or a member was removed). */
+export async function identify(req: Request, env: Env, url: URL): Promise<Identity | null> {
+  if (authMode(env, url) === 'off') return { email: '', name: '', role: viewed(req, 'owner'), actualRole: 'owner' };
+  const session = await sessionFor(req, env);
+  if (!session) return null;
+  const actual = await roleFor(env, session.email);
+  return actual ? { email: session.email, name: session.name, role: viewed(req, actual), actualRole: actual } : null;
+}
+
+const ROLE_REFUSAL: Record<Role, string> = {
+  reader: 'Sign in to continue.',
+  contributor: 'Readers can see everything but not change it. An owner can make you a contributor on the People page.',
+  owner: 'Only an owner can change this. Ask an owner, or they can make you one on the People page.',
+};
+
+/**
+ * The identity a request may go on with (null for a public read), or the 401/403 to answer. The least role comes
+ * from the route table; paths outside it (/api/media/*) need a reader to read and a contributor to change.
+ */
+export async function authorize(req: Request, env: Env, url: URL, route: RouteId | null): Promise<{ identity: Identity | null } | Response> {
+  const reading = req.method === 'GET' || req.method === 'HEAD';
+  if (route && reading && (PUBLIC_ROUTES.has(route) || ROUTES[route].auth === 'public')) return { identity: null };
+  const needed: Role = route ? (ROUTES[route].auth === 'public' ? 'reader' : (ROUTES[route].auth as Role)) : reading ? 'reader' : 'contributor';
+  const identity = await identify(req, env, url);
+  if (!identity) return errorResponse('unauthenticated', 'Sign in to continue.');
+  if (!atLeast(identity.role, needed)) return errorResponse('forbidden', ROLE_REFUSAL[needed]);
+  return { identity };
+}
+
 /** Null when the request may go on; a 401 when it needs a session it does not have. */
 export async function requireSession(req: Request, env: Env, url: URL, route: RouteId | null): Promise<Response | null> {
-  if (authMode(env, url) === 'off') return null;
-  if (route && PUBLIC_ROUTES.has(route) && (req.method === 'GET' || req.method === 'HEAD')) return null;
-  if (await sessionFor(req, env)) return null;
-  return errorResponse('unauthenticated', 'Sign in to continue.');
+  const r = await authorize(req, env, url, route);
+  return r instanceof Response ? r : null;
 }
 
 function redirect(location: string, cookies: string[] = []): Response {
@@ -150,7 +222,8 @@ function backToApp(origin: string, reason: 'denied' | 'failed' | 'expired' | 'un
  * /api/auth/* (outside the protocol route table, like /api/media/*). Returns null for other paths.
  * - GET  /api/auth/google?return=/app…  → Google (PKCE, state)
  * - GET  /api/auth/callback             → session cookie, back to return_to
- * - GET  /api/auth/me                   → {mode, signedIn, email?, name?}
+ * - GET  /api/auth/me                   → {mode, signedIn, email?, name?, role, actualRole?}
+ * - POST /api/auth/view-as {role|null}  → preview a lower role
  * - POST /api/auth/logout               → clears the session
  */
 export async function handleAuthRoute(req: Request, url: URL, env: Env, fetcher: typeof fetch = fetch): Promise<Response | null> {
@@ -162,9 +235,29 @@ export async function handleAuthRoute(req: Request, url: URL, env: Env, fetcher:
 
   if (path === 'me') {
     if (req.method !== 'GET') return errorResponse('method_not_allowed', 'Use GET for /api/auth/me.', { headers: { allow: 'GET' } });
-    if (mode === 'off') return json({ mode, signedIn: true });
-    const session = await sessionFor(req, env);
-    return json(session ? { mode, signedIn: true, email: session.email, name: session.name } : { mode, signedIn: false });
+    const who = await identify(req, env, url);
+    if (!who) return json({ mode, signedIn: false, role: 'reader' } satisfies Me);
+    if (who.email)
+      await env.DB.prepare('UPDATE members SET last_seen_at = ?, name = CASE WHEN name = \'\' THEN ? ELSE name END WHERE ws_id = ? AND email = ?')
+        .bind(new Date().toISOString(), who.name, env.WORKSPACE_ID || 'local', who.email)
+        .run()
+        .catch(() => undefined);
+    return json({ mode, signedIn: true, ...(who.email ? { email: who.email, name: who.name } : {}), role: who.role, ...(who.role !== who.actualRole ? { actualRole: who.actualRole } : {}) } satisfies Me);
+  }
+
+  // Preview a lower role (a cookie; it can only ever lower what the session may do).
+  if (path === 'view-as') {
+    if (req.method !== 'POST') return errorResponse('method_not_allowed', 'Use POST for /api/auth/view-as.', { headers: { allow: 'POST' } });
+    let role: unknown = null;
+    try {
+      role = ((await req.json()) as { role?: unknown }).role ?? null;
+    } catch {
+      /* no body: back to their own role */
+    }
+    if (role !== null && role !== 'contributor' && role !== 'reader') return errorResponse('bad_request', 'View as a contributor or a reader, or null for yourself.');
+    const res = json({ ok: true });
+    res.headers.append('set-cookie', role ? `${VIEW_AS_COOKIE}=${role}; Path=/; SameSite=Lax; Max-Age=86400${secure ? '; Secure' : ''}` : `${VIEW_AS_COOKIE}=; Path=/; SameSite=Lax; Max-Age=0${secure ? '; Secure' : ''}`);
+    return res;
   }
 
   if (path === 'logout') {
@@ -250,7 +343,7 @@ export async function handleAuthRoute(req: Request, url: URL, env: Env, fetcher:
 
     const email = (profile.email ?? '').trim().toLowerCase();
     if (!profile.sub || !email || profile.email_verified !== true) return backToApp(origin, 'denied', secure);
-    if (!ownerEmails(env).has(email)) return backToApp(origin, 'denied', secure);
+    if (!(await roleFor(env, email))) return backToApp(origin, 'denied', secure);
 
     const session = token();
     const now = Date.now();

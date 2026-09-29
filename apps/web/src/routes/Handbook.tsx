@@ -10,6 +10,8 @@ import { Link } from '../components/Link';
 import { Markdown } from '../components/Markdown';
 import { navigate, paths } from '../router';
 import { thread } from '../store';
+import { PageTitle } from '../links/CopyLink';
+import { CopyLink } from '../links/CopyLink';
 import './pages.css';
 
 const errorOf = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
@@ -57,7 +59,7 @@ export function Handbook() {
   return (
     <section class="page handbook-page" aria-labelledby="handbook-title">
       <header class="page-head">
-        <h1 id="handbook-title">Handbook</h1>
+        <PageTitle id="handbook-title">Handbook</PageTitle>
         <p class="page-lede">
           Your own description of the business. {name} and every coworker work from it, so their work sounds like you and follows your rules. Write it here, or let {name} interview you. The details they pick up along the way are in{' '}
           <Link href={paths.memory}>Memory</Link>.
@@ -70,7 +72,7 @@ export function Handbook() {
               <p class="handbook-status" role="status">
                 {name} is interviewing you in Talk. Each answer is written up here.
               </p>
-              <span class="handbook-actions">
+              <span class="handbook-actions needs-contributor">
                 <button type="button" class="button-primary" onClick={() => navigate(paths.talk)}>
                   Go to Talk
                 </button>
@@ -85,7 +87,7 @@ export function Handbook() {
                 {written === hb.sections.length ? 'Every section is written.' : `${written} of ${hb.sections.length} sections written.`}
               </p>
               <span class="handbook-actions">
-                <button type="button" class="button-primary" disabled={busy} onClick={() => void interview(true)}>
+                <button type="button" class="button-primary needs-contributor" disabled={busy} onClick={() => void interview(true)}>
                   <Icon name="talk" size={16} /> {written ? `Let ${name} ask about the rest` : `Let ${name} interview me`}
                 </button>
                 <button type="button" class="button-quiet" disabled={!written} onClick={download}>
@@ -137,12 +139,13 @@ function SectionCard({ section: s, onSaved }: { section: HandbookSection; onSave
   const id = `hb-${s.id}`;
   return (
     <article class="panel handbook-section" data-empty={!s.content.trim() || undefined} aria-labelledby={id}>
-      <header class="connector-card-head">
+      <header class="connector-card-head handbook-head">
         <h2 id={id} class="connector-name">
           {s.title}
         </h2>
+        <CopyLink page={paths.handbook} at={id} label={`Copy link to “${s.title}”`} what="Link to this section" />
         {!editing && (
-          <button type="button" class="icon-button icon-button-sm" aria-label={`Edit ${s.title}`} title="Edit" onClick={() => setEditing(true)}>
+          <button type="button" class="icon-button icon-button-sm needs-contributor" aria-label={`Edit ${s.title}`} title="Edit" onClick={() => setEditing(true)}>
             <Icon name="edit" size={16} />
           </button>
         )}

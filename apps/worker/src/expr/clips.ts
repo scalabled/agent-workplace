@@ -148,7 +148,7 @@ function voiceFor(d: TtsDelivery): VoiceRef {
 
 /** A readable limit message naming the variable that raises it. */
 export function clipLimitMessage(limit: number): string {
-  return `Voice clips are paused until tomorrow (UTC): today's limit of ${limit} renders is used up. Raise EXPR_CLIP_DAILY_LIMIT in apps/worker/.dev.vars to allow more.`;
+  return `Voice clips are paused until tomorrow (UTC): today's limit of ${limit} renders is used up. An owner can raise it in Admin → Settings (EXPR_CLIP_DAILY_LIMIT).`;
 }
 
 /** The sentence when today's clip budget cannot be read: paid renders wait rather than go uncounted. */

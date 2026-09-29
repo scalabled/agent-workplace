@@ -5,7 +5,7 @@ import { jobProgressPercent } from '@headcount/protocol/ext/worker-core';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
 import { ago, now } from '../lib/time';
-import { navigate, paths } from '../router';
+import { navigate, paths, linkTarget } from '../router';
 import { steerJob, stopJob } from '../talk/actions';
 import { prefillComposer } from '../talk/draft';
 import { Icon } from './Icon';
@@ -66,6 +66,10 @@ export function JobRow({ job, defaultOpen = false, inActivity = false }: { job: 
   const asSheet = inActivity && phone;
   const running = job.status === 'queued' || job.status === 'running';
   const panelId = `job-${job.jobId}`;
+  // A link to this job opens it.
+  useEffect(() => {
+    if (!inActivity && linkTarget.value === job.jobId) setOpen(true);
+  }, [linkTarget.value]);
   const panel = useRef<HTMLDivElement>(null);
   const head = useRef<HTMLButtonElement>(null);
   void now.value; // re-render as elapsed time moves
@@ -74,7 +78,7 @@ export function JobRow({ job, defaultOpen = false, inActivity = false }: { job: 
     if (open && !asSheet) panel.current?.scrollIntoView?.({ block: 'nearest' });
   }, [open, asSheet]);
   return (
-    <div class="job" data-status={job.status} data-open={(open && !asSheet) || undefined}>
+    <div class="job" id={inActivity ? undefined : job.jobId} data-status={job.status} data-open={(open && !asSheet) || undefined}>
       <button ref={head} type="button" class="job-head" aria-expanded={open} aria-controls={panelId} aria-haspopup={asSheet ? 'dialog' : undefined} onClick={() => setOpen(!open)}>
         <StatusGlyph status={job.status} />
         <span class="job-text">
@@ -207,7 +211,7 @@ function StopButton({ job }: { job: JobSnapshot }) {
     <>
       <button
         type="button"
-        class="link-button job-stop"
+        class="link-button job-stop needs-contributor"
         disabled={busy}
         onClick={async () => {
           setBusy(true);
@@ -235,7 +239,7 @@ function SteerForm({ job }: { job: JobSnapshot }) {
   const inputId = `steer-${job.jobId}`;
   return (
     <form
-      class="job-steer"
+      class="job-steer needs-contributor"
       onSubmit={async (e) => {
         e.preventDefault();
         const value = input.current?.value ?? text; // the live field, even before a re-render

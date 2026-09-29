@@ -3,13 +3,13 @@
 import { callBudget, runTurn, type AgentTool } from '@headcount/agent-loop';
 import { deadlineSignal } from '@headcount/models';
 import type { Env } from '../env';
-import { runtime } from '../workspace/runtime';
+import { models } from '../workspace/runtime';
 
 const JUDGE_SYSTEM =
   'You decide whether a finished background run is worth interrupting a small-business owner for. Interrupt only for a material change, a decision the owner must make, or a failure; routine "nothing new" results are not worth it. Call submit_verdict.';
 
 export async function judgeRun(env: Env, name: string, result: string): Promise<{ matters: boolean; reason: string }> {
-  const resolved = runtime.registry(env).resolve('chat', { tier: 'fast', needs: ['tools'] });
+  const resolved = models(env, { surface: 'automation' }).resolve('chat', { tier: 'fast', needs: ['tools'] });
   let verdict: { matters: boolean; reason: string } | null = null;
   const tool: AgentTool<{ matters?: unknown; reason?: unknown }> = {
     spec: {

@@ -67,7 +67,7 @@ describe('presence', () => {
 describe('routes', () => {
   it('matches every route by its own method and path', () => {
     for (const id of ROUTE_IDS) {
-      const path = routePath(id as 'steerJob', { id: 'job_1', personaId: 'p1', agentId: 'cw_chief', clipKey: 'c1_x', runId: 'pv_1', roomId: 'huddle:k2p9', stepId: 's1', grantId: 'cg_1', meetingId: 'mtg_1', section: 'business' } as never);
+      const path = routePath(id as 'steerJob', { id: 'job_1', personaId: 'p1', agentId: 'cw_chief', clipKey: 'c1_x', runId: 'pv_1', roomId: 'huddle:k2p9', stepId: 's1', grantId: 'cg_1', meetingId: 'mtg_1', section: 'business', email: 'sam@example.com' } as never);
       const m = matchRoute(ROUTES_METHOD(id), path);
       expect(m && 'match' in m && m.match.id).toBe(id);
     }

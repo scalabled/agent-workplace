@@ -403,3 +403,78 @@ kbd {
     padding-bottom: var(--space-7);
   }
 }
+
+/* Roles (auth/session.ts sets data-role on <html>): readers see no controls that change things; only owners see the
+   ones that configure the office. The worker refuses them either way. */
+:root[data-role='reader'] .needs-contributor,
+:root[data-role='reader'] .needs-owner,
+:root[data-role='contributor'] .needs-owner {
+  display: none !important;
+}
+.plain-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+/* Link-first: a page's title with its "Copy link", the item a link points at, and the "Link copied" line. */
+.page-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.page-title-row h1 {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.copy-link {
+  flex: none;
+  color: var(--muted);
+}
+.copy-link:hover,
+.copy-link:focus-visible {
+  color: var(--ink);
+}
+[data-linked] {
+  animation: linked-glow 4s var(--ease-out, ease-out) both;
+  scroll-margin-top: calc(var(--space-8) + 64px);
+  scroll-margin-bottom: calc(var(--dock-height, 0px) + var(--space-8));
+}
+@keyframes linked-glow {
+  0%,
+  60% {
+    box-shadow: 0 0 0 2px var(--lamp);
+    background-color: color-mix(in srgb, var(--lamp) 10%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-linked] {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--lamp);
+  }
+}
+.toast-region {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--space-8) + env(safe-area-inset-bottom, 0px) + 56px);
+  z-index: 60;
+  transform: translateX(-50%);
+  pointer-events: none;
+  max-width: calc(100vw - 2 * var(--space-4));
+}
+.toast {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: var(--text-sm);
+  box-shadow: var(--shadow-soft);
+  overflow-wrap: anywhere;
+}

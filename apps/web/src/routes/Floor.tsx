@@ -26,6 +26,7 @@ import { navigate, paths } from '../router';
 import { activeJobs, chiefPresence, onboarded, settings } from '../store';
 import { chiefSpeaker } from '../voice/chief-voice';
 import { audio } from '../voice/engine';
+import { PageTitle } from '../links/CopyLink';
 import './floor.css';
 import { accentFor } from '../lib/accent';
 
@@ -100,7 +101,7 @@ export function Floor() {
   if (!c)
     return (
       <section class="page" aria-labelledby="floor-title" aria-busy="true">
-        <h1 id="floor-title">Floor</h1>
+        <PageTitle id="floor-title">Floor</PageTitle>
         <p class="page-lede">{view === 'office' ? 'Opening the office…' : 'Loading the directory…'}</p>
       </section>
     );
