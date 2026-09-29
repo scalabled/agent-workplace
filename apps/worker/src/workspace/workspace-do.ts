@@ -1231,6 +1231,9 @@ export class WorkspaceDO extends DurableObject<Env> {
       noteProject: (projectId, req) => stub.noteProject(projectId, req) as unknown as ReturnType<ProjectApi['noteProject']>,
       pauseProject: (projectId) => stub.pauseProject(projectId) as unknown as ReturnType<ProjectApi['pauseProject']>,
       resumeProject: (projectId) => stub.resumeProject(projectId) as unknown as ReturnType<ProjectApi['resumeProject']>,
+      listCanvas: () => stub.listCanvas() as unknown as ReturnType<NonNullable<ProjectApi['listCanvas']>>,
+      createCanvas: (req) => stub.createCanvas(req) as unknown as ReturnType<NonNullable<ProjectApi['createCanvas']>>,
+      reviseCanvas: (id, brief, by) => stub.reviseCanvas(id, brief, by) as unknown as ReturnType<NonNullable<ProjectApi['reviseCanvas']>>,
     };
   }
 

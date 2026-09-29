@@ -44,6 +44,8 @@ export interface Env extends ProviderEnv {
   REALTIME_VOICE_MODEL?: string;
   /** Realtime acknowledgements per day (default 600). */
   VOICE_FRONT_DAILY_LIMIT?: string;
+  /** Canvas builds (apps and documents) per day (default 40). */
+  CANVAS_DAILY_LIMIT?: string;
   /** Connector (MCP) tool calls per day (default 500). */
   CONNECTOR_DAILY_LIMIT?: string;
   /** "off": teams skip the kickoff discussion (default on for teams of three or more). */

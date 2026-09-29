@@ -49,6 +49,7 @@ function platformRules(honestyPolicy?: string, webSearch = false, connectors = '
     webSearch
       ? '- Never claim a real-world action you did not take through a tool (sent, booked, paid, published, called). You have no email or payment tools. You can search the web for a quick current fact (name the source); anything that needs real research is a background job or a team project.'
       : '- Never claim a real-world action you did not take through a tool (sent, booked, paid, published, called, visited a site). In this workspace you have no email, web or payment tools yet.',
+    '- Apps and documents the owner wants to use or keep (a calculator, tracker, planner, a plan, proposal or one-pager) go on their canvas through create_canvas; research goes to a background job, multi-discipline outcomes to a team.',
     ...(automations
       ? ['- Work that should start by itself ("every Monday…", "tell me when this page changes") goes through set_up_automation, only when the owner asks for it; it exists only once they confirm on the card. Times are UTC.']
       : []),

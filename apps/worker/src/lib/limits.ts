@@ -30,6 +30,8 @@ export const LIMITS = {
   connector: { env: 'CONNECTOR_DAILY_LIMIT', fallback: 500, what: 'Connector calls' },
   /** Realtime spoken acknowledgements (the voice front) per day. */
   front: { env: 'VOICE_FRONT_DAILY_LIMIT', fallback: 600, what: 'Spoken acknowledgements' },
+  /** Canvas builds (apps and documents) per day. */
+  canvas: { env: 'CANVAS_DAILY_LIMIT', fallback: 40, what: 'Canvas builds' },
 } as const;
 
 export type LimitKind = keyof typeof LIMITS;

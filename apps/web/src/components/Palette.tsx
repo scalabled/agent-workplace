@@ -141,6 +141,7 @@ function useItems(): PaletteItem[] {
       { id: 'place:projects', label: 'Projects', hint: 'Everyday and more', group: 'Places', icon: 'projects', keywords: 'jobs everyday', run: go(paths.projects) },
       { id: 'place:inbox', label: 'Inbox', hint: 'Raised hands', group: 'Places', icon: 'inbox', keywords: 'decisions', run: go(paths.inbox) },
       { id: 'place:skills', label: 'Skills', hint: 'The methods coworkers use', group: 'Places', icon: 'book', keywords: 'methods playbooks library edit', run: go(paths.skills) },
+      { id: 'place:canvas', label: 'Canvas', hint: 'Apps and documents made for you', group: 'Places', icon: 'sparkle', keywords: 'app document build make pdf html export calculator tool report', run: go(paths.canvas) },
       { id: 'place:automations', label: 'Automations', hint: 'Work that starts by itself', group: 'Places', icon: 'retry', keywords: 'schedule recurring every watch page monitor trigger', run: go(paths.automations) },
       { id: 'place:connectors', label: 'Connectors', hint: 'Services coworkers can use', group: 'Places', icon: 'plus', keywords: 'mcp integrations github notion connect services tools', run: go(paths.connectors) },
       { id: 'place:chief', label: `How ${name} works`, hint: 'Their prompt and tools', group: 'Places', icon: 'code', keywords: 'prompt system instructions tools transparency chief', run: go(paths.chief) },

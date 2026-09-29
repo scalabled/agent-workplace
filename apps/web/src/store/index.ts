@@ -18,6 +18,7 @@ import {
 } from '@headcount/protocol';
 import type { DeskSayAccepted } from '@headcount/protocol/ext/expressions';
 import type { ChannelEntry, Decision, ProjectsResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { CanvasSnapshot } from '@headcount/protocol/ext/canvas';
 import type { FeedStatus } from '../api/ws';
 import { applyServerVoice } from '../voice/owner';
 
@@ -38,6 +39,8 @@ export interface ThreadItem {
   jobId?: JobId;
   /** The team project a Chief message is about (Inc 1): Talk links to its page. */
   projectId?: string;
+  /** The canvas a Chief message is about: Talk links to it. */
+  canvasId?: string;
   /** Sources the Chief's web search cited. */
   sources?: { url: string; title?: string }[];
   via?: 'text' | 'voice';
@@ -81,6 +84,22 @@ export const teamProjects = signal<Record<string, TeamProjectSnapshot>>({});
 export const openDecisions = signal<Record<string, Decision>>({});
 /** Each team project's channel (oldest first, one entry per seq): loaded on the project page, then live. */
 export const projectChannels = signal<Record<string, ChannelEntry[]>>({});
+
+/** Canvases (apps and documents) by id, as the feed and the Canvas page last saw them. */
+export const canvases = signal<Record<string, CanvasSnapshot>>({});
+/** Newest first. */
+export const canvasList = computed(() => Object.values(canvases.value).sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+
+export function upsertCanvas(c: CanvasSnapshot): void {
+  const have = canvases.peek()[c.canvasId];
+  if (have && have.updatedAt > c.updatedAt) return;
+  canvases.value = { ...canvases.peek(), [c.canvasId]: c };
+}
+
+export function dropCanvas(canvasId: string): void {
+  const { [canvasId]: _gone, ...rest } = canvases.peek();
+  canvases.value = rest;
+}
 
 /** Merge channel entries into a project's channel (dedupe by seq, keep order). */
 export function mergeChannel(projectId: string, entries: readonly ChannelEntry[]): void {
@@ -332,6 +351,7 @@ export function resetFeedState(): void {
   teamProjects.value = {};
   openDecisions.value = {};
   projectChannels.value = {};
+  canvases.value = {};
 }
 
 // ── Floor quick-chats ───────────────────────────────────────────────────────────
@@ -512,6 +532,7 @@ function reduce(frame: Frame, live: boolean): void {
         kind: frame.data.kind,
         ...(frame.data.jobId ? { jobId: frame.data.jobId } : {}),
         ...(frame.data.projectId ? { projectId: frame.data.projectId } : {}),
+        ...(frame.data.canvasId ? { canvasId: frame.data.canvasId } : {}),
         ...(frame.data.sources?.length ? { sources: frame.data.sources } : {}),
         ...(frame.data.kind === 'note' && frame.data.roomId ? { roomId: frame.data.roomId } : {}),
         ts: frame.ts,
@@ -534,6 +555,9 @@ function reduce(frame: Frame, live: boolean): void {
       upsertProject(frame.data.project);
       // A replayed proposal must not reopen a hand the project has already moved past.
       if (frame.data.decision.status === 'open' && teamProjects.value[frame.data.project.projectId]?.status === 'proposed') openDecisions.value = { ...openDecisions.value, [frame.data.decision.decisionId]: frame.data.decision };
+      break;
+    case 'canvas.updated':
+      upsertCanvas(frame.data.canvas);
       break;
     case 'project.updated':
       upsertProject(frame.data.project);

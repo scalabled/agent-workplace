@@ -62,6 +62,18 @@ export const ROUTES = {
   removeConnector: { method: 'DELETE', path: '/api/connectors/:id', auth: 'owner' },
   testConnector: { method: 'POST', path: '/api/connectors/:id/test', auth: 'owner', bodyCap: 1024 },
   revokeConnectorGrant: { method: 'DELETE', path: '/api/connectors/:id/grants/:grantId', auth: 'owner' },
+  // The canvas (ext/canvas.ts): apps and documents built from a brief, served sandboxed.
+  listCanvas: { method: 'GET', path: '/api/canvas', auth: 'owner' },
+  createCanvas: { method: 'POST', path: '/api/canvas', auth: 'owner', body: 'json', bodyCap: 8 * 1024 },
+  getCanvas: { method: 'GET', path: '/api/canvas/:id', auth: 'owner' },
+  reviseCanvas: { method: 'POST', path: '/api/canvas/:id/revise', auth: 'owner', body: 'json', bodyCap: 8 * 1024 },
+  repairCanvas: { method: 'POST', path: '/api/canvas/:id/repair', auth: 'owner', body: 'json', bodyCap: 8 * 1024 },
+  retryCanvas: { method: 'POST', path: '/api/canvas/:id/retry', auth: 'owner', bodyCap: 1024 },
+  removeCanvas: { method: 'DELETE', path: '/api/canvas/:id', auth: 'owner' },
+  viewCanvas: { method: 'GET', path: '/api/canvas/:id/view', auth: 'owner' },
+  downloadCanvas: { method: 'GET', path: '/api/canvas/:id/download', auth: 'owner' },
+  printCanvas: { method: 'GET', path: '/api/canvas/:id/print', auth: 'owner' },
+  canvasSource: { method: 'GET', path: '/api/canvas/:id/source', auth: 'owner' },
   // Parity stage 3b: automations (ext/automations.ts).
   listAutomations: { method: 'GET', path: '/api/automations', auth: 'owner' },
   addAutomation: { method: 'POST', path: '/api/automations', auth: 'owner', body: 'json', bodyCap: 16 * 1024 },

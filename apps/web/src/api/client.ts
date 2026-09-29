@@ -35,6 +35,7 @@ import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcoun
 import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, RoomCancelResponse, RoomId, RoomSayAccepted, RoomSayRequest } from '@headcount/protocol/ext/rooms';
 import { noteUnauthenticated } from '../auth/session';
 import type { ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, MeetingResponse, MeetingSay, MeetingsResponse, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
+import type { CanvasCreate, CanvasListResponse, CanvasResponse } from '@headcount/protocol/ext/canvas';
 import type { AutomationPatch, AutomationResponse, AutomationsResponse } from '@headcount/protocol/ext/automations';
 import type { ConnectorCreate, ConnectorPatch, ConnectorResponse, ConnectorsResponse } from '@headcount/protocol/ext/connectors';
 import type { AgentConfigPatch, AgentView, ModelsResponse, PromptView, RunsResponse, SkillDetail, SkillsResponse } from '@headcount/protocol/ext/agents';
@@ -95,6 +96,18 @@ export const api = {
   resumeProject: (id: string) => request<ProjectActionAccepted>(routePath('resumeProject', { id }), { method: 'POST' }),
   // Parity stage 3: raised hands, plan editing, the run inspector.
   answerDecision: (id: string, a: DecisionAnswer) => request<DecisionAccepted>(routePath('answerDecision', { id }), jsonInit('POST', a)),
+  listCanvas: () => request<CanvasListResponse>(routePath('listCanvas')),
+  createCanvas: (c: CanvasCreate) => request<CanvasResponse>(routePath('createCanvas'), jsonInit('POST', c)),
+  getCanvas: (id: string) => request<CanvasResponse>(routePath('getCanvas', { id })),
+  reviseCanvas: (id: string, brief: string) => request<CanvasResponse>(routePath('reviseCanvas', { id }), jsonInit('POST', { brief })),
+  repairCanvas: (id: string, errors: string[]) => request<CanvasResponse>(routePath('repairCanvas', { id }), jsonInit('POST', { errors })),
+  retryCanvas: (id: string) => request<CanvasResponse>(routePath('retryCanvas', { id }), { method: 'POST' }),
+  removeCanvas: (id: string) => request<{ removed: true }>(routePath('removeCanvas', { id }), { method: 'DELETE' }),
+  canvasSource: async (id: string) => {
+    const res = await fetch(routePath('canvasSource', { id }));
+    if (!res.ok) throw new ApiError(res.status, 'not_found', 'The source could not be read.', []);
+    return res.text();
+  },
   listAutomations: () => request<AutomationsResponse>(routePath('listAutomations')),
   addAutomation: (spec: AutomationPatch) => request<AutomationResponse>(routePath('addAutomation'), jsonInit('POST', spec)),
   putAutomation: (id: string, patch: AutomationPatch) => request<AutomationResponse>(routePath('putAutomation', { id }), jsonInit('PUT', patch)),

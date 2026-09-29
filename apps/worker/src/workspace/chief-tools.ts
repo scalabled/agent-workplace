@@ -5,6 +5,7 @@ import { clipText, isActive, statusSentence, titleFromRequest } from '../jobs/jo
 import type { JobRefusal, StartJobRequest } from '../jobs/project-do';
 import type { Decision, DecisionAnswer, ProjectNote, StopAllResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { ProjectRefusal, ProposeRequest } from '../projects/team-host';
+import type { CanvasKind, CanvasSnapshot } from '@headcount/protocol/ext/canvas';
 
 /** The Everyday ProjectDO as the Chief of Staff's tools see it (RPC). */
 export interface ProjectApi {
@@ -24,6 +25,10 @@ export interface ProjectApi {
   noteProject(projectId: string, req: { text: string; toId?: string; via: ProjectNote['via']; opId?: string }): Promise<{ accepted: true; project: TeamProjectSnapshot; note: ProjectNote } | ProjectRefusal>;
   pauseProject(projectId: string): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal>;
   resumeProject(projectId: string): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal>;
+  /** The canvas: apps and documents built from a brief (optional: older hosts and tests without it). */
+  listCanvas?(): Promise<CanvasSnapshot[]>;
+  createCanvas?(req: { brief: string; title?: string; kind?: CanvasKind; by: 'owner' | 'chief' }): Promise<{ accepted: true; canvas: CanvasSnapshot } | { accepted: false; message: string }>;
+  reviseCanvas?(canvasId: string, brief: string, by: 'owner' | 'chief'): Promise<{ accepted: true; canvas: CanvasSnapshot } | { accepted: false; message: string }>;
 }
 
 /** What the tools did this turn: drives talk.done.route, talk.message.kind/jobId and the no-text fallback. */
@@ -31,6 +36,7 @@ export class TurnLog {
   readonly routes = new Set<TalkRoute>();
   readonly jobIds: string[] = [];
   readonly projectIds: string[] = [];
+  readonly canvasIds: string[] = [];
   readonly says: string[] = [];
 
   note(route: TalkRoute, say: string, jobId?: string): void {
@@ -53,6 +59,15 @@ export class TurnLog {
   /** A team project this turn staffed, started, stopped or reported on (Inc 1: Talk links the reply to it). */
   aboutProject(projectId: string): void {
     if (!this.projectIds.includes(projectId)) this.projectIds.push(projectId);
+  }
+
+  /** A canvas this turn queued (Talk links the reply to it). */
+  aboutCanvas(canvasId: string): void {
+    if (!this.canvasIds.includes(canvasId)) this.canvasIds.push(canvasId);
+  }
+
+  canvasId(): string | undefined {
+    return this.canvasIds.length === 1 ? this.canvasIds[0] : undefined;
   }
 
   /** The single team project this turn was about, if exactly one. */
@@ -101,7 +116,13 @@ const TRIGGERS = {
   pause: [String.raw`\b(pause|hold off on|put .{0,30}\bon hold)\b`, String.raw`\b(resume|unpause|pick .{0,30}\bback up|carry on with)\b`],
   stopAll: [String.raw`^\s*(everyone|everybody|all of you|team|folks)[,!.]?\s+stop\b`, String.raw`\bstop (all|everything|all (the )?work)\b`, String.raw`^\s*(halt|freeze) everything\b`],
   approve: [String.raw`^\s*(yes|yep|yeah|sure|ok(ay)?|go ahead|go for it|approved?|do it|start it|ship it|let'?s (go|do it)|sounds good)\b`],
+  canvas: [
+    String.raw`\b(build|make|create|design|code|write)\b( me| us)?( (an?|the|some))?( [\w'-]+){0,4} (app|calculator|game|tool|dashboard|widget|tracker|quiz|planner|document|doc|one-pager|memo|proposal|checklist|guide|policy)\b`,
+    String.raw`^\s*(change|update|tweak|revise) (it|the (app|document|doc|canvas))\b`,
+  ],
 };
+
+const DOCUMENT_WORDS = /\b(document|doc|one-pager|memo|report|proposal|checklist|guide|policy|plan|letter|brief)\b/i;
 
 function compactProject(p: TeamProjectSnapshot): Record<string, unknown> {
   const done = p.steps.filter((s) => s.status === 'done').length;
@@ -529,5 +550,54 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
     ...(proposed.length ? [approveProject] : []),
     startProject,
   ];
-  return newestActive ? [...projectTools, cancelJob, steerJob, jobStatus, startJob] : [...projectTools, jobStatus, startJob];
+  const canvasTool: AgentTool<{ title?: unknown; brief?: unknown; kind?: unknown; revise?: unknown }> = {
+    spec: {
+      name: 'create_canvas',
+      description:
+        "Build something the owner will use or keep, on their canvas: an interactive HTML app (a calculator, tracker, planner, dashboard, quiz, tool or game) or a written Markdown document (a plan, report, proposal, one-pager, checklist, policy or guide). Or change the one on the canvas when they ask (revise: true). Write a specific brief: what it is, who it is for, what it must include and how it should look or read. An app's first version plays in about 20 seconds and the full one in a minute or two; they can download it as HTML or export it to PDF. Research goes to a background job instead.",
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'A short title.' },
+          brief: { type: 'string', description: 'What to build or write (or, when revising, exactly what to change), with every detail the owner gave.' },
+          kind: { type: 'string', enum: ['app', 'document'], description: 'app: interactive HTML; document: written Markdown.' },
+          revise: { type: 'boolean', description: 'True to change the latest canvas instead of starting a new one.' },
+        },
+        required: ['brief', 'kind'],
+        additionalProperties: false,
+      },
+      mock: {
+        triggers: TRIGGERS.canvas,
+        args: (text) => ({ title: '', brief: text, kind: DOCUMENT_WORDS.test(text) && !/\b(app|calculator|game|tool|dashboard|widget|tracker|quiz)\b/i.test(text) ? 'document' : 'app', revise: /^\s*(change|update|tweak|revise)\b/i.test(text) }),
+        reply: sayOf,
+      },
+    },
+    async execute(args) {
+      if (!project.createCanvas || !project.reviseCanvas || !project.listCanvas) return fail('The canvas is not available here.');
+      const brief = str(args.brief);
+      if (!brief) return fail('Say what to build.');
+      const kind: CanvasKind = str(args.kind) === 'document' ? 'document' : 'app';
+      if (args.revise === true) {
+        const latest = (await project.listCanvas()).find((c) => c.status === 'ready');
+        if (!latest) return fail('There is nothing finished on the canvas to change yet.');
+        const r = await project.reviseCanvas(latest.canvasId, brief, 'chief');
+        if (!r.accepted) return fail(r.message);
+        log.aboutCanvas(r.canvas.canvasId);
+        const say = `Changing “${latest.title}” on your canvas; the current version stays until the new one is ready.`;
+        log.note('delegate', say);
+        return ok({ canvasId: r.canvas.canvasId, say }, `Revising “${latest.title}”`);
+      }
+      const r = await project.createCanvas({ brief, kind, by: 'chief', ...(str(args.title) ? { title: str(args.title) } : {}) });
+      if (!r.accepted) return fail(r.message);
+      log.aboutCanvas(r.canvas.canvasId);
+      const say =
+        kind === 'app'
+          ? `Building “${r.canvas.title}” on your canvas. A first version plays in about 20 seconds; the full one follows in a minute or two.`
+          : `Writing “${r.canvas.title}” on your canvas; it will be ready in a minute or so, to read, download or export to PDF.`;
+      log.note('delegate', say);
+      return ok({ canvasId: r.canvas.canvasId, kind, say }, `Started “${r.canvas.title}”`);
+    },
+  };
+  const canvas = project.createCanvas ? [canvasTool] : [];
+  return newestActive ? [...projectTools, cancelJob, steerJob, ...canvas, jobStatus, startJob] : [...projectTools, ...canvas, jobStatus, startJob];
 }

@@ -1372,3 +1372,285 @@
     border-radius: var(--radius-control);
   }
 }
+
+/* ── the canvas ───────────────────────────────────────────────────────────────────── */
+.canvas-make {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.canvas-make-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+.canvas-kind {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+}
+.canvas-kind-option {
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  color: var(--muted);
+}
+.canvas-kind-option[data-on] {
+  background: var(--panel-raised);
+  color: var(--ink);
+}
+.canvas-kind-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.canvas-kind-option:focus-within {
+  outline: 2px solid var(--focus);
+}
+.canvas-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.canvas-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  border: 0;
+}
+.canvas-card:hover {
+  background: var(--panel-hover);
+}
+.canvas-card-kind {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-control);
+  display: grid;
+  place-items: center;
+  background: var(--surface-sunken);
+  color: var(--lamp);
+}
+.canvas-card-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.canvas-card-title {
+  font-weight: var(--weight-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.canvas-card-meta {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.canvas-card[data-status='failed'] .canvas-card-meta {
+  color: var(--blocked);
+}
+.canvas-item-page {
+  max-width: 1200px;
+}
+.canvas-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.canvas-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.canvas-heading {
+  min-width: 0;
+}
+.canvas-status {
+  margin: 0;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--muted);
+}
+.canvas-view[data-status='building'] .canvas-status,
+.canvas-view[data-status='queued'] .canvas-status {
+  color: var(--lamp);
+}
+.canvas-title {
+  margin: 2px 0 0;
+  font-size: var(--text-xl, 24px);
+  overflow-wrap: anywhere;
+}
+.canvas-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+.canvas-actions .is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.canvas-versions select {
+  width: auto;
+}
+.canvas-body {
+  position: relative;
+  height: min(72vh, 820px);
+  min-height: 420px;
+  border-radius: var(--radius-panel, 16px);
+  overflow: hidden;
+  background: var(--surface-sunken);
+  box-shadow: 0 0 0 1px var(--line);
+}
+.canvas-view[data-kind='document'] .canvas-body {
+  background: #f7f5f0;
+}
+.canvas-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: transparent;
+}
+.canvas-source {
+  margin: 0;
+  height: 100%;
+  overflow: auto;
+  padding: var(--space-4);
+  font: 12.5px/1.5 var(--font-mono, ui-monospace, monospace);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--surface-sunken);
+  color: var(--ink);
+}
+.canvas-building,
+.canvas-failed {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  text-align: center;
+}
+.canvas-building > span {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.canvas-orb {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, var(--lamp), color-mix(in oklab, var(--lamp) 20%, transparent) 70%);
+  animation: canvas-breathe 2.4s ease-in-out infinite;
+}
+@keyframes canvas-breathe {
+  50% {
+    transform: scale(1.12);
+    opacity: 0.7;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .canvas-orb {
+    animation: none;
+  }
+}
+.canvas-progress {
+  width: min(360px, 80%);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+.canvas-progress i {
+  display: block;
+  height: 100%;
+  background: var(--lamp);
+  transition: width 0.4s ease;
+}
+.canvas-tail {
+  margin: var(--space-3) 0 0;
+  width: min(640px, 100%);
+  max-height: 40%;
+  overflow: hidden;
+  font: 11px/1.45 var(--font-mono, ui-monospace, monospace);
+  color: var(--faint);
+  text-align: left;
+  white-space: pre-wrap;
+  mask-image: linear-gradient(to bottom, transparent, #000 40%);
+}
+.canvas-chip {
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-3);
+  margin: 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  background: color-mix(in oklab, var(--panel-raised) 90%, transparent);
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+.canvas-report {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  background: color-mix(in oklab, var(--blocked) 12%, transparent);
+  font-size: var(--text-sm);
+}
+.canvas-report p {
+  margin: 0;
+}
+.canvas-report ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+}
+.canvas-change {
+  display: flex;
+  gap: var(--space-2);
+  /* Clear of the Chief's bubble, which floats bottom-right. */
+  padding-right: calc(var(--bubble-size, 64px) + var(--space-3));
+}
+.canvas-change .field-input {
+  flex: 1;
+  min-width: 0;
+}
+.canvas-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.canvas-brief p {
+  margin: var(--space-2) 0 0;
+  white-space: pre-wrap;
+}
+@media (max-width: 767px) {
+  .canvas-body {
+    height: 64vh;
+    min-height: 320px;
+  }
+  .canvas-change {
+    flex-direction: column;
+    padding-right: 0;
+  }
+}

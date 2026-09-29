@@ -12,5 +12,11 @@ export default defineProject({
       voices: fileURLToPath(new URL('./public/marketing/voices/manifest.json', import.meta.url)),
     }),
   ],
-  test: { name: 'web', environment: 'happy-dom', include: ['src/**/*.test.{ts,tsx}'] },
+  test: {
+    name: 'web',
+    environment: 'happy-dom',
+    // Frames (the canvas, deliverables) are never loaded over the network in tests.
+    environmentOptions: { happyDOM: { settings: { disableIframePageLoading: true } } },
+    include: ['src/**/*.test.{ts,tsx}'],
+  },
 });

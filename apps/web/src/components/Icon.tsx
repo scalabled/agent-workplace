@@ -39,6 +39,7 @@ const PATHS = {
   play: <path d="M7 4.5v15l12-7.5-12-7.5z" />,
   stop: <rect x="6" y="6" width="12" height="12" rx="1.5" />,
   pause: <path d="M8 5v14M16 5v14" />,
+  expand: <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />,
   skip: <path d="M6 5l9 7-9 7V5zM18 5v14" />,
   headphones: <path d="M4 15v-3a8 8 0 0 1 16 0v3M4 15a2 2 0 0 1 2-2h1v7H6a2 2 0 0 1-2-2v-3zM20 15a2 2 0 0 0-2-2h-1v7h1a2 2 0 0 0 2-2v-3z" />,
   search: (

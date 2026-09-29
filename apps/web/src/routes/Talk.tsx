@@ -18,7 +18,7 @@ import { VoiceElsewhere } from '../components/VoiceElsewhere';
 import { ago, now } from '../lib/time';
 import { bubbles, liveCaptions } from '../living/captions';
 import { navigate, paths } from '../router';
-import { activeJobs, can, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, onboarded, settings, teamProjects, thread, type ThreadItem } from '../store';
+import { activeJobs, can, canvases, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, onboarded, settings, teamProjects, thread, type ThreadItem } from '../store';
 import { retryOwnerMessage, sendOwnerMessage, setVoiceOn } from '../talk/actions';
 import { draft, focusComposer, greetedThisSession, greetOnArrival, prefillComposer } from '../talk/draft';
 import { notice } from '../ui/notice';
@@ -318,11 +318,24 @@ function Message({ item, name, grouped }: { item: ThreadItem; name: string; grou
       {item.kind === 'announcement' && job?.status === 'done' && <Deliverable job={job} />}
       {item.sources && !item.streaming && <Sources sources={item.sources} />}
       {item.projectId && !item.streaming && <ProjectLink projectId={item.projectId} />}
+      {item.canvasId && !item.streaming && <CanvasLink canvasId={item.canvasId} />}
     </li>
   );
 }
 
 /** A Chief message about a team project links to it: the plan while it waits, the deliverable once it is done. */
+/** A canvas the Chief is building: how it is going, and the way to it. */
+function CanvasLink({ canvasId }: { canvasId: string }) {
+  const c = canvases.value[canvasId];
+  const words = !c ? 'Open it on the canvas' : c.status === 'ready' ? `Open “${c.title}”` : c.status === 'failed' ? 'See what went wrong' : c.previewLines ? 'Play the first version' : c.kind === 'app' ? 'Watch it being built' : 'Watch it being written';
+  return (
+    <Link class="msg-project msg-canvas" href={paths.canvasItem(canvasId)}>
+      {words}
+      <Icon name="chevronRight" size={14} />
+    </Link>
+  );
+}
+
 function ProjectLink({ projectId }: { projectId: string }) {
   const p = teamProjects.value[projectId];
   const words = !p ? 'Open the project' : p.status === 'proposed' ? 'See the team and plan' : p.status === 'done' ? 'Read the deliverable' : 'Open the project';

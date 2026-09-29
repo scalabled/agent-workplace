@@ -18,6 +18,7 @@ import { handleStt, handleTts } from './media/speech';
 import { handleOfficePeople } from './rooms/people';
 import { handleRoomCancel, handleRoomSay } from './rooms/routes';
 import { handleAddStep, handleAnswerDecision, handleDiscuss, handleGetMeeting, handleMeetingSay, handleProjectMeetings, handlePostChannel, handleProjectChannel, handleApproveProject, handleCancelProject, handleEditPlan, handleEditStep, handleGetProject, handleListProjects, handleNoteProject, handlePauseProject, handleProjectRuns, handleRemoveStep, handleResumeProject, handleStopAll } from './projects/routes';
+import { handleCanvasSource, handleCreateCanvas, handleDownloadCanvas, handleGetCanvas, handleListCanvas, handlePrintCanvas, handleRemoveCanvas, handleRepairCanvas, handleRetryCanvas, handleReviseCanvas, handleViewCanvas } from './canvas/routes';
 import { handleAddAutomation, handleListAutomations, handlePutAutomation, handleRemoveAutomation, handleRunAutomation } from './automations/routes';
 import { handleAddConnector, handleListConnectors, handlePatchConnector, handleRemoveConnector, handleRevokeConnectorGrant, handleTestConnector } from './connectors/routes';
 import { handleChiefPrompt, handleGetAgent, handleGetSkill, handleListModels, handleListSkills, handlePutAgent, handlePutSkill, handleResetAgent, handleRollbackSkill } from './agents/routes';
@@ -98,6 +99,17 @@ export const HANDLERS: Record<RouteId, RouteHandler> = {
   projectMeetings: handleProjectMeetings,
   getMeeting: handleGetMeeting,
   meetingSay: handleMeetingSay,
+  listCanvas: handleListCanvas,
+  createCanvas: handleCreateCanvas,
+  getCanvas: handleGetCanvas,
+  reviseCanvas: handleReviseCanvas,
+  repairCanvas: handleRepairCanvas,
+  retryCanvas: handleRetryCanvas,
+  removeCanvas: handleRemoveCanvas,
+  viewCanvas: handleViewCanvas,
+  downloadCanvas: handleDownloadCanvas,
+  printCanvas: handlePrintCanvas,
+  canvasSource: handleCanvasSource,
 };
 
 /** Reject bodies over the route's cap before the handler runs (Content-Length, or by counting a streamed body). */

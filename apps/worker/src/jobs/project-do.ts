@@ -36,6 +36,8 @@ import { MAX_WORK_STEPS, WorkCancelled, WorkError, planJob, runWorkStep, synthes
 import type { ChannelEntry, Decision, DecisionAnswer, PlanEdit, ProjectNote, StaffingContext, StepEdit, StopAllResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { RunTrace } from '@headcount/protocol/ext/agents';
 import { researchKitFactory } from '../tools/kit';
+import { Canvases } from '../canvas/host';
+import type { CanvasKind, CanvasSnapshot } from '@headcount/protocol/ext/canvas';
 import { Automations, AutomationError, normalizeSpec } from '../automations/host';
 import { judgeRun } from '../automations/judge';
 import type { AutomationSpec, AutomationView } from '@headcount/protocol/ext/automations';
@@ -168,6 +170,8 @@ export class ProjectDO extends DurableObject<Env> {
   private readonly team: TeamProjects;
   /** Automations: schedules and page watchers that start jobs and team projects (src/automations/host.ts). */
   private readonly automations: Automations;
+  /** The canvas: apps and documents built from a brief (src/canvas/host.ts). */
+  private readonly canvases: Canvases;
   /** Signals waiting for the next mirror batch (sent even when no frame is pending). */
   private readonly signals: WorkSignal[] = [];
 
@@ -230,6 +234,19 @@ export class ProjectDO extends DurableObject<Env> {
       },
       judge: (name, result) => judgeRun(env, name, result),
       background: (work) => ctx.waitUntil(work.catch((err) => logError('automation', err))),
+    });
+    this.canvases = new Canvases({
+      sql: ctx.storage.sql,
+      blobs: env.BLOBS,
+      workspaceId: env.WORKSPACE_ID || DEFAULT_WORKSPACE_ID,
+      now: () => runtime.now(),
+      append: (input) => this.ledger.append(input),
+      flush: () => this.flush(),
+      model: () => {
+        const r = runtime.registry(env).resolve('chat', { tier: 'reason' });
+        return { provider: r.provider, model: r.model, mock: r.providerId === 'mock' };
+      },
+      take: () => this.usage.take('canvas', dailyLimit(env, 'canvas'), runtime.now()).allowed,
     });
   }
 
@@ -471,6 +488,8 @@ export class ProjectDO extends DurableObject<Env> {
       .exec<{ job_id: string }>(`SELECT job_id FROM jobs WHERE status = 'running' AND next_at <= ? ORDER BY started_at ASC`, now)
       .toArray()
       .filter((r) => !this.inflight.has(r.job_id));
+    // Canvas builds run on their own (minutes of writing); the alarm only starts them and keeps its heartbeat.
+    for (const build of this.canvases.tick()) this.ctx.waitUntil(build.catch((err) => logError('canvas.build', err)));
     await Promise.all([...due.map((r) => this.advance(r.job_id)), this.team.tick(now), this.automations.tick(now)]);
     await this.flush();
     await this.reschedule();
@@ -712,6 +731,50 @@ export class ProjectDO extends DurableObject<Env> {
     }
   }
 
+  // ── the canvas ────────────────────────────────────────────────────────────────────
+
+  async listCanvas(): Promise<CanvasSnapshot[]> {
+    return this.canvases.list();
+  }
+
+  async getCanvas(canvasId: string) {
+    return this.canvases.get(canvasId);
+  }
+
+  async createCanvas(req: { brief: string; title?: string; kind?: CanvasKind; by: 'owner' | 'chief' }) {
+    return this.canvasOp(() => this.canvases.create(req));
+  }
+
+  async reviseCanvas(canvasId: string, brief: string, by: 'owner' | 'chief') {
+    return this.canvasOp(() => this.canvases.revise(canvasId, brief, by));
+  }
+
+  async repairCanvas(canvasId: string, errors: unknown) {
+    return this.canvasOp(() => this.canvases.repair(canvasId, errors));
+  }
+
+  async retryCanvas(canvasId: string) {
+    return this.canvasOp(() => this.canvases.retry(canvasId));
+  }
+
+  async removeCanvas(canvasId: string): Promise<{ removed: boolean }> {
+    return { removed: await this.canvases.remove(canvasId) };
+  }
+
+  /** The canvas's content for serving (the Worker renders it with its sandbox policy). */
+  async canvasContent(canvasId: string, preview = false) {
+    return this.canvases.content(canvasId, preview);
+  }
+
+  private async canvasOp<T extends { accepted: boolean }>(fn: () => T): Promise<T> {
+    const r = fn();
+    if (r.accepted) {
+      await this.armAlarm(runtime.now() + 10);
+      await this.flush();
+    }
+    return r;
+  }
+
   // ── automations (stage 3b) ────────────────────────────────────────────────────────
 
   async listAutomations(): Promise<AutomationView[]> {
@@ -820,7 +883,8 @@ export class ProjectDO extends DurableObject<Env> {
     const jobsNext = this.ctx.storage.sql.exec<{ at: number | null }>(`SELECT MIN(next_at) AS at FROM jobs WHERE status = 'running'`).toArray()[0]?.at;
     const teamNext = this.team.nextDue();
     const autoNext = this.automations.nextDue();
-    const candidates = [jobsNext, teamNext, autoNext].filter((x): x is number => x !== null && x !== undefined).map(Number);
+    const canvasNext = this.canvases.nextDue();
+    const candidates = [jobsNext, teamNext, autoNext, canvasNext].filter((x): x is number => x !== null && x !== undefined).map(Number);
     const next = candidates.length ? Math.min(...candidates) : null;
     if (next !== null) await this.ctx.storage.setAlarm(Math.max(next, now + 10));
     else if (this.ledger.unforwarded(1).length) await this.ctx.storage.setAlarm(now + 5000);

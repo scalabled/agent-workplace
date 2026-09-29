@@ -237,12 +237,13 @@ export function closeTurn(feed: Feed, state: TurnState, finish: TalkFinish, usag
   const route = state.log.route();
   const jobId = state.log.jobId() as JobId | undefined;
   const projectId = state.log.projectId();
+  const canvasId = state.log.canvasId();
   const said = state.text.trim();
   const { turnId, opId, replyId } = state;
   if (said) {
     feed.append({
       type: 'talk.message',
-      data: { turnId, messageId: replyId, agentId: CHIEF_ID, text: said, kind: route === 'status' ? 'status' : 'reply', ...(jobId ? { jobId } : {}), ...(projectId ? { projectId } : {}), ...(state.sources?.length ? { sources: state.sources } : {}) },
+      data: { turnId, messageId: replyId, agentId: CHIEF_ID, text: said, kind: route === 'status' ? 'status' : 'reply', ...(jobId ? { jobId } : {}), ...(projectId ? { projectId } : {}), ...(canvasId ? { canvasId } : {}), ...(state.sources?.length ? { sources: state.sources } : {}) },
       actor: CHIEF_ID,
       opId,
     });
