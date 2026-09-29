@@ -10,9 +10,9 @@
 
 | Resource | State |
 |---|---|
-| Worker `headcount` | Live as a **placeholder** (`apps/worker/placeholder/`) at https://headcount.greg-371.workers.dev. It serves a "coming soon" page, answers 503 on `/api/*` and reads no secret. |
-| Secrets on `headcount` | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`, uploaded from `.dev.vars` (API keys only, never printed). |
-| D1 `headcount` | `080a0f85-f9fe-4aa5-9dc5-08e025f0e951` (ENAM). Migrations 0001–0002 applied; **0003_auth.sql is still to apply**. |
+| Worker `headcount` | **Deployed:** the real app, version `0c0efa43`, at https://headcount.greg-371.workers.dev, with Google sign-in required. It replaced the placeholder (`apps/worker/placeholder/`). |
+| Secrets on `headcount` | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `XAI_API_KEY`, uploaded from `.dev.vars` (API keys only, never printed). The owner set `GOOGLE_CLIENT_SECRET` and `OWNER_EMAILS`. |
+| D1 `headcount` | `080a0f85-f9fe-4aa5-9dc5-08e025f0e951` (ENAM). Migrations 0001–0003 are applied. |
 | R2 `headcount-blobs` | Private. It holds the migrated data. |
 | Migrated data | 1,376 objects (72.5 MiB): 176 portraits, 1,198 clips and 2 workspace clips, all with customMetadata. D1 has 176 portrait rows, all with landmarks. |
 | Deploy config | `apps/worker/wrangler.deploy.jsonc` has the real ids, `AUTH_MODE=google`, `APP_ORIGIN`, `GOOGLE_CLIENT_ID`, production vars and test limits. |
@@ -22,7 +22,13 @@
 - `index.ts` gates every `/api` route and the feed socket, except health and the landing's read-only portraits. `POST /api/media/image` is gated behind `ENABLE_MEDIA_TOOLS`. Tests: `apps/worker/test/auth.test.ts`.
 - `apps/web/public/_headers` holds the security headers with a report-only CSP. `.assetsignore` excludes `dev/` and `*.map`.
 
-**Owner steps left:**
+**Smoke test after the deploy (2026-09-29):**
+- Public: the landing page and `/app/*` return 200, and so do the health check and the 176 portraits. The `/dev/` debug page is not served.
+- Without a session, `/api/workspace`, `/api/talk`, `/api/ws` and `/api/media/image` return 401. Cross-site calls return 403.
+- `/api/auth/google` sends a 302 to Google with the right client id, the callback URL and PKCE S256. The state cookie is `Secure; HttpOnly`.
+- Security headers are present, with the CSP report-only. `/assets/*` is served immutable. Worker startup takes 59 ms.
+
+**Owner steps left (historical; done as of this deploy except the plan upgrade):**
 1. Set these secrets: `wrangler secret put GOOGLE_CLIENT_SECRET --name headcount` and `wrangler secret put OWNER_EMAILS --name headcount`.
 2. Make sure the Google OAuth client's redirect URIs include `https://headcount.greg-371.workers.dev/api/auth/callback` and `http://localhost:5173/api/auth/callback`.
 3. Recommended: switch to **Workers Paid** ($5/mo), because Free allows 10 ms CPU per request (H5).
