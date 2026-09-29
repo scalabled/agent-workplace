@@ -115,7 +115,7 @@ export function PortraitWall() {
     };
     const round = () => {
       loop = setTimeout(round, EVERY_MS);
-      if (!onScreen || document.hidden) return;
+      if (!onScreen) return;
       // Narrow layouts hide the trailing tiles, so visible tiles keep their index.
       const tiles = [...el.querySelectorAll<HTMLElement>('.lp-tile')].filter((t) => t.offsetParent !== null);
       const names = tiles.map((t) => t.dataset.first ?? '');

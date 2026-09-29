@@ -90,7 +90,7 @@ function useHeroSideTalk(people: WallPerson[], host: { current: HTMLElement | nu
     io?.observe(el);
     const round = () => {
       timers.push(setTimeout(round, 9000));
-      if (!onScreen || document.hidden || getComputedStyle(el).display === 'none') return;
+      if (!onScreen || getComputedStyle(el).display === 'none') return;
       const ex = nextExchange(people.length, people.map((p) => p.first), random, recent);
       if (!ex) return;
       setBubble({ index: ex.a, text: ex.line, reply: false });

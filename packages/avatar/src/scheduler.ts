@@ -1,7 +1,9 @@
 // ONE requestAnimationFrame loop for every face on the page (ARCHITECTURE §9.4, EXPERIENCE §4.5).
 // Heroes always render; tiles render round-robin, most important first, inside a per-frame
 // budget; tokens render only when something changed. At most N tiles animate (the rest show a
-// still frame), off-screen faces pause (IntersectionObserver), a hidden tab pauses everything,
+// still frame), off-screen faces pause (IntersectionObserver), a hidden tab pauses everything
+// (the browser stops requestAnimationFrame there; we do not gate on visibilityState, because
+// embedded views such as app webviews can report "hidden" while on screen and animating),
 // and a sustained overrun demotes the lowest-priority animated tile to a still token for a while.
 // The loop stops by itself when nothing needs a frame.
 import type { FaceTier } from '@headcount/protocol';
@@ -139,14 +141,12 @@ export class FaceScheduler {
 
   wake(): void {
     if (this.rafId || !this.entries.size) return;
-    if (this.opts.document?.visibilityState === 'hidden') return;
     this.rafId = this.opts.raf((t) => this.tick(t));
   }
 
   /** One frame. Public for tests and for hosts that drive their own clock. */
   tick(now: number = this.opts.now()): void {
     this.rafId = 0;
-    if (this.opts.document?.visibilityState === 'hidden') return;
     const start = this.opts.now();
     this.ticks++;
     const visible = [...this.entries].filter((e) => e.visible);

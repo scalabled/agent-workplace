@@ -201,7 +201,7 @@ describe('FaceScheduler', () => {
     handle.remove();
   });
 
-  it('pauses everything while the tab is hidden', () => {
+  it('does not gate on visibilityState (embedded webviews report "hidden" while on screen; real hidden tabs get no rAF)', () => {
     const listeners: (() => void)[] = [];
     const doc = {
       visibilityState: 'hidden',
@@ -211,12 +211,14 @@ describe('FaceScheduler', () => {
     const h = harness({ document: doc });
     const face = new TestFace('hero');
     h.scheduler.add(face);
-    expect(h.pending.size).toBe(0);
-    (doc as { visibilityState: string }).visibilityState = 'visible';
-    listeners.forEach((cb) => cb());
+    // A frame is requested even though the document claims to be hidden; the browser decides whether it fires.
     expect(h.pending.size).toBe(1);
     h.frame();
     expect(face.frames).toHaveLength(1);
+    // Becoming visible wakes an idle loop without double-scheduling.
+    (doc as { visibilityState: string }).visibilityState = 'visible';
+    listeners.forEach((cb) => cb());
+    expect(h.pending.size).toBeLessThanOrEqual(1);
   });
 
   it('cancels the pending frame when the last face leaves', () => {
