@@ -9,7 +9,7 @@ import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
 import { ContextFiles } from '../memory/ContextFiles';
 import { scopeLabel } from '../memory/upload';
-import { paths } from '../router';
+import { linkTarget, paths } from '../router';
 import { PageTitle } from '../links/CopyLink';
 import { CopyLink } from '../links/CopyLink';
 import './pages.css';
@@ -42,6 +42,15 @@ export function Memory() {
       clearTimeout(t);
     };
   }, [q, kind]);
+  // A link to one memory shows it even when the list would not (a file excerpt, an older item).
+  const linked = linkTarget.value;
+  useEffect(() => {
+    if (!list || !linked?.startsWith('mem_') || list.some((m) => m.memoryId === linked)) return;
+    api
+      .getMemory(linked)
+      .then((r) => setList((l) => (l && !l.some((m) => m.memoryId === linked) ? [r.memory, ...l] : l)))
+      .catch(() => undefined);
+  }, [linked, !!list]);
   const put = (m: MemoryItem) => setList((l) => (l ? (l.some((x) => x.memoryId === m.memoryId) ? l.map((x) => (x.memoryId === m.memoryId ? m : x)) : [m, ...l]) : [m]));
   const drop = (id: string) => setList((l) => (l ?? []).filter((x) => x.memoryId !== id));
   const searching = q.trim().length > 0;

@@ -80,6 +80,8 @@ export function revealLinked(): void {
     if (run !== revealRun || route.value.path !== page || linkTarget.value !== at) return;
     const el = document.getElementById(at);
     if (!el) {
+      // A document in a frame (the canvas) takes the reader to the spot itself.
+      if (document.querySelector('[data-link-host]')) return;
       if (Date.now() - started < REVEAL_WAIT_MS) setTimeout(tick, 120);
       else showToast('That item is not here any more (it may have been removed).', 4000);
       return;

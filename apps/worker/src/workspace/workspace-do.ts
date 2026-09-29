@@ -1,6 +1,7 @@
 import { configured, loadConfig } from '../admin/config';
 import { DurableObject } from 'cloudflare:workers';
 import { catalogFull, fullIndex } from '@headcount/catalog/full';
+import { chiefDisplayName } from '@headcount/catalog';
 import { sniffOwnerText, type AffectCues } from '@headcount/expressions';
 import { MissingProviderError, type ChatProvider } from '@headcount/models';
 import {
@@ -44,6 +45,10 @@ import { AgentConfigError, AgentStore, type AgentSetup } from '../agents/store';
 import { connectorTools } from '../connectors/tools';
 import { CardError, Knowledge } from '../memory/host';
 import { memoryTools, type MemoryToolHost } from '../memory/chief-tools';
+import { isSection } from '../memory/handbook';
+import { answerThread, Threads, type DocContext } from '../threads/threads';
+import type { DocRef, DocThread, ThreadStart } from '@headcount/protocol/ext/threads';
+import type { CanvasSnapshot } from '@headcount/protocol/ext/canvas';
 import type { ContextCard, HandbookResponse, HandbookSectionId, MemoryItem, MemoryKind, Recalled } from '@headcount/protocol/ext/memory';
 import { realtimeAck, voiceFrontOf, type AckRequest, type FrontPart } from './voice-front';
 import type { AutomationSpec } from '@headcount/protocol/ext/automations';
@@ -203,12 +208,15 @@ export class WorkspaceDO extends DurableObject<Env> {
   private readonly connectors: ConnectorStore;
   /** What the workspace knows: memory, the Handbook, context cards (Inc 4). */
   private readonly knowledge: Knowledge;
+  private readonly threads: Threads;
   /** The Chief's connector calls waiting for the owner's OK, by decision id. */
   private readonly approvalWaiters = new Map<string, (v: 'approved' | 'declined') => void>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, configured(env));
     void ctx.blockConcurrencyWhile(() => loadConfig(env));
+    // Everything below reads the admin page's settings over the deployment's.
+    env = this.env;
     for (const stmt of SCHEMA) ctx.storage.sql.exec(stmt);
     this.ledger = new Ledger(ctx.storage, workspaceStream(this.workspaceId), runtime.now);
     this.presence = new PresenceBoard(ctx.storage);
@@ -224,6 +232,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       take: () => this.usage.take('memory', dailyLimit(env, 'memory'), runtime.now()).allowed,
       background: (work) => ctx.waitUntil(work.catch((err) => logError('memory', err))),
     });
+    this.threads = new Threads(ctx.storage.sql, () => runtime.now());
     this.connectors = new ConnectorStore({
       sql: ctx.storage.sql,
       env,
@@ -377,6 +386,10 @@ export class WorkspaceDO extends DurableObject<Env> {
     return this.knowledge.memory.list({ ...(opts.scope ? { scope: opts.scope } : {}), ...(opts.kind ? { kind: opts.kind } : {}) });
   }
 
+  async memoryGet(memoryId: string): Promise<MemoryItem | null> {
+    return this.knowledge.memory.get(memoryId);
+  }
+
   async memoryAdd(m: { text: string; kind: MemoryKind; scope: string }): Promise<MemoryItem> {
     return this.knowledge.memory.add({ text: m.text, kind: m.kind, scope: m.scope, source: 'owner', sourceLabel: 'Added by you' }).item;
   }
@@ -408,6 +421,135 @@ export class WorkspaceDO extends DurableObject<Env> {
       this.feed.append({ type: 'talk.message', data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text, kind: 'reply' }, actor: CHIEF_ID });
     }
     return this.knowledge.handbook.view();
+  }
+
+  // ── side chats in documents (ext/threads.ts) ───────────────────────────────────────
+
+  async threadsList(doc: DocRef): Promise<DocThread[]> {
+    return this.threads.list(doc);
+  }
+
+  /** Ask about a passage: a new thread pinned to it, answered by whoever wrote or keeps the document. */
+  async threadStart(input: ThreadStart, by: { email: string; name: string }): Promise<{ thread: DocThread } | { error: string; code: 'not_found' | 'rate_limited' | 'not_configured' }> {
+    const c = await this.docContext(input.doc, input.anchor, input.quote);
+    if (!c) return { error: 'That document is not here any more.', code: 'not_found' };
+    const id = this.threads.create({ doc: input.doc, anchor: input.anchor, quote: input.quote, agentId: c.agent.id, agentName: c.agent.name, by: by.email });
+    return this.threadSay(id, input.text, by, c);
+  }
+
+  async threadReply(threadId: string, text: string, by: { email: string; name: string }): Promise<{ thread: DocThread } | { error: string; code: 'not_found' | 'rate_limited' | 'not_configured' }> {
+    const t = this.threads.get(threadId);
+    if (!t) return { error: 'That conversation is not here any more.', code: 'not_found' };
+    const c = await this.docContext(t.doc, t.anchor, t.quote);
+    if (!c) return { error: 'That document is not here any more.', code: 'not_found' };
+    return this.threadSay(threadId, text, by, c);
+  }
+
+  async threadResolve(threadId: string, status: 'open' | 'resolved'): Promise<DocThread | null> {
+    return this.threads.setStatus(threadId, status);
+  }
+
+  private async threadSay(threadId: string, text: string, by: { email: string; name: string }, c: DocContext): Promise<{ thread: DocThread } | { error: string; code: 'not_found' | 'rate_limited' | 'not_configured' }> {
+    const settings = await this.getSettings();
+    this.threads.add(threadId, { from: 'owner', name: by.name || settings.ownerName || 'You', text });
+    const limit = dailyLimit(this.env, 'chat');
+    if (!this.usage.take('chat', limit, runtime.now()).allowed) return { error: limitMessage('chat', limit), code: 'rate_limited' };
+    let m: { provider: ChatProvider; model: string };
+    try {
+      const r = models(this.env, { surface: 'desk', agentId: c.agent.id }).resolve('chat', { tier: 'fast', needs: ['tools'] });
+      m = { provider: r.provider, model: r.model };
+    } catch (err) {
+      if (err instanceof MissingProviderError) return { error: 'No AI provider is set up yet. An owner can add a key in Admin → Provider keys.', code: 'not_configured' };
+      throw err;
+    }
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 60_000);
+    try {
+      const answer = await answerThread(m, c, this.threads.get(threadId)!, ac.signal);
+      this.threads.add(threadId, { from: c.agent.id, name: c.agent.name, text: answer.text, ...(answer.action ? { action: answer.action } : {}) });
+    } catch (err) {
+      logError('threads.answer', err);
+      this.threads.add(threadId, { from: c.agent.id, name: c.agent.name, text: 'Something went wrong on my side while answering. Ask me again and I will try another way.' });
+    } finally {
+      clearTimeout(timer);
+    }
+    return { thread: this.threads.get(threadId)! };
+  }
+
+  /** The document a thread is about, who answers for it, and the change they can make. */
+  private async docContext(doc: DocRef, anchor: string, quote: string): Promise<DocContext | null> {
+    const settings = await this.getSettings();
+    const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
+    const chief = { id: CHIEF_ID, name: chiefDisplayName(lead, settings.chiefName), role: 'the Chief of Staff', ...(lead?.tone ? { manner: `Your manner: ${lead.tone}` } : {}) };
+    const known = async (text: string) => {
+      try {
+        return await this.knowledge.block(`${quote} ${text.slice(0, 400)}`, []);
+      } catch {
+        return '';
+      }
+    };
+    const sectionOf = (text: string) => {
+      const at = text.indexOf(quote.slice(0, 40));
+      const before = at >= 0 ? text.slice(0, at) : '';
+      return [...before.matchAll(/^#{1,6}\s+(.+)$/gm)].at(-1)?.[1]?.trim();
+    };
+    const [kind, id] = doc.split(':') as [string, string | undefined];
+    if (kind === 'canvas' && id) {
+      const got = (await projectStub(this.env).canvasContent(id).catch(() => null)) as { canvas: CanvasSnapshot; text: string } | null;
+      if (!got) return null;
+      const text = got.canvas.kind === 'document' ? got.text : `An app. What it was asked to be: ${got.canvas.brief}`;
+      const section = sectionOf(text);
+      return {
+        title: got.canvas.title,
+        what: got.canvas.kind === 'document' ? 'the canvas document' : 'the canvas app',
+        text,
+        ...(section ? { section } : {}),
+        agent: chief,
+        known: await known(text),
+        change: {
+          tool: 'revise_document',
+          revise: async (instruction) => {
+            const r = (await projectStub(this.env).reviseCanvas(id, instruction, 'owner')) as unknown as { accepted: true; canvas: { canvasId: string } } | { accepted: false; message: string };
+            return r.accepted ? { kind: 'revised', canvasId: r.canvas.canvasId } : r.message;
+          },
+        },
+      };
+    }
+    if (kind === 'deliverable' && id) {
+      const p = (await projectStub(this.env).getProject(id).catch(() => null)) as TeamProjectSnapshot | null;
+      if (!p?.deliverable) return null;
+      const who = p.team.find((t) => t.personaId === p.finisherId) ?? p.team.find((t) => t.role === 'lead') ?? p.team[0];
+      const persona = who ? fullIndex.persona(who.personaId) : undefined;
+      const section = sectionOf(p.deliverable);
+      return {
+        title: p.title,
+        what: "the team project's deliverable",
+        text: p.deliverable,
+        ...(section ? { section } : {}),
+        agent: who ? { id: coworkerAgentId(who.personaId), name: who.name, role: `the ${who.title} who put this deliverable together`, ...(persona?.one_liner ? { manner: persona.one_liner } : {}) } : chief,
+        known: await known(p.deliverable),
+      };
+    }
+    if (kind === 'job' && id) {
+      const j = (await projectStub(this.env).getJob(id).catch(() => null)) as JobSnapshot | null;
+      if (!j?.result) return null;
+      const section = sectionOf(j.result);
+      return { title: j.title, what: 'the write-up of a piece of research', text: j.result, ...(section ? { section } : {}), agent: chief, known: await known(j.result) };
+    }
+    if (doc === 'handbook') {
+      const section = /^hb-([a-z]+)/.exec(anchor)?.[1];
+      if (!section || !isSection(section)) return null;
+      const s = this.knowledge.handbook.sections().find((x) => x.id === section)!;
+      return {
+        title: `Handbook: ${s.title}`,
+        what: 'a section of the Handbook (the owner’s description of the business)',
+        text: s.content,
+        section: s.title,
+        agent: chief,
+        change: { tool: 'update_handbook', section: s.title, update: (content) => (this.knowledge.handbook.put(section, content, 'chief'), { kind: 'handbook', section }) },
+      };
+    }
+    return null;
   }
 
   async cardsList(scope?: string): Promise<ContextCard[]> {

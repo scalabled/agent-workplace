@@ -37,6 +37,7 @@ import { noteUnauthenticated } from '../auth/session';
 import type { ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, MeetingResponse, MeetingSay, MeetingsResponse, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
 import type { CanvasCreate, CanvasListResponse, CanvasResponse } from '@headcount/protocol/ext/canvas';
 import type { ConfigResponse, MemberPut, MembersResponse, ModelPrice, UsageResponse } from '@headcount/protocol/ext/admin';
+import type { DocRef, ThreadResponse, ThreadStart, ThreadsResponse } from '@headcount/protocol/ext/threads';
 import type { CardResponse, CardsResponse, HandbookResponse, HandbookSectionId, MemoryCreate, MemoryItem, MemoryKind, MemoryListResponse, MemoryPatch } from '@headcount/protocol/ext/memory';
 import type { AutomationPatch, AutomationResponse, AutomationsResponse } from '@headcount/protocol/ext/automations';
 import type { ConnectorCreate, ConnectorPatch, ConnectorResponse, ConnectorsResponse } from '@headcount/protocol/ext/connectors';
@@ -110,6 +111,11 @@ export const api = {
     if (!res.ok) throw new ApiError(res.status, 'not_found', 'The source could not be read.', []);
     return res.text();
   },
+  // Side chats in documents.
+  listThreads: (doc: DocRef) => request<ThreadsResponse>(`${routePath('listThreads')}?doc=${encodeURIComponent(doc)}`),
+  startThread: (t: ThreadStart) => request<ThreadResponse>(routePath('startThread'), jsonInit('POST', t)),
+  replyThread: (id: string, text: string) => request<ThreadResponse>(routePath('replyThread', { id }), jsonInit('POST', { text })),
+  resolveThread: (id: string, status: 'open' | 'resolved') => request<ThreadResponse>(routePath('resolveThread', { id }), jsonInit('PUT', { status })),
   // Admin: settings, people and roles, token usage.
   adminConfig: () => request<ConfigResponse>(routePath('adminConfig')),
   putAdminConfig: (values: Record<string, string | null>) => request<ConfigResponse>(routePath('putAdminConfig'), jsonInit('PUT', { values })),
@@ -124,6 +130,7 @@ export const api = {
     return request<MemoryListResponse>(`${routePath('listMemory')}${q ? `?${q}` : ''}`);
   },
   addMemory: (m: MemoryCreate) => request<{ memory: MemoryItem }>(routePath('addMemory'), jsonInit('POST', m)),
+  getMemory: (id: string) => request<{ memory: MemoryItem }>(routePath('getMemory', { id })),
   patchMemory: (id: string, p: MemoryPatch) => request<{ memory: MemoryItem }>(routePath('patchMemory', { id }), jsonInit('PUT', p)),
   removeMemory: (id: string) => request<{ removed: true }>(routePath('removeMemory', { id }), { method: 'DELETE' }),
   getHandbook: () => request<HandbookResponse>(routePath('getHandbook')),

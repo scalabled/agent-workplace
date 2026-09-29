@@ -5,7 +5,9 @@ import { jobProgressPercent } from '@headcount/protocol/ext/worker-core';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
 import { ago, now } from '../lib/time';
-import { navigate, paths, linkTarget } from '../router';
+import { navigate, paths, linkTarget, linkTo } from '../router';
+import { DocAsk, DocThreads } from '../docs/DocAsk';
+import { chiefName } from '../chief';
 import { steerJob, stopJob } from '../talk/actions';
 import { prefillComposer } from '../talk/draft';
 import { Icon } from './Icon';
@@ -281,7 +283,14 @@ export function Deliverable({ job, startOpen = false, label }: { job: JobSnapsho
         <span class="deliverable-title">{label ?? job.title}</span>
         <span class="deliverable-action">{open ? 'Hide' : 'Read'}</span>
       </button>
-      {open && <Markdown text={job.result} class="deliverable-body" />}
+      {open && (
+        <>
+          <DocAsk doc={`job:${job.jobId}`} page={linkTo(paths.projects, job.jobId)} agent={chiefName.value}>
+            <Markdown text={job.result} class="deliverable-body" anchors={`${job.jobId}-`} />
+          </DocAsk>
+          <DocThreads doc={`job:${job.jobId}`} page={linkTo(paths.projects, job.jobId)} agent={chiefName.value} />
+        </>
+      )}
     </div>
   );
 }

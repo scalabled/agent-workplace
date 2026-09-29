@@ -50,6 +50,12 @@ export const handleAddMemory: RouteHandler = async (req, { env }) => {
   return json({ memory: item }, { status: 201 });
 };
 
+export const handleGetMemory: RouteHandler = async (_req, { env, params }) => {
+  const item = isMemoryId(params.id) ? ((await workspaceStub(env).memoryGet(params.id)) as unknown as MemoryItem | null) : null;
+  if (!item) throw new HttpError('not_found', 'That memory is gone (it may have been forgotten).');
+  return json({ memory: item });
+};
+
 export const handlePatchMemory: RouteHandler = async (req, { env, params }) => {
   if (!isMemoryId(params.id)) throw new HttpError('not_found', 'No such memory.');
   const b = await readJson<Record<string, unknown>>(req);

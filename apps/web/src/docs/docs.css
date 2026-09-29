@@ -1,0 +1,142 @@
+/* Working inside documents: the bar over a selected passage, and the document's side chats. */
+.doc-ask,
+.canvas-body {
+  position: relative;
+}
+.doc-select-bar {
+  position: absolute;
+  z-index: 30;
+  transform: translate(-50%, calc(-100% - 8px));
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--panel-raised);
+  box-shadow: var(--shadow-float);
+  white-space: nowrap;
+}
+.doc-select-bar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 2.1rem;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+.doc-select-bar button:hover,
+.doc-select-bar button:focus-visible {
+  background: var(--panel-hover);
+}
+.doc-select-bar .doc-select-ask {
+  background: var(--lamp);
+  color: var(--lamp-ink);
+}
+.doc-select-bar .doc-select-ask:hover {
+  background: var(--lamp);
+  filter: brightness(1.05);
+}
+.doc-threads {
+  margin-top: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.deliverable .doc-threads,
+.deliverable-panel .doc-threads {
+  background: var(--surface-sunken);
+  box-shadow: none;
+}
+.doc-threads-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.doc-thread-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  border-top: 1px solid var(--line);
+}
+.doc-thread-list li {
+  border-bottom: 1px solid var(--line);
+}
+.doc-thread-row {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-3) 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.doc-thread-row:hover .doc-thread-quote {
+  text-decoration: underline;
+}
+.doc-thread-list li[data-status='resolved'] .doc-thread-quote {
+  color: var(--muted);
+}
+.doc-thread-quote {
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+.doc-thread-passage {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--lamp);
+  background: color-mix(in srgb, var(--lamp) 6%, transparent);
+  font-style: italic;
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+  max-height: 8rem;
+  overflow: auto;
+}
+.doc-thread-new,
+.doc-thread-reply,
+.doc-thread {
+  display: grid;
+  gap: var(--space-2);
+}
+.doc-thread-top {
+  display: grid;
+  gap: var(--space-2);
+}
+.doc-thread-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+.doc-thread-messages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.doc-thread-messages li {
+  display: grid;
+  gap: 2px;
+}
+.doc-thread-messages li[data-from='owner'] {
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--line-strong);
+}
+.doc-thread-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.doc-thread-typing {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}

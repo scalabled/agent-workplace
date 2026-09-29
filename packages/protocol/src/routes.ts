@@ -83,6 +83,7 @@ export const ROUTES = {
   // Inc 4: context and memory (ext/memory.ts).
   listMemory: { method: 'GET', path: '/api/memory', auth: 'reader' },
   addMemory: { method: 'POST', path: '/api/memory', auth: 'contributor', body: 'json', bodyCap: 4 * 1024 },
+  getMemory: { method: 'GET', path: '/api/memory/:id', auth: 'reader' },
   patchMemory: { method: 'PUT', path: '/api/memory/:id', auth: 'contributor', body: 'json', bodyCap: 4 * 1024 },
   removeMemory: { method: 'DELETE', path: '/api/memory/:id', auth: 'contributor' },
   getHandbook: { method: 'GET', path: '/api/handbook', auth: 'reader' },
@@ -130,6 +131,11 @@ export const ROUTES = {
   roomCancel: { method: 'POST', path: '/api/rooms/:roomId/cancel', auth: 'contributor', body: 'json', bodyCap: 4 * 1024 },
   officePeople: { method: 'GET', path: '/api/office/people', auth: 'reader' },
   exprHuddleRender: { method: 'POST', path: '/api/expr/huddle/render', auth: 'reader', body: 'json', bodyCap: 8 * 1024 },
+  // Side chats in documents (ext/threads.ts): ask about a passage, pinned to that spot.
+  listThreads: { method: 'GET', path: '/api/threads', auth: 'reader' },
+  startThread: { method: 'POST', path: '/api/threads', auth: 'contributor', body: 'json', bodyCap: 8 * 1024 },
+  replyThread: { method: 'POST', path: '/api/threads/:id', auth: 'contributor', body: 'json', bodyCap: 8 * 1024 },
+  resolveThread: { method: 'PUT', path: '/api/threads/:id', auth: 'contributor', body: 'json', bodyCap: 1024 },
   // Admin (ext/admin.ts): every setting, people and roles, token usage.
   adminConfig: { method: 'GET', path: '/api/admin/config', auth: 'owner' },
   putAdminConfig: { method: 'PUT', path: '/api/admin/config', auth: 'owner', body: 'json', bodyCap: 32 * 1024 },

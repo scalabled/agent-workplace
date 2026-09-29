@@ -11,7 +11,8 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { api, ApiError } from '../api/client';
 import { chiefName } from '../chief';
 import { Icon } from '../components/Icon';
-import { navigate, paths } from '../router';
+import { linkTarget, navigate, paths } from '../router';
+import { DocThreads, SelectionBar, type Selected } from '../docs/DocAsk';
 import { canvases, dropCanvas, upsertCanvas } from '../store';
 
 /** Roughly how long a finished piece runs (the progress bar fills toward it). */
@@ -81,13 +82,26 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
     };
   }, [canvasId, c?.status]);
 
-  // The app's error reporter (only from this frame).
+  // From this frame only: an app's error reporter, or the passage selected in a document (to ask about, or link to).
+  const [frameSel, setFrameSel] = useState<Selected | null>(null);
+  const body = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setReported([]);
+    setFrameSel(null);
     const on = (e: MessageEvent) => {
       if (e.source !== frame.current?.contentWindow) return;
-      const d = e.data as { type?: unknown; errors?: unknown };
-      if (d?.type !== CANVAS_REPORT_TYPE || !Array.isArray(d.errors)) return;
+      const d = e.data as { type?: unknown; errors?: unknown; ask?: { anchor?: unknown; quote?: unknown; rect?: { x: number; y: number; w: number; h: number } | null } | null };
+      if (d?.type !== CANVAS_REPORT_TYPE) return;
+      if ('ask' in d) {
+        const a = d.ask;
+        if (!a || typeof a.quote !== 'string' || !a.quote.trim()) return setFrameSel(null);
+        const f = frame.current!.getBoundingClientRect();
+        const b = body.current?.getBoundingClientRect() ?? f;
+        const r = a.rect ?? { x: f.width / 2, y: 0, w: 0, h: 0 };
+        setFrameSel({ anchor: typeof a.anchor === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(a.anchor) ? a.anchor : '', quote: a.quote.slice(0, 600), x: Math.max(8, f.left - b.left + r.x + r.w / 2), y: Math.max(0, f.top - b.top + r.y) });
+        return;
+      }
+      if (!Array.isArray(d.errors)) return;
       setReported(d.errors.filter((x): x is string => typeof x === 'string').slice(0, 8));
     };
     window.addEventListener('message', on);
@@ -102,8 +116,12 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
   const base = c.basedOn ? canvases.value[c.basedOn] : undefined;
   // What plays meanwhile: an app's first version, or the version a revision changes.
   const standIn = building ? (c.previewLines ? viewUrl(c.canvasId, true) : base?.status === 'ready' ? viewUrl(base.canvasId) : null) : null;
-  const src = ready ? viewUrl(c.canvasId) : standIn;
-  const sandbox = c.kind === 'app' ? 'allow-scripts allow-pointer-lock' : '';
+  // A link to a spot in a document (`?at=`) opens the document there, highlighted.
+  const spot = c.kind === 'document' && ready ? linkTarget.value : null;
+  const src = ready ? `${viewUrl(c.canvasId)}${spot ? `#${encodeURIComponent(spot)}` : ''}` : standIn;
+  // A document runs one script of ours (the selection, by its hash); an app its own. Neither ever gets our origin.
+  const sandbox = c.kind === 'app' ? 'allow-scripts allow-pointer-lock' : 'allow-scripts';
+  const docRef = `canvas:${c.canvasId}`;
   const run = async (fn: () => Promise<{ canvas: CanvasSnapshot }>, fallback: string) => {
     setBusy(true);
     setError(null);
@@ -190,7 +208,8 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
         </div>
       </header>
 
-      <div class="canvas-body">
+      <div class="canvas-body" ref={body} data-link-host={c.kind === 'document' || undefined}>
+        {frameSel && ready && c.kind === 'document' && <SelectionBar sel={frameSel} doc={docRef} page={paths.canvasItem(c.canvasId)} agent={chiefName.value} onDone={() => setFrameSel(null)} />}
         {src && source === null && (
           <iframe key={`${src}#${frameKey}`} ref={frame} class="canvas-frame" src={src} sandbox={sandbox} referrerpolicy="no-referrer" title={c.title} />
         )}
@@ -232,6 +251,8 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
           </div>
         )}
       </div>
+
+      {ready && c.kind === 'document' && <DocThreads doc={docRef} page={paths.canvasItem(c.canvasId)} agent={chiefName.value} />}
 
       {ready && c.kind === 'app' && reported.length > 0 && (
         <div class="canvas-report" role="alert">

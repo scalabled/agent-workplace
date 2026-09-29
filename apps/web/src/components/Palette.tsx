@@ -10,6 +10,7 @@ import { chiefName } from '../chief';
 import { setTheme, theme } from '../lib/theme';
 import { navigate, paths } from '../router';
 import { auth, isOwner, signOut } from '../auth/session';
+import { copyLink, pageHref } from '../links/links';
 import { onboarded, settings } from '../store';
 import { setAmbience, setOwnerName, setVoiceOn } from '../talk/actions';
 import { AMBIENCE_LABEL, AMBIENCE_LINE } from './AmbienceControl';
@@ -160,6 +161,7 @@ function useItems(): PaletteItem[] {
       const current = s.ownerName?.trim() || null;
       items.push({ id: 'set:owner-name', label: 'Set your name', hint: current ? `Now ${current}` : 'Used in greetings', group: 'Settings', icon: 'user', keywords: 'my name call me first name greeting owner', run: () => askInPalette(ownerNamePrompt(current)) });
     }
+    items.push({ id: 'do:copy-link', label: 'Copy link to this page', hint: 'To share it or give it to an agent', group: 'Settings', icon: 'link', keywords: 'share url address permalink copy link', run: () => void copyLink(pageHref(), 'Link to this page') });
     items.push({ id: 'set:chief', label: 'Switch Chief of Staff', hint: 'Pick someone else', group: 'Settings', icon: 'user', keywords: 'lead change choose', run: go(paths.onboarding) });
     const who = auth.value;
     if (who.status === 'signed-in') items.push({ id: 'set:signout', label: 'Sign out', hint: who.email, group: 'Settings', icon: 'user', keywords: 'log out logout account google leave', run: () => void signOut() });

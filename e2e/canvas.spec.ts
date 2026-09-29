@@ -54,7 +54,8 @@ test('the Chief writes a document on the canvas; the reply links to it', async (
   const doc = page.frameLocator('.canvas-frame');
   await expect(doc.locator('h1')).toBeVisible();
   await expect(doc.locator('table')).toBeVisible();
-  expect(await page.locator('.canvas-frame').getAttribute('sandbox')).toBe('');
+  // A document runs no script but the canvas's own (allowed by its hash), and never with our origin.
+  expect(await page.locator('.canvas-frame').getAttribute('sandbox')).toBe('allow-scripts');
   const [md] = await Promise.all([page.waitForEvent('download'), page.getByRole('link', { name: 'Markdown' }).click()]);
   expect(md.suggestedFilename()).toMatch(/\.md$/);
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/canvas-doc.png` });

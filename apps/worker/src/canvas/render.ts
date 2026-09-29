@@ -7,6 +7,7 @@
 //   "Save as PDF" makes the file: sandboxed with modals allowed (printing needs them), and still no network.
 import { Marked, type Tokens } from 'marked';
 import { CANVAS_REPORT_TYPE } from '@headcount/protocol/ext/canvas';
+import { anchorBlocks } from '@headcount/protocol/ext/threads';
 
 export const APP_CSP = [
   'sandbox allow-scripts allow-pointer-lock',
@@ -34,6 +35,22 @@ export const PRINT_CSP = APP_CSP.replace('sandbox allow-scripts allow-pointer-lo
  * the page's own line numbers in those errors stay true.
  */
 export const REPORTER = `<script>(()=>{const seen=new Set(),errs=[];const push=m=>{m=String(m||"").slice(0,400);if(!m||seen.has(m)||errs.length>=8)return;seen.add(m);errs.push(m)};addEventListener("error",e=>push((e.message||"Error")+(e.lineno?" (line "+e.lineno+")":"")));addEventListener("unhandledrejection",e=>push("Unhandled rejection: "+(e.reason&&e.reason.message||e.reason)));const ce=console.error;console.error=function(...a){push(a.map(x=>x&&x.message||String(x)).join(" "));return ce.apply(this,a)};const report=()=>{try{parent.postMessage({type:${JSON.stringify(CANVAS_REPORT_TYPE)},errors:errs.slice()},"*")}catch(_){}};addEventListener("load",()=>setTimeout(report,2500));setTimeout(report,7000)})();</script>`;
+
+/**
+ * On the canvas page only (never in a download or print): a passage the owner selects in a document is handed to the
+ * canvas with the block it sits in, so they can ask about it or link to that spot. Nothing else: no network, no DOM
+ * changes; the frame stays an opaque origin.
+ */
+const ASK_SOURCE = `(()=>{const T=${JSON.stringify(CANVAS_REPORT_TYPE)};const post=a=>{try{parent.postMessage({type:T,ask:a},"*")}catch(_){}};const send=()=>{const s=getSelection();const q=s?String(s).replace(/\\s+/g," ").trim():"";if(!q){post(null);return}const n=s.anchorNode;let el=n&&(n.nodeType===1?n:n.parentElement);while(el&&!el.id)el=el.parentElement;const r=s.rangeCount?s.getRangeAt(0).getBoundingClientRect():null;post({anchor:el?el.id:"",quote:q.slice(0,600),rect:r?{x:r.left,y:r.top,w:r.width,h:r.height}:null})};document.addEventListener("mouseup",()=>setTimeout(send,10));document.addEventListener("keyup",e=>{if(e.shiftKey||e.key==="Escape")setTimeout(send,10)});document.addEventListener("touchend",()=>setTimeout(send,350));addEventListener("scroll",()=>{if(String(getSelection()||"").trim())send()},{passive:true})})();`;
+export const ASK = `<script>${ASK_SOURCE}</script>`;
+
+let askHash: Promise<string> | null = null;
+/** The CSP for a document on the canvas: no scripts but the one above (by its hash). */
+export async function documentViewCsp(): Promise<string> {
+  askHash ??= crypto.subtle.digest('SHA-256', new TextEncoder().encode(ASK_SOURCE)).then((d) => btoa(String.fromCharCode(...new Uint8Array(d))));
+  const hash = await askHash;
+  return ['sandbox allow-scripts', "default-src 'none'", `script-src 'sha256-${hash}'`, "style-src 'unsafe-inline'", 'img-src data:', "form-action 'none'", "base-uri 'none'", "frame-ancestors 'self'"].join('; ');
+}
 
 /** Opens the print dialog once the page has laid out (Save as PDF there). */
 export const PRINTER = `<script>addEventListener("load",()=>setTimeout(()=>{try{print()}catch(_){}},600));</script>`;
@@ -88,6 +105,8 @@ const DOCUMENT_STYLE = `
   th { background: #f6f2ea; }
   hr { border: 0; border-top: 1px solid #e6e2d9; margin: 28px 0; }
   .meta { font: 13px system-ui, sans-serif; color: #7a756b; margin-top: 40px; }
+  [id] { scroll-margin-top: 24px; }
+  :target { background: #fff3d6; box-shadow: 0 0 0 6px #fff3d6; border-radius: 3px; transition: background 1.5s ease-out; }
   @media (max-width: 600px) { main { padding: 32px 18px 60px; } h1 { font-size: 26px; } }
   @media print {
     body { background: #fff; }
@@ -98,16 +117,20 @@ const DOCUMENT_STYLE = `
   @page { margin: 18mm 16mm; }
 `;
 
-/** A Markdown document as one standalone, styled HTML page (for the canvas, the download and print). */
-export function documentPage(title: string, markdown: string, meta?: string): string {
-  const body = md.parse(markdown) as string;
+/**
+ * A Markdown document as one standalone, styled HTML page (for the canvas, the download and print). Every heading and
+ * block has an anchor (`#h-…`, `#b-…`), so a link can point at any spot; on the canvas (`ask`) a selection can be asked
+ * about.
+ */
+export function documentPage(title: string, markdown: string, meta?: string, opts: { ask?: boolean } = {}): string {
+  const body = anchorBlocks(md.parse(markdown) as string);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)}</title>
-<style>${DOCUMENT_STYLE}</style>
+<style>${DOCUMENT_STYLE}</style>${opts.ask ? `\n${ASK}` : ''}
 </head>
 <body>
 <main>

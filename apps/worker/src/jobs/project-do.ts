@@ -179,6 +179,8 @@ export class ProjectDO extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, configured(env));
     void ctx.blockConcurrencyWhile(() => loadConfig(env));
+    // Everything below reads the admin page's settings over the deployment's.
+    env = this.env;
     for (const stmt of SCHEMA) ctx.storage.sql.exec(stmt);
     this.ledger = new Ledger(ctx.storage, this.streamId, runtime.now);
     this.usage = new DailyCounter(ctx.storage);

@@ -16,7 +16,7 @@ import { SideThread } from '../components/SideThread';
 import { ContextFiles } from '../memory/ContextFiles';
 import { PageTitle } from '../links/CopyLink';
 import { useSampleSpeaker, VoiceSample } from '../components/VoiceSample';
-import { navigate, paths } from '../router';
+import { navigate, paths, linkTarget, queryParam, setQuery } from '../router';
 import { localPresence, onboarded } from '../store';
 import { prefillComposer } from '../talk/draft';
 import './floor.css';
@@ -26,7 +26,8 @@ const SENIORITY: Record<PersonaSlim['seniority'], string> = { specialist: 'Speci
 
 export function CoworkerProfile({ personaId }: { personaId: string }) {
   useEffect(() => void loadCatalog(), []);
-  useEffect(() => window.scrollTo?.(0, 0), [personaId]);
+  // A new profile starts at the top, unless a link points somewhere on it.
+  useEffect(() => void (linkTarget.value ? undefined : window.scrollTo?.(0, 0)), [personaId]);
   const c = catalog.value;
   const p = c?.persona(personaId);
   if (!c)
@@ -64,7 +65,10 @@ function Profile({ persona: p }: { persona: PersonaSlim }) {
   const known = (ids: string[]) => ids.map((id) => skills.get(id)).filter((s): s is SkillIndexEntry => !!s);
   const primary = known(p.skills.primary);
   const secondary = known(p.skills.secondary);
-  const [tab, setTab] = useState<'about' | 'work' | 'prompt'>('about');
+  // The tab is part of the address (`?tab=work`), so "how they work" and their prompt can be linked to.
+  const asked = queryParam('tab');
+  const tab: 'about' | 'work' | 'prompt' = asked === 'work' || asked === 'prompt' ? asked : 'about';
+  const setTab = (t: 'about' | 'work' | 'prompt') => setQuery({ tab: t === 'about' ? null : t });
 
   return (
     <article class="page profile" aria-labelledby="profile-title" style={{ '--accent': accentFor(p.avatar.accent_color) }}>

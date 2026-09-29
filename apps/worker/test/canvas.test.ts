@@ -25,12 +25,13 @@ describe('canvas helpers (pure)', () => {
 
   it('renders a document as a page, with raw HTML shown as text and only web links kept', () => {
     const html = documentPage('Plan', '# Plan\n\nHello <script>alert(1)</script> [site](https://example.com) [bad](javascript:alert(1))\n\n| a | b |\n| - | - |\n| 1 | 2 |');
-    expect(html).toContain('<h1>Plan</h1>');
+    expect(html).toContain('<h1 id="h-plan">Plan</h1>');
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(html).not.toContain('<script>');
     expect(html).toContain('<a href="https://example.com" rel="noreferrer noopener">site</a>');
     expect(html).not.toContain('javascript:');
-    expect(html).toContain('<table>');
+    expect(html).toContain('<table id="b-2">');
+    expect(html).not.toContain('<script'); // a download or print carries no script
     expect(html).toContain('@media print');
   });
 });
@@ -96,9 +97,17 @@ describe('the canvas', () => {
     expect(c).toMatchObject({ status: 'ready', kind: 'document', title: 'Opening checklist' });
     expect(c.words).toBeGreaterThan(20);
     const view = await s.raw('GET', `/api/canvas/${c.canvasId}/view`);
-    expect(view.headers.get('content-security-policy')).toBe(DOCUMENT_CSP);
-    expect(await view.text()).toContain('<h1>Opening checklist</h1>');
+    // On the canvas: anchors on every block, and the one script that hands a selection to the canvas, allowed by its hash.
+    const csp = view.headers.get('content-security-policy')!;
+    const html = await view.text();
+    expect(html).toContain('<h1 id="h-opening-checklist">Opening checklist</h1>');
+    const script = /<script>([\s\S]*?)<\/script>/.exec(html)![1]!;
+    const hash = btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(script)))));
+    expect(csp).toBe(`sandbox allow-scripts; default-src 'none'; script-src 'sha256-${hash}'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'; frame-ancestors 'self'`);
+    expect(html.match(/<script>/g)).toHaveLength(1);
     const dl = await s.raw('GET', `/api/canvas/${c.canvasId}/download`);
+    expect(dl.headers.get('content-security-policy')).toBe(DOCUMENT_CSP);
+    expect(await dl.clone().text()).not.toContain('<script');
     expect(dl.headers.get('content-disposition')).toBe('attachment; filename="Opening-checklist.html"');
     const src = await s.raw('GET', `/api/canvas/${c.canvasId}/source?download=1`);
     expect(src.headers.get('content-type')).toBe('text/markdown; charset=utf-8');

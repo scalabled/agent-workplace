@@ -8,6 +8,7 @@ import { chiefName } from '../chief';
 import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
 import { Markdown } from '../components/Markdown';
+import { DocAsk, DocThreads } from '../docs/DocAsk';
 import { navigate, paths } from '../router';
 import { thread } from '../store';
 import { PageTitle } from '../links/CopyLink';
@@ -105,12 +106,15 @@ export function Handbook() {
       )}
       {!hb && !error && <p class="page-fine">Loading…</p>}
       {hb && (
-        <div class="handbook-sections">
-          {hb.sections.map((s) => (
-            <SectionCard key={s.id} section={s} onSaved={setHb} />
-          ))}
-        </div>
+        <DocAsk doc="handbook" page={paths.handbook} agent={name}>
+          <div class="handbook-sections">
+            {hb.sections.map((s) => (
+              <SectionCard key={s.id} section={s} onSaved={setHb} />
+            ))}
+          </div>
+        </DocAsk>
       )}
+      {hb && <DocThreads doc="handbook" page={paths.handbook} agent={name} />}
     </section>
   );
 }
@@ -179,7 +183,7 @@ function SectionCard({ section: s, onSaved }: { section: HandbookSection; onSave
         </form>
       ) : s.content.trim() ? (
         <>
-          <Markdown text={s.content} class="handbook-body" />
+          <Markdown text={s.content} class="handbook-body" anchors={`hb-${s.id}-`} />
           <p class="connector-meta">
             {s.updatedBy === 'chief' ? `Written by ${chiefName.value} from your interview` : 'Written by you'}
             {s.updatedAt ? ` · ${day(s.updatedAt)}` : ''}

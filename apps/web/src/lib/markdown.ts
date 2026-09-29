@@ -1,6 +1,7 @@
 // Chief of Staff and deliverable Markdown → sanitised HTML (marked + DOMPurify). Model text is untrusted.
 import DOMPurify from 'dompurify';
 import { Marked } from 'marked';
+import { anchorBlocks } from '@headcount/protocol/ext/threads';
 
 const marked = new Marked({ gfm: true, breaks: true, async: false });
 
@@ -43,10 +44,17 @@ function sanitizerWorks(): boolean {
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-/** Render Markdown to safe HTML. No images, iframes, forms, styles or event handlers survive. */
-export function renderMarkdown(md: string): string {
+/**
+ * Render Markdown to safe HTML. No images, iframes, forms, styles or event handlers survive. With `anchors` (a prefix,
+ * unique on the page), every heading and block gets an id, so a link or a side chat can point at that spot.
+ */
+export function renderMarkdown(md: string, anchors?: string): string {
   ensureHooks();
-  if (!sanitizerWorks()) return (md ?? '').split(/\n{2,}/).map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`).join('');
-  const html = marked.parse(md ?? '') as string;
-  return DOMPurify.sanitize(html, CONFIG);
+  const html = sanitizerWorks()
+    ? DOMPurify.sanitize(marked.parse(md ?? '') as string, CONFIG)
+    : (md ?? '')
+        .split(/\n{2,}/)
+        .map((p) => `<p>${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
+        .join('');
+  return anchors === undefined ? html : anchorBlocks(html, anchors);
 }

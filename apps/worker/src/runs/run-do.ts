@@ -118,6 +118,8 @@ export class RunDO extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, configured(env));
     void ctx.blockConcurrencyWhile(() => loadConfig(env));
+    // Everything below reads the admin page's settings over the deployment's.
+    env = this.env;
     for (const stmt of SCHEMA) ctx.storage.sql.exec(stmt);
     // A run that was in flight when the object stopped resumes on the next alarm.
     void ctx.blockConcurrencyWhile(async () => {
