@@ -392,8 +392,8 @@ export function checkDeployment(opts) {
     for (const k of ['GOOGLE_CLIENT_SECRET', 'OWNER_EMAILS']) if (k in vars) problems.push(`${k} is a plain var: it must be a Worker secret (wrangler secret put ${k})`);
     add('google sign-in config', problems.length ? 'fail' : 'ok', problems.length ? problems.join('; ') : `client ${String(vars.GOOGLE_CLIENT_ID).slice(0, 12)}…, origin ${appOrigin}`);
     const index = existsSync(join(root, 'apps/worker/src/index.ts')) ? readFileSync(join(root, 'apps/worker/src/index.ts'), 'utf8') : '';
-    const gated = /requireSession\(/.test(index) && /handleAuthRoute\(/.test(index) && existsSync(join(root, 'apps/worker/src/auth/auth.ts'));
-    add('worker requires a session', gated ? 'ok' : 'fail', gated ? 'index.ts gates /api with requireSession (src/auth/auth.ts); owner secrets checked at deploy time: GOOGLE_CLIENT_SECRET, OWNER_EMAILS' : 'apps/worker/src/index.ts does not call requireSession/handleAuthRoute: the API would be open.');
+    const gated = /(requireSession|authorize)\(/.test(index) && /handleAuthRoute\(/.test(index) && existsSync(join(root, 'apps/worker/src/auth/auth.ts'));
+    add('worker requires a session', gated ? 'ok' : 'fail', gated ? 'index.ts gates /api with authorize (a session and the route\'s role; src/auth/auth.ts); owner secrets checked at deploy time: GOOGLE_CLIENT_SECRET, OWNER_EMAILS' : 'apps/worker/src/index.ts does not call authorize/handleAuthRoute: the API would be open.');
   } else {
     const accessVars = ['ACCESS_TEAM_DOMAIN', 'ACCESS_AUD'].filter((k) => isPlaceholder(vars[k]));
     if (accessVars.length) add('access config', opts.smoke ? 'warn' : 'fail', `${accessVars.join(', ')} unset or placeholder, and AUTH_MODE is not "google". The API would have no login: anyone with the URL spends the provider keys (DEPLOY.md §4).${opts.smoke ? ' Acceptable only for the keyless smoke deploy.' : ''}`);
