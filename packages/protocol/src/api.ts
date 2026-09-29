@@ -72,6 +72,8 @@ export interface CapabilitiesResponse {
   modalities: Record<Modality, ModalityStatus>;
   /** DEFAULT_CHAT resolved ("auto" → first configured in preference order). */
   defaultChat: ProviderId | null;
+  /** The Chief of Staff's realtime voice front (Inc 2): spoken turns get a quick spoken acknowledgement while the brain works. */
+  voiceFront?: { available: boolean; provider: 'xai' | 'mock' | null };
 }
 
 // ── health ──────────────────────────────────────────────────────────────────────

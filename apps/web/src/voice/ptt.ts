@@ -13,6 +13,7 @@ import { can, setLocalPresence } from '../store';
 import { errorSentence, sendOwnerMessage } from '../talk/actions';
 import { showNotice } from '../ui/notice';
 import { bargeIn } from './chief-voice';
+import { stopLiveVoice } from './live';
 import { armAudio, audio, audioSupport } from './engine';
 
 export type PttPhase = 'idle' | 'starting' | 'listening' | 'transcribing';
@@ -144,6 +145,8 @@ function ptc(): PushToTalk {
  */
 export function startPtt(opts: { target?: PttTarget } = {}): void {
   if (ptt.value.phase !== 'idle') return;
+  // Holding to talk takes the mic from hands-free talk (one mic at a time).
+  stopLiveVoice();
   if (!pttMode()) {
     showNotice('This browser cannot listen. Type your message instead.', 'error');
     return;

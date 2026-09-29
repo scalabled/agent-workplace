@@ -26,6 +26,7 @@ import { bargeIn, chiefIsSpeaking, chiefSpeaker } from '../voice/chief-voice';
 import { armAudio, audioSupport } from '../voice/engine';
 import { mayVoice } from '../voice/owner';
 import { cancelPtt, endPtt, ptt, pttMode, startPtt } from '../voice/ptt';
+import { liveVoice, startLiveVoice, stopLiveVoice } from '../voice/live';
 import './talk.css';
 
 /** The first starter always shows delegation, the heart of Talk (D2): hand it off, keep talking. */
@@ -407,6 +408,9 @@ function Composer({ name }: { name: string }) {
   const text = draft.value;
   const phase = ptt.value.phase;
   const mode = pttMode();
+  const live = liveVoice.value;
+  // Hands-free talk is a Talk thing: leaving Talk closes the mic.
+  useEffect(() => () => stopLiveVoice(), []);
   const n = notice.value;
   const focusTick = focusComposer.value;
 
@@ -478,6 +482,14 @@ function Composer({ name }: { name: string }) {
           {n.text}
         </p>
       )}
+      {live.phase !== 'off' && (
+        <p class="composer-live-status" role="status" data-phase={live.phase}>
+          {live.phase === 'starting' ? 'Opening the mic…' : live.phase === 'hearing' ? 'Listening to you…' : live.phase === 'sending' ? `Sent to ${name}. Speak any time to add or interrupt.` : `Hands-free: speak any time; a pause sends it.`}{' '}
+          <button type="button" class="link-button" onClick={stopLiveVoice}>
+            End
+          </button>
+        </p>
+      )}
       <div class="composer-box">
         <label class="visually-hidden" for="composer">
           Message {name}
@@ -528,6 +540,23 @@ function Composer({ name }: { name: string }) {
             onClick={(e) => e.preventDefault()}
           >
             <Icon name="mic" />
+          </button>
+        )}
+        {mode === 'stt' && (
+          <button
+            type="button"
+            class="icon-button composer-live"
+            data-active={live.phase !== 'off' || undefined}
+            aria-pressed={live.phase !== 'off'}
+            aria-label={live.phase === 'off' ? 'Talk hands-free' : 'End hands-free talk'}
+            title={live.phase === 'off' ? 'Talk hands-free: speak any time, a pause sends' : 'End hands-free talk'}
+            onClick={() => {
+              armAudio();
+              if (live.phase === 'off') startLiveVoice();
+              else stopLiveVoice();
+            }}
+          >
+            <Icon name="headphones" />
           </button>
         )}
         <button type="submit" class="composer-send" aria-label={`Send to ${name}`}>

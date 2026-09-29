@@ -78,6 +78,12 @@ export interface FrameDataMap {
    * asked for with its `⟦react:…⟧` head token (already stripped from the text).
    */
   'talk.delta': { turnId: TurnId; messageId: MessageId; agentId: AgentId; delta: string; surface?: TalkSurface; hint?: ReactHint; roomId?: RoomId; meetingId?: string };
+  /**
+   * The voice front (Inc 2): a short spoken acknowledgement of a spoken turn from a realtime voice model, while the
+   * brain works. PCM16 mono audio, base64, in order (`seq`); `done` ends it; `cancelled` means the brain answered
+   * first and nothing should play. Ephemeral.
+   */
+  'talk.front': { turnId: TurnId; seq: number; audio?: string; sampleRate?: number; text?: string; done?: boolean; cancelled?: boolean };
   /** A complete Chief of Staff message: a turn's reply, or a proactive one (job done). Persisted. */
   'talk.message': {
     turnId: TurnId | null;
@@ -214,6 +220,7 @@ export const EPHEMERAL_FRAME_TYPES: ReadonlySet<FrameType> = new Set<FrameType>(
   'attention.changed',
   'voice.owner',
   'room.turn',
+  'talk.front',
 ]);
 
 export function isPersisted(type: FrameType): boolean {

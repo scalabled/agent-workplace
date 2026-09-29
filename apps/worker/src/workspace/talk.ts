@@ -1,4 +1,5 @@
 import { callBudget, runTurn, type TurnResult } from '@headcount/agent-loop';
+import { chiefDisplayName } from '@headcount/catalog';
 import { fullIndex, catalogFull } from '@headcount/catalog/full';
 import { REACT_HINT_MAX_CHARS, humourOnly, maybeReactHintPrefix, parseReactHint, type AffectCues } from '@headcount/expressions';
 import { MissingProviderError, type ChatMessage, type ReasoningEffort, type Registry } from '@headcount/models';
@@ -10,6 +11,7 @@ import type { ConnectorAsk } from '@headcount/protocol/ext/connectors';
 import type { ConnectorCallRequest, ConnectorCallResult, ConnectorKit } from '../connectors/store';
 import { connectorTools } from '../connectors/tools';
 import { automationTool, type ProposeOutcome } from '../automations/chief-tool';
+import { FRONT_SAMPLE_RATE, type AckRequest, type FrontPart } from './voice-front';
 import type { AutomationSpec } from '@headcount/protocol/ext/automations';
 import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
 import type { Decision, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
@@ -54,6 +56,8 @@ export interface TalkHost {
   reflexes?: TurnReflexHooks;
   /** False when the owner turned web tools off (WEB_TOOLS=off). */
   webTools?: boolean;
+  /** The realtime voice front (Inc 2): a spoken turn gets a quick spoken acknowledgement while the brain works. */
+  front?: { ack(req: Omit<AckRequest, 'signal'>, signal: AbortSignal): AsyncIterable<FrontPart> };
   /** The Chief sets up automations the owner asks for; each waits on a card for the owner's OK (stage 3b). */
   automations?: { propose(spec: Partial<AutomationSpec>, signal: AbortSignal): Promise<ProposeOutcome> };
   /** The connectors the Chief may use, their calls, and the wait for the owner's OK (Stage 5). */
@@ -320,6 +324,46 @@ export class ReactHintSplitter {
 }
 
 /**
+ * Run the voice front for one turn: its audio goes to the owner's tab as `talk.front` frames, in order. If the brain's
+ * first words arrive before any acknowledgement audio, the acknowledgement is dropped (`cancelled`).
+ */
+function startFront(host: TalkHost, turnId: TurnId, signal: AbortSignal, req: Omit<AckRequest, 'signal'>): { brainSpoke(): void } {
+  const ac = new AbortController();
+  const stop = () => ac.abort();
+  signal.addEventListener('abort', stop, { once: true });
+  let seq = 0;
+  let sounded = false;
+  let dropped = false;
+  let words = '';
+  const emit = (data: { audio?: string; sampleRate?: number; text?: string; done?: boolean; cancelled?: boolean }) => host.feed.emit({ type: 'talk.front', data: { turnId, seq: seq++, ...data } });
+  void (async () => {
+    try {
+      for await (const part of host.front!.ack(req, ac.signal)) {
+        if (dropped || ac.signal.aborted) break;
+        if ('audio' in part) {
+          sounded = true;
+          emit({ audio: part.audio, sampleRate: FRONT_SAMPLE_RATE });
+        } else words += part.text;
+      }
+      if (!dropped && sounded) emit({ done: true, ...(words.trim() ? { text: words.trim() } : {}) });
+    } catch (err) {
+      logError('talk.front', err);
+      if (sounded && !dropped) emit({ done: true });
+    } finally {
+      signal.removeEventListener('abort', stop);
+    }
+  })();
+  return {
+    brainSpoke() {
+      if (sounded || dropped) return;
+      dropped = true;
+      ac.abort();
+      emit({ cancelled: true });
+    },
+  };
+}
+
+/**
  * One Chief of Staff turn (the conversation loop). Streams `talk.delta`, persists one `talk.message`
  * and one `talk.done`. It reads live work state and calls quick ProjectDO RPCs through its tools, but
  * never waits for background work.
@@ -342,6 +386,7 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
   const openers = new CoveredOpenerFilter(() => cueCovered || !!host.reflexes?.spoke?.(turnId));
   let hintHeld: ReactHint | null = null;
   let firstDelta = true;
+  let front: { brainSpoke(): void } | null = null;
   const stream = (raw: string) => emit(heads.push(raw));
   const emit = ({ text: raw, hint }: { text: string; hint: ReactHint | null }) => {
     hintHeld ??= hint;
@@ -352,7 +397,10 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     const delta = newStep && state.text.trim() ? `\n\n${text}` : text;
     newStep = false;
     state.text += delta;
-    if (firstDelta) host.reflexes?.firstText(turnId);
+    if (firstDelta) {
+      host.reflexes?.firstText(turnId);
+      front?.brainSpoke();
+    }
     firstDelta = false;
     feed.emit({ type: 'talk.delta', data: { turnId, messageId: state.replyId, agentId: CHIEF_ID, delta, ...(hint ? { hint } : {}) } });
   };
@@ -381,6 +429,11 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     }
     // Floor quick-chats and office rooms share the ledger: read more rows so the Chief still sees its own recent turns.
     const messages = historyFromFrames(host.ledger.recent(['talk.owner', 'talk.message'], HISTORY_MESSAGES * 6).filter(isChiefConversation).slice(-HISTORY_MESSAGES));
+    // A spoken turn: the voice front acknowledges it in the Chief's voice while the brain works (skipped when the
+    // brain speaks first, as small talk does).
+    const said = messages.filter((m) => m.role === 'user').at(-1)?.content;
+    if (spec.via === 'voice' && host.front && lead && typeof said === 'string' && said.trim())
+      front = startFront(host, turnId, signal, { said, chiefName: chiefDisplayName(lead, settings.chiefName), voice: lead.voice.xai_realtime, ...(lead.voice.tts_instructions ? { style: lead.voice.tts_instructions } : {}) });
     const turnNote = turnNoteFor(spec.cues, messages.filter((m) => m.role === 'assistant').map((m) => (typeof m.content === 'string' ? m.content : '')));
     // Quick lookups: the Chief searches natively when its provider hosts web search (research goes to jobs/teams).
     const webSearch = host.webTools !== false && hostsSearch(resolved.provider);

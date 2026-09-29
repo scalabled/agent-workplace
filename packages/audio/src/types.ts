@@ -216,8 +216,11 @@ export interface AudioEngine {
   /** Duck every voice by 18 dB (owner speaking). Mouths rest while ducked (`heard: false`). */
   duck(on: boolean): void;
   readonly ducked: boolean;
-  /** Hold-to-talk: start capturing the mic (asks permission the first time). Ducks voices while live. Throws MicError. */
-  startPushToTalk(): Promise<MicSession>;
+  /**
+   * Hold-to-talk: start capturing the mic (asks permission the first time). Ducks voices while live, unless `duck` is
+   * false (hands-free live voice keeps the mic open while the Chief speaks). Throws MicError.
+   */
+  startPushToTalk(opts?: { duck?: boolean }): Promise<MicSession>;
   /** Keyless STT via the browser, or null when unsupported. Ducks voices while live. */
   startDictation(opts?: DictationOptions): DictationSession | null;
   /** True while any mic capture (recording or dictation) is live — drives the "Mic on" dot. */

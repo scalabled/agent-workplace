@@ -7,6 +7,7 @@ import { livingBargeIn } from '../living';
 import { can, capabilities, feedEpoch, isTalkSurface, onFrame, settings } from '../store';
 import { audio } from './engine';
 import { claimUnsettled, mayVoice, onUnvoiced } from './owner';
+import { frontPlaying, stopVoiceFront } from './front';
 import { AgentSpeaker, type SpeakerDeps } from './speaker';
 
 export const speakerDeps: SpeakerDeps = {
@@ -130,6 +131,7 @@ export function startChiefVoice(): () => void {
 /** Barge-in (Esc, a tap on the face, holding to talk): the Chief of Staff stops at once, reflexes too. */
 export function bargeIn(): void {
   livingBargeIn(CHIEF_ID);
+  stopVoiceFront();
   chiefSpeaker.stop();
 }
 
@@ -146,5 +148,5 @@ export function stopChiefAtBoundary(): void {
 
 /** Is the Chief of Staff speaking (or about to)? */
 export function chiefIsSpeaking(): boolean {
-  return chiefSpeaker.active;
+  return chiefSpeaker.active || frontPlaying();
 }

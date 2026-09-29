@@ -28,6 +28,7 @@ import { acceptSettings, applyFrame, capabilities, clearServerPresence, connecti
 import { draft } from './talk/draft';
 import { startUnread } from './ui/unread';
 import { bargeIn, chiefIsSpeaking, chiefSpeaker, startChiefVoice } from './voice/chief-voice';
+import { startVoiceFront } from './voice/front';
 import { armAudio, audio } from './voice/engine';
 import { startVoiceHandoff } from './voice/handoff';
 import { mayVoice, voiceOwner } from './voice/owner';
@@ -71,6 +72,7 @@ function useBoot() {
     refreshCapabilities();
     void loadCatalog();
     const stopVoice = startChiefVoice();
+    const stopFront = startVoiceFront();
     const stopSideVoices = startSideVoice();
     const stopClock = startClock();
     const stopUnread = startUnread();
@@ -114,6 +116,7 @@ function useBoot() {
       stopLiving();
       feed?.close();
       stopVoice();
+      stopFront();
       stopSideVoices();
       stopClock();
       stopUnread();

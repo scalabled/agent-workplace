@@ -49,7 +49,7 @@ import { catalog as slimCatalog } from '../catalog';
 import { browserVoiceHint, chiefName, chiefVoiceHint } from '../chief';
 import { now as clock } from '../lib/time';
 import { route } from '../router';
-import { feedEpoch, jobs, lastSeq, onboarded, onFrame, presence, replayThrough, settings, sideThreads, thread } from '../store';
+import { capabilities, feedEpoch, jobs, lastSeq, onboarded, onFrame, presence, replayThrough, settings, sideThreads, thread } from '../store';
 import { greetedThisSession } from '../talk/draft';
 import { chiefSpeaker } from '../voice/chief-voice';
 import { audio } from '../voice/engine';
@@ -724,7 +724,9 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
       void livelyAnyway.value; // "Lively anyway" lifts them for the night
       quietHoursNow.value = quietOverride ?? isQuietHours(new Date(now()));
       // Another tab has the voice (or this one shows the landing page): voice off here, captions and faces stay.
-      runner.setSettings({ ambience: ambienceOf(s), voiceOn: (s?.voiceOn ?? false) && voiceActive.value, reducedMotion: reducedMotion.value, quietHours: quiet() });
+      // A realtime voice front acknowledges spoken turns itself: the pre-voiced acknowledgement and filler stand down.
+      const frontAcks = capabilities.value?.voiceFront?.available === true && (s?.voiceOn ?? false);
+      runner.setSettings({ ambience: ambienceOf(s), voiceOn: (s?.voiceOn ?? false) && voiceActive.value, reducedMotion: reducedMotion.value, quietHours: quiet(), frontAcks });
     }),
   );
   if (typeof matchMedia === 'function') {

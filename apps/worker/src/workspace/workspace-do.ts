@@ -41,6 +41,7 @@ import {
 import { webToolsOn } from '../tools/kit';
 import { AgentConfigError, AgentStore, type AgentSetup } from '../agents/store';
 import { connectorTools } from '../connectors/tools';
+import { realtimeAck, voiceFrontOf, type AckRequest, type FrontPart } from './voice-front';
 import type { AutomationSpec } from '@headcount/protocol/ext/automations';
 import { automationTool, type ProposeOutcome } from '../automations/chief-tool';
 import { ConnectorError, ConnectorStore, type ConnectorCallRequest, type ConnectorCallResult, type ConnectorGrantRequest } from '../connectors/store';
@@ -423,6 +424,12 @@ export class WorkspaceDO extends DurableObject<Env> {
     const r = (await projectStub(this.env).openChiefAutomation(spec, `${settings.chiefName ?? 'Your Chief of Staff'} wants to set up “${String(spec.name ?? '').slice(0, 80)}”`)) as unknown as Decision | { error: string };
     if ('error' in r) return { error: r.error };
     return { status: await this.waitForDecision(r.decisionId, signal), describe: r.automation?.describe ?? '' };
+  }
+
+  /** The voice front's acknowledgement for a spoken turn, within its daily cap. */
+  private async *frontAck(req: Omit<AckRequest, 'signal'>, signal: AbortSignal): AsyncGenerator<FrontPart> {
+    if (!this.usage.take('front', dailyLimit(this.env, 'front'), runtime.now()).allowed) return;
+    yield* realtimeAck(this.env, { ...req, signal });
   }
 
   /** Wait (a little) for the owner to answer a raised hand the Chief's turn depends on. */
@@ -1239,6 +1246,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       now: () => runtime.now(),
       webTools: webToolsOn(this.env),
       automations: { propose: (spec: Partial<AutomationSpec>, signal: AbortSignal) => this.proposeAutomation(spec, signal) },
+      ...(voiceFrontOf(this.env) ? { front: { ack: (req: Omit<AckRequest, 'signal'>, signal: AbortSignal) => this.frontAck(req, signal) } } : {}),
       connectors: {
         kits: () => this.connectors.kitsFor('chief'),
         call: (req: ConnectorCallRequest) => this.connectors.call(req),

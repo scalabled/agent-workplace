@@ -28,6 +28,8 @@ export const LIMITS = {
   fetch: { env: 'FETCH_DAILY_LIMIT', fallback: 600, what: 'Web pages read' },
   /** Connector (MCP) tool calls per day. */
   connector: { env: 'CONNECTOR_DAILY_LIMIT', fallback: 500, what: 'Connector calls' },
+  /** Realtime spoken acknowledgements (the voice front) per day. */
+  front: { env: 'VOICE_FRONT_DAILY_LIMIT', fallback: 600, what: 'Spoken acknowledgements' },
 } as const;
 
 export type LimitKind = keyof typeof LIMITS;

@@ -1,6 +1,7 @@
 import { MODALITIES, type CapabilitiesResponse, type ModalityStatus } from '@headcount/protocol';
 import { json, type RouteHandler } from '../lib/http';
 import { mockMediaEnabled } from './speech';
+import { voiceFrontOf } from '../workspace/voice-front';
 
 // GET /api/capabilities (owned by media): which providers are configured and which modalities are available,
 // from the packages/models registry. Names and booleans only — never key values.
@@ -36,5 +37,7 @@ export function publicCapabilities(c: CapabilitiesResponse, opts: { mockMedia?: 
   };
 }
 
-export const handleCapabilities: RouteHandler = async (_req, rc) =>
-  json<CapabilitiesResponse>(publicCapabilities(await rc.registry().capabilities({ probe: true }), { mockMedia: mockMediaEnabled(rc.env) }));
+export const handleCapabilities: RouteHandler = async (_req, rc) => {
+  const front = voiceFrontOf(rc.env);
+  return json<CapabilitiesResponse>({ ...publicCapabilities(await rc.registry().capabilities({ probe: true }), { mockMedia: mockMediaEnabled(rc.env) }), voiceFront: { available: front !== null, provider: front } });
+};

@@ -1503,11 +1503,11 @@ export function createAudioEngine(deps: AudioEngineDeps = {}): AudioEngine {
       manualDuck = on;
       applyDuck(on || duckHolds > 0);
     },
-    async startPushToTalk(): Promise<MicSession> {
+    async startPushToTalk(opts?: { duck?: boolean }): Promise<MicSession> {
       if (destroyed) throw micError('failed');
       mic?.cancel();
       mic = null;
-      const unduck = holdDuck();
+      const unduck = opts?.duck === false ? () => undefined : holdDuck();
       setMic(1);
       let released = false;
       let session: RecorderSession | null = null;

@@ -38,6 +38,12 @@ export interface Env extends ProviderEnv {
   PROJECT_TOKEN_BUDGET?: string;
   /** Encrypts connector keys at rest (a Worker secret, 16+ characters; local mode falls back to a development key). */
   CONNECTOR_SECRET?: string;
+  /** "off": no realtime voice front (spoken turns get the pre-voiced acknowledgements only); "mock": the keyless test double (with MOCK_MEDIA). Default on with an xAI key. */
+  VOICE_FRONT?: string;
+  /** The xAI realtime voice model for the front (default grok-voice-think-fast-2.0). */
+  REALTIME_VOICE_MODEL?: string;
+  /** Realtime acknowledgements per day (default 600). */
+  VOICE_FRONT_DAILY_LIMIT?: string;
   /** Connector (MCP) tool calls per day (default 500). */
   CONNECTOR_DAILY_LIMIT?: string;
   /** "off": teams skip the kickoff discussion (default on for teams of three or more). */

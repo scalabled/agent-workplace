@@ -106,8 +106,43 @@ sync), the caption, the position, and controls for pause, next and stop. When th
   - `meetings.spec.ts` (keyless): replay the kickoff; the bar follows you to Talk.
   - `meeting-voice.spec.ts` (Mock TTS): lines voiced in team voices through the cache, and a replay served from it.
 
-## 5. Not in this increment yet
+## 5. The Chief of Staff's live voice
 
-The Chief of Staff's realtime voice front is not built yet: realtime turn-taking with the reasoning model behind it,
-xAI or OpenAI, barge-in by generation. Talking to the Chief by voice uses the cascade (hold to talk → STT → the Chief
-→ TTS), as before.
+**Hands-free talk** (`apps/web/src/voice/live.ts`; the headphones button in Talk, shown when provider STT is set up):
+- The mic stays open, and a pause of about 650 ms ends the owner's turn. Blips under 450 ms are ignored, and a turn
+  is cut at 45 s.
+- The words are transcribed and sent as a spoken turn. The mic listens again at once.
+- Speaking over the Chief for 250 ms interrupts them (barge-in). Playback is not ducked while hands-free; echo
+  cancellation keeps the Chief's own voice out.
+- Holding to talk takes the mic back, and leaving Talk ends it.
+
+**The voice front** (`apps/worker/src/workspace/voice-front.ts`, ARCHITECTURE §8.2), for spoken turns:
+1. The WorkspaceDO opens a per-turn xAI realtime socket (`grok-voice-think-fast-2.0`; `REALTIME_VOICE_MODEL`). The key
+   stays server-side.
+2. The socket is set up with text in and PCM16 24 kHz audio out, told to acknowledge in under eight words and never to
+   answer, in the lead's realtime voice.
+3. Its audio reaches the owner's tab as `talk.front` frames and plays in the Chief's voice before the answer.
+4. If the brain's first words come before any acknowledgement audio (small talk), the acknowledgement is dropped
+   (`cancelled`).
+
+While a front is available, the living layer's pre-voiced acknowledgement and filler stand down (`frontAcks`).
+Barge-in stops the front too.
+
+| Setting (worker env) | Default | What it does |
+|---|---|---|
+| `VOICE_FRONT` | on with `XAI_API_KEY` | `off` disables it. `mock` (with `MOCK_MEDIA`) is the keyless test double. |
+| `REALTIME_VOICE_MODEL` | grok-voice-think-fast-2.0 | The xAI realtime model. |
+| `VOICE_FRONT_DAILY_LIMIT` | 600 | Acknowledgements per day. |
+
+**Tests**
+- `apps/worker/test/voice-front.test.ts`: the protocol against a fake socket, errors, supersession, and the talk turn
+  in mock mode.
+- `apps/web/src/voice/front.test.ts` and `live.test.ts`.
+- e2e `live-voice.spec.ts` (fake microphone): hands-free end to end.
+
+**Not verified.** The xAI realtime protocol comes from personagram-ai, which ran it against xAI. It has not been run
+here with a real key; `VOICE_FRONT=off` falls back to the pre-voiced acknowledgements.
+
+**Not built:**
+- Streaming STT with provider endpointing. Turns end on the browser's voice activity, then batch STT.
+- An OpenAI realtime front.
