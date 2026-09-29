@@ -1,7 +1,8 @@
 import { configured, loadConfig } from '../admin/config';
 import { DurableObject } from 'cloudflare:workers';
 import { catalogFull, fullIndex } from '@headcount/catalog/full';
-import { chiefDisplayName } from '@headcount/catalog';
+import { chiefDisplayName, type Persona } from '@headcount/catalog';
+import { callBudget, runTurn } from '@headcount/agent-loop';
 import { sniffOwnerText, type AffectCues } from '@headcount/expressions';
 import { MissingProviderError, type ChatProvider } from '@headcount/models';
 import {
@@ -61,7 +62,10 @@ import type { AgentConfigPatch, AgentView, PromptView, SkillDetail, SkillPatch, 
 import { buildChiefSystemPrompt, honestyPolicyText } from './chief-prompt';
 import { hostsSearch } from '../tools/web-search';
 
-import { closeDeskTurn, isDirection, newDeskTurnState, noteTargetOf, runDeskTurn, type DeskHost, type DeskTurnState } from '../desk/desk';
+import { buildDeskSystemPrompt, closeDeskTurn, DESK_MAX_TOKENS, isDirection, newDeskTurnState, noteTargetOf, runDeskTurn, type DeskHost, type DeskTurnState } from '../desk/desk';
+import type { DeskActions, Done } from '../desk/desk-tools';
+import { FIGURE_LINE, ownerFigures, ReplyGuard } from '../rooms/guard';
+import type { TeamToolHost } from './team-tools';
 import type { Decision, StaffingContext, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { Env } from '../env';
 import { exprLexicon } from '../expr/catalog';
@@ -1522,6 +1526,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       webTools: webToolsOn(this.env),
       automations: { propose: (spec: Partial<AutomationSpec>, signal: AbortSignal) => this.proposeAutomation(spec, signal) },
       memory: this.memoryHost(),
+      team: this.teamHost(),
       ...(voiceFrontOf(this.env) ? { front: { ack: (req: Omit<AckRequest, 'signal'>, signal: AbortSignal) => this.frontAck(req, signal) } } : {}),
       connectors: {
         kits: () => this.connectors.kitsFor('chief'),
@@ -1556,6 +1561,90 @@ export class WorkspaceDO extends DurableObject<Env> {
       settings: () => this.getSettings(),
       isCurrent: (agentId, turnId) => this.deskTurns.get(agentId)?.turnId === turnId,
       knowledge: (query, personaId) => this.knowledge.block(query, [`coworker:${personaId}`]),
+      actions: (persona) => this.deskActions(persona),
+    };
+  }
+
+  // ── the team working together (desk tools, the Chief's ask/hand tools) ─────────────
+
+  /** What a coworker can do from their desk. */
+  private deskActions(persona: Persona): DeskActions {
+    return {
+      startResearch: async (title, brief) => {
+        const settings = await this.getSettings();
+        const r = (await projectStub(this.env).startJob({ title, brief, opId: ids.op(), leadId: settings.leadId, chiefName: settings.chiefName })) as unknown as JobSnapshot | { accepted: false; message: string };
+        return 'jobId' in r ? { ok: true, jobId: r.jobId, title: r.title } : { ok: false, message: r.message };
+      },
+      proposeProject: async (goal, title) => {
+        const settings = await this.getSettings();
+        const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
+        const r = (await projectStub(this.env).proposeProject({ goal, ...(title ? { title } : {}), opId: ids.op(), chiefName: chiefDisplayName(lead, settings.chiefName), leadId: settings.leadId })) as unknown as { project: TeamProjectSnapshot } | { accepted: false; message: string };
+        return 'project' in r ? { ok: true, projectId: r.project.projectId, title: r.project.title } : { ok: false, message: r.message };
+      },
+      askColleague: (who, question, signal) => this.consult(who, question, { name: persona.name, title: persona.title }, signal, persona.id),
+      remember: (text, kind) => ({ memoryId: this.knowledge.memory.add({ text, kind, source: 'desk', sourceLabel: `Told ${persona.name.split(' ')[0]}` }).item.memoryId }),
+    };
+  }
+
+  /** The coworker someone means, by name or role ("Maya", "the bookkeeper", "a lawyer"); never `except`. */
+  private findColleague(who: string, except?: string): Persona | null {
+    const w = who.toLowerCase().replace(/^(the|our|a|an|my)\s+/, '').replace(/[^a-z0-9 '-]/g, '').trim();
+    if (!w) return null;
+    const people = (fullIndex.catalog.personas as Persona[]).filter((p) => p.id !== except);
+    const exact = people.find((p) => p.name.toLowerCase() === w || p.id === w || p.handle?.toLowerCase() === w);
+    if (exact) return exact;
+    const first = people.filter((p) => p.name.toLowerCase().split(' ')[0] === w);
+    if (first.length) return first[0]!;
+    const words = w.split(/\s+/).filter((x) => x.length > 2).map((x) => x.replace(/(er|ist|ian|ant)$/, ''));
+    let best: { p: Persona; score: number } | null = null;
+    for (const p of people) {
+      const hay = `${p.title} ${p.department} ${p.one_liner}`.toLowerCase();
+      const score = words.reduce((n, x) => n + (hay.includes(x) ? (p.title.toLowerCase().includes(x) ? 3 : 1) : 0), 0);
+      if (score > 0 && (!best || score > best.score)) best = { p, score };
+    }
+    return best?.p ?? null;
+  }
+
+  /** A quick question to a colleague (their persona, what they know): their answer, guarded like any desk reply. */
+  private async consult(who: string, question: string, asker: { name: string; title: string }, signal: AbortSignal, except?: string): Promise<Done<{ name: string; personaId: string; answer: string }>> {
+    const colleague = this.findColleague(who, except);
+    if (!colleague) return { ok: false, message: `No one on the team matches “${who}”.` };
+    const limit = dailyLimit(this.env, 'chat');
+    if (!this.usage.take('chat', limit, runtime.now()).allowed) return { ok: false, message: limitMessage('chat', limit) };
+    const settings = await this.getSettings();
+    const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
+    const chief = chiefDisplayName(lead, settings.chiefName);
+    let r;
+    try {
+      r = models(this.env, { surface: 'desk', agentId: coworkerAgentId(colleague.id) }).resolve('chat', { tier: 'fast' });
+    } catch (err) {
+      return { ok: false, message: err instanceof MissingProviderError ? 'No AI provider is set up yet.' : 'That did not go through.' };
+    }
+    const known = await this.knowledge.block(question, [`coworker:${colleague.id}`]).catch(() => '');
+    const staffing = await this.staffingOf(colleague.id);
+    const system = `${buildDeskSystemPrompt(colleague, chief, ownerFirstNameOf(settings), staffing)}${known ? `\n\n${known}` : ''}\n\n## This time\nA colleague is asking you for the owner. Answer them directly, in two or three sentences, from your expertise. Say what you would need to know if the question is unclear.`;
+    const guard = new ReplyGuard({ allowedFigures: ownerFigures([question, known]), ownerText: [question], workLine: '', work: 'room', figureLine: FIGURE_LINE, maxSentences: 3, where: 'consult.guard' });
+    const result = await runTurn({ provider: r.provider, model: r.model, system, messages: [{ role: 'user', content: `${asker.name} (${asker.title}) asks you, for the owner: ${question}` }], signal, maxSteps: 1, ...callBudget(r.provider, r.model, DESK_MAX_TOKENS, 'none') });
+    const answer = `${guard.push(`${result.fullText || result.text} `)}${guard.flush()}`.trim();
+    return answer ? { ok: true, name: colleague.name, personaId: colleague.id, answer } : { ok: false, message: `${colleague.name.split(' ')[0]} could not answer just now.` };
+  }
+
+  /** The Chief's side of the team: consult a coworker, or hand the owner's request to their desk. */
+  private teamHost(): TeamToolHost {
+    return {
+      consult: async (who, question, signal) => {
+        const settings = await this.getSettings();
+        const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
+        return this.consult(who, question, { name: chiefDisplayName(lead, settings.chiefName), title: 'Chief of Staff' }, signal);
+      },
+      handTo: async (who, message) => {
+        const colleague = this.findColleague(who);
+        if (!colleague) return { ok: false, message: `No one on the team matches “${who}”.` };
+        const settings = await this.getSettings();
+        const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
+        const r = await this.deskSay(colleague.id, { text: `${chiefDisplayName(lead, settings.chiefName)} passed this on from Talk: ${message}`, opId: ids.op(), via: 'text' });
+        return r.accepted ? { ok: true, name: colleague.name, personaId: colleague.id } : { ok: false, message: r.message };
+      },
     };
   }
 

@@ -352,8 +352,8 @@ describe('steering a team project (notes, pause, desk chats)', () => {
     expect(prompt).toContain('“Spring menu launch” as lead: 1 of 4 steps done');
     expect(prompt).toContain('Your step: “Size the audience” (working on it now)');
     expect(prompt).toContain('You review: “Price it” (you review it later)');
-    expect(prompt).not.toContain('You are not on any project yet');
-    expect(buildDeskSystemPrompt(persona, 'Eddie')).toContain('You are not on any project yet');
+    expect(prompt).not.toContain('You are not on a team project right now');
+    expect(buildDeskSystemPrompt(persona, 'Eddie')).toContain('You are not on a team project right now');
 
     expect(isDirection("How's it going?")).toBe(false);
     expect(isDirection('Can you also cover pricing?')).toBe(true);

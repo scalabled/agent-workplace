@@ -33,8 +33,10 @@ describe('POST /api/desk/:personaId/say', () => {
     expect(s.liveOf('presence').filter((p) => p.data.agentId === 'cw_tech-lead').map((p) => p.data.state)).toEqual(['thinking', 'idle']);
     const desk = requests.filter(isDesk);
     expect(desk).toHaveLength(1);
-    expect(desk[0]!.tools ?? []).toHaveLength(0);
-    expect(desk[0]!.system).toContain('You are not on any project yet');
+    // Their desk tools: remember, ask a colleague, propose a project, start research (never a bare refusal).
+    expect((desk[0]!.tools ?? []).map((t) => t.name)).toEqual(['remember_this', 'ask_colleague', 'propose_project', 'start_research']);
+    expect(desk[0]!.system).toContain('You are not on a team project right now');
+    expect(desk[0]!.system).toContain('Helpful first: never answer with only a refusal');
     expect(desk[0]!.system).toContain(fullIndex.persona('tech-lead')!.name);
 
     const again = await s.api('POST', '/api/desk/tech-lead/say', { text: 'what do you do?', opId: 'op_desk_1' });
@@ -67,7 +69,7 @@ describe('POST /api/desk/:personaId/say', () => {
     await s.api('POST', '/api/desk/tech-lead/say', { text: 'can you help with the budget?', opId: 'op_d4' });
     await s.drain();
     const msg = (await s.ofType('talk.message')).at(-1)!;
-    expect(msg.data.text).toBe("I'm not on a project yet — Rosa can bring me in. Happy to help later.");
+    expect(msg.data.text).toBe('I can start that as research or propose it as a project — say which, or Rosa can fit it in. Happy to help later.');
     const streamed = s.liveOf('talk.delta').map((d) => d.data.delta).join('');
     expect(streamed).not.toMatch(/working on|draft it/);
   });
@@ -143,7 +145,7 @@ describe('the honesty guard', () => {
     const g = new HonestyGuard(unstaffedLine('Rosa'));
     expect(g.push('Nice to meet you')).toBe('');
     expect(g.push('. I have been ')).toBe('Nice to meet you. ');
-    expect(g.push('looking into your CRM already. The pricing is 3.5 times')).toBe("I'm not on a project yet — Rosa can bring me in. ");
+    expect(g.push('looking into your CRM already. The pricing is 3.5 times')).toBe('I can start that as research or propose it as a project — say which, or Rosa can fit it in. ');
     expect(g.push(' higher.')).toBe('');
     expect(g.flush()).toBe('The pricing is 3.5 times higher.');
     expect(g.rewrites).toBe(1);
@@ -161,8 +163,8 @@ describe('the honesty guard', () => {
     const p = fullIndex.persona('tech-lead')!;
     const prompt = buildDeskSystemPrompt(p, 'Rosa');
     expect(prompt).toContain(`You are ${p.name}`);
-    expect(prompt).toContain('Rosa can bring you onto a project');
-    expect(prompt).toContain('at most two short sentences');
+    expect(prompt).toContain('Rosa is the owner');
+    expect(prompt).toContain('two or three short sentences');
     expect(prompt).toContain('no exclamation marks');
     const f = (type: 'talk.owner' | 'talk.message', agentId: string, text: string, surface?: 'floor'): Frame =>
       ({ v: 1, streamId: 'ws:local', seq: 1, ts: '', type, data: type === 'talk.owner' ? { turnId: 'turn_1', messageId: 'msg_1', text, via: 'text', agentId, ...(surface ? { surface } : {}) } : { turnId: 'turn_1', messageId: 'msg_2', agentId, text, kind: 'reply', ...(surface ? { surface } : {}) } }) as Frame;

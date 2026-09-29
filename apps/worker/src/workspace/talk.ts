@@ -13,6 +13,7 @@ import { connectorTools } from '../connectors/tools';
 import { automationTool, type ProposeOutcome } from '../automations/chief-tool';
 import { FRONT_SAMPLE_RATE, type AckRequest, type FrontPart } from './voice-front';
 import { memoryTools, type MemoryToolHost } from '../memory/chief-tools';
+import { teamTools, type TeamToolHost } from './team-tools';
 import type { Recalled } from '@headcount/protocol/ext/memory';
 import type { AutomationSpec } from '@headcount/protocol/ext/automations';
 import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
@@ -59,6 +60,8 @@ export interface TalkHost {
   /** False when the owner turned web tools off (WEB_TOOLS=off). */
   webTools?: boolean;
   /** What the workspace knows (Inc 4): recall for this turn, the Handbook, and the memory tools. */
+  /** Ask a coworker, or hand a request to their desk. */
+  team?: TeamToolHost;
   memory?: MemoryToolHost & { forChief(query: string): Promise<{ recalled: Recalled[]; chips: Recalled[]; handbook: string }> };
   /** The realtime voice front (Inc 2): a spoken turn gets a quick spoken acknowledgement while the brain works. */
   front?: { ack(req: Omit<AckRequest, 'signal'>, signal: AbortSignal): AsyncIterable<FrontPart> };
@@ -471,6 +474,7 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     });
     tools.push(...connectors.tools);
     if (host.memory) tools.unshift(...memoryTools(host.memory));
+    if (host.team) tools.unshift(...teamTools(host.team));
     const auto = host.automations;
     if (auto) tools.push(automationTool({ propose: (spec) => auto.propose(spec, signal) }));
 

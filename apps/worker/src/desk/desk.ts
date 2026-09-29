@@ -3,6 +3,7 @@
 // sentence that claims or promises work they are not doing (H2) or states a figure, metric, experience or study the
 // owner did not give (the reply guard, rooms/guard.ts, Office Phase 2 §4.2.6). Inc 1: a coworker staffed on a team
 // project knows their live steps and may talk about that work truthfully; outside actions stay off limits.
+import { deskTools, type DeskActions } from './desk-tools';
 import { callBudget, runTurn, type TurnResult } from '@headcount/agent-loop';
 import { chiefDisplayName, firstName, type Persona } from '@headcount/catalog';
 import { catalogFull, fullIndex } from '@headcount/catalog/full';
@@ -16,7 +17,7 @@ import { logError, logWarn } from '../workspace/runtime';
 import { FIGURE_LINE, ReplyGuard, ownerFigures } from '../rooms/guard';
 
 /** Visible output of a quick-chat reply (two short sentences). */
-export const DESK_MAX_TOKENS = 160;
+export const DESK_MAX_TOKENS = 400;
 /** Floor messages with this coworker the model sees. */
 export const DESK_HISTORY = 12;
 export const DESK_MAX_CHARS = 2000;
@@ -44,7 +45,7 @@ export function claimsWork(sentence: string): boolean {
 
 /** What replaces a work claim, in the coworker's words. */
 export function unstaffedLine(chief: string): string {
-  return `I'm not on a project yet — ${chief} can bring me in.`;
+  return `I can start that as research or propose it as a project — say which, or ${chief} can fit it in.`;
 }
 
 /**
@@ -182,9 +183,11 @@ export function buildDeskSystemPrompt(persona: Persona, chief: string, ownerFirs
     [
       '## Platform rules (these override everything below)',
       '- You are an AI coworker in Headcount, the owner\'s AI office. Your backstory is character lore, not a record of real events. If the owner sincerely asks whether you are an AI, answer plainly.',
-      '- You have no tools here: you cannot send, book, pay, publish, browse or change anything, and you never say you did.',
+      `- Helpful first: never answer with only a refusal. When the owner asks for something, do the part you can: start_research for anything that needs looking into, propose_project for work with several steps, ask_colleague when it is someone else's expertise, remember_this for something they want kept. If none fits, say who can (${chief} for anything else) and offer the nearest thing you can do.`,
+      '- You cannot send, book, pay, publish or contact anyone outside the office, and you never say you did; offer to draft it instead, or to research it.',
+      '- If a tool fails, read why, fix what you sent and try once more, or take another route; then say plainly what happened.',
       '- When you are unsure of a fact, say so briefly instead of guessing.',
-      '- Speak from your expertise: opinions, principles, questions. Never state a figure, percentage, date, result, study or past event unless the owner said it.',
+      '- Speak from your expertise: opinions, principles, questions. Never state a figure, percentage, date, result, study or past event unless the owner said it (or it is in what the workspace knows).',
       policy ? `- Catalog honesty policy: ${policy}` : '',
     ]
       .filter(Boolean)
@@ -194,12 +197,12 @@ export function buildDeskSystemPrompt(persona: Persona, chief: string, ownerFirs
       ? staffingStatus(staffing, chief)
       : [
           '## Your status',
-          `You are not on any project yet: no tasks, no tools, no files. Never say you are working on, starting, finishing or will deliver anything; if the owner asks for work, say ${chief} can bring you onto a project.`,
-          `${chief} is the owner's Chief of Staff and staffs projects.`,
+          `You are not on a team project right now. Never claim work you have not started; when the owner asks for work, start it with your tools (research, or a proposed project) instead of pointing them elsewhere.`,
+          `${chief} is the owner's Chief of Staff: they staff projects and keep track of all the work.`,
         ].join('\n'),
     [
       '## Style',
-      '- This is a quick chat in passing on the office floor: at most two short sentences.',
+      '- This is a quick chat in passing on the office floor: two or three short sentences.',
       '- Spoken style: plain words, no Markdown, no lists, no emoji, no exclamation marks.',
       ownerFirst ? `- ${ownerNameLine(ownerFirst)}` : '',
     ]
@@ -257,6 +260,8 @@ export interface DeskHost {
   isCurrent(agentId: AgentId, turnId: TurnId): boolean;
   /** What the workspace knows that bears on the owner's words: the Handbook and relevant memories (Inc 4). */
   knowledge?(query: string, personaId: string): Promise<string>;
+  /** What this coworker can do from their desk (start research, propose a project, ask a colleague, remember). */
+  actions?(persona: Persona): DeskActions;
 }
 
 function finishOf(r: TurnResult, text: string): TalkFinish {
@@ -303,9 +308,10 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
       workLine: staffing.length ? STAFFED_WORK_LINE : unstaffedLine(chief),
       ...(staffing.length ? { work: 'staffed' as const } : {}),
       figureLine: FIGURE_LINE,
-      maxSentences: 2,
+      maxSentences: 3,
       where: 'desk.guard',
     });
+    const tools = host.actions ? deskTools(host.actions(spec.persona), spec.persona, chief, () => guard.allowWork()) : [];
     const say = (text: string) => {
       if (!text || state.closed) return;
       state.text += text;
@@ -316,8 +322,9 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
       model: resolved.model,
       system: `${buildDeskSystemPrompt(spec.persona, chief, ownerFirstNameOf(settings), staffing)}${known ? `\n\n${known}` : ''}`,
       messages,
+      ...(tools.length ? { tools } : {}),
       signal: spec.signal,
-      maxSteps: 1,
+      maxSteps: tools.length ? 3 : 1,
       ...callBudget(resolved.provider, resolved.model, DESK_MAX_TOKENS, 'none'),
       onEvent: (e) => {
         if (!state.closed && e.type === 'text' && e.delta) say(guard.push(e.delta));

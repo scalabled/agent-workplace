@@ -399,11 +399,18 @@ export class ReplyGuard {
   private usedWork = false;
   private owed: string | null = null;
   private readonly owner: OwnerContext;
+  private work: 'strict' | 'room' | 'staffed';
   rewrites = 0;
   readonly hits: GuardHit[] = [];
 
   constructor(private readonly o: ReplyGuardOptions) {
     this.owner = o.ownerText ? { ...ownerContext(o.ownerText), figures: o.allowedFigures } : { ...NO_OWNER, figures: o.allowedFigures };
+    this.work = o.work ?? 'strict';
+  }
+
+  /** Real work was started this turn (a tool did it): saying so is true now; only outside actions stay off limits. */
+  allowWork(): void {
+    this.work = 'staffed';
   }
 
   /** Complete sentences ready to stream ('' while a sentence is still open). */
@@ -454,7 +461,7 @@ export class ReplyGuard {
   private check(sentence: string): string {
     if (!sentence.trim()) return this.released ? sentence : '';
     if (this.released >= this.o.maxSentences) return '';
-    const hit = sentenceHit(sentence, this.o.allowedFigures, { owner: this.owner, work: this.o.work ?? 'strict' });
+    const hit = sentenceHit(sentence, this.o.allowedFigures, { owner: this.owner, work: this.work });
     if (!hit) {
       this.released++;
       return sentence;

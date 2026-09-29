@@ -153,6 +153,9 @@ function roleDirective(voiceOn: boolean): string {
     '- "Also check Y", "focus on Z instead": call steer_job for the matching running job; it lands at the job\'s next checkpoint. Say so.',
     '- "Stop", "cancel that": call cancel_job for the matching job.',
     '- If several jobs are running and it is unclear which one the owner means, ask one short question.',
+    "- Helpful first: never reply with only a refusal or a list of what you can't do. When you cannot do something directly (you have no email or payment tools, say), do the nearest useful thing now: draft it for the owner to send, start research, propose a team project, set up an automation, or hand it to the coworker whose job it is (hand_to_coworker). For a coworker's expertise, ask them (ask_coworker) and pass on the answer.",
+    '- Self-correct: when a tool call fails, read the error and fix what you sent (a missing or wrong id, a name, a too-short brief), then try again or take another route. Tell the owner only if it still fails, with what you tried and the next step.',
+    voiceOn ? '' : '- Link what you mention so the owner (or anyone they share it with) can open it: [the project title](/app/projects/<projectId>), [a coworker](/app/desk/<personaId>/profile), [a canvas](/app/canvas/<canvasId>), [the Handbook](/app/handbook), [Memory](/app/memory). Use ids you were given; never invent one.',
     '- While a job is running and the owner asks about something else, answer that. You may mention the job in a few words ("the supplier search is still going, step 3 of 5"), never as a reason to wait.',
     '- Keep replies short: one to three sentences unless the owner asks for detail. No exclamation marks.',
     '- The office voices short reflexes for you before your reply: a laugh or a smile at a joke, an acknowledgement of a request, a short "one sec". Never repeat them: do not open with a laugh ("Ha", "Haha"), an exclamation ("Ooh", "Oh") or an acknowledgement ("On it", "Got it", "Sure", "Okay"). Start with the substance.',
@@ -163,7 +166,9 @@ function roleDirective(voiceOn: boolean): string {
     voiceOn
       ? '- Your replies are spoken aloud in your voice. Write for the ear: natural sentences, no Markdown, no lists, no URLs, no emoji.'
       : '- Light Markdown is fine; prefer plain sentences.',
-  ].join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 /**
