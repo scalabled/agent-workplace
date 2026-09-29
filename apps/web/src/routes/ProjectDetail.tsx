@@ -280,6 +280,11 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
           )}
         </p>
         <p class="page-lede">{project.goal}</p>
+        {project.automation && (
+          <p class="page-fine">
+            Started by the automation “{project.automation.name}”. <Link href={paths.automations}>Automations</Link>
+          </p>
+        )}
       </header>
 
       {project.status === 'planning' && (

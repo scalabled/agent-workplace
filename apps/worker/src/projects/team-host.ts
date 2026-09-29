@@ -50,6 +50,8 @@ import { MAX_ADDED_SPECIALISTS, MAX_TEAM, collabTools, type CollabHost } from '.
 import { words } from './staffing';
 import type { ChannelEntry, ConnectorScope } from '@headcount/protocol/ext/projects';
 import type { ConnectorAsk } from '@headcount/protocol/ext/connectors';
+import type { AutomationSpec } from '@headcount/protocol/ext/automations';
+import { describeSpec } from '../automations/host';
 import type { ConnectorCallRequest, ConnectorCallResult, ConnectorGrantRequest } from '../connectors/store';
 import { connectorTools, type ApprovalMode } from '../connectors/tools';
 
@@ -75,6 +77,8 @@ export interface ProposeRequest {
   /** The Chief of Staff's lead: their voices are kept free so they can join any team meeting. */
   leadId?: string | null;
   deliverableKind?: DeliverableKind;
+  /** Started by an automation; autoStart skips the plan approval (the owner set that up). */
+  automation?: { automationId: string; name: string; autoStart: boolean };
 }
 
 export type ProjectRefusal = { accepted: false; code: 'not_found' | 'conflict' | 'bad_request' | 'rate_limited' | 'not_configured'; message: string };
@@ -96,6 +100,10 @@ export interface TeamHostPorts {
   connectors?: {
     call(req: ConnectorCallRequest): Promise<ConnectorCallResult>;
     grant(req: ConnectorGrantRequest): Promise<void>;
+  };
+  /** Set up an automation the Chief proposed, once the owner allows it (stage 3b). */
+  automations?: {
+    create(spec: AutomationSpec): { ok: true; name: string } | { ok: false; message: string };
   };
 }
 
@@ -125,6 +133,7 @@ type ProjectRow = {
   deliverable_filename: string | null;
   qa: string | null;
   budget_tokens: number | null;
+  automation: string | null;
   final_direction: string | null;
   lead_id: string | null;
   kickoff: string | null;
@@ -213,6 +222,7 @@ const TEAM_MIGRATIONS = [
   'ALTER TABLE tdecisions ADD COLUMN from_id TEXT',
   'ALTER TABLE tdecisions ADD COLUMN answer TEXT',
   'ALTER TABLE tdecisions ADD COLUMN meta TEXT',
+  'ALTER TABLE tprojects ADD COLUMN automation TEXT',
   'ALTER TABLE tdecisions ADD COLUMN scope TEXT',
   'ALTER TABLE tprojects ADD COLUMN kickoff TEXT',
   'ALTER TABLE tprojects ADD COLUMN pending_discussion TEXT',
@@ -353,9 +363,9 @@ export class TeamProjects {
     const note = staffingNote(team, recipe.name);
     const finisher = team.find((m) => m.role === 'lead')?.personaId ?? team[0]!.personaId;
     this.sql.exec(
-      `INSERT INTO tprojects (project_id, op_id, title, goal, recipe_id, recipe_name, staffing_note, team, status, chief_name, created_at, updated_at, next_at, deliverable_kind, finisher_id, budget_tokens, lead_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'planning', ?, ?, ?, ?, ?, ?, ?, ?)`,
-      projectId, req.opId ?? null, title, goal, recipe.id, recipe.name, note, JSON.stringify(team), req.chiefName, at, at, now, req.deliverableKind ?? null, finisher, tokenBudget(this.p.env), req.leadId ?? null,
+      `INSERT INTO tprojects (project_id, op_id, title, goal, recipe_id, recipe_name, staffing_note, team, status, chief_name, created_at, updated_at, next_at, deliverable_kind, finisher_id, budget_tokens, lead_id, automation)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'planning', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      projectId, req.opId ?? null, title, goal, recipe.id, recipe.name, note, JSON.stringify(team), req.chiefName, at, at, now, req.deliverableKind ?? null, finisher, tokenBudget(this.p.env), req.leadId ?? null, req.automation ? JSON.stringify(req.automation) : null,
     );
     this.writeSteps(projectId, steps);
     this.emit(projectId);
@@ -365,7 +375,7 @@ export class TeamProjects {
   }
 
   /** The owner approved the plan: start work on the next alarm. */
-  async approve(projectId: string): Promise<Ok | ProjectRefusal> {
+  async approve(projectId: string, by?: string): Promise<Ok | ProjectRefusal> {
     const row = this.row(projectId);
     if (!row) return { accepted: false, code: 'not_found', message: 'No such project.' };
     if (row.status === 'running') return { accepted: true, project: this.snapshot(row) };
@@ -376,7 +386,7 @@ export class TeamProjects {
     const kickoff = (JSON.parse(row.team) as TeamMember[]).length >= 3 && (this.p.env.KICKOFF ?? '').toLowerCase() !== 'off' ? 'pending' : 'skipped';
     this.sql.exec(`UPDATE tprojects SET status = 'running', next_at = ?, updated_at = ?, kickoff = COALESCE(kickoff, ?) WHERE project_id = ?`, runtime.now(), at, kickoff, projectId);
     if (row.decision_id) this.resolve(row.decision_id, 'approved', at);
-    this.channel.add(projectId, { kind: 'decision', fromId: 'owner', text: 'The owner approved the plan. Work starts now.' });
+    this.channel.add(projectId, { kind: 'decision', fromId: 'owner', text: by ?? 'The owner approved the plan. Work starts now.' });
     this.emit(projectId);
     await this.p.armAlarm(runtime.now() + 10);
     void this.p.flush();
@@ -459,6 +469,7 @@ export class TeamProjects {
     if (d.status !== 'open') return { accepted: false, code: 'conflict', message: 'That was already decided.' };
     const kind0 = d.kind as DecisionKind;
     if (kind0 === 'connector' && !d.project_id) return this.answerChief(d, a);
+    if (kind0 === 'automation') return this.answerAutomation(d, a);
     if (!this.row(d.project_id)) return { accepted: false, code: 'not_found', message: 'No such project.' };
     if (!['approve', 'decline', 'answer'].includes(a.action)) return { accepted: false, code: 'bad_request', message: 'Approve, decline or answer.' };
     const text = (a.text ?? '').trim().slice(0, DECISION_ANSWER_MAX);
@@ -521,6 +532,20 @@ export class TeamProjects {
     return { accepted: true, decision: resolved, project: this.snapshot(this.row(d.project_id)!) };
   }
 
+  /** The Chief of Staff proposes an automation (a raised hand with no project); approving it sets it up. */
+  openChiefAutomation(spec: AutomationSpec, title: string): Decision {
+    const decisionId = newId('dec');
+    const describe = describeSpec(spec);
+    this.sql.exec(
+      `INSERT INTO tdecisions (decision_id, kind, project_id, title, body, status, created_at, meta) VALUES (?, 'automation', '', ?, ?, 'open', ?, ?)`,
+      decisionId, clipText(title, 300), clipText(`${describe}.\n\n${spec.action.goal}`, 4000), iso(), JSON.stringify({ ...spec, describe }),
+    );
+    const d = this.decision(decisionId)!;
+    this.p.append({ type: 'decision.opened', data: { decision: d } });
+    void this.p.flush();
+    return d;
+  }
+
   /** The owner answers the Chief of Staff's connector ask: a grant (once or always), or no. */
   private async answerChief(d: DecisionRow, a: DecisionAnswer): Promise<{ accepted: true; decision: Decision } | ProjectRefusal> {
     if (!['approve', 'decline', 'answer'].includes(a.action)) return { accepted: false, code: 'bad_request', message: 'Allow or decline.' };
@@ -532,6 +557,24 @@ export class TeamProjects {
     this.sql.exec(
       `UPDATE tdecisions SET status = ?, resolved_at = ?, answer = ?, scope = ? WHERE decision_id = ?`,
       a.action === 'approve' ? 'approved' : a.action === 'answer' ? 'answered' : 'declined', iso(), a.action === 'answer' && text ? text : null, a.action === 'approve' ? scope : null, d.decision_id,
+    );
+    const resolved = this.decision(d.decision_id)!;
+    this.p.append({ type: 'decision.resolved', data: { decision: resolved } });
+    void this.p.flush();
+    return { accepted: true, decision: resolved };
+  }
+
+  private answerAutomation(d: DecisionRow, a: DecisionAnswer): { accepted: true; decision: Decision } | ProjectRefusal {
+    if (a.action === 'approve') {
+      const spec = JSON.parse(d.meta ?? '{}') as AutomationSpec & { describe?: string };
+      delete spec.describe;
+      const r = this.p.automations?.create(spec) ?? { ok: false as const, message: 'Automations are not available here.' };
+      if (!r.ok) return { accepted: false, code: 'conflict', message: r.message };
+    }
+    const text = (a.text ?? '').trim().slice(0, DECISION_ANSWER_MAX);
+    this.sql.exec(
+      `UPDATE tdecisions SET status = ?, resolved_at = ?, answer = ? WHERE decision_id = ?`,
+      a.action === 'approve' ? 'approved' : a.action === 'answer' ? 'answered' : 'declined', iso(), a.action === 'answer' && text ? text : null, d.decision_id,
     );
     const resolved = this.decision(d.decision_id)!;
     this.p.append({ type: 'decision.resolved', data: { decision: resolved } });
@@ -1011,6 +1054,9 @@ export class TeamProjects {
     this.sql.exec(`UPDATE tprojects SET status = 'proposed', decision_id = ?, attempts = 0, updated_at = ? WHERE project_id = ?`, decisionId, at, projectId);
     const project = this.snapshot(this.row(projectId)!);
     this.p.append({ type: 'project.proposed', data: { project: this.clip(project), decision: this.decision(decisionId)! } });
+    // An automation the owner set up to start on its own: the plan starts now.
+    const auto = json<{ name: string; autoStart: boolean } | null>(row.automation, null);
+    if (auto?.autoStart) void this.approve(projectId, `The automation “${auto.name}” started the plan, as the owner set it up. Work starts now.`).catch((err) => logError('project.autostart', err));
   }
 
   private planning(projectId: string, fence: number): boolean {
@@ -1476,6 +1522,7 @@ export class TeamProjects {
       status: r.status as Decision['status'],
       ...(r.answer ? { answer: r.answer } : {}),
       ...(r.meta && r.kind === 'connector' ? { connector: JSON.parse(r.meta) as ConnectorAsk } : {}),
+      ...(r.meta && r.kind === 'automation' ? { automation: JSON.parse(r.meta) as AutomationSpec & { describe: string } } : {}),
       ...(r.scope ? { scope: r.scope as ConnectorScope } : {}),
       createdAt: r.created_at,
       ...(r.resolved_at ? { resolvedAt: r.resolved_at } : {}),
@@ -1515,10 +1562,12 @@ export class TeamProjects {
     });
     const notes = this.sql.exec<NoteRow>('SELECT * FROM tnotes WHERE project_id = ? ORDER BY at ASC, note_id ASC', r.project_id).toArray().map((n) => this.toNote(n));
     const u = this.usage(r.project_id);
+    const auto = json<{ automationId: string; name: string } | null>(r.automation, null);
     return {
       projectId: r.project_id,
       title: r.title,
       goal: r.goal,
+      ...(auto ? { automation: { automationId: auto.automationId, name: auto.name } } : {}),
       recipeId: r.recipe_id,
       recipeName: r.recipe_name,
       staffingNote: r.staffing_note,

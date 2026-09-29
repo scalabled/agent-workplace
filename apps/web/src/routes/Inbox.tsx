@@ -15,7 +15,7 @@ export function Inbox() {
   const name = chiefName.value;
   const questions = decisions.some((d) => d.kind === 'input');
   // Permissions for connector calls are the owner's alone; the Chief relays everything else.
-  const relayable = decisions.some((d) => d.kind !== 'connector');
+  const relayable = decisions.some((d) => d.kind !== 'connector' && d.kind !== 'automation');
   return (
     <section class="page inbox" aria-labelledby="inbox-title">
       <header class="page-head">

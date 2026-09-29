@@ -11,10 +11,10 @@ SSRF checks, unframed MCP results, no prompt viewer), we match the feature and c
 | --- | --- | --- |
 | 1 · Web search and page reading | done | 65651c9 |
 | 2 · Agent configuration and transparency | done | 3d41cc0 |
-| 3 · Orchestration and planning | done, except automations (schedules, page watchers) | 3d41cc0 |
+| 3 · Orchestration and planning | done | 3d41cc0 |
 | 4 · Inter-agent communication | done | cb26d94 |
-| 5 · MCP connectors | done | (this commit) |
-| 3b · Automations | not started | |
+| 5 · MCP connectors | done | 6b31808 |
+| 3b · Automations | done | (this commit) |
 | Inc 2 · Rooms, voices and listen-in | not started | |
 
 Stage 5 as built: `apps/worker/src/connectors/` (catalog, Streamable HTTP client, sealed keys, store, agent tools,
@@ -24,6 +24,14 @@ calls that change things / never): in a project step the step waits (an Inbox ha
 Chief's call waits up to 60 s on a card in Talk. A demo notebook served inside the worker (mock mode only) makes the
 whole flow testable keyless. Like biz-bot, OAuth-only services take a pasted access token; a real OAuth sign-in flow
 (discovery, dynamic client registration, PKCE, refresh) is not built.
+
+Stage 3b as built: `apps/worker/src/automations/` (host in the ProjectDO, ticked by its alarm; the gate's judge; the
+Chief's `set_up_automation`; routes) and `/app/automations`. Schedules (every N ≥ 15 min, or daily HH:MM UTC — first run
+at the next occurrence) and page watchers (https, optional regex, changed / contains / no longer contains / below /
+above, checked every ≥ 15 min, SSRF-guarded reader, risky patterns refused) start a background job or a team project
+(which can start its plan without the owner's OK). One run at a time. The gate: after every run / only when it matters
+(failures, page changes, else a short model judgement) / never; the Chief says it within the interruption budget.
+The Chief proposes automations on a card; the owner's OK creates them (biz-bot guards create_automation the same way).
 
 ## Stage 1 · Web search and page reading
 - `ChatRequest.hostedTools` (`web_search`, `x_search`) → native search per adapter (OpenAI/xAI Responses with

@@ -18,6 +18,7 @@ const KIND_LABEL: Record<Decision['kind'], string> = {
   deliverable: 'The deliverable',
   budget: 'Budget',
   connector: 'Permission',
+  automation: 'Automation',
 };
 
 export function DecisionCard({ decision: d, showProject = true }: { decision: Decision; showProject?: boolean }) {
@@ -50,7 +51,12 @@ export function DecisionCard({ decision: d, showProject = true }: { decision: De
         <h2 id={`dec-${d.decisionId}`} class="decision-title">
           {d.title}
         </h2>
-        {d.connector ? (
+        {d.automation ? (
+          <>
+            <p class="decision-text">{d.automation.describe}</p>
+            <p class="decision-text automation-goal">{d.automation.action.goal}</p>
+          </>
+        ) : d.connector ? (
           <>
             <p class="decision-text">{d.projectId ? d.body.split('\n')[0] : `${chiefName.value} is waiting for your answer.`}</p>
             {d.connector.args.trim() !== '{}' && (
@@ -146,6 +152,16 @@ export function DecisionCard({ decision: d, showProject = true }: { decision: De
             </button>
             <button type="button" class="button-quiet" disabled={busy} onClick={() => answer('decline')}>
               Don’t allow
+            </button>
+          </>
+        )}
+        {d.kind === 'automation' && (
+          <>
+            <button type="button" class="button-primary" disabled={busy} onClick={() => answer('approve')}>
+              Set it up
+            </button>
+            <button type="button" class="button-quiet" disabled={busy} onClick={() => answer('decline')}>
+              Not now
             </button>
           </>
         )}

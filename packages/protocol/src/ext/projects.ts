@@ -1,5 +1,6 @@
 // Inc 1 "Hire a team in a sentence": team projects staffed from catalog recipes, a reviewed plan the owner approves
 // in the Inbox (a raised hand), parallel steps with review and one revision, and a written deliverable.
+import type { AutomationSpec } from './automations';
 import type { ConnectorAsk } from './connectors';
 
 /**
@@ -118,6 +119,8 @@ export interface TeamProjectSnapshot {
   projectId: string;
   title: string;
   goal: string;
+  /** Started by an automation (stage 3b). */
+  automation?: { automationId: string; name: string };
   /** The catalog recipe the team and plan came from (null: formed without a recipe). */
   recipeId: string | null;
   recipeName: string | null;
@@ -158,7 +161,7 @@ export interface TeamProjectSnapshot {
  * reviewers still want changes (accept, or give direction) · deliverable: the check left issues (accept, or give
  * direction) · budget: the token budget is spent (raise it and continue?).
  */
-export type DecisionKind = 'plan_approval' | 'input' | 'review' | 'deliverable' | 'budget' | 'connector';
+export type DecisionKind = 'plan_approval' | 'input' | 'review' | 'deliverable' | 'budget' | 'connector' | 'automation';
 
 export interface Decision {
   decisionId: string;
@@ -178,6 +181,8 @@ export interface Decision {
   connector?: ConnectorAsk;
   /** How far an approved connector call's OK reaches. */
   scope?: ConnectorScope;
+  /** An automation the Chief of Staff proposes (kind 'automation'): approving sets it up. */
+  automation?: AutomationSpec & { describe: string };
   createdAt: string;
   resolvedAt?: string;
 }

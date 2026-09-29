@@ -9,6 +9,8 @@ import { hostsSearch } from '../tools/web-search';
 import type { ConnectorAsk } from '@headcount/protocol/ext/connectors';
 import type { ConnectorCallRequest, ConnectorCallResult, ConnectorKit } from '../connectors/store';
 import { connectorTools } from '../connectors/tools';
+import { automationTool, type ProposeOutcome } from '../automations/chief-tool';
+import type { AutomationSpec } from '@headcount/protocol/ext/automations';
 import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
 import type { Decision, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { Feed } from './feed';
@@ -52,6 +54,8 @@ export interface TalkHost {
   reflexes?: TurnReflexHooks;
   /** False when the owner turned web tools off (WEB_TOOLS=off). */
   webTools?: boolean;
+  /** The Chief sets up automations the owner asks for; each waits on a card for the owner's OK (stage 3b). */
+  automations?: { propose(spec: Partial<AutomationSpec>, signal: AbortSignal): Promise<ProposeOutcome> };
   /** The connectors the Chief may use, their calls, and the wait for the owner's OK (Stage 5). */
   connectors?: {
     kits(): ConnectorKit[];
@@ -382,7 +386,7 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     const webSearch = host.webTools !== false && hostsSearch(resolved.provider);
     const conn = host.connectors;
     const connectors = conn ? connectorTools(conn.kits(), conn, { subject: 'chief', mode: () => ({ kind: 'wait', wait: (ask) => conn.wait(ask, signal) }) }) : { tools: [], describe: '' };
-    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: connectors.describe });
+    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: connectors.describe, automations: !!host.automations });
     const tools = createChiefTools({
       project: host.project(),
       turnId,
@@ -395,6 +399,8 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
       onDelegated: (jobId) => host.reflexes?.delegated(turnId, jobId),
     });
     tools.push(...connectors.tools);
+    const auto = host.automations;
+    if (auto) tools.push(automationTool({ propose: (spec) => auto.propose(spec, signal) }));
 
     const result = await runTurn({
       provider: resolved.provider,

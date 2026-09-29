@@ -35,6 +35,7 @@ import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcoun
 import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, RoomCancelResponse, RoomId, RoomSayAccepted, RoomSayRequest } from '@headcount/protocol/ext/rooms';
 import { noteUnauthenticated } from '../auth/session';
 import type { ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
+import type { AutomationPatch, AutomationResponse, AutomationsResponse } from '@headcount/protocol/ext/automations';
 import type { ConnectorCreate, ConnectorPatch, ConnectorResponse, ConnectorsResponse } from '@headcount/protocol/ext/connectors';
 import type { AgentConfigPatch, AgentView, ModelsResponse, PromptView, RunsResponse, SkillDetail, SkillsResponse } from '@headcount/protocol/ext/agents';
 import { clientId } from '../lib/client-id';
@@ -94,6 +95,11 @@ export const api = {
   resumeProject: (id: string) => request<ProjectActionAccepted>(routePath('resumeProject', { id }), { method: 'POST' }),
   // Parity stage 3: raised hands, plan editing, the run inspector.
   answerDecision: (id: string, a: DecisionAnswer) => request<DecisionAccepted>(routePath('answerDecision', { id }), jsonInit('POST', a)),
+  listAutomations: () => request<AutomationsResponse>(routePath('listAutomations')),
+  addAutomation: (spec: AutomationPatch) => request<AutomationResponse>(routePath('addAutomation'), jsonInit('POST', spec)),
+  putAutomation: (id: string, patch: AutomationPatch) => request<AutomationResponse>(routePath('putAutomation', { id }), jsonInit('PUT', patch)),
+  removeAutomation: (id: string) => request<{ removed: true }>(routePath('removeAutomation', { id }), { method: 'DELETE' }),
+  runAutomation: (id: string) => request<AutomationResponse>(routePath('runAutomation', { id }), { method: 'POST' }),
   listConnectors: () => request<ConnectorsResponse>(routePath('listConnectors')),
   addConnector: (c: ConnectorCreate) => request<ConnectorResponse>(routePath('addConnector'), jsonInit('POST', c)),
   patchConnector: (id: string, p: ConnectorPatch) => request<ConnectorResponse>(routePath('patchConnector', { id }), jsonInit('PUT', p)),

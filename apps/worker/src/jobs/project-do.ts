@@ -36,6 +36,10 @@ import { MAX_WORK_STEPS, WorkCancelled, WorkError, planJob, runWorkStep, synthes
 import type { ChannelEntry, Decision, DecisionAnswer, PlanEdit, ProjectNote, StaffingContext, StepEdit, StopAllResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { RunTrace } from '@headcount/protocol/ext/agents';
 import { researchKitFactory } from '../tools/kit';
+import { Automations, AutomationError, normalizeSpec } from '../automations/host';
+import { judgeRun } from '../automations/judge';
+import type { AutomationSpec, AutomationView } from '@headcount/protocol/ext/automations';
+import { fetchPage, FetchPageError } from '../tools/fetch-page';
 import { TeamProjects, type ProjectRefusal, type ProposeRequest } from '../projects/team-host';
 
 /** What the Chief of Staff hands to the Everyday project when the owner delegates. */
@@ -162,6 +166,8 @@ export class ProjectDO extends DurableObject<Env> {
   private readonly usage: DailyCounter;
   /** Inc 1 team projects, hosted here (their tables, lifecycle and frames: src/projects/team-host.ts). */
   private readonly team: TeamProjects;
+  /** Automations: schedules and page watchers that start jobs and team projects (src/automations/host.ts). */
+  private readonly automations: Automations;
   /** Signals waiting for the next mirror batch (sent even when no frame is pending). */
   private readonly signals: WorkSignal[] = [];
 
@@ -185,6 +191,45 @@ export class ProjectDO extends DurableObject<Env> {
         call: async (req) => (await workspaceStub(env).connectorCall(req)) as unknown as ConnectorCallResult,
         grant: async (req) => void (await workspaceStub(env).connectorGrant(req)),
       },
+      // The owner allowed an automation the Chief proposed.
+      automations: {
+        create: (spec) => {
+          try {
+            const a = this.automations.create(spec, 'chief');
+            void this.armAlarm(Math.max(this.automations.nextDue() ?? runtime.now(), runtime.now() + 10));
+            return { ok: true, name: a.name };
+          } catch (err) {
+            if (err instanceof AutomationError) return { ok: false, message: err.message };
+            throw err;
+          }
+        },
+      },
+    });
+    this.automations = new Automations({
+      sql: ctx.storage.sql,
+      now: () => runtime.now(),
+      append: (input) => this.ledger.append(input),
+      flush: () => this.flush(),
+      startJob: async (title, brief) => {
+        const r = await this.startJob({ title, brief, ...(await this.chiefIdentity()) });
+        return 'jobId' in r ? { ok: true, runId: r.jobId } : { ok: false, message: r.message };
+      },
+      proposeProject: async (goal, title, automation) => {
+        const who = await this.chiefIdentity();
+        const r = await this.team.propose({ goal, title, chiefName: who.chiefName ?? 'your Chief of Staff', leadId: who.leadId, automation });
+        return 'project' in r ? { ok: true, runId: r.project.projectId } : { ok: false, message: r.message };
+      },
+      readPage: async (url) => {
+        const limit = dailyLimit(env, 'fetch');
+        if (!this.usage.take('fetch', limit, runtime.now()).allowed) throw new Error(limitMessage('fetch', limit));
+        try {
+          return (await fetchPage(url, { maxChars: 60_000 })).text;
+        } catch (err) {
+          throw new Error(err instanceof FetchPageError ? err.message : 'The page could not be read.');
+        }
+      },
+      judge: (name, result) => judgeRun(env, name, result),
+      background: (work) => ctx.waitUntil(work.catch((err) => logError('automation', err))),
     });
   }
 
@@ -413,7 +458,7 @@ export class ProjectDO extends DurableObject<Env> {
       .exec<{ job_id: string }>(`SELECT job_id FROM jobs WHERE status = 'running' AND next_at <= ? ORDER BY started_at ASC`, now)
       .toArray()
       .filter((r) => !this.inflight.has(r.job_id));
-    await Promise.all([...due.map((r) => this.advance(r.job_id)), this.team.tick(now)]);
+    await Promise.all([...due.map((r) => this.advance(r.job_id)), this.team.tick(now), this.automations.tick(now)]);
     await this.flush();
     await this.reschedule();
   }
@@ -639,6 +684,64 @@ export class ProjectDO extends DurableObject<Env> {
 
   private append<T extends FrameType>(input: FrameInput<T>): void {
     this.ledger.append(input);
+    // A job or team project an automation started may have just ended.
+    this.automations?.observe(input as FrameInput<FrameType>);
+  }
+
+  /** Who the Chief of Staff is (their lead and name), for work an automation starts. */
+  private async chiefIdentity(): Promise<{ leadId: string | null; chiefName: string | null }> {
+    try {
+      const s = (await workspaceStub(this.env).getSettings()) as unknown as { leadId: string | null; chiefName: string | null };
+      return { leadId: s.leadId ?? null, chiefName: s.chiefName ?? null };
+    } catch (err) {
+      logError('automation.identity', err);
+      return { leadId: null, chiefName: null };
+    }
+  }
+
+  // ── automations (stage 3b) ────────────────────────────────────────────────────────
+
+  async listAutomations(): Promise<AutomationView[]> {
+    return this.automations.list();
+  }
+
+  async addAutomation(spec: Partial<AutomationSpec>): Promise<{ automation: AutomationView } | { error: string; code: AutomationError['code'] }> {
+    return this.automationOp(() => this.automations.create(spec, 'owner'));
+  }
+
+  async updateAutomation(id: string, patch: Partial<AutomationSpec>): Promise<{ automation: AutomationView } | { error: string; code: AutomationError['code'] }> {
+    return this.automationOp(() => this.automations.update(id, patch));
+  }
+
+  async removeAutomation(id: string): Promise<{ removed: boolean }> {
+    return { removed: this.automations.remove(id) };
+  }
+
+  async runAutomation(id: string): Promise<{ automation: AutomationView } | { error: string; code: AutomationError['code'] }> {
+    return this.automationOp(() => this.automations.runNow(id));
+  }
+
+  /** The Chief proposes an automation: a raised hand; approving it sets it up. */
+  async openChiefAutomation(spec: Partial<AutomationSpec>, title: string): Promise<Decision | { error: string }> {
+    try {
+      return this.team.openChiefAutomation(normalizeSpec(spec), title);
+    } catch (err) {
+      if (err instanceof AutomationError) return { error: err.message };
+      throw err;
+    }
+  }
+
+  private async automationOp(fn: () => AutomationView | Promise<AutomationView>): Promise<{ automation: AutomationView } | { error: string; code: AutomationError['code'] }> {
+    try {
+      const automation = await fn();
+      const next = this.automations.nextDue();
+      if (next !== null) await this.armAlarm(Math.max(next, runtime.now() + 10));
+      await this.flush();
+      return { automation: this.automations.get(automation.automationId) ?? automation };
+    } catch (err) {
+      if (err instanceof AutomationError) return { error: err.message, code: err.code };
+      throw err;
+    }
   }
 
   /**
@@ -703,7 +806,8 @@ export class ProjectDO extends DurableObject<Env> {
     const now = runtime.now();
     const jobsNext = this.ctx.storage.sql.exec<{ at: number | null }>(`SELECT MIN(next_at) AS at FROM jobs WHERE status = 'running'`).toArray()[0]?.at;
     const teamNext = this.team.nextDue();
-    const candidates = [jobsNext, teamNext].filter((x): x is number => x !== null && x !== undefined).map(Number);
+    const autoNext = this.automations.nextDue();
+    const candidates = [jobsNext, teamNext, autoNext].filter((x): x is number => x !== null && x !== undefined).map(Number);
     const next = candidates.length ? Math.min(...candidates) : null;
     if (next !== null) await this.ctx.storage.setAlarm(Math.max(next, now + 10));
     else if (this.ledger.unforwarded(1).length) await this.ctx.storage.setAlarm(now + 5000);

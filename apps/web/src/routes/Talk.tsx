@@ -99,9 +99,9 @@ export function Talk() {
   );
 }
 
-/** The Chief's own connector calls waiting for the owner's OK (the turn waits on the card; the Inbox has it too). */
+/** The Chief's own asks waiting for the owner's OK: connector calls and automations (the turn waits on the card; the Inbox has it too). */
 function ChiefAsks() {
-  const asks = decisionList.value.filter((d) => d.kind === 'connector' && !d.projectId);
+  const asks = decisionList.value.filter((d) => (d.kind === 'connector' || d.kind === 'automation') && !d.projectId);
   if (!asks.length) return null;
   return (
     <div class="talk-asks" aria-label="Waiting for your OK">

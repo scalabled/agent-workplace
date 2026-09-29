@@ -17,6 +17,8 @@ import { CoworkerProfile } from './CoworkerProfile';
 import { ProjectDetail } from './ProjectDetail';
 import { SkillPage, Skills } from './Skills';
 import { Connectors } from './Connectors';
+import { Automations } from './Automations';
+import type { AutomationView } from '@headcount/protocol/ext/automations';
 import type { ConnectorView, ConnectorsResponse } from '@headcount/protocol/ext/connectors';
 
 type Call = { url: string; method: string; body: unknown };
@@ -474,5 +476,101 @@ describe('connectors', () => {
     await flush();
     expect(calls.at(-1)).toMatchObject({ url: '/api/decisions/dec_8', body: { action: 'approve', scope: 'always' } });
     expect(openDecisions.value.dec_8).toBeUndefined();
+  });
+});
+
+describe('automations', () => {
+  const auto = (over: Partial<AutomationView> = {}): AutomationView => ({
+    automationId: 'aut_0000000000000001',
+    name: 'Monday prices',
+    kind: 'schedule',
+    schedule: { dailyAt: '09:00' },
+    action: { type: 'job', goal: 'Check competitor coffee prices' },
+    gate: 'quiet',
+    enabled: true,
+    createdBy: 'owner',
+    createdAt: '2026-09-29T10:00:00Z',
+    updatedAt: '2026-09-29T10:00:00Z',
+    describe: 'Every day at 09:00 UTC → a background job',
+    nextAt: '2026-09-30T09:00:00Z',
+    runs: 1,
+    lastResult: 'Done: prices steady',
+    history: [{ runId: 'job_1', runKind: 'job', firedAt: '2026-09-29T09:00:00Z', context: 'Scheduled run (every day at 09:00 UTC)', status: 'done', notified: false, why: 'Nothing material.' }],
+    ...over,
+  });
+
+  it('adds one (a page watcher), pauses one, runs one now, and deletes one', async () => {
+    let list = [auto()];
+    respond = (call) => {
+      if (call.url === '/api/automations' && call.method === 'GET') return json({ automations: list });
+      if (call.url === '/api/automations' && call.method === 'POST') return json({ automation: auto({ automationId: 'aut_0000000000000002', name: 'Bean price', kind: 'page', page: { url: 'https://beans.example.com', condition: 'below', value: '50', everyMinutes: 60 }, describe: 'When beans.example.com drops below “50” (checked every hour) → a background job', history: [], runs: 0 }) }, 201);
+      if (call.method === 'PUT') return json({ automation: auto({ enabled: false, nextAt: undefined }) });
+      if (call.url.endsWith('/run')) return json({ automation: auto({ runs: 2, lastResult: 'Started.' }) }, 202);
+      if (call.method === 'DELETE') return json({ removed: true });
+      return json({});
+    };
+    await mount(<Automations />);
+    await flush();
+    const card = host.querySelector('.automation-card')!;
+    expect(card.querySelector('.connector-desc')?.textContent).toBe('Every day at 09:00 UTC → a background job');
+    expect(card.querySelector('.automation-runs li')?.textContent).toContain('kept quiet (Nothing material.)');
+    const toggle = card.querySelector<HTMLInputElement>('[aria-label="Monday prices: on"]')!;
+    await act(() => {
+      toggle.checked = false;
+      toggle.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flush();
+    expect(calls.find((x) => x.method === 'PUT')).toMatchObject({ url: '/api/automations/aut_0000000000000001', body: { enabled: false } });
+    expect(host.querySelector('.automation-switch .grant-name')?.textContent).toBe('Paused');
+    await click(button('Run now'));
+    await flush();
+    expect(calls.find((x) => x.url.endsWith('/run'))?.method).toBe('POST');
+
+    await click(button('Add an automation'));
+    const form = host.querySelector('.automation-form')!;
+    await typeInto(form.querySelector('input'), 'Bean price');
+    const kind = form.querySelectorAll<HTMLSelectElement>('select')[0]!;
+    await act(() => {
+      kind.value = 'page';
+      kind.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await typeInto(form.querySelector('input[type="url"]'), 'https://beans.example.com');
+    const cond = form.querySelectorAll<HTMLSelectElement>('select')[1]!;
+    await act(() => {
+      cond.value = 'below';
+      cond.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const inputs = [...form.querySelectorAll<HTMLInputElement>('input:not([type="url"])')];
+    await typeInto(inputs[1], '50');
+    await typeInto(form.querySelector('textarea'), 'Tell me whether to stock up on beans');
+    await click(button('Add it'));
+    await flush();
+    expect(calls.find((x) => x.method === 'POST' && x.url === '/api/automations')!.body).toEqual({
+      name: 'Bean price',
+      kind: 'page',
+      page: { url: 'https://beans.example.com', condition: 'below', value: '50', everyMinutes: 60 },
+      action: { type: 'job', goal: 'Tell me whether to stock up on beans' },
+      gate: 'quiet',
+    });
+    expect(host.querySelectorAll('.automation-card')).toHaveLength(2);
+    list = [];
+    await click(button('Delete'));
+    await click(button('Delete Monday prices'));
+    await flush();
+    expect(calls.find((x) => x.method === 'DELETE')?.url).toBe('/api/automations/aut_0000000000000001');
+    expect(host.querySelectorAll('.automation-card')).toHaveLength(1);
+  });
+
+  it('the Chief’s proposal card sets it up, or not', async () => {
+    const d = hand({ decisionId: 'dec_9', kind: 'automation', projectId: '', title: 'Eddie wants to set up “Morning news”', body: '', automation: { name: 'Morning news', kind: 'schedule', schedule: { dailyAt: '09:00' }, action: { type: 'job', goal: 'Check the news about our competitors' }, gate: 'quiet', describe: 'Every day at 09:00 UTC → a background job' } });
+    openDecisions.value = { dec_9: d };
+    respond = () => json({ accepted: true, decision: { ...d, status: 'approved' } }, 202);
+    await mount(<DecisionCard decision={d} showProject={false} />);
+    expect(host.querySelector('.decision-kind')?.textContent).toContain('Automation');
+    expect(host.textContent).toContain('Every day at 09:00 UTC → a background job');
+    await click(button('Set it up'));
+    await flush();
+    expect(calls.at(-1)).toMatchObject({ url: '/api/decisions/dec_9', body: { action: 'approve' } });
+    expect(openDecisions.value.dec_9).toBeUndefined();
   });
 });

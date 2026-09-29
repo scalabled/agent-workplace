@@ -41,6 +41,8 @@ import {
 import { webToolsOn } from '../tools/kit';
 import { AgentConfigError, AgentStore, type AgentSetup } from '../agents/store';
 import { connectorTools } from '../connectors/tools';
+import type { AutomationSpec } from '@headcount/protocol/ext/automations';
+import { automationTool, type ProposeOutcome } from '../automations/chief-tool';
 import { ConnectorError, ConnectorStore, type ConnectorCallRequest, type ConnectorCallResult, type ConnectorGrantRequest } from '../connectors/store';
 import type { ConnectorAsk, ConnectorCreate, ConnectorPatch, ConnectorsResponse, ConnectorView } from '@headcount/protocol/ext/connectors';
 import { agentView, sectionsOf } from '../agents/view';
@@ -82,6 +84,8 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS ops (op_id TEXT PRIMARY KEY, result TEXT NOT NULL, at INTEGER NOT NULL)`,
   `CREATE TABLE IF NOT EXISTS mirrored (src_stream TEXT NOT NULL, src_seq INTEGER NOT NULL, seq INTEGER NOT NULL, PRIMARY KEY (src_stream, src_seq))`,
   `CREATE TABLE IF NOT EXISTS jobs_seen (job_id TEXT PRIMARY KEY, title TEXT NOT NULL)`,
+  // Jobs and team projects an automation started: their gate decides what the owner hears (stage 3b).
+  `CREATE TABLE IF NOT EXISTS automation_seen (run_id TEXT PRIMARY KEY)`,
   `CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
   // An announcement being written in the lead's voice. Inserted in the same transaction as the mirrored frame
   // that causes it, so it is never lost: if the object dies while the model writes, the template is posted.
@@ -410,6 +414,19 @@ export class WorkspaceDO extends DurableObject<Env> {
       logError('connector.approval', err);
       return 'pending';
     }
+    return this.waitForDecision(decisionId, signal);
+  }
+
+  /** The Chief proposes an automation (a card in Talk); approving it sets it up in the ProjectDO. */
+  private async proposeAutomation(spec: Partial<AutomationSpec>, signal: AbortSignal): Promise<ProposeOutcome> {
+    const settings = await this.getSettings();
+    const r = (await projectStub(this.env).openChiefAutomation(spec, `${settings.chiefName ?? 'Your Chief of Staff'} wants to set up “${String(spec.name ?? '').slice(0, 80)}”`)) as unknown as Decision | { error: string };
+    if ('error' in r) return { error: r.error };
+    return { status: await this.waitForDecision(r.decisionId, signal), describe: r.automation?.describe ?? '' };
+  }
+
+  /** Wait (a little) for the owner to answer a raised hand the Chief's turn depends on. */
+  private waitForDecision(decisionId: string, signal: AbortSignal): Promise<'approved' | 'declined' | 'pending'> {
     return new Promise((resolve) => {
       const done = (v: 'approved' | 'declined' | 'pending') => {
         clearTimeout(timer);
@@ -509,7 +526,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       /* no provider */
     }
     const conn = connectorTools(this.connectors.kitsFor('chief'), this.connectors, { subject: 'chief', mode: () => ({ kind: 'note' }) });
-    const text = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(runtime.now()), ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: conn.describe });
+    const text = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(runtime.now()), ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: conn.describe, automations: true });
     const tools = createChiefTools({ project: this.project(), turnId: 'turn_view' as TurnId, jobs: jobs ?? [], projects: projects ?? [], decisions, log: new TurnLog(), leadId: settings.leadId, chiefName: settings.chiefName });
     return {
       surface: 'chief',
@@ -518,7 +535,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       sections: sectionsOf(text, { 'Platform rules': 'platform', 'LIVE WORK STATE': 'state', 'LIVE TEAM PROJECTS': 'state' }),
       text,
       tools: [
-        ...[...tools, ...conn.tools].map((t) => ({ name: t.spec.name, description: t.spec.description, parameters: t.spec.parameters, kind: 'function' as const })),
+        ...[...tools, ...conn.tools, automationTool({ propose: async () => ({ error: 'Preview only.' }) })].map((t) => ({ name: t.spec.name, description: t.spec.description, parameters: t.spec.parameters, kind: 'function' as const })),
         ...(webSearch ? [{ name: 'web_search', description: 'Built-in web search run by the model provider (quick lookups).', kind: 'hosted' as const }] : []),
       ],
     };
@@ -972,6 +989,7 @@ export class WorkspaceDO extends DurableObject<Env> {
         );
         this.ctx.storage.sql.exec('INSERT INTO mirrored (src_stream, src_seq, seq) VALUES (?, ?, ?)', batch.source, f.seq, m.seq);
         if (f.type === 'job.started') this.ctx.storage.sql.exec('INSERT OR REPLACE INTO jobs_seen (job_id, title) VALUES (?, ?)', f.data.job.jobId, f.data.job.title);
+        if (f.type === 'automation.fired') this.ctx.storage.sql.exec('INSERT OR IGNORE INTO automation_seen (run_id) VALUES (?)', f.data.runId);
         const milestone = this.milestoneFrame(m as Frame);
         if (milestone) return { mirrored: m, announcement: this.ledger.append(milestone) };
         const plan = this.announcementPlan(m as Frame);
@@ -1028,8 +1046,11 @@ export class WorkspaceDO extends DurableObject<Env> {
    */
   private milestoneFrame(frame: Frame): FrameInput<'talk.message'> | null {
     if (frame.type === 'decision.opened') return this.handFrame(frame);
+    if (frame.type === 'automation.result') return this.automationFrame(frame);
     if (frame.type !== 'project.updated' || frame.data.project.status !== 'running') return null;
     const p = frame.data.project;
+    // An automation's project: its gate speaks for it at the end.
+    if (p.automation) return null;
     const done = p.steps.filter((s) => s.status === 'done');
     if (p.steps.length < 3 || done.length * 2 < p.steps.length || done.length === p.steps.length) return null;
     const inserted = this.ctx.storage.sql.exec(`INSERT OR IGNORE INTO project_milestones (project_id, kind, seq) VALUES (?, 'halfway', ?)`, p.projectId, frame.seq!).rowsWritten;
@@ -1056,7 +1077,7 @@ export class WorkspaceDO extends DurableObject<Env> {
   private handFrame(frame: Extract<Frame, { type: 'decision.opened' }>): FrameInput<'talk.message'> | null {
     const d = frame.data.decision;
     // The Chief's own connector ask shows as a card in Talk while the turn waits.
-    if (d.kind === 'plan_approval' || (d.kind === 'connector' && !d.projectId)) return null;
+    if (d.kind === 'plan_approval' || ((d.kind === 'connector' || d.kind === 'automation') && !d.projectId)) return null;
     const text = d.kind === 'input' ? `${d.title} It's in your Inbox, or just tell me the answer.` : `${d.title} It's in your Inbox.`;
     const spoken = this.usage.take('ping', dailyLimit(this.env, 'ping'), runtime.now()).allowed;
     return {
@@ -1067,10 +1088,28 @@ export class WorkspaceDO extends DurableObject<Env> {
     };
   }
 
+  /** An automation's run ended and its gate lets the owner hear it: the Chief says so (aloud within the budget). */
+  private automationFrame(frame: Extract<Frame, { type: 'automation.result' }>): FrameInput<'talk.message'> | null {
+    const d = frame.data;
+    if (!d.notify) return null;
+    const spoken = this.usage.take('ping', dailyLimit(this.env, 'ping'), runtime.now()).allowed;
+    return {
+      type: 'talk.message',
+      data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text: d.text, kind: spoken ? 'announcement' : 'note', ...(d.runKind === 'project' ? { projectId: d.runId } : { jobId: d.runId as JobId }) },
+      actor: CHIEF_ID,
+      cause: { streamId: frame.streamId as StreamId, seq: frame.seq! },
+    };
+  }
+
+  private automationRun(runId: string): boolean {
+    return this.ctx.storage.sql.exec('SELECT run_id FROM automation_seen WHERE run_id = ?', runId).toArray().length > 0;
+  }
+
   private announcementPlan(frame: Frame): AnnouncementPlan | null {
-    // Inc 1: a team project finished or failed (emitted once per terminal state).
+    // Inc 1: a team project finished or failed (emitted once per terminal state). An automation's run: its gate decides.
     if (frame.type === 'project.updated' && ['done', 'partial', 'failed'].includes(frame.data.project.status)) {
       const p = frame.data.project;
+      if (p.automation) return null;
       const projectFacts: AnnouncementFacts =
         p.status === 'failed'
           ? { kind: 'failed', title: p.title, reason: p.error ?? 'The team could not finish.' }
@@ -1087,6 +1126,7 @@ export class WorkspaceDO extends DurableObject<Env> {
     }
     let facts: AnnouncementFacts;
     let jobId: JobId;
+    if ((frame.type === 'job.done' || frame.type === 'job.failed' || frame.type === 'job.cancelled') && this.automationRun(frame.data.jobId)) return null;
     if (frame.type === 'job.done') {
       jobId = frame.data.jobId;
       facts = { kind: 'done', title: this.jobTitle(jobId), summary: frame.data.summary };
@@ -1198,6 +1238,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       isCurrent: (turnId: TurnId) => this.turn?.turnId === turnId || !this.turn || this.turn.settled,
       now: () => runtime.now(),
       webTools: webToolsOn(this.env),
+      automations: { propose: (spec: Partial<AutomationSpec>, signal: AbortSignal) => this.proposeAutomation(spec, signal) },
       connectors: {
         kits: () => this.connectors.kitsFor('chief'),
         call: (req: ConnectorCallRequest) => this.connectors.call(req),

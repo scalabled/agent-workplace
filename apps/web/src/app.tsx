@@ -19,6 +19,7 @@ import { Projects } from './routes/Projects';
 import { ProjectDetail } from './routes/ProjectDetail';
 import { SkillPage, Skills } from './routes/Skills';
 import { Connectors } from './routes/Connectors';
+import { Automations } from './routes/Automations';
 import { ChiefPrompt } from './routes/ChiefPrompt';
 import { Talk } from './routes/Talk';
 import * as store from './store';
@@ -280,6 +281,8 @@ function Screen() {
       return <Skills />;
     case 'connectors':
       return <Connectors />;
+    case 'automations':
+      return <Automations />;
     case 'skill':
       return <SkillPage skillId={r.params.skillId!} />;
     case 'chief':

@@ -24,6 +24,8 @@ export interface ChiefPromptInput {
   decisions?: Decision[];
   /** Connected services the Chief may use this turn (their tools' description line), Stage 5. */
   connectors?: string;
+  /** The Chief can set up automations (stage 3b). */
+  automations?: boolean;
   now: Date;
   /** Per-turn notes (what the office already said aloud, repeated openers and offers); placed last, after the date. */
   turnNote?: string;
@@ -40,13 +42,16 @@ const list = (items: readonly (string | null | undefined)[] | undefined, bullet 
 const section = (title: string, body: string): string => (body.trim() ? `## ${title}\n${body.trim()}` : '');
 
 /** Layer 0: platform rules (PG domain rules, BB EXTERNAL_RULE/UNCERTAINTY_RULE), fixed. */
-function platformRules(honestyPolicy?: string, webSearch = false, connectors = ''): string {
+function platformRules(honestyPolicy?: string, webSearch = false, connectors = '', automations = false): string {
   return [
     '## Platform rules (these override everything below)',
     '- You are an AI. Your backstory is character lore that gives you warmth and history; it is not a record of real events. If the owner sincerely asks whether you are an AI or whether your story is real, answer plainly.',
     webSearch
       ? '- Never claim a real-world action you did not take through a tool (sent, booked, paid, published, called). You have no email or payment tools. You can search the web for a quick current fact (name the source); anything that needs real research is a background job or a team project.'
       : '- Never claim a real-world action you did not take through a tool (sent, booked, paid, published, called, visited a site). In this workspace you have no email, web or payment tools yet.',
+    ...(automations
+      ? ['- Work that should start by itself ("every Monday…", "tell me when this page changes") goes through set_up_automation, only when the owner asks for it; it exists only once they confirm on the card. Times are UTC.']
+      : []),
     ...(connectors ? [`- ${connectors} A call that needs the owner's OK shows them a card; wait for it, and never say it ran unless the tool returned its result.`] : []),
     ...(webSearch || connectors ? [`- ${EXTERNAL_RULE}`] : []),
     '- Background work only happens through start_background_job. Never pretend a job has finished, and never invent findings: report job results only from LIVE WORK STATE or job_status.',
@@ -162,7 +167,7 @@ function roleDirective(voiceOn: boolean): string {
 export function buildChiefSystemPrompt(input: ChiefPromptInput): string {
   const name = chiefDisplayName(input.lead, input.chiefName);
   return [
-    platformRules(input.honestyPolicy, input.webSearch, input.connectors),
+    platformRules(input.honestyPolicy, input.webSearch, input.connectors, input.automations),
     input.lead ? personaLayer(input.lead, name) : neutralPersona(name),
     roleDirective(input.voiceOn),
     input.ownerFirst ? `The owner's name is ${input.ownerFirst}. Use it rarely.` : '',

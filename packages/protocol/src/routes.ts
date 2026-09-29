@@ -58,6 +58,12 @@ export const ROUTES = {
   removeConnector: { method: 'DELETE', path: '/api/connectors/:id', auth: 'owner' },
   testConnector: { method: 'POST', path: '/api/connectors/:id/test', auth: 'owner', bodyCap: 1024 },
   revokeConnectorGrant: { method: 'DELETE', path: '/api/connectors/:id/grants/:grantId', auth: 'owner' },
+  // Parity stage 3b: automations (ext/automations.ts).
+  listAutomations: { method: 'GET', path: '/api/automations', auth: 'owner' },
+  addAutomation: { method: 'POST', path: '/api/automations', auth: 'owner', body: 'json', bodyCap: 16 * 1024 },
+  putAutomation: { method: 'PUT', path: '/api/automations/:id', auth: 'owner', body: 'json', bodyCap: 16 * 1024 },
+  removeAutomation: { method: 'DELETE', path: '/api/automations/:id', auth: 'owner' },
+  runAutomation: { method: 'POST', path: '/api/automations/:id/run', auth: 'owner', bodyCap: 1024 },
   // Parity stage 2: agent configuration and transparency (ext/agents.ts).
   getAgent: { method: 'GET', path: '/api/agents/:personaId', auth: 'owner' },
   putAgent: { method: 'PUT', path: '/api/agents/:personaId', auth: 'owner', body: 'json', bodyCap: 24 * 1024 },
