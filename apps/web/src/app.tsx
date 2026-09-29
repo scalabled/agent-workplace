@@ -17,6 +17,8 @@ import { Inbox } from './routes/Inbox';
 import { Onboarding } from './routes/Onboarding';
 import { Projects } from './routes/Projects';
 import { ProjectDetail } from './routes/ProjectDetail';
+import { SkillPage, Skills } from './routes/Skills';
+import { ChiefPrompt } from './routes/ChiefPrompt';
 import { Talk } from './routes/Talk';
 import * as store from './store';
 import { acceptSettings, applyFrame, capabilities, clearServerPresence, connection, lastSeq, mergeJobs, mergeProjects, onboarded, settings } from './store';
@@ -273,6 +275,12 @@ function Screen() {
       return <Projects />;
     case 'project':
       return <ProjectDetail projectId={r.params.projectId!} />;
+    case 'skills':
+      return <Skills />;
+    case 'skill':
+      return <SkillPage skillId={r.params.skillId!} />;
+    case 'chief':
+      return <ChiefPrompt />;
     case 'inbox':
       return <Inbox />;
     default:

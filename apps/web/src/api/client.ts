@@ -34,7 +34,8 @@ import type {
 import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcount/protocol/ext/media';
 import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, RoomCancelResponse, RoomId, RoomSayAccepted, RoomSayRequest } from '@headcount/protocol/ext/rooms';
 import { noteUnauthenticated } from '../auth/session';
-import type { ProjectActionAccepted, ProjectResponse, ProjectsResponse, StopAllResponse } from '@headcount/protocol/ext/projects';
+import type { DecisionAnswer, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
+import type { AgentConfigPatch, AgentView, ModelsResponse, PromptView, RunsResponse, SkillDetail, SkillsResponse } from '@headcount/protocol/ext/agents';
 import { clientId } from '../lib/client-id';
 
 export class ApiError extends Error {
@@ -90,6 +91,23 @@ export const api = {
     request<ProjectActionAccepted>(routePath('noteProject', { id }), jsonInit('POST', { text, opId, ...(toId ? { toId } : {}) })),
   pauseProject: (id: string) => request<ProjectActionAccepted>(routePath('pauseProject', { id }), { method: 'POST' }),
   resumeProject: (id: string) => request<ProjectActionAccepted>(routePath('resumeProject', { id }), { method: 'POST' }),
+  // Parity stage 3: raised hands, plan editing, the run inspector.
+  answerDecision: (id: string, a: DecisionAnswer) => request<ProjectActionAccepted>(routePath('answerDecision', { id }), jsonInit('POST', a)),
+  editStep: (id: string, stepId: string, e: StepEdit) => request<ProjectActionAccepted>(routePath('editStep', { id, stepId }), jsonInit('PUT', e)),
+  addStep: (id: string, e: StepEdit) => request<ProjectActionAccepted>(routePath('addStep', { id }), jsonInit('POST', e)),
+  removeStep: (id: string, stepId: string) => request<ProjectActionAccepted>(routePath('removeStep', { id, stepId }), { method: 'DELETE' }),
+  editPlan: (id: string, e: PlanEdit) => request<ProjectActionAccepted>(routePath('editPlan', { id }), jsonInit('PUT', e)),
+  projectRuns: (id: string, stepId?: string) => request<RunsResponse>(`${routePath('projectRuns', { id })}${stepId ? `?stepId=${encodeURIComponent(stepId)}` : ''}`),
+  // Parity stage 2: how each coworker works, skills, the Chief's prompt, models.
+  getAgent: (personaId: string) => request<AgentView>(routePath('getAgent', { personaId })),
+  putAgent: (personaId: string, patch: AgentConfigPatch) => request<AgentView>(routePath('putAgent', { personaId }), jsonInit('PUT', patch)),
+  resetAgent: (personaId: string) => request<AgentView>(routePath('resetAgent', { personaId }), { method: 'POST' }),
+  listSkills: () => request<SkillsResponse>(routePath('listSkills')),
+  getSkill: (id: string) => request<SkillDetail>(routePath('getSkill', { id })),
+  putSkill: (id: string, instructions: string, note?: string) => request<SkillDetail>(routePath('putSkill', { id }), jsonInit('PUT', { instructions, ...(note ? { note } : {}) })),
+  rollbackSkill: (id: string, version: number) => request<SkillDetail>(routePath('rollbackSkill', { id }), jsonInit('POST', { version })),
+  chiefPrompt: () => request<PromptView>(routePath('chiefPrompt')),
+  listModels: () => request<ModelsResponse>(routePath('listModels')),
   /** "Everyone stop": every running job and team project halts; the feed carries each stop. */
   stopAll: () => request<StopAllResponse>(routePath('stopAll'), { method: 'POST' }),
   /** Raw audio response (Content-Type audio/*). Throws ApiError not_configured when no TTS provider. */

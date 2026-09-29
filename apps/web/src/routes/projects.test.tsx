@@ -92,7 +92,7 @@ describe('Inbox: a plan waiting for the owner', () => {
   it('shows the raised hand with the team and plan; Approve starts it and lowers the hand at once', async () => {
     upsertProject(proj());
     openDecisions.value = { dec_1: decision };
-    respond = (call) => (call.url.endsWith('/approve') ? json({ accepted: true, project: proj({ status: 'running', updatedAt: '2026-09-29T10:01:00Z' }) }, 202) : json({}));
+    respond = (call) => (call.url === '/api/decisions/dec_1' ? json({ accepted: true, project: proj({ status: 'running', updatedAt: '2026-09-29T10:01:00Z' }) }, 202) : json({}));
     await mount(<Inbox />);
     expect(host.textContent).toContain('Start the spring menu launch?');
     expect(host.textContent).toContain('Size the audience');
@@ -100,7 +100,7 @@ describe('Inbox: a plan waiting for the owner', () => {
     expect(host.textContent).toContain('tell Eddie “go ahead”');
     await click(button('Approve and start'));
     await flush();
-    expect(calls.some((x) => x.method === 'POST' && x.url === '/api/projects/prj_abcdefgh/approve')).toBe(true);
+    expect(calls.some((x) => x.method === 'POST' && x.url === '/api/decisions/dec_1')).toBe(true);
     expect(teamProjects.value.prj_abcdefgh?.status).toBe('running');
     expect(raisedHands.value).toBe(0);
     expect(host.textContent).toContain('Nothing needs you');
@@ -120,13 +120,13 @@ describe('Inbox: a plan waiting for the owner', () => {
   it('Not now declines; See the plan opens the project page', async () => {
     upsertProject(proj());
     openDecisions.value = { dec_1: decision };
-    respond = (call) => (call.url.endsWith('/cancel') ? json({ accepted: true, project: proj({ status: 'cancelled', updatedAt: '2026-09-29T10:01:00Z' }) }, 202) : json({}));
+    respond = (call) => (call.url === '/api/decisions/dec_1' ? json({ accepted: true, project: proj({ status: 'cancelled', updatedAt: '2026-09-29T10:01:00Z' }) }, 202) : json({}));
     await mount(<Inbox />);
     await click(button('See the plan'));
     expect(path.value).toBe('/app/projects/prj_abcdefgh');
     await click(button('Not now'));
     await flush();
-    expect(calls.some((x) => x.url === '/api/projects/prj_abcdefgh/cancel')).toBe(true);
+    expect(calls.some((x) => x.url === '/api/decisions/dec_1' && x.method === 'POST')).toBe(true);
     expect(teamProjects.value.prj_abcdefgh?.status).toBe('cancelled');
     expect(raisedHands.value).toBe(0);
   });
@@ -197,10 +197,13 @@ describe('ProjectDetail', () => {
   it('asks for the OK on a proposed plan, and offers Stop while running', async () => {
     const proposed = proj({ forecast: { rounds: 2, modelCalls: { min: 5, max: 7 }, minutes: { min: 3, max: 7 } } });
     upsertProject(proposed);
-    respond = (call) => (call.url.endsWith('/approve') ? json({ accepted: true, project: proj({ status: 'running', updatedAt: '2026-09-29T10:01:00Z', steps: [step('s1', { status: 'working', title: 'Size the audience' })] }) }, 202) : call.method === 'GET' ? json(proposed) : json({}));
+    openDecisions.value = { dec_1: decision };
+    respond = (call) =>
+      call.url === '/api/decisions/dec_1' ? json({ accepted: true, project: proj({ status: 'running', updatedAt: '2026-09-29T10:01:00Z', steps: [step('s1', { status: 'working', title: 'Size the audience' })] }) }, 202) : call.method === 'GET' ? json(proposed) : json({});
     await mount(<ProjectDetail projectId="prj_abcdefgh" />);
     await flush();
-    expect(host.textContent).toContain('Eddie staffed this and drafted the plan');
+    // The plan's raised hand shows on the project page as in the Inbox.
+    expect(host.querySelector('.decision-card .decision-title')?.textContent).toBe('Start the spring menu launch?');
     expect(host.querySelector('.project-forecast')?.textContent).toContain('About 3 to 7 minutes once you approve: 2 rounds of work, 5 to 7 model calls.');
     await click(button('Approve and start'));
     await flush();

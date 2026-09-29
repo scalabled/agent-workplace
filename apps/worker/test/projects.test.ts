@@ -22,8 +22,11 @@ async function setup(overrides: Partial<Env> = {}) {
     const res = await handle(new Request(`http://localhost${path}`, { method, ...(body !== undefined ? { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {}) }), t.env, t.ctx);
     return { status: res.status, body: (await res.json()) as any };
   };
+  /** Talk, let the turn finish, then one tick (a staffed project's lead drafts the plan on the next tick). */
   const talk = async (text: string) => {
     const r = await api('POST', '/api/talk', { text, opId: ids.op() });
+    await t.ctx.drain();
+    await project.alarm();
     await t.ctx.drain();
     return r;
   };

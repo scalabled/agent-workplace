@@ -1,23 +1,33 @@
-// One team project (Inc 1): what it is for, who is on it (faces show what each is doing now), the reviewed plan with
-// each step's work, and the deliverable. A proposed plan waits for the owner's OK here and in the Inbox. While it is
-// under way the owner steers without stopping anyone: a note reaches the next step, Pause lets steps under way finish.
-import { PROJECT_NOTE_MAX, type ProjectNote, type ProjectStep, type TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+// One team project: what it is for, who is on it (faces show what each is doing now), the plan (as a graph and as
+// steps, each with its work, reviews and sources), and the deliverable in its kind. The lead drafts the plan, then it
+// waits for the owner's OK; raised hands for this project show here as in the Inbox. The owner edits the plan while
+// it waits or is paused, steers without stopping anyone (a note reaches the next step), and can open every model
+// call the team made (the run inspector).
+import { PROJECT_NOTE_MAX, type DeliverableKind, type ProjectNote, type ProjectStep, type TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { useEffect, useState } from 'preact/hooks';
 import { loadCatalog } from '../catalog';
 import { chiefName } from '../chief';
+import { DecisionCard } from '../components/DecisionCard';
 import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
 import { Markdown } from '../components/Markdown';
 import { Sources } from '../components/Sources';
 import { MemberFace, PROJECT_STATUS_WORDS, STEP_STATUS_WORDS, progressOf, projectGlyph, stepGlyph } from '../components/ProjectCard';
-import { approveProject, cancelProject, loadProject, noteProject, pauseProject, projectBusy, projectError, resumeProject } from '../projects/actions';
+import { cancelProject, editPlan, loadProject, noteProject, pauseProject, projectBusy, projectError, resumeProject } from '../projects/actions';
+import { DeliverableView } from '../projects/DeliverableView';
+import { PlanGraph } from '../projects/PlanGraph';
+import { RunInspector } from '../projects/RunInspector';
+import { StepEditor } from '../projects/StepEditor';
 import { navigate, paths } from '../router';
-import { presenceFor, teamProjects } from '../store';
+import { decisionList, presenceFor, teamProjects } from '../store';
 import './pages.css';
 
 function roleWord(role: string): string {
   return { lead: 'Lead', co_owner: 'Co-owner', reviewer: 'Reviewer', sceptic: 'Sceptic', specialist: 'Specialist', facilitator: 'Facilitator' }[role] ?? role;
 }
+
+const KIND_WORD: Record<DeliverableKind, string> = { document: 'A document', web: 'A web page', code: 'A code file' };
+const nf = new Intl.NumberFormat('en-US');
 
 /** How long a finished step took ("took 2 min"), from its own timestamps. */
 function took(step: ProjectStep): string | null {
@@ -27,14 +37,21 @@ function took(step: ProjectStep): string | null {
   return s < 60 ? `took ${Math.max(1, Math.round(s))} s` : `took ${Math.round(s / 60)} min`;
 }
 
-function StepCard({ step, project, index }: { step: ProjectStep; project: TeamProjectSnapshot; index: number }) {
+const editable = (p: TeamProjectSnapshot) => p.status === 'proposed' || p.status === 'paused';
+
+function StepCard({ step, project, index, onInspect }: { step: ProjectStep; project: TeamProjectSnapshot; index: number; onInspect: () => void }) {
   const [open, setOpen] = useState(false);
-  const owner = project.team.find((m) => m.personaId === step.ownerId);
-  const reviewer = project.team.find((m) => m.personaId === step.reviewerIds[0]);
+  const [editing, setEditing] = useState(false);
+  const first = (id: string) => project.team.find((m) => m.personaId === id)?.name.split(' ')[0] ?? id;
+  const owner = project.team.find((m) => m.personaId === (step.byId ?? step.ownerId));
+  const coOwners = (step.coOwnerIds ?? []).map(first);
+  const reviewers = step.reviewerIds.map(first);
   const after = step.dependsOn.map((d) => project.steps.find((s) => s.id === d)?.title).filter(Boolean);
-  const canOpen = !!step.output;
+  const reviews = step.reviews ?? (step.verdict ? [step.verdict] : []);
+  const canOpen = !!step.output || reviews.length > 0 || !!step.error;
+  const canEdit = editable(project) && step.status !== 'done';
   return (
-    <li class="step" data-status={step.status}>
+    <li class="step" id={`step-${step.id}`} data-status={step.status}>
       <div class="step-head">
         <span class="step-num tabular" aria-hidden="true">
           {index + 1}
@@ -47,31 +64,58 @@ function StepCard({ step, project, index }: { step: ProjectStep; project: TeamPr
               <span class="step-who">
                 <MemberFace member={owner} live />
                 {owner.name.split(' ')[0]}
+                {coOwners.length > 0 && <span class="step-co"> with {coOwners.join(', ')}</span>}
               </span>
             )}
-            {reviewer && <span class="step-reviewer">reviewed by {reviewer.name.split(' ')[0]}</span>}
+            {reviewers.length > 0 && <span class="step-reviewer">reviewed by {reviewers.join(', ')}</span>}
             {after.length > 0 && step.status === 'waiting' && <span class="step-after">after {after.join(', ')}</span>}
             {step.status === 'done' && took(step) && <span class="step-took tabular">{took(step)}</span>}
             {step.sources?.length ? <span class="step-sources tabular">{step.sources.length === 1 ? '1 source' : `${step.sources.length} sources`}</span> : null}
           </p>
         </div>
         <span class="step-status">{STEP_STATUS_WORDS[step.status]}</span>
+        {canEdit && !editing && (
+          <button type="button" class="icon-button" aria-label={`Edit ${step.title}`} onClick={() => setEditing(true)}>
+            <Icon name="edit" size={16} />
+          </button>
+        )}
         {canOpen && (
           <button type="button" class="icon-button" aria-expanded={open} aria-label={open ? `Hide ${step.title}` : `Show ${step.title}`} onClick={() => setOpen(!open)}>
             <Icon name="chevronDown" size={18} class={open ? 'icon-flip' : undefined} />
           </button>
         )}
       </div>
-      {open && step.output && (
+      {step.question && step.status === 'asking' && (
+        <p class="step-question">
+          <strong>{owner?.name.split(' ')[0] ?? 'The lead'} asks:</strong> {step.question.text}
+        </p>
+      )}
+      {editing && (
         <div class="step-body">
-          <Markdown text={step.output} />
+          <StepEditor project={project} step={step} onDone={() => setEditing(false)} />
+        </div>
+      )}
+      {open && !editing && (
+        <div class="step-body">
+          {step.error && <p class="step-note">{step.error}</p>}
+          {step.output && <Markdown text={step.output} />}
           <Sources sources={step.sources} max={5} />
-          {step.verdict && (
-            <p class="step-verdict" data-approved={step.verdict.approved || undefined}>
-              <strong>{project.team.find((m) => m.personaId === step.verdict!.reviewerId)?.name.split(' ')[0] ?? 'Reviewer'}:</strong> {step.verdict.notes}
-              {step.revised && ' (revised)'}
-            </p>
+          {reviews.length > 0 && (
+            <ul class="step-reviews">
+              {reviews.map((v) => (
+                <li key={v.reviewerId} class="step-verdict" data-approved={v.approved || undefined}>
+                  <strong>
+                    {first(v.reviewerId)} {v.approved ? 'approved' : 'asked for changes'}:
+                  </strong>{' '}
+                  {v.notes}
+                </li>
+              ))}
+              {step.revised && <li class="step-note">Revised after review.</li>}
+            </ul>
           )}
+          <button type="button" class="button-quiet button-small" onClick={onInspect}>
+            <Icon name="code" size={16} /> Model calls for this step
+          </button>
         </div>
       )}
     </li>
@@ -83,7 +127,7 @@ const VIA_WORDS: Record<ProjectNote['via'], string> = { page: 'here', chief: 'to
 /** "Tell the team": direction that reaches the next step, and what became of each note. */
 function TeamNotes({ project }: { project: TeamProjectSnapshot }) {
   const [text, setText] = useState('');
-  const open = project.status === 'proposed' || project.status === 'running' || project.status === 'paused';
+  const open = ['planning', 'proposed', 'running', 'paused', 'needs_review'].includes(project.status);
   const notes = project.notes ?? [];
   if (!open && !notes.length) return null;
   const busy = projectBusy.value[project.projectId] === 'note';
@@ -107,8 +151,7 @@ function TeamNotes({ project }: { project: TeamProjectSnapshot }) {
               <li key={n.noteId} class="note" data-status={n.status}>
                 <p class="note-text">{n.text}</p>
                 <p class="note-meta">
-                  {first(n.toId) ? `To ${first(n.toId)}` : 'To the team'}, {VIA_WORDS[n.via]} ·{' '}
-                  {n.status === 'applied' ? (step ? `picked up in “${step.title}”` : 'picked up') : 'waiting for the next step'}
+                  {first(n.toId) ? `To ${first(n.toId)}` : 'To the team'}, {VIA_WORDS[n.via]} · {n.status === 'applied' ? (step ? `picked up in “${step.title}”` : 'picked up') : 'waiting for the next step'}
                 </p>
               </li>
             );
@@ -142,14 +185,52 @@ function TeamNotes({ project }: { project: TeamProjectSnapshot }) {
   );
 }
 
+/** What the team delivers and who finishes it (editable while the plan waits or the project is paused). */
+function PlanSettings({ project }: { project: TeamProjectSnapshot }) {
+  const kind = project.deliverableKind ?? 'document';
+  const finisher = project.finisherId ?? project.team.find((m) => m.role === 'lead')?.personaId ?? '';
+  if (!editable(project))
+    return (
+      <p class="plan-settings-line">
+        {KIND_WORD[kind]}, assembled by {project.team.find((m) => m.personaId === finisher)?.name.split(' ')[0] ?? 'the lead'} and checked by a reviewer.
+      </p>
+    );
+  return (
+    <div class="plan-settings">
+      <label class="field field-inline">
+        <span class="field-label">Deliverable</span>
+        <select class="field-input" value={kind} onChange={(e) => void editPlan(project.projectId, { deliverableKind: (e.target as HTMLSelectElement).value as DeliverableKind })}>
+          <option value="document">A document</option>
+          <option value="web">A web page or small app</option>
+          <option value="code">A code file</option>
+        </select>
+      </label>
+      <label class="field field-inline">
+        <span class="field-label">Assembled by</span>
+        <select class="field-input" value={finisher} onChange={(e) => void editPlan(project.projectId, { finisherId: (e.target as HTMLSelectElement).value })}>
+          {project.team
+            .filter((m) => m.role !== 'sceptic')
+            .map((m) => (
+              <option key={m.personaId} value={m.personaId}>
+                {m.name}
+              </option>
+            ))}
+        </select>
+      </label>
+    </div>
+  );
+}
+
 export function ProjectDetail({ projectId }: { projectId: string }) {
+  const [inspect, setInspect] = useState<{ stepId: string | null; title: string } | null>(null);
+  const [adding, setAdding] = useState(false);
   useEffect(() => {
     void loadCatalog();
     void loadProject(projectId);
   }, [projectId]);
   // Reload the full outputs when the project finishes (frames carry them clipped).
   const project = teamProjects.value[projectId];
-  const finished = project?.status === 'done';
+  const finished = project?.status === 'done' || project?.status === 'partial' || project?.status === 'needs_review';
   useEffect(() => {
     if (finished) void loadProject(projectId);
   }, [finished, projectId]);
@@ -170,6 +251,10 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
   const error = projectError.value[projectId];
   const { done, total, pct } = progressOf(project);
   const name = chiefName.value;
+  const hands = decisionList.value.filter((d) => d.projectId === projectId);
+  const lead = project.team.find((m) => m.role === 'lead') ?? project.team[0];
+  const qaName = project.qa ? project.team.find((m) => m.personaId === project.qa!.reviewerId)?.name.split(' ')[0] : undefined;
+  const usage = project.usage;
   return (
     <section class="page project-page" aria-labelledby="project-title">
       <header class="page-head">
@@ -180,40 +265,41 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
         <p class="project-status-line">
           <span class="job-glyph" data-status={projectGlyph(project.status)} aria-hidden="true" />
           {PROJECT_STATUS_WORDS[project.status]}
-          {project.status !== 'proposed' && (
+          {project.status !== 'proposed' && project.status !== 'planning' && (
             <span class="tabular">
               {' '}
               · {done} of {total} steps
             </span>
           )}
+          {usage && usage.calls > 0 && (
+            <button type="button" class="link-button tabular project-usage" onClick={() => setInspect({ stepId: null, title: 'Every model call' })}>
+              {nf.format(usage.input + usage.output)} tokens · {usage.calls} call{usage.calls === 1 ? '' : 's'}
+              {usage.usd !== null && usage.usd > 0 ? ` · $${usage.usd.toFixed(2)}` : ''}
+            </button>
+          )}
         </p>
         <p class="page-lede">{project.goal}</p>
       </header>
 
-      {project.status === 'proposed' && (
-        <section class="panel decision" aria-label="Your decision">
-          <p class="decision-hand" aria-hidden="true">
-            ✋
-          </p>
-          <div class="decision-body">
-            <p class="decision-title">{name} staffed this and drafted the plan. Start it?</p>
-            <p class="decision-text">{project.staffingNote}</p>
-            {project.forecast && (
-              <p class="decision-text project-forecast">
-                About {project.forecast.minutes.min} to {project.forecast.minutes.max} minutes once you approve: {project.forecast.rounds} round{project.forecast.rounds === 1 ? '' : 's'} of work,{' '}
-                {project.forecast.modelCalls.min} to {project.forecast.modelCalls.max} model calls.
-              </p>
-            )}
-          </div>
-          <div class="decision-actions">
-            <button type="button" class="button-primary" disabled={!!busy} onClick={() => void approveProject(projectId)}>
-              {busy === 'approve' ? 'Starting…' : 'Approve and start'}
-            </button>
-            <button type="button" class="button-quiet" disabled={!!busy} onClick={() => void cancelProject(projectId)}>
-              Not now
-            </button>
-          </div>
-        </section>
+      {project.status === 'planning' && (
+        <p class="panel project-planning" role="status">
+          {lead?.name.split(' ')[0] ?? 'The lead'} is drafting the plan from the {project.recipeName ? `“${project.recipeName}” playbook` : 'playbook'}. It will be here and in your Inbox in a moment.
+        </p>
+      )}
+
+      {hands.map((d) => (
+        <DecisionCard key={d.decisionId} decision={d} showProject={false} />
+      ))}
+      {project.status === 'proposed' && !hands.length && (
+        <p class="page-fine">
+          {name} staffed this and drafted the plan. {project.staffingNote}
+        </p>
+      )}
+      {project.status === 'proposed' && project.forecast && (
+        <p class="decision-text project-forecast">
+          About {project.forecast.minutes.min} to {project.forecast.minutes.max} minutes once you approve: {project.forecast.rounds} round{project.forecast.rounds === 1 ? '' : 's'} of work, {project.forecast.modelCalls.min} to{' '}
+          {project.forecast.modelCalls.max} model calls.
+        </p>
       )}
       {error && (
         <p class="form-error" role="alert">
@@ -240,19 +326,10 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
           </button>
         </div>
       )}
-      {project.status === 'paused' && <p class="page-fine">Paused: anyone mid-step finishes, then the team waits for you.</p>}
+      {project.status === 'paused' && <p class="page-fine">Paused: anyone mid-step finishes, then the team waits for you. You can edit the plan now.</p>}
 
-      {project.status === 'done' && project.deliverable && (
-        <section class="panel deliverable-panel" aria-labelledby="deliverable-title">
-          <header class="project-deliverable-head">
-            <h2 id="deliverable-title">The deliverable</h2>
-            <button type="button" class="button-quiet" onClick={() => void navigator.clipboard?.writeText(project.deliverable ?? '')}>
-              Copy
-            </button>
-          </header>
-          <Markdown text={project.deliverable} />
-        </section>
-      )}
+      {(project.status === 'done' || project.status === 'partial' || project.status === 'needs_review') && project.deliverable && <DeliverableView project={project} {...(qaName ? { reviewerName: qaName } : {})} />}
+      {project.status === 'partial' && <p class="page-fine">Some steps did not finish; the deliverable says which.</p>}
       {project.status === 'failed' && project.error && (
         <p class="panel project-failed" role="alert">
           {project.error}
@@ -286,15 +363,35 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
       </section>
 
       <section class="panel" aria-labelledby="plan-title">
-        <h2 id="plan-title" class="panel-title">
-          The plan
-        </h2>
+        <header class="plan-head">
+          <h2 id="plan-title" class="panel-title">
+            The plan
+          </h2>
+          {project.status !== 'planning' && (
+            <button type="button" class="button-quiet button-small" onClick={() => setInspect({ stepId: null, title: 'Every model call' })}>
+              <Icon name="code" size={16} /> Model calls
+            </button>
+          )}
+        </header>
+        <PlanSettings project={project} />
+        <PlanGraph project={project} onSelect={(id) => document.getElementById(`step-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })} />
         <ol class="step-list">
           {project.steps.map((s, i) => (
-            <StepCard key={s.id} step={s} project={project} index={i} />
+            <StepCard key={s.id} step={s} project={project} index={i} onInspect={() => setInspect({ stepId: s.id, title: s.title })} />
           ))}
         </ol>
+        {editable(project) &&
+          (adding ? (
+            <div class="step-add">
+              <StepEditor project={project} onDone={() => setAdding(false)} />
+            </div>
+          ) : (
+            <button type="button" class="button-quiet step-add-button" onClick={() => setAdding(true)}>
+              <Icon name="plus" size={16} /> Add a step
+            </button>
+          ))}
       </section>
+      {inspect && <RunInspector projectId={projectId} stepId={inspect.stepId} title={inspect.title} onClose={() => setInspect(null)} />}
     </section>
   );
 }

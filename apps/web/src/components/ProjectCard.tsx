@@ -6,10 +6,13 @@ import { presenceFor } from '../store';
 import { Face, personaSubject } from './Face';
 
 export const PROJECT_STATUS_WORDS: Record<TeamProjectSnapshot['status'], string> = {
+  planning: 'Drafting the plan',
   proposed: 'Waiting for your OK',
   running: 'Working',
   paused: 'Paused',
+  needs_review: 'Needs your call',
   done: 'Finished',
+  partial: 'Finished in part',
   failed: 'Failed',
   cancelled: 'Stopped',
 };
@@ -19,13 +22,18 @@ export const STEP_STATUS_WORDS: Record<ProjectStep['status'], string> = {
   working: 'Working',
   reviewing: 'In review',
   revising: 'Revising',
+  asking: 'Question for you',
+  needs_review: 'Needs your call',
   done: 'Done',
   failed: 'Failed',
+  skipped: 'Skipped',
 };
 
 /** Job glyph statuses reused for projects and steps (one visual language for work). */
-export const projectGlyph = (s: TeamProjectSnapshot['status']) => ({ proposed: 'queued', running: 'running', paused: 'queued', done: 'done', failed: 'failed', cancelled: 'cancelled' })[s];
-export const stepGlyph = (s: ProjectStep['status']) => ({ waiting: 'queued', working: 'running', reviewing: 'running', revising: 'running', done: 'done', failed: 'failed' })[s];
+export const projectGlyph = (s: TeamProjectSnapshot['status']) =>
+  ({ planning: 'running', proposed: 'queued', running: 'running', paused: 'queued', needs_review: 'queued', done: 'done', partial: 'done', failed: 'failed', cancelled: 'cancelled' })[s];
+export const stepGlyph = (s: ProjectStep['status']) =>
+  ({ waiting: 'queued', working: 'running', reviewing: 'running', revising: 'running', asking: 'queued', needs_review: 'queued', done: 'done', failed: 'failed', skipped: 'cancelled' })[s];
 
 export function progressOf(p: TeamProjectSnapshot): { done: number; total: number; pct: number } {
   const total = p.steps.length;
@@ -89,7 +97,7 @@ export function ProjectCard({ project }: { project: TeamProjectSnapshot }) {
           {done} of {total} steps
         </span>
       </span>
-      {project.status !== 'proposed' && project.status !== 'cancelled' && (
+      {project.status !== 'proposed' && project.status !== 'planning' && project.status !== 'cancelled' && (
         <span class="job-progress" role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
           <span style={{ width: `${Math.max(4, pct)}%` }} />
         </span>

@@ -3,7 +3,7 @@
 // sceptic, acceptance criteria); the model only chooses among recipes and names the project. Keyword scoring ranks
 // the shortlist and is the whole choice for the keyless Mock provider.
 import type { CatalogFull, Lead, Persona } from '@headcount/catalog';
-import type { ProjectForecast, ProjectStep, TeamMember, TeamRole } from '@headcount/protocol/ext/projects';
+import type { DeliverableKind, ProjectForecast, ProjectStep, TeamMember, TeamRole } from '@headcount/protocol/ext/projects';
 
 export interface RecipeRole {
   persona_id: string;
@@ -255,4 +255,132 @@ export function assignVoices(
   const prefer = unique.openai === unique.xai ? undefined : unique.openai ? ('openai' as const) : ('xai' as const);
   members.forEach((m, i) => out.set(m.persona.id, { openai: pick.openai[i] ?? m.persona.voice.openai.voice, xai: pick.xai[i] ?? m.persona.voice.xai.voice, ...(prefer ? { prefer } : {}) }));
   return out;
+}
+
+// ── the planner's plan, normalised (biz-bot plan.js normalizePlan / breakCycles / validateTaskEdit) ───────────────
+
+export const MAX_PLANNED_STEPS = 8;
+/** Steps a plan may grow to by the owner's edits. */
+export const MAX_EDITED_STEPS = 12;
+
+const sanitizeId = (raw: unknown, i: number) => (typeof raw === 'string' ? raw : '').replace(/[^\w-]/g, '').slice(0, 40) || `t${i + 1}`;
+const str = (v: unknown, max: number) => (typeof v === 'string' ? v.replace(/\r\n/g, '\n').trim().slice(0, max) : '');
+
+/** Drop dependency edges that close a cycle (depth-first, keeping the first-seen direction). */
+export function breakCycles(steps: ProjectStep[]): ProjectStep[] {
+  const byId = new Map(steps.map((s) => [s.id, s]));
+  const state = new Map<string, 'visiting' | 'done'>();
+  const keep = new Map<string, string[]>();
+  const visit = (s: ProjectStep) => {
+    state.set(s.id, 'visiting');
+    const deps: string[] = [];
+    for (const d of s.dependsOn) {
+      const t = byId.get(d);
+      if (!t || state.get(d) === 'visiting') continue; // unknown, or a back edge: dropped
+      if (state.get(d) !== 'done') visit(t);
+      deps.push(d);
+    }
+    keep.set(s.id, deps);
+    state.set(s.id, 'done');
+  };
+  for (const s of steps) if (!state.has(s.id)) visit(s);
+  return steps.map((s) => ({ ...s, dependsOn: keep.get(s.id) ?? [] }));
+}
+
+/** Does giving `stepId` these dependencies create a cycle? */
+export function wouldCycle(steps: readonly ProjectStep[], stepId: string, deps: readonly string[]): boolean {
+  const byId = new Map(steps.map((s) => [s.id, s]));
+  const seen = new Set<string>();
+  const reaches = (from: string): boolean => {
+    if (from === stepId) return true;
+    if (seen.has(from)) return false;
+    seen.add(from);
+    return (byId.get(from)?.dependsOn ?? []).some(reaches);
+  };
+  return deps.some(reaches);
+}
+
+export interface NormalizedPlan {
+  steps: ProjectStep[];
+  kind: DeliverableKind;
+  finisherId: string;
+  deliverableTitle: string;
+}
+
+/**
+ * The planner's output made safe to run: at most 8 tasks with unique ids; owners and reviewers kept to the team
+ * (owners 1–3, the first the lead; reviewers 0–2 who are not owners; a task left without owners gets one round-robin);
+ * dependencies remapped to kept ids, self and unknown ones dropped, cycles broken; the finisher is never the sceptic.
+ * Null when nothing usable came back (the playbook's plan stands).
+ */
+export function normalizePlan(raw: unknown, team: readonly TeamMember[], goal: string, preferKind?: DeliverableKind): NormalizedPlan | null {
+  const r = (raw ?? {}) as { deliverable?: { kind?: unknown; title?: unknown }; finisher?: unknown; tasks?: unknown };
+  const tasks = Array.isArray(r.tasks) ? (r.tasks as Record<string, unknown>[]).slice(0, MAX_PLANNED_STEPS) : [];
+  const ids = team.map((m) => m.personaId);
+  const onTeam = new Set(ids);
+  const idMap = new Map<string, string>();
+  const used = new Set<string>();
+  const steps: ProjectStep[] = [];
+  tasks.forEach((t, i) => {
+    const title = str(t.title, 80);
+    const brief = str(t.brief, 1500);
+    if (!title || !brief) return;
+    let id = sanitizeId(t.id, i);
+    while (used.has(id)) id = `${id}_${i}`;
+    used.add(id);
+    if (typeof t.id === 'string') idMap.set(t.id, id);
+    const owners = [...new Set((Array.isArray(t.owners) ? t.owners : []).filter((o): o is string => typeof o === 'string' && onTeam.has(o)))].slice(0, 3);
+    if (!owners.length) owners.push(ids[i % ids.length]!);
+    const reviewers = [...new Set((Array.isArray(t.reviewers) ? t.reviewers : []).filter((o): o is string => typeof o === 'string' && onTeam.has(o) && !owners.includes(o)))].slice(0, 2);
+    steps.push({
+      id,
+      title,
+      brief: brief.includes("The owner's goal for this project:") ? brief : `${brief}\n\nThe owner's goal for this project: ${goal}`,
+      acceptance: str(t.acceptance, 600) || 'The reviewers approve the work.',
+      ownerId: owners[0]!,
+      ...(owners.length > 1 ? { coOwnerIds: owners.slice(1) } : {}),
+      reviewerIds: reviewers,
+      dependsOn: (Array.isArray(t.dependsOn) ? t.dependsOn : []).filter((d): d is string => typeof d === 'string'),
+      status: 'waiting',
+    });
+  });
+  if (steps.length < 2) return null;
+  for (const s of steps) s.dependsOn = [...new Set(s.dependsOn.map((d) => idMap.get(d) ?? d).filter((d) => d !== s.id && used.has(d)))];
+  const kinds: DeliverableKind[] = ['document', 'web', 'code'];
+  const rawKind = r.deliverable?.kind;
+  const kind = preferKind ?? (kinds.includes(rawKind as DeliverableKind) ? (rawKind as DeliverableKind) : 'document');
+  const sceptic = team.find((m) => m.role === 'sceptic')?.personaId;
+  const lead = team.find((m) => m.role === 'lead')?.personaId ?? ids[0]!;
+  const finisher = typeof r.finisher === 'string' && onTeam.has(r.finisher) && r.finisher !== sceptic ? r.finisher : lead;
+  return { steps: breakCycles(steps), kind, finisherId: finisher, deliverableTitle: str(r.deliverable?.title, 120) };
+}
+
+/** Owners of a step, lead first. */
+export const ownersOf = (s: Pick<ProjectStep, 'ownerId' | 'coOwnerIds'>): string[] => [s.ownerId, ...(s.coOwnerIds ?? [])];
+
+/** Validate an owner's edit of a step (biz-bot activities.js validateTaskEdit). Returns the sentence, or null when fine. */
+export function stepEditError(edit: { title?: string; brief?: string; acceptance?: string; ownerIds?: string[]; reviewerIds?: string[]; dependsOn?: string[] }, ctx: { steps: readonly ProjectStep[]; team: readonly TeamMember[]; stepId: string | null }): string | null {
+  const onTeam = new Set(ctx.team.map((m) => m.personaId));
+  if (edit.title !== undefined && !edit.title.trim()) return 'A step needs a title.';
+  if (edit.title !== undefined && edit.title.length > 100) return 'Keep the title under 100 characters.';
+  if (edit.brief !== undefined && !edit.brief.trim()) return 'A step needs a brief.';
+  if (edit.brief !== undefined && edit.brief.length > 12_000) return 'Keep the brief under 12,000 characters.';
+  if (edit.acceptance !== undefined && !edit.acceptance.trim()) return 'Say how to tell the step is done.';
+  if (edit.acceptance !== undefined && edit.acceptance.length > 2000) return 'Keep "done when" under 2,000 characters.';
+  if (edit.ownerIds !== undefined) {
+    if (!edit.ownerIds.length || edit.ownerIds.length > 3) return 'A step has one to three owners (the first leads).';
+    if (edit.ownerIds.some((o) => !onTeam.has(o))) return 'Owners must be on the team.';
+  }
+  const owners = edit.ownerIds ?? (ctx.stepId ? ownersOf(ctx.steps.find((s) => s.id === ctx.stepId)!) : []);
+  if (edit.reviewerIds !== undefined) {
+    if (edit.reviewerIds.length > 2) return 'A step has at most two reviewers.';
+    if (edit.reviewerIds.some((r) => !onTeam.has(r))) return 'Reviewers must be on the team.';
+    if (edit.reviewerIds.some((r) => owners.includes(r))) return 'A reviewer cannot also own the step.';
+  }
+  if (edit.dependsOn !== undefined) {
+    const ids = new Set(ctx.steps.map((s) => s.id));
+    if (edit.dependsOn.some((d) => !ids.has(d) || d === ctx.stepId)) return 'A step can only depend on other steps in the plan.';
+    if (ctx.stepId && wouldCycle(ctx.steps, ctx.stepId, edit.dependsOn)) return 'Those dependencies create a cycle. Choose an earlier, independent step.';
+  }
+  return null;
 }

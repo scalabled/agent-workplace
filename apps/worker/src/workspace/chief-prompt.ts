@@ -3,7 +3,7 @@ import { EXTERNAL_RULE } from '../tools/external';
 // biz-bot/public/js/bizbot.js (routingBrief), rebuilt for the catalog lead (ARCHITECTURE §4.3, §5.1).
 import { chiefDisplayName, firstName, type Lead } from '@headcount/catalog';
 import type { JobSnapshot } from '@headcount/protocol';
-import type { TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { Decision, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { workStateBlock } from '../jobs/job-view';
 
 export interface ChiefPromptInput {
@@ -20,6 +20,8 @@ export interface ChiefPromptInput {
   honestyPolicy?: string;
   /** The Chief's model can search the web this turn (hosted search). */
   webSearch?: boolean;
+  /** Open raised hands (the owner may answer a team member's question in Talk). */
+  decisions?: Decision[];
   now: Date;
   /** Per-turn notes (what the office already said aloud, repeated openers and offers); placed last, after the date. */
   turnNote?: string;
@@ -163,6 +165,7 @@ export function buildChiefSystemPrompt(input: ChiefPromptInput): string {
     input.ownerFirst ? `The owner's name is ${input.ownerFirst}. Use it rarely.` : '',
     workStateBlock(input.jobs),
     teamStateBlock(input.projects ?? null),
+    questionsBlock(input.decisions ?? []),
     `Today is ${input.now.toUTCString().slice(0, 16)}.`,
     input.turnNote ?? '',
   ]
@@ -176,6 +179,13 @@ export function honestyPolicyText(policy: unknown): string | undefined {
   return undefined;
 }
 
+/** OPEN QUESTIONS: raised hands a team member is waiting on (the owner may answer in Talk; answer_team_question relays it). */
+export function questionsBlock(decisions: readonly Decision[]): string {
+  const open = decisions.filter((d) => d.kind === 'input' || d.kind === 'review' || d.kind === 'deliverable');
+  if (!open.length) return '';
+  return `## OPEN QUESTIONS (waiting on the owner; also in the Inbox)\n${open.map((d) => `- ${d.decisionId} (${d.kind}): ${d.title}`).join('\n')}`;
+}
+
 /** LIVE TEAM PROJECTS: who is on each project, what is waiting for the owner, what is being worked on (Inc 1). */
 export function teamStateBlock(projects: TeamProjectSnapshot[] | null): string {
   if (projects === null) return '## LIVE TEAM PROJECTS\n(could not be read this turn)';
@@ -187,7 +197,15 @@ export function teamStateBlock(projects: TeamProjectSnapshot[] | null): string {
       return `${s.title} (${s.status}${who ? `, ${who.name.split(' ')[0]}` : ''})`;
     });
     const team = p.team.map((m) => `${m.name.split(' ')[0]} (${m.role.replace('_', '-')})`).join(', ');
-    const state = p.status === 'proposed' ? 'PLAN WAITING FOR THE OWNER\'S APPROVAL' : `${done} of ${p.steps.length} steps done${p.status === 'paused' ? ' (PAUSED by the owner)' : ''}${now.length ? `; now: ${now.join('; ')}` : ''}`;
+    const waiting = p.steps.filter((s) => s.status === 'asking' || s.status === 'needs_review').map((s) => `${s.title} (${s.status === 'asking' ? 'a question for the owner' : 'review issues for the owner'})`);
+    const state =
+      p.status === 'planning'
+        ? 'THE LEAD IS DRAFTING THE PLAN (approval is not possible yet)'
+        : p.status === 'proposed'
+          ? 'PLAN WAITING FOR THE OWNER\'S APPROVAL'
+          : p.status === 'needs_review'
+            ? 'THE DELIVERABLE WAITS FOR THE OWNER (review issues in the Inbox)'
+            : `${done} of ${p.steps.length} steps done${p.status === 'paused' ? ' (PAUSED)' : ''}${now.length ? `; now: ${now.join('; ')}` : ''}${waiting.length ? `; waiting on the owner: ${waiting.join('; ')}` : ''}`;
     const queued = (p.notes ?? []).filter((n) => n.status === 'queued').length;
     return `- ${p.projectId} “${p.title}” [${p.status}] team: ${team}. ${state}.${queued ? ` ${queued} owner note${queued === 1 ? '' : 's'} waiting for the next step.` : ''}`;
   });

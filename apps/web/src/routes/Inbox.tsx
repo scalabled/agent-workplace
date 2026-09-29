@@ -1,18 +1,18 @@
-// Inbox: raised hands only (decisions), so it can reach zero (X1). Inc 1: plan approvals for team projects.
+// Inbox: raised hands only (decisions), so it can reach zero (X1): plans to approve, teammates' questions, review
+// issues and deliverables that need the owner's call, and spent budgets. Updates stay in Talk.
 import { useEffect } from 'preact/hooks';
 import { loadCatalog } from '../catalog';
 import { chiefName } from '../chief';
+import { DecisionCard } from '../components/DecisionCard';
 import { Icon } from '../components/Icon';
-import { TeamStrip } from '../components/ProjectCard';
-import { approveProject, cancelProject, projectBusy, projectError } from '../projects/actions';
-import { navigate, paths } from '../router';
-import { decisionList, teamProjects } from '../store';
+import { decisionList } from '../store';
 import './pages.css';
 
 export function Inbox() {
   useEffect(() => void loadCatalog(), []);
   const decisions = decisionList.value;
   const name = chiefName.value;
+  const questions = decisions.some((d) => d.kind === 'input');
   return (
     <section class="page inbox" aria-labelledby="inbox-title">
       <header class="page-head">
@@ -27,52 +27,11 @@ export function Inbox() {
         </div>
       )}
       <div class="decision-list">
-        {decisions.map((d) => {
-          const project = teamProjects.value[d.projectId];
-          const busy = projectBusy.value[d.projectId];
-          const error = projectError.value[d.projectId];
-          return (
-            <article key={d.decisionId} class="panel decision decision-card" aria-labelledby={`dec-${d.decisionId}`}>
-              <p class="decision-hand" aria-hidden="true">
-                ✋
-              </p>
-              <div class="decision-body">
-                <h2 id={`dec-${d.decisionId}`} class="decision-title">
-                  {d.title}
-                </h2>
-                <p class="decision-text">{d.body}</p>
-                {project && (
-                  <>
-                    <TeamStrip team={project.team} max={8} />
-                    <ol class="decision-steps">
-                      {project.steps.map((s) => (
-                        <li key={s.id}>{s.title}</li>
-                      ))}
-                    </ol>
-                  </>
-                )}
-                {error && (
-                  <p class="form-error" role="alert">
-                    {error}
-                  </p>
-                )}
-              </div>
-              <div class="decision-actions">
-                <button type="button" class="button-primary" disabled={!!busy} onClick={() => void approveProject(d.projectId)}>
-                  {busy === 'approve' ? 'Starting…' : 'Approve and start'}
-                </button>
-                <button type="button" class="button-quiet" disabled={!!busy} onClick={() => void cancelProject(d.projectId)}>
-                  Not now
-                </button>
-                <button type="button" class="button-quiet" onClick={() => navigate(paths.project(d.projectId))}>
-                  See the plan
-                </button>
-              </div>
-            </article>
-          );
-        })}
+        {decisions.map((d) => (
+          <DecisionCard key={d.decisionId} decision={d} />
+        ))}
       </div>
-      {decisions.length > 0 && <p class="page-fine">You can also just tell {name} “go ahead”.</p>}
+      {decisions.length > 0 && <p class="page-fine">{questions ? `You can also just answer ${name} in Talk.` : `You can also just tell ${name} “go ahead”.`}</p>}
     </section>
   );
 }

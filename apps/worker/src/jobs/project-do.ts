@@ -24,13 +24,15 @@ import type { CheckpointDirective } from '@headcount/agent-loop';
 import type { Env } from '../env';
 import { DailyCounter, dailyLimit, limitMessage, maxActiveJobs } from '../lib/limits';
 import { workspaceStub } from '../lib/stubs';
+import type { AgentSetup } from '../agents/store';
 import type { PresenceClaim } from '../workspace/feed';
 import { Ledger } from '../workspace/ledger';
 import { rollupEvents, upsertJobs } from '../workspace/rollup';
 import { logError, runtime } from '../workspace/runtime';
 import { clipText, firstSentence, titleFromRequest } from './job-view';
 import { MAX_WORK_STEPS, WorkCancelled, WorkError, planJob, runWorkStep, synthesize, type JobContext, type PlanStep, type StepNote, type WorkDeps } from './work-loop';
-import type { Decision, ProjectNote, StaffingContext, StopAllResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { Decision, DecisionAnswer, PlanEdit, ProjectNote, StaffingContext, StepEdit, StopAllResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { RunTrace } from '@headcount/protocol/ext/agents';
 import { researchKitFactory } from '../tools/kit';
 import { TeamProjects, type ProjectRefusal, type ProposeRequest } from '../projects/team-host';
 
@@ -166,7 +168,16 @@ export class ProjectDO extends DurableObject<Env> {
     for (const stmt of SCHEMA) ctx.storage.sql.exec(stmt);
     this.ledger = new Ledger(ctx.storage, this.streamId, runtime.now);
     this.usage = new DailyCounter(ctx.storage);
-    this.team = new TeamProjects({ storage: ctx.storage, env, usage: this.usage, append: (input) => this.append(input), flush: () => this.flush(), armAlarm: (at) => this.armAlarm(at) });
+    this.team = new TeamProjects({
+      storage: ctx.storage,
+      env,
+      usage: this.usage,
+      append: (input) => this.append(input),
+      flush: () => this.flush(),
+      armAlarm: (at) => this.armAlarm(at),
+      // The owner's overrides for coworkers live in the WorkspaceDO.
+      agents: async (ids) => (await workspaceStub(env).agentSetup(ids)) as unknown as AgentSetup,
+    });
   }
 
   private get workspaceId(): string {
@@ -226,8 +237,39 @@ export class ProjectDO extends DurableObject<Env> {
   // ── Inc 1 team projects (src/projects/team-host.ts) ──────────────────────────────
 
   /** Staff a team and propose its plan (raises the plan-approval hand in the Inbox). */
-  proposeProject(req: ProposeRequest): Promise<{ project: TeamProjectSnapshot; decision: Decision } | ProjectRefusal> {
+  proposeProject(req: ProposeRequest): Promise<{ project: TeamProjectSnapshot; decision: Decision | null } | ProjectRefusal> {
     return this.team.propose(req);
+  }
+
+  /** The owner answers a raised hand (a plan, a lead's question, a review escalation, the deliverable, the budget). */
+  answerDecision(decisionId: string, a: DecisionAnswer): Promise<{ accepted: true; decision: Decision; project: TeamProjectSnapshot } | ProjectRefusal> {
+    return this.team.answer(decisionId, a);
+  }
+
+  async editStep(projectId: string, stepId: string, e: StepEdit) {
+    return this.team.editStep(projectId, stepId, e);
+  }
+
+  async addStep(projectId: string, e: StepEdit) {
+    return this.team.addStep(projectId, e);
+  }
+
+  async removeStep(projectId: string, stepId: string) {
+    return this.team.removeStep(projectId, stepId);
+  }
+
+  async editPlan(projectId: string, e: PlanEdit) {
+    return this.team.editPlan(projectId, e);
+  }
+
+  /** Open raised hands (the Chief can relay the owner's answer). */
+  async openDecisions(): Promise<Decision[]> {
+    return this.team.list(1).decisions;
+  }
+
+  /** Every model call of a project (the run inspector). */
+  async projectRuns(projectId: string, stepId?: string): Promise<RunTrace[]> {
+    return this.team.runs(projectId, stepId);
   }
 
   approveProject(projectId: string): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal> {

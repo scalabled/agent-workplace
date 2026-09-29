@@ -7,7 +7,7 @@ import type { ExprIntentId, ReactHint, TalkSurface } from '@headcount/protocol/e
 import { buildChiefSystemPrompt, honestyPolicyText } from './chief-prompt';
 import { hostsSearch } from '../tools/web-search';
 import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
-import type { TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { Decision, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { Feed } from './feed';
 import type { Ledger } from './ledger';
 import { logError } from './runtime';
@@ -349,8 +349,9 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
     let jobs: JobSnapshot[] | null = null;
     let projects: TeamProjectSnapshot[] | null = null;
+    let decisions: Decision[] = [];
     try {
-      [jobs, projects] = await Promise.all([host.project().listJobs(), host.project().activeProjects()]);
+      [jobs, projects, decisions] = await Promise.all([host.project().listJobs(), host.project().activeProjects(), host.project().openDecisions().catch(() => [])]);
     } catch (err) {
       logError('talk.jobs', err);
     }
@@ -370,12 +371,13 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     const turnNote = turnNoteFor(spec.cues, messages.filter((m) => m.role === 'assistant').map((m) => (typeof m.content === 'string' ? m.content : '')));
     // Quick lookups: the Chief searches natively when its provider hosts web search (research goes to jobs/teams).
     const webSearch = host.webTools !== false && hostsSearch(resolved.provider);
-    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch });
+    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions });
     const tools = createChiefTools({
       project: host.project(),
       turnId,
       jobs: jobs ?? [],
       projects: projects ?? [],
+      decisions,
       log,
       leadId: settings.leadId,
       chiefName: settings.chiefName,

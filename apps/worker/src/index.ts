@@ -17,7 +17,8 @@ import { handleGeneratePortrait, handleGetLandmarks, handleGetPortrait, handleLi
 import { handleStt, handleTts } from './media/speech';
 import { handleOfficePeople } from './rooms/people';
 import { handleRoomCancel, handleRoomSay } from './rooms/routes';
-import { handleApproveProject, handleCancelProject, handleGetProject, handleListProjects, handleNoteProject, handlePauseProject, handleResumeProject, handleStopAll } from './projects/routes';
+import { handleAddStep, handleAnswerDecision, handleApproveProject, handleCancelProject, handleEditPlan, handleEditStep, handleGetProject, handleListProjects, handleNoteProject, handlePauseProject, handleProjectRuns, handleRemoveStep, handleResumeProject, handleStopAll } from './projects/routes';
+import { handleChiefPrompt, handleGetAgent, handleGetSkill, handleListModels, handleListSkills, handlePutAgent, handlePutSkill, handleResetAgent, handleRollbackSkill } from './agents/routes';
 import { handleGetWorkspace, handlePutWorkspace, handleTalk, handleWs } from './workspace/routes';
 
 export { ProjectDO } from './jobs/project-do';
@@ -62,6 +63,21 @@ export const HANDLERS: Record<RouteId, RouteHandler> = {
   noteProject: handleNoteProject,
   pauseProject: handlePauseProject,
   resumeProject: handleResumeProject,
+  answerDecision: handleAnswerDecision,
+  editStep: handleEditStep,
+  addStep: handleAddStep,
+  removeStep: handleRemoveStep,
+  editPlan: handleEditPlan,
+  projectRuns: handleProjectRuns,
+  getAgent: handleGetAgent,
+  putAgent: handlePutAgent,
+  resetAgent: handleResetAgent,
+  listSkills: handleListSkills,
+  getSkill: handleGetSkill,
+  putSkill: handlePutSkill,
+  rollbackSkill: handleRollbackSkill,
+  chiefPrompt: handleChiefPrompt,
+  listModels: handleListModels,
   cancelProject: handleCancelProject,
 };
 

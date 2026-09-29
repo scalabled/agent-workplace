@@ -1,5 +1,10 @@
-// Coworker profile (from the Floor): hero face, intro line, story, signature methods, voice sample.
-import { useEffect } from 'preact/hooks';
+// Coworker profile (from the Floor): hero face, intro line, story, signature methods, voice sample — and, for the
+// owner, how they work (instructions, tools, model, skills) and the exact prompts they run on.
+import { useEffect, useState } from 'preact/hooks';
+import type { AgentView } from '@headcount/protocol/ext/agents';
+import { api, ApiError } from '../api/client';
+import { AgentSettings } from '../agents/AgentSettings';
+import { PromptViewer } from '../agents/PromptViewer';
 import { coworkerAgentId } from '@headcount/protocol';
 import { firstName, personaVoiceRef, type PersonaSlim, type SkillIndexEntry } from '@headcount/catalog';
 import { catalog, loadCatalog } from '../catalog';
@@ -57,6 +62,7 @@ function Profile({ persona: p }: { persona: PersonaSlim }) {
   const known = (ids: string[]) => ids.map((id) => skills.get(id)).filter((s): s is SkillIndexEntry => !!s);
   const primary = known(p.skills.primary);
   const secondary = known(p.skills.secondary);
+  const [tab, setTab] = useState<'about' | 'work' | 'prompt'>('about');
 
   return (
     <article class="page profile" aria-labelledby="profile-title" style={{ '--accent': accentFor(p.avatar.accent_color) }}>
@@ -96,6 +102,44 @@ function Profile({ persona: p }: { persona: PersonaSlim }) {
         <p>{p.intro_line}</p>
       </blockquote>
 
+      <div class="segmented profile-tabs" role="tablist" aria-label={`About ${first}`}>
+        {(['about', 'work', 'prompt'] as const).map((t) => (
+          <button key={t} type="button" role="tab" aria-selected={tab === t} class="segmented-item" onClick={() => setTab(t)}>
+            {t === 'about' ? 'About' : t === 'work' ? 'How they work' : 'Prompt'}
+          </button>
+        ))}
+      </div>
+      {tab !== 'about' && <AgentPanel personaId={p.id} tab={tab} />}
+      {tab === 'about' && <About persona={p} primary={primary} secondary={secondary} first={first} />}
+    </article>
+  );
+}
+
+/** The owner's view of how they work (lazy: loaded when the tab opens). */
+function AgentPanel({ personaId, tab }: { personaId: string; tab: 'work' | 'prompt' }) {
+  const [view, setView] = useState<AgentView | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    api
+      .getAgent(personaId)
+      .then((v) => live && setView(v))
+      .catch((err) => live && setError(err instanceof ApiError ? err.message : 'Could not load how they work.'));
+    return () => void (live = false);
+  }, [personaId]);
+  if (error)
+    return (
+      <p class="form-error" role="alert">
+        {error}
+      </p>
+    );
+  if (!view) return <p class="page-fine">Loading…</p>;
+  return tab === 'work' ? <AgentSettings view={view} onChange={setView} /> : <PromptViewer views={view.prompts} />;
+}
+
+function About({ persona: p, primary, secondary, first }: { persona: PersonaSlim; primary: SkillIndexEntry[]; secondary: SkillIndexEntry[]; first: string }) {
+  return (
+    <>
       <section class="profile-block" aria-labelledby="story-title">
         <h2 id="story-title">Story</h2>
         <p class="profile-story">{p.backstory}</p>
@@ -129,6 +173,6 @@ function Profile({ persona: p }: { persona: PersonaSlim }) {
           )}
         </section>
       )}
-    </article>
+    </>
   );
 }

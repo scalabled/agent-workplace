@@ -3,7 +3,7 @@ import type { JobSnapshot, SteerJobAccepted, CancelJobAccepted, TurnId } from '@
 import { jobProgressPercent, type TalkRoute } from '@headcount/protocol/ext/worker-core';
 import { clipText, isActive, statusSentence, titleFromRequest } from '../jobs/job-view';
 import type { JobRefusal, StartJobRequest } from '../jobs/project-do';
-import type { Decision, ProjectNote, StopAllResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { Decision, DecisionAnswer, ProjectNote, StopAllResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { ProjectRefusal, ProposeRequest } from '../projects/team-host';
 
 /** The Everyday ProjectDO as the Chief of Staff's tools see it (RPC). */
@@ -13,11 +13,13 @@ export interface ProjectApi {
   steerJob(jobId: string, text: string, opId?: string): Promise<SteerJobAccepted | JobRefusal>;
   cancelJob(jobId: string, reason?: string, by?: 'owner' | 'chief'): Promise<CancelJobAccepted | JobRefusal>;
   // Inc 1 team projects.
-  proposeProject(req: ProposeRequest): Promise<{ project: TeamProjectSnapshot; decision: Decision } | ProjectRefusal>;
+  proposeProject(req: ProposeRequest): Promise<{ project: TeamProjectSnapshot; decision: Decision | null } | ProjectRefusal>;
   approveProject(projectId: string): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal>;
   cancelProject(projectId: string, reason?: string): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal>;
   activeProjects(): Promise<TeamProjectSnapshot[]>;
   stopAll(by?: 'owner' | 'chief'): Promise<StopAllResponse>;
+  openDecisions(): Promise<Decision[]>;
+  answerDecision(decisionId: string, a: DecisionAnswer): Promise<{ accepted: true; decision: Decision; project: TeamProjectSnapshot } | ProjectRefusal>;
   noteProject(projectId: string, req: { text: string; toId?: string; via: ProjectNote['via']; opId?: string }): Promise<{ accepted: true; project: TeamProjectSnapshot; note: ProjectNote } | ProjectRefusal>;
   pauseProject(projectId: string): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal>;
   resumeProject(projectId: string): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal>;
@@ -65,6 +67,8 @@ export interface ChiefToolDeps {
   jobs: JobSnapshot[];
   /** Proposed and running team projects at turn start (Inc 1). */
   projects?: TeamProjectSnapshot[];
+  /** Open raised hands at turn start (a lead's question the owner may answer in Talk). */
+  decisions?: Decision[];
   log: TurnLog;
   leadId: string | null;
   chiefName: string | null;
@@ -286,8 +290,11 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
       const r = await project.proposeProject({ goal, title: str(args.title) || undefined, opId: `${deps.turnId}:${ctx.callId}`, chiefName: deps.chiefName ?? 'your Chief of Staff', leadId: deps.leadId });
       if ('accepted' in r) return fail(r.message);
       const p = r.project;
-      const forecast = p.forecast ? ` It should take about ${p.forecast.minutes.min} to ${p.forecast.minutes.max} minutes once it starts.` : '';
-      const say = `I've staffed it. ${p.staffingNote} The plan has ${p.steps.length} steps, each reviewed before it counts.${forecast} It's waiting in your Inbox: approve it there, or just tell me to go ahead.`;
+      const leadName = (p.team.find((m) => m.role === 'lead') ?? p.team[0])?.name.split(' ')[0] ?? 'The lead';
+      const say =
+        p.status === 'planning'
+          ? `I've staffed it. ${p.staffingNote} ${leadName} is drafting the plan now; it will be in your Inbox in a moment. Approve it there, or just tell me to go ahead.`
+          : `I've staffed it. ${p.staffingNote} The plan has ${p.steps.length} steps, each reviewed before it counts. It's waiting in your Inbox: approve it there, or just tell me to go ahead.`;
       log.note('project', say);
       log.aboutProject(p.projectId);
       return ok({ projectId: p.projectId, title: p.title, status: p.status, team: p.team.map((m) => `${m.name}, ${m.title} (${m.role})`), steps: p.steps.map((s) => s.title), say }, `Staffed “${p.title}”`);
@@ -423,6 +430,40 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
     },
   };
 
+  const questions = (deps.decisions ?? []).filter((d) => d.kind === 'input' || d.kind === 'review' || d.kind === 'deliverable');
+  const answerHand: AgentTool<{ decisionId?: unknown; answer?: unknown; accept?: unknown }> = {
+    spec: {
+      name: 'answer_team_question',
+      description:
+        "Relay the owner's answer to a team member's open question (or their direction on review issues) from OPEN QUESTIONS. Use only when the owner's latest message clearly answers it. accept=true accepts review issues as they are.",
+      parameters: {
+        type: 'object',
+        properties: {
+          decisionId: { type: 'string', description: 'Id from OPEN QUESTIONS' },
+          answer: { type: 'string', description: "The owner's answer or direction, in their words" },
+          accept: { type: 'boolean', description: 'Accept the remaining review issues as they are (review and deliverable hands only)' },
+        },
+        required: ['decisionId'],
+        additionalProperties: false,
+      },
+      mock: { triggers: [String.raw`^\s*(answer|tell (them|the team)|my answer)\b`], args: (text) => ({ decisionId: questions[0]?.decisionId ?? '', answer: text }), reply: sayOf },
+    },
+    async execute(args) {
+      const id = str(args.decisionId) || (questions.length === 1 ? questions[0]!.decisionId : '');
+      const d = questions.find((q) => q.decisionId === id);
+      if (!d) return fail(questions.length ? `Say which question: ${questions.map((q) => `${q.decisionId} “${q.title}”`).join(', ')}.` : 'No team member is waiting on the owner.');
+      const answer = str(args.answer);
+      const accept = args.accept === true;
+      if (!accept && !answer) return fail('Say what to tell them.');
+      const r = await project.answerDecision(d.decisionId, accept ? { action: 'approve' } : { action: 'answer', text: answer });
+      if (!r.accepted) return fail(r.message);
+      const say = accept ? 'Done: they will take it as it is.' : 'Passed on. They pick it up right away.';
+      log.note('steer', say);
+      log.aboutProject(d.projectId);
+      return ok({ decisionId: d.decisionId, status: r.decision.status, say }, `Answered “${clipText(d.title, 60)}”`);
+    },
+  };
+
   const stopAll: AgentTool<Record<string, never>> = {
     spec: {
       name: 'stop_all_work',
@@ -443,6 +484,7 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
   // the first tool whose trigger matches: project-specific tools come before the generic job tools.
   const running = !!newestActive || underWay.length > 0;
   const projectTools: AgentTool<any>[] = [
+    ...(questions.length ? [answerHand] : []),
     ...(running ? [stopAll] : []),
     ...(underWay.length ? [pauseProject, steerProject] : []),
     ...(projects.length ? [cancelProject, projectStatus] : []),

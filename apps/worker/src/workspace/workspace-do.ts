@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { fullIndex } from '@headcount/catalog/full';
+import { catalogFull, fullIndex } from '@headcount/catalog/full';
 import { sniffOwnerText, type AffectCues } from '@headcount/expressions';
 import { MissingProviderError, type ChatProvider } from '@headcount/models';
 import {
@@ -9,8 +9,10 @@ import {
   coworkerAgentId,
   ids,
   isPersisted,
+  ownerFirstNameOf,
   workspaceStream,
   type AgentId,
+  type JobSnapshot,
   type ClientSocketMessage,
   type Frame,
   type FrameInput,
@@ -37,8 +39,15 @@ import {
   type RoomSayRequest,
 } from '@headcount/protocol/ext/rooms';
 import { webToolsOn } from '../tools/kit';
+import { AgentConfigError, AgentStore, type AgentSetup } from '../agents/store';
+import { agentView, sectionsOf } from '../agents/view';
+import { allSkillIds, catalogSkill, skillView } from '../agents/skills';
+import type { AgentConfigPatch, AgentView, PromptView, SkillDetail, SkillPatch, SkillsResponse, SkillView } from '@headcount/protocol/ext/agents';
+import { buildChiefSystemPrompt, honestyPolicyText } from './chief-prompt';
+import { hostsSearch } from '../tools/web-search';
+
 import { closeDeskTurn, isDirection, newDeskTurnState, noteTargetOf, runDeskTurn, type DeskHost, type DeskTurnState } from '../desk/desk';
-import type { StaffingContext } from '@headcount/protocol/ext/projects';
+import type { Decision, StaffingContext, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { Env } from '../env';
 import { exprLexicon } from '../expr/catalog';
 import { DESK_PER_MIN } from '../expr/config';
@@ -49,7 +58,7 @@ import type { MirrorBatch } from '../jobs/project-do';
 import { projectStub } from '../lib/stubs';
 import { mockMediaEnabled } from '../media/speech';
 import { composeAnnouncement, templateAnnouncement, type AnnouncementFacts } from './announce';
-import type { ProjectApi } from './chief-tools';
+import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
 import { Feed, PresenceBoard, type FeedSocket } from './feed';
 import { Ledger } from './ledger';
 import { rollupEvents, upsertWorkspace } from './rollup';
@@ -174,6 +183,8 @@ export class WorkspaceDO extends DurableObject<Env> {
   readonly expr: ExprHost;
   /** One voice per workspace: which client (browser tab) speaks (workspace/voice.ts). */
   readonly voice: VoiceOwnership;
+  /** The owner's overrides for coworkers and skills (agents/store.ts). */
+  private readonly agents: AgentStore;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -182,6 +193,7 @@ export class WorkspaceDO extends DurableObject<Env> {
     this.presence = new PresenceBoard(ctx.storage);
     this.feed = new Feed(this.workspaceId, this.ledger, this.presence, () => this.ctx.getWebSockets() as unknown as FeedSocket[], runtime.now);
     this.usage = new DailyCounter(ctx.storage);
+    this.agents = new AgentStore(ctx.storage.sql);
     this.voice = new VoiceOwnership({
       sql: ctx.storage.sql,
       sockets: () => this.ctx.getWebSockets(),
@@ -303,6 +315,112 @@ export class WorkspaceDO extends DurableObject<Env> {
   // ── settings ────────────────────────────────────────────────────────────────────
 
   /** The owner's settings; `ambience` is always filled (settings stored before Inc 0.5 mean Lively). */
+  // ── agent configuration and transparency (parity stage 2, agents/*) ───────────────
+
+  /** The owner's overrides for these coworkers (the ProjectDO reads them when work starts). */
+  async agentSetup(personaIds: string[]): Promise<AgentSetup> {
+    return this.agents.setup(personaIds);
+  }
+
+  /** Everything the owner sees about one coworker, the assembled prompts included. */
+  async agentView(personaId: string): Promise<AgentView | null> {
+    const persona = fullIndex.persona(personaId);
+    if (!persona) return null;
+    let staffing: StaffingContext[] = [];
+    try {
+      staffing = (await projectStub(this.env).staffingOf(personaId)) as unknown as StaffingContext[];
+    } catch (err) {
+      logError('agents.staffing', err);
+    }
+    return agentView({ persona, setup: this.agents.setup([personaId]), history: this.agents.history(personaId), settings: await this.getSettings(), staffing, registry: runtime.registry(this.env), webTools: webToolsOn(this.env) });
+  }
+
+  async patchAgent(personaId: string, patch: AgentConfigPatch): Promise<{ view: AgentView } | { error: string }> {
+    try {
+      this.agents.patch(personaId, patch, new Date(runtime.now()).toISOString());
+    } catch (err) {
+      if (err instanceof AgentConfigError) return { error: err.message };
+      throw err;
+    }
+    return { view: (await this.agentView(personaId))! };
+  }
+
+  async resetAgent(personaId: string): Promise<AgentView | null> {
+    this.agents.reset(personaId, new Date(runtime.now()).toISOString());
+    return this.agentView(personaId);
+  }
+
+  async skillList(): Promise<SkillsResponse> {
+    const overrides = this.agents.skillOverrides();
+    const used = new Map<string, number>();
+    for (const p of fullIndex.catalog.personas) for (const id of [...p.skills.primary, ...p.skills.secondary]) used.set(id, (used.get(id) ?? 0) + 1);
+    const skills = allSkillIds()
+      .map((id) => skillView(id, overrides.get(id)))
+      .filter((s): s is SkillView => !!s)
+      .map((s) => ({ id: s.id, name: s.name, icon: s.icon, category: s.category, one_liner: s.one_liner, version: s.version, edited: s.edited, usedBy: used.get(s.id) ?? 0 }));
+    return { skills };
+  }
+
+  async skillDetail(skillId: string): Promise<SkillDetail | null> {
+    const o = this.agents.skillOverride(skillId);
+    const v = skillView(skillId, o);
+    if (!v) return null;
+    return { ...v, history: o?.history ?? [], catalogInstructions: catalogSkill(skillId)?.instructions ?? '' };
+  }
+
+  async editSkill(skillId: string, patch: SkillPatch): Promise<{ skill: SkillDetail } | { error: string }> {
+    try {
+      this.agents.editSkill(skillId, patch.instructions, new Date(runtime.now()).toISOString(), patch.note);
+    } catch (err) {
+      if (err instanceof AgentConfigError) return { error: err.message };
+      throw err;
+    }
+    return { skill: (await this.skillDetail(skillId))! };
+  }
+
+  async rollbackSkill(skillId: string, version: number): Promise<{ skill: SkillDetail } | { error: string }> {
+    try {
+      this.agents.rollbackSkill(skillId, version, new Date(runtime.now()).toISOString());
+    } catch (err) {
+      if (err instanceof AgentConfigError) return { error: err.message };
+      throw err;
+    }
+    return { skill: (await this.skillDetail(skillId))! };
+  }
+
+  /** The Chief of Staff's system prompt as the next turn would send it (live work state included) and their tools. */
+  async chiefPromptView(): Promise<PromptView> {
+    const settings = await this.getSettings();
+    const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
+    let jobs: JobSnapshot[] | null = null;
+    let projects: TeamProjectSnapshot[] | null = null;
+    let decisions: Decision[] = [];
+    try {
+      [jobs, projects, decisions] = await Promise.all([this.project().listJobs(), this.project().activeProjects(), this.project().openDecisions()]);
+    } catch (err) {
+      logError('chief.prompt', err);
+    }
+    let webSearch = false;
+    try {
+      webSearch = webToolsOn(this.env) && hostsSearch(runtime.registry(this.env).resolve('chat', { tier: 'fast', needs: ['tools'] }).provider);
+    } catch {
+      /* no provider */
+    }
+    const text = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(runtime.now()), ownerFirst: ownerFirstNameOf(settings), webSearch, decisions });
+    const tools = createChiefTools({ project: this.project(), turnId: 'turn_view' as TurnId, jobs: jobs ?? [], projects: projects ?? [], decisions, log: new TurnLog(), leadId: settings.leadId, chiefName: settings.chiefName });
+    return {
+      surface: 'chief',
+      label: 'Talk',
+      when: 'Every reply in Talk (and by voice). The live work state is read at the start of each turn.',
+      sections: sectionsOf(text, { 'Platform rules': 'platform', 'LIVE WORK STATE': 'state', 'LIVE TEAM PROJECTS': 'state' }),
+      text,
+      tools: [
+        ...tools.map((t) => ({ name: t.spec.name, description: t.spec.description, parameters: t.spec.parameters, kind: 'function' as const })),
+        ...(webSearch ? [{ name: 'web_search', description: 'Built-in web search run by the model provider (quick lookups).', kind: 'hosted' as const }] : []),
+      ],
+    };
+  }
+
   async getSettings(): Promise<WorkspaceSettings> {
     const stored = await this.ctx.storage.get<WorkspaceSettings>('settings');
     const s = stored ?? { workspaceId: this.workspaceId, leadId: null, chiefName: null, voiceOn: true, updatedAt: new Date(0).toISOString() };
@@ -804,6 +922,7 @@ export class WorkspaceDO extends DurableObject<Env> {
    * that is never voiced or counted unread.
    */
   private milestoneFrame(frame: Frame): FrameInput<'talk.message'> | null {
+    if (frame.type === 'decision.opened') return this.handFrame(frame);
     if (frame.type !== 'project.updated' || frame.data.project.status !== 'running') return null;
     const p = frame.data.project;
     const done = p.steps.filter((s) => s.status === 'done');
@@ -825,11 +944,31 @@ export class WorkspaceDO extends DurableObject<Env> {
     };
   }
 
+  /**
+   * A raised hand mid-project (a lead's question, reviewers' remaining issues, the deliverable check, the budget): the
+   * Chief says so in Talk while the interruption budget lasts, else a quiet line. The Inbox holds the hand either way.
+   */
+  private handFrame(frame: Extract<Frame, { type: 'decision.opened' }>): FrameInput<'talk.message'> | null {
+    const d = frame.data.decision;
+    if (d.kind === 'plan_approval') return null;
+    const text = d.kind === 'input' ? `${d.title} It's in your Inbox, or just tell me the answer.` : `${d.title} It's in your Inbox.`;
+    const spoken = this.usage.take('ping', dailyLimit(this.env, 'ping'), runtime.now()).allowed;
+    return {
+      type: 'talk.message',
+      data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text, kind: spoken ? 'announcement' : 'note', projectId: d.projectId },
+      actor: CHIEF_ID,
+      cause: { streamId: frame.streamId as StreamId, seq: frame.seq! },
+    };
+  }
+
   private announcementPlan(frame: Frame): AnnouncementPlan | null {
     // Inc 1: a team project finished or failed (emitted once per terminal state).
-    if (frame.type === 'project.updated' && (frame.data.project.status === 'done' || frame.data.project.status === 'failed')) {
+    if (frame.type === 'project.updated' && ['done', 'partial', 'failed'].includes(frame.data.project.status)) {
       const p = frame.data.project;
-      const projectFacts: AnnouncementFacts = p.status === 'done' ? { kind: 'done', title: p.title, summary: p.summary ?? '' } : { kind: 'failed', title: p.title, reason: p.error ?? 'The team could not finish.' };
+      const projectFacts: AnnouncementFacts =
+        p.status === 'failed'
+          ? { kind: 'failed', title: p.title, reason: p.error ?? 'The team could not finish.' }
+          : { kind: 'done', title: p.title, summary: `${p.summary ?? ''}${p.status === 'partial' ? ' Some steps did not finish; the deliverable says which.' : ''}`.trim() };
       return {
         facts: projectFacts,
         frame: {
@@ -933,6 +1072,8 @@ export class WorkspaceDO extends DurableObject<Env> {
       cancelProject: (projectId, reason) => stub.cancelProject(projectId, reason) as unknown as ReturnType<ProjectApi['cancelProject']>,
       activeProjects: () => stub.activeProjects() as unknown as ReturnType<ProjectApi['activeProjects']>,
       stopAll: (by) => stub.stopAll(by) as unknown as ReturnType<ProjectApi['stopAll']>,
+      openDecisions: () => stub.openDecisions() as unknown as ReturnType<ProjectApi['openDecisions']>,
+      answerDecision: (id, a) => stub.answerDecision(id, a) as unknown as ReturnType<ProjectApi['answerDecision']>,
       noteProject: (projectId, req) => stub.noteProject(projectId, req) as unknown as ReturnType<ProjectApi['noteProject']>,
       pauseProject: (projectId) => stub.pauseProject(projectId) as unknown as ReturnType<ProjectApi['pauseProject']>,
       resumeProject: (projectId) => stub.resumeProject(projectId) as unknown as ReturnType<ProjectApi['resumeProject']>,

@@ -141,6 +141,8 @@ export interface FrameDataMap {
   'project.updated': ProjectFrameData;
   /** A raised hand was answered (approved or declined). Persisted. */
   'decision.resolved': DecisionFrameData;
+  /** A raised hand opened mid-project (a lead's question, a review escalation, the deliverable check, the budget). Persisted. */
+  'decision.opened': DecisionFrameData;
 
   /** A face state claim. Ephemeral; recomputable from the ledger. */
   presence: PresenceData;
@@ -186,6 +188,7 @@ export const PERSISTED_FRAME_TYPES: ReadonlySet<FrameType> = new Set<FrameType>(
   'project.proposed',
   'project.updated',
   'decision.resolved',
+  'decision.opened',
   'workspace.updated',
 ]);
 

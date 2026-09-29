@@ -115,6 +115,11 @@ export function mergeProjects(r: ProjectsResponse): void {
 export const teamWork = computed(() => {
   const out: Record<string, { state: 'working' | 'thinking' | 'raised_hand'; label: string }> = {};
   for (const p of Object.values(teamProjects.value)) {
+    if (p.status === 'planning') {
+      const lead = p.team.find((m) => m.role === 'lead') ?? p.team[0];
+      if (lead) out[`cw_${lead.personaId}`] = { state: 'working', label: `Drafting the plan: ${p.title}` };
+      continue;
+    }
     if (p.status === 'proposed') {
       const lead = p.team.find((m) => m.role === 'lead') ?? p.team[0];
       if (lead) out[`cw_${lead.personaId}`] = { state: 'raised_hand', label: `Waiting on you: ${p.title}` };
@@ -123,8 +128,12 @@ export const teamWork = computed(() => {
     // Paused: a step already under way still finishes, so its people still show it.
     if (p.status !== 'running' && p.status !== 'paused') continue;
     for (const st of p.steps) {
-      if (st.status === 'working' || st.status === 'revising') out[`cw_${st.ownerId}`] = { state: 'working', label: st.status === 'revising' ? `Revising: ${st.title}` : st.title };
-      else if (st.status === 'reviewing' && st.reviewerIds[0]) out[`cw_${st.reviewerIds[0]}`] = { state: 'thinking', label: `Reviewing: ${st.title}` };
+      const lead = st.byId ?? st.ownerId;
+      if (st.status === 'working' || st.status === 'revising') out[`cw_${lead}`] = { state: 'working', label: st.status === 'revising' ? `Revising: ${st.title}` : st.title };
+      else if (st.status === 'reviewing') {
+        // Everyone in the cluster but the lead reviews (co-owners and reviewers).
+        for (const r of [...[st.ownerId, ...(st.coOwnerIds ?? [])].filter((o) => o !== lead), ...st.reviewerIds]) out[`cw_${r}`] ??= { state: 'thinking', label: `Reviewing: ${st.title}` };
+      } else if (st.status === 'asking') out[`cw_${lead}`] = { state: 'raised_hand', label: `Question for you: ${st.question?.text ?? st.title}` };
     }
   }
   return out;
@@ -501,6 +510,9 @@ function reduce(frame: Frame, live: boolean): void {
       break;
     case 'project.updated':
       upsertProject(frame.data.project);
+      break;
+    case 'decision.opened':
+      if (frame.data.decision.status === 'open') openDecisions.value = { ...openDecisions.value, [frame.data.decision.decisionId]: frame.data.decision };
       break;
     case 'decision.resolved': {
       const { [frame.data.decision.decisionId]: _gone, ...rest } = openDecisions.value;

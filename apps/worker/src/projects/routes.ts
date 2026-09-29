@@ -1,4 +1,5 @@
-import { PROJECT_NOTE_MAX, type ProjectActionAccepted, type ProjectNoteRequest, type ProjectResponse, type ProjectsResponse, type StopAllResponse } from '@headcount/protocol/ext/projects';
+import { PROJECT_NOTE_MAX, type DecisionAnswer, type PlanEdit, type ProjectActionAccepted, type ProjectNoteRequest, type ProjectResponse, type ProjectsResponse, type StepEdit, type StopAllResponse } from '@headcount/protocol/ext/projects';
+import type { RunsResponse } from '@headcount/protocol/ext/agents';
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
 import { projectStub } from '../lib/stubs';
 
@@ -68,4 +69,78 @@ export const handleResumeProject: RouteHandler = async (_req, { env, params }) =
   const r = await projectStub(env).resumeProject(params.id);
   if (!r.accepted) throw new HttpError(r.code, r.message);
   return json<ProjectActionAccepted>({ accepted: true, project: r.project }, { status: 202 });
+};
+
+const isDecisionId = (id: string | undefined): id is string => !!id && /^dec_[a-z0-9]{8,40}$/.test(id);
+const isStepId = (id: string | undefined): id is string => !!id && /^[\w-]{1,48}$/.test(id);
+type Refusal = { accepted: false; code: 'not_found' | 'conflict' | 'bad_request' | 'rate_limited' | 'not_configured'; message: string };
+const accepted = (r: { accepted: true; project: ProjectResponse } | Refusal) => {
+  if (!r.accepted) throw new HttpError(r.code, r.message);
+  return json<ProjectActionAccepted>({ accepted: true, project: r.project }, { status: 202 });
+};
+const strs = (v: unknown): string[] | undefined => (Array.isArray(v) && v.every((x) => typeof x === 'string') ? (v as string[]) : undefined);
+
+function stepEditOf(body: Record<string, unknown> | null): StepEdit {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw new HttpError('bad_request', 'Send the change as a JSON object.');
+  const e: StepEdit = {};
+  for (const k of ['title', 'brief', 'acceptance'] as const) {
+    if (body[k] === undefined) continue;
+    if (typeof body[k] !== 'string') throw new HttpError('bad_request', `${k} must be text.`);
+    e[k] = body[k] as string;
+  }
+  for (const k of ['ownerIds', 'reviewerIds', 'dependsOn'] as const) {
+    if (body[k] === undefined) continue;
+    const list = strs(body[k]);
+    if (!list) throw new HttpError('bad_request', `${k} must be a list of ids.`);
+    e[k] = list;
+  }
+  return e;
+}
+
+/** POST /api/decisions/:id → the owner answers a raised hand (approve, decline, or words). */
+export const handleAnswerDecision: RouteHandler = async (req, { env, params }) => {
+  if (!isDecisionId(params.id)) throw new HttpError('not_found', 'No such decision.');
+  const body = await readJson<Partial<DecisionAnswer>>(req);
+  if (!body || !['approve', 'decline', 'answer'].includes(String(body.action))) throw new HttpError('bad_request', 'Approve, decline or answer.');
+  if (body.text !== undefined && typeof body.text !== 'string') throw new HttpError('bad_request', 'The answer must be text.');
+  const r = (await projectStub(env).answerDecision(params.id, { action: body.action as DecisionAnswer['action'], ...(body.text ? { text: body.text } : {}) })) as unknown as { accepted: true; project: ProjectResponse } | Refusal;
+  return accepted(r);
+};
+
+export const handleEditStep: RouteHandler = async (req, { env, params }) => {
+  if (!isProjectId(params.id) || !isStepId(params.stepId)) throw new HttpError('not_found', 'No such step.');
+  const edit = stepEditOf(await readJson<Record<string, unknown>>(req));
+  return accepted((await projectStub(env).editStep(params.id, params.stepId, edit)) as unknown as { accepted: true; project: ProjectResponse } | Refusal);
+};
+
+export const handleAddStep: RouteHandler = async (req, { env, params }) => {
+  if (!isProjectId(params.id)) throw new HttpError('not_found', 'That project does not exist.');
+  const edit = stepEditOf(await readJson<Record<string, unknown>>(req));
+  return accepted((await projectStub(env).addStep(params.id, edit)) as unknown as { accepted: true; project: ProjectResponse } | Refusal);
+};
+
+export const handleRemoveStep: RouteHandler = async (_req, { env, params }) => {
+  if (!isProjectId(params.id) || !isStepId(params.stepId)) throw new HttpError('not_found', 'No such step.');
+  return accepted((await projectStub(env).removeStep(params.id, params.stepId)) as unknown as { accepted: true; project: ProjectResponse } | Refusal);
+};
+
+export const handleEditPlan: RouteHandler = async (req, { env, params }) => {
+  if (!isProjectId(params.id)) throw new HttpError('not_found', 'That project does not exist.');
+  const body = await readJson<Partial<PlanEdit>>(req);
+  const e: PlanEdit = {};
+  if (body?.deliverableKind !== undefined) e.deliverableKind = body.deliverableKind;
+  if (body?.finisherId !== undefined) {
+    if (typeof body.finisherId !== 'string') throw new HttpError('bad_request', 'finisherId must be a persona id.');
+    e.finisherId = body.finisherId;
+  }
+  return accepted((await projectStub(env).editPlan(params.id, e)) as unknown as { accepted: true; project: ProjectResponse } | Refusal);
+};
+
+/** GET /api/projects/:id/runs[?stepId=] → every model call of the project (the run inspector). */
+export const handleProjectRuns: RouteHandler = async (_req, { env, params, url }) => {
+  if (!isProjectId(params.id)) throw new HttpError('not_found', 'That project does not exist.');
+  const stepId = url.searchParams.get('stepId') ?? undefined;
+  if (stepId !== undefined && !isStepId(stepId)) throw new HttpError('bad_request', 'That is not a step id.');
+  const runs = (await projectStub(env).projectRuns(params.id, stepId)) as unknown as RunsResponse['runs'];
+  return json<RunsResponse>({ runs });
 };

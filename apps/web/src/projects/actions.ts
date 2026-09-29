@@ -1,6 +1,6 @@
 // Owner actions on team projects (Inc 1): approve a plan (the raised hand), decline it, stop a running project, and
 // load a project's full outputs. Each updates the store at once from the answer; the feed then confirms.
-import type { TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { DecisionAnswer, PlanEdit, StepEdit, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { signal } from '@preact/signals';
 import { api, ApiError } from '../api/client';
 import { openDecisions, upsertProject } from '../store';
@@ -14,7 +14,7 @@ function set<T>(sig: { value: Record<string, T | undefined> }, id: string, v: T 
   sig.value = { ...sig.value, [id]: v };
 }
 
-type ProjectAction = 'approve' | 'cancel' | 'pause' | 'resume' | 'note';
+type ProjectAction = 'approve' | 'cancel' | 'pause' | 'resume' | 'note' | 'edit';
 
 async function act(id: string, kind: ProjectAction, call: () => Promise<{ project: TeamProjectSnapshot }>): Promise<boolean> {
   if (projectBusy.value[id]) return false;
@@ -69,3 +69,32 @@ export async function stopAllWork(): Promise<void> {
     stopAllBusy.value = false;
   }
 }
+
+/** decisionId → an answer in flight; the last error sentence per decision. */
+export const decisionBusy = signal<Record<string, boolean>>({});
+export const decisionError = signal<Record<string, string | undefined>>({});
+
+/** Answer a raised hand (approve, decline, or words). True when the server took it. */
+export async function answerDecision(decisionId: string, a: DecisionAnswer): Promise<boolean> {
+  if (decisionBusy.value[decisionId]) return false;
+  decisionBusy.value = { ...decisionBusy.value, [decisionId]: true };
+  decisionError.value = { ...decisionError.value, [decisionId]: undefined };
+  try {
+    const r = await api.answerDecision(decisionId, a);
+    upsertProject(r.project);
+    const { [decisionId]: _gone, ...rest } = openDecisions.value;
+    openDecisions.value = rest;
+    return true;
+  } catch (err) {
+    decisionError.value = { ...decisionError.value, [decisionId]: err instanceof ApiError ? err.message : 'That did not go through. Try again.' };
+    return false;
+  } finally {
+    decisionBusy.value = { ...decisionBusy.value, [decisionId]: false };
+  }
+}
+
+/** Plan edits (while proposed or paused): each answers with the project, errors land on the project. */
+export const editStep = (id: string, stepId: string, e: StepEdit) => act(id, 'edit', () => api.editStep(id, stepId, e));
+export const addStep = (id: string, e: StepEdit) => act(id, 'edit', () => api.addStep(id, e));
+export const removeStep = (id: string, stepId: string) => act(id, 'edit', () => api.removeStep(id, stepId));
+export const editPlan = (id: string, e: PlanEdit) => act(id, 'edit', () => api.editPlan(id, e));
