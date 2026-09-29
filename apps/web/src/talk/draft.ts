@@ -12,3 +12,6 @@ export function prefillComposer(text: string): void {
 
 /** Set when a lead was just chosen: Talk greets once, aloud when voice is on. */
 export const greetOnArrival = signal(false);
+
+/** Onboarding's greeting was spoken in this session: Talk does not open with a second hello (LIVING-WORKFORCE §3.4). */
+export const greetedThisSession = signal(false);

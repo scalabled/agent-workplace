@@ -17,7 +17,7 @@ export {
 export type { LandmarkerConfig, FaceMeshDetector, DetectorFactory } from './landmarks';
 export { FaceScheduler, faceScheduler, configureFaceScheduler, setFaceScheduler } from './scheduler';
 export type { FaceHandle, FaceSchedulerOptions, ScheduledFace, SchedulerStats } from './scheduler';
-export { FaceMotion, STATE_POSES, STILL_POSE } from './motion';
+export { EXPRESSION_HOLD_MS, FaceMotion, PALETTE_PRESETS, STATE_POSES, STILL_POSE, gestureDurationMs, sanitizeCue } from './motion';
 export type { FacePose } from './motion';
 export { PortraitRenderer, DEFAULT_MAX_SIDE } from './portrait-renderer';
 export type { PortraitRendererOptions, PortraitSourceImage, ViewTransform } from './portrait-renderer';

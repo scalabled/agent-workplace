@@ -203,6 +203,24 @@ export class FakeAudioContext {
   }
 }
 
+/** Decode-only context (prepare() before arm()): same fake codec as FakeAudioContext. */
+export class FakeOfflineAudioContext {
+  static instances: FakeOfflineAudioContext[] = [];
+  decodes = 0;
+  constructor(
+    readonly numberOfChannels: number,
+    readonly length: number,
+    readonly sampleRate: number,
+  ) {
+    FakeOfflineAudioContext.instances.push(this);
+  }
+  decodeAudioData(data: ArrayBuffer): Promise<FakeBuffer> {
+    this.decodes++;
+    if (data.byteLength < 8) return Promise.reject(new Error('EncodingError'));
+    return Promise.resolve(new FakeBuffer(new DataView(data).getFloat64(0)));
+  }
+}
+
 // ── speechSynthesis ──────────────────────────────────────────────────────────
 
 export class FakeUtterance {

@@ -8,11 +8,11 @@ import { createChrome, updateChrome, type FaceChrome } from './chrome';
 import { hash32 } from './color';
 import { detectLandmarks, LandmarkerUnavailableError } from './landmarks';
 import { lookFromAppearance, placeholderLook } from './look';
-import { FaceMotion, STILL_POSE } from './motion';
+import { FaceMotion, gestureDurationMs, sanitizeCue } from './motion';
 import { PortraitRenderer, type ViewTransform } from './portrait-renderer';
 import { DESIGN_H, DESIGN_W, PROCEDURAL_FOCUS_Y, ProceduralRenderer } from './procedural-renderer';
 import { faceScheduler, type FaceHandle, type ScheduledFace } from './scheduler';
-import type { AppearanceFallback, FaceViewApi, FaceViewOptions, PortraitSource } from './types';
+import type { AppearanceFallback, ExpressionBias, FaceCue, FaceGesture, FaceViewApi, FaceViewOptions, PortraitSource } from './types';
 
 /** Working resolution of the portrait source per tier (ARCHITECTURE §9.4). */
 export const PORTRAIT_MAX_SIDE: Readonly<Record<FaceTier, number>> = Object.freeze({ hero: 1024, tile: 384, token: 256 });
@@ -28,6 +28,10 @@ const WORKING_MIN = 192;
 const FADE_MS = 300;
 /** Where the face centre lands vertically when the frame is cropped (cover fit). */
 const FACE_TARGET_Y = 0.47;
+/** A tile playing a reflex gesture outranks idle tiles for an animated slot (a talking face still wins). */
+const CUE_PRIORITY = 15;
+/** Order of the last activity (a cue or speech) across faces: breaks ties toward the most recently active tile. */
+let activitySeq = 0;
 
 const STATE_WORDS: Readonly<Record<PresenceState, string>> = Object.freeze({
   idle: 'idle',
@@ -166,6 +170,12 @@ export class FaceView implements FaceViewApi, ScheduledFace {
   private destroyed = false;
   private rmOverride: boolean | undefined;
   private frames = 0;
+  /** The gesture now playing (null when none), for data-face-cue and the scheduler's priority. */
+  private cueGesture: FaceGesture | null = null;
+  private cueTimer: ReturnType<typeof setTimeout> | null = null;
+  /** A still face (token, reduced motion) redraws when a held expression comes due or an override ends. */
+  private staticTimer: ReturnType<typeof setTimeout> | null = null;
+  private activeSeq = 0;
 
   constructor(private readonly opts: FaceViewOptions = {}) {
     this.requestedTier = opts.tier ?? 'tile';
@@ -200,7 +210,10 @@ export class FaceView implements FaceViewApi, ScheduledFace {
     }
     this.chrome!.root.remove();
     el.appendChild(this.chrome!.root);
+    if (this.host && this.host !== el) this.clearHostAttrs(this.host);
     this.host = el;
+    el.dataset.faceExpression = this.motion.expression;
+    this.syncCueAttr();
     views.add(this);
     this.motion.reducedMotion = this.reducedMotion;
     this.measure();
@@ -293,10 +306,45 @@ export class FaceView implements FaceViewApi, ScheduledFace {
   setTier(tier: FaceTier): void {
     if (this.destroyed || tier === this.requestedTier) return;
     this.requestedTier = tier;
+    this.syncCueAttr();
     this.updateChrome();
     this.invalidate();
     this.handle?.wake();
     if (tier !== 'token' && this.portrait && !this.portrait.landmarks) this.maybeDetect(this.portraitRev);
+  }
+
+  /**
+   * A reflex gesture (+ optional palette expression) for cue.holdMs; the latest cue wins (INC05-PLAN §3.7).
+   * Hero and tile animate it; a token and reduced motion show only the expression, as one still redraw.
+   */
+  cue(cue: FaceCue): void {
+    if (this.destroyed) return;
+    const c = sanitizeCue(cue);
+    if (!c) return;
+    this.motion.cue(c);
+    const ms = gestureDurationMs(c);
+    if (this.cueTimer) clearTimeout(this.cueTimer);
+    this.cueTimer = null;
+    this.cueGesture = ms > 0 ? c.gesture : null;
+    if (this.cueGesture) {
+      this.activeSeq = ++activitySeq;
+      this.cueTimer = setTimeout(() => {
+        this.cueTimer = null;
+        this.cueGesture = null;
+        this.syncCueAttr();
+      }, ms);
+    }
+    this.syncCueAttr();
+    this.invalidate();
+    this.handle?.wake();
+  }
+
+  /** The mood palette (mood.changed → expressionBias()); null → neutral. Eases over 300 ms. */
+  setExpressionBias(bias: ExpressionBias | null): void {
+    if (this.destroyed) return;
+    this.motion.setBias(bias);
+    this.invalidate();
+    this.handle?.wake();
   }
 
   /** Override reduced motion (null → follow the OS). Lip sync always stays on. */
@@ -309,6 +357,11 @@ export class FaceView implements FaceViewApi, ScheduledFace {
     if (this.destroyed) return;
     this.destroyed = true;
     this.portraitRev++;
+    if (this.cueTimer) clearTimeout(this.cueTimer);
+    if (this.staticTimer) clearTimeout(this.staticTimer);
+    this.cueTimer = this.staticTimer = null;
+    this.cueGesture = null;
+    if (this.host) this.clearHostAttrs(this.host);
     this.handle?.remove();
     this.handle = null;
     this.ro?.disconnect();
@@ -335,6 +388,9 @@ export class FaceView implements FaceViewApi, ScheduledFace {
       talking: this.motion.isTalking,
       reducedMotion: this.reducedMotion,
       frames: this.frames,
+      /** The palette expression shown, and the gesture now playing (INC05-PLAN §3.7). */
+      expression: this.motion.expression,
+      cue: this.cueGesture,
       canvas: this.canvas ? { width: this.canvas.width, height: this.canvas.height } : null,
       /** The portrait working copy the strip warp draws from (device pixels). */
       working: this.portrait?.renderer ? { width: this.portrait.renderer.w, height: this.portrait.renderer.h } : null,
@@ -346,7 +402,15 @@ export class FaceView implements FaceViewApi, ScheduledFace {
 
   priority(): number {
     const rank = PRESENCE_PRIORITY.indexOf(this.state);
-    return (this.requestedTier === 'hero' ? 100 : 0) + (this.motion.isTalking ? 20 : 0) + (PRESENCE_PRIORITY.length - (rank < 0 ? PRESENCE_PRIORITY.length : rank));
+    // A cued tile takes an animated slot for its gesture; among equals the least recently active tile gives it up.
+    const recency = activitySeq > 0 ? (this.activeSeq / (activitySeq + 1)) * 0.5 : 0;
+    return (
+      (this.requestedTier === 'hero' ? 100 : 0) +
+      (this.motion.isTalking ? 20 : 0) +
+      (this.cueGesture ? CUE_PRIORITY : 0) +
+      (PRESENCE_PRIORITY.length - (rank < 0 ? PRESENCE_PRIORITY.length : rank)) +
+      recency
+    );
   }
 
   invalidate(): void {
@@ -378,7 +442,9 @@ export class FaceView implements FaceViewApi, ScheduledFace {
     // token or the face shrinks.
     if (this.portrait && tier !== 'token' && this.portrait.maxSide < this.workingSide(tier)) this.buildPortraitRenderer();
     const still = tier === 'token';
-    const pose = still ? STILL_POSE : this.motion.update(now);
+    // Tokens ignore gestures and show the palette as one still redraw.
+    const pose = still ? this.motion.staticPose(now) : this.motion.update(now);
+    if (this.motion.isTalking && !still) this.activeSeq = ++activitySeq;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -402,6 +468,9 @@ export class FaceView implements FaceViewApi, ScheduledFace {
     this.dirty = false;
     this.lastFrameAt = now;
     this.frames++;
+    const host = this.host;
+    if (host && host.dataset.faceExpression !== this.motion.expression) host.dataset.faceExpression = this.motion.expression;
+    this.scheduleStaticWake(now, still || this.reducedMotion);
   }
 
   // ── internals ────────────────────────────────────────────────────────────
@@ -411,6 +480,7 @@ export class FaceView implements FaceViewApi, ScheduledFace {
     const rm = this.reducedMotion;
     if (this.motion.reducedMotion !== rm) {
       this.motion.reducedMotion = rm;
+      this.syncCueAttr();
       this.updateChrome();
       this.invalidate();
       this.handle?.wake();
@@ -429,6 +499,38 @@ export class FaceView implements FaceViewApi, ScheduledFace {
     if (this.motion.isTalking || this.motion.settling || (fading && !this.reducedMotion)) return fast;
     if (this.reducedMotion) return this.sampler ? slow : Infinity; // poll the sampler so speech starts promptly
     return slow;
+  }
+
+  /** data-face-cue on the mount element while a gesture plays (not on tokens, not under reduced motion). */
+  private syncCueAttr(): void {
+    const host = this.host;
+    if (!host) return;
+    const show = this.cueGesture !== null && this.requestedTier !== 'token' && !this.reducedMotion;
+    if (show) host.dataset.faceCue = this.cueGesture!;
+    else delete host.dataset.faceCue;
+  }
+
+  private clearHostAttrs(host: HTMLElement): void {
+    delete host.dataset.faceCue;
+    delete host.dataset.faceExpression;
+  }
+
+  /** A face that only redraws on demand gets one timed redraw when its palette changes next. */
+  private scheduleStaticWake(now: number, isStatic: boolean): void {
+    if (this.staticTimer) clearTimeout(this.staticTimer);
+    this.staticTimer = null;
+    if (!isStatic) return;
+    const at = this.motion.wakeAt();
+    if (at === null) return;
+    this.staticTimer = setTimeout(
+      () => {
+        this.staticTimer = null;
+        if (this.destroyed) return;
+        this.invalidate();
+        this.handle?.wake();
+      },
+      Math.max(0, at - now) + 16,
+    );
   }
 
   private placeholderRenderer(): ProceduralRenderer {

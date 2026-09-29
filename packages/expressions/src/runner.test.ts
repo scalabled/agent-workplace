@@ -150,6 +150,20 @@ describe('latency masking at the end of a turn (§1.3)', () => {
     const bubble = h.captions.shown.find((c) => c.kind === 'bubble')!;
     expect(bubble.at - (at(h) - 3000)).toBeGreaterThanOrEqual(2500);
     expect(h.played('thinking_filler')).toHaveLength(1);
+    // The "one sec" bubble yields to the answer as soon as it starts streaming.
+    expect(h.captions.cleared).toEqual([]);
+    h.runner.conversation({ kind: 'first_token', turnId: 'turn_t', at: at(h), hint: null });
+    expect(h.captions.cleared).toEqual([{ agentId: chief, kind: 'bubble', at: at(h) }]);
+  });
+
+  it('a fast answer leaves nothing to clear', async () => {
+    const h = await createRunnerHarness();
+    h.turn(chief, 'turn_fast', 'Can you draft a follow-up to Kirsten?', 'text');
+    await h.clock.advance(400);
+    h.runner.conversation({ kind: 'first_token', turnId: 'turn_fast', at: at(h), hint: null });
+    await h.clock.advance(3000);
+    expect(h.played('thinking_filler')).toEqual([]);
+    expect(h.captions.cleared).toEqual([]);
   });
 });
 
@@ -375,7 +389,7 @@ describe('stage, frames and control', () => {
     expect(h2.played('sign_off')).toHaveLength(1);
   });
 
-  it('a quick return cancels the deferred sign-off; five quiet minutes at an open stage get one (E20)', async () => {
+  it('a quick return cancels the deferred sign-off; quiet minutes at an open stage never get one (D2)', async () => {
     const h = await createRunnerHarness();
     h.runner.stage(chief, 'open');
     for (const id of ['turn_1', 'turn_2']) {
@@ -398,10 +412,12 @@ describe('stage, frames and control', () => {
       i.runner.conversation({ kind: 'done', turnId: id, at: at(i) });
       await i.clock.advance(1000);
     }
+    // The owner is reading or thinking, not gone: the Chief never announces its own exit.
     await i.clock.advance(4 * 60_000);
     expect(i.played('sign_off')).toEqual([]);
-    await i.clock.advance(2 * 60_000);
-    expect(i.played('sign_off')).toHaveLength(1);
+    await i.clock.advance(30 * 60_000);
+    expect(i.played('sign_off')).toEqual([]);
+    expect(i.captions.shown.some((c) => c.kind === 'bubble')).toBe(false);
   });
 
   it('side-talk: bubbles for everyone, voice only for a listener, gist rendered at runtime', async () => {
@@ -494,3 +510,71 @@ describe('stage, frames and control', () => {
 });
 
 type SideTalkLineFrame = Extract<import('./types').ExpressionFrame, { type: 'sidetalk.line' }>;
+
+describe('server frames and the runner cover a turn once (Inc 0.5 R1–R3)', () => {
+  /** A pre-voiced line of `intent` from the agent's manifest, as a server reflex.say for `turnId`. */
+  const serverSay = (h: RunnerHarness, agentId: string, intent: ReflexSayData['intent'], turnId: string): ReflexSayData => {
+    const [lineKey, clip] = Object.entries(h.clips.manifest(agentId)!.clips).find(([k]) => k.split('|')[0]!.includes(`.${intent}.`))!;
+    return {
+      agentId, intent, lineId: lineKey.split('|')[0]!, fillKey: lineKey.split('|')[1] ?? '', caption: `server ${intent}`,
+      clip: { key: clip.clipKey, url: `/api/expr/clips/${clip.clipKey}`, durationMs: clip.durationMs, alignmentUrl: null }, render: null,
+      channels: { voice: true, bubble: false, caption: 'reaction' }, face: { gesture: 'nod', holdMs: 600 },
+      gainDb: 0, priority: 2, ttlMs: 1500, audience: 'owner', turnId,
+    };
+  };
+
+  it('R2: a server filler that plays first covers the turn; the runner adds none of its own', async () => {
+    const h = await createRunnerHarness();
+    h.turn(chief, 'turn_sf', 'what do you think about the margins');
+    await h.clock.advance(500);
+    const say = serverSay(h, chief, 'thinking_filler', 'turn_sf');
+    h.runner.frame({ type: 'reflex.say', data: say });
+    await h.clock.advance(3000);
+    expect(h.played('thinking_filler').map((p) => p.lineId)).toEqual([say.lineId]);
+    expect(h.voiced().map((v) => v.caption)).toEqual(['server thinking_filler']);
+  });
+
+  it('R2: a server acknowledgement cancels the runner’s pending one for that turn', async () => {
+    const h = await createRunnerHarness();
+    h.turn(chief, 'turn_sa', 'Can you draft a follow-up to Kirsten?');
+    await h.clock.advance(100); // the runner's own acknowledgement is scheduled for 200–350 ms
+    h.runner.frame({ type: 'reflex.say', data: serverSay(h, chief, 'acknowledge', 'turn_sa') });
+    await h.clock.advance(1000);
+    h.runner.conversation({ kind: 'first_token', turnId: 'turn_sa', at: at(h), hint: null });
+    await h.clock.advance(3000);
+    expect(h.played('acknowledge')).toHaveLength(1);
+    expect(h.voiced()[0]!.caption).toBe('server acknowledge');
+    expect(h.telemetry.some((t) => t.kind === 'dropped' && t.intent === 'acknowledge' && t.reason === 'server_played')).toBe(true);
+  });
+
+  it('R1: a server frame that arrives before the owner turn is known keeps the runner from firing that intent', async () => {
+    const h = await createRunnerHarness();
+    h.runner.frame({ type: 'reflex.say', data: serverSay(h, chief, 'acknowledge', 'turn_early') });
+    await h.clock.advance(50);
+    h.turn(chief, 'turn_early', 'Can you draft a follow-up to Kirsten?');
+    await h.clock.advance(1000);
+    h.runner.conversation({ kind: 'first_token', turnId: 'turn_early', at: at(h), hint: null });
+    await h.clock.advance(3000);
+    expect(h.played('acknowledge')).toHaveLength(1);
+    expect(h.telemetry.find((t) => t.kind === 'skipped' && t.intent === 'acknowledge')).toMatchObject({ reason: 'server_played', turnId: 'turn_early' });
+  });
+
+  it('the runner first: a later server frame for the same turn and intent is ignored', async () => {
+    const h = await createRunnerHarness();
+    h.turn(chief, 'turn_cf', 'Can you draft a follow-up to Kirsten?');
+    await h.clock.advance(400); // the runner's acknowledgement started
+    h.runner.frame({ type: 'reflex.say', data: serverSay(h, chief, 'acknowledge', 'turn_cf') });
+    h.runner.conversation({ kind: 'first_token', turnId: 'turn_cf', at: at(h), hint: null });
+    await h.clock.advance(3000);
+    expect(h.played('acknowledge')).toHaveLength(1);
+    expect(h.voiced().map((v) => v.caption)).not.toContain('server acknowledge');
+  });
+
+  it('R3: telemetry of a turn’s reflexes carries its turnId', async () => {
+    const h = await createRunnerHarness();
+    h.turn(chief, 'turn_tel', 'Can you draft a follow-up to Kirsten?');
+    await h.clock.advance(3000);
+    const ack = h.played('acknowledge')[0]!;
+    expect(ack.turnId).toBe('turn_tel');
+  });
+});

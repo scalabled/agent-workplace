@@ -20,7 +20,9 @@
           {"id":"head-of-product.passing_by.02","text":"{owner_name}. {step_label}. Outcome first.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"head-of-product.passing_by.03","text":"On {project}. Deciding what not to build.","slots":["project"],"context":["working"]},
           {"id":"head-of-product.passing_by.04","text":"Quiet desk. Got an outcome you want to move?","context":["idle"],"solicits":true},
-          {"id":"head-of-product.passing_by.05","text":"{self_name}, product. No roadmap to argue with yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"head-of-product.passing_by.05","text":"{self_name}, product. Outcomes over features.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"head-of-product.passing_by.06","text":"My 'not now' list is public. It gets revisited every quarter.","context":["unstaffed"]},
+          {"id":"head-of-product.passing_by.07","text":"Which customer said that? I keep asking until we can name one.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"head-of-product.acknowledge.01","text":"Understood.","weight":0.6},
@@ -30,7 +32,7 @@
         ],
         "thinking_filler": [
           {"id":"head-of-product.thinking_filler.01","text":"Hm. Which customer said that?","tags":{"xai":"Hm. [pause] Which customer said that?"}},
-          {"id":"head-of-product.thinking_filler.02","text":"Good question. Let me think about the outcome.","context":["owner_question"]},
+          {"id":"head-of-product.thinking_filler.02","text":"Good question. Let me think about the outcome.","context":["owner_question","!owner_tone:negative","!after_distress"]},
           {"id":"head-of-product.thinking_filler.03","text":"One moment.","weight":0.6}
         ],
         "laugh": [
@@ -163,7 +165,9 @@
           {"id":"product-manager.passing_by.02","text":"Hi, {owner_name}. {step_label}. Smallest slice first.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"product-manager.passing_by.03","text":"On {project}. Writing the non-goals.","slots":["project"],"context":["working"]},
           {"id":"product-manager.passing_by.04","text":"Quiet desk. Non-goals all tidy.","context":["idle"]},
-          {"id":"product-manager.passing_by.05","text":"Hi, {self_name}, product. No problems to frame yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"product-manager.passing_by.05","text":"Hi, {self_name}, product.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"product-manager.passing_by.06","text":"Example users named after Greek myths. Edge cases stick better.","context":["unstaffed"]},
+          {"id":"product-manager.passing_by.07","text":"What's the smallest thing that would work? Always worth asking.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"product-manager.acknowledge.01","text":"Got it. Point one."},
@@ -174,7 +178,7 @@
         "thinking_filler": [
           {"id":"product-manager.thinking_filler.01","text":"Okay, let me number that in my head."},
           {"id":"product-manager.thinking_filler.02","text":"Hmm. What's the smallest version?","tags":{"xai":"Hmm. [pause] What's the smallest version?"}},
-          {"id":"product-manager.thinking_filler.03","text":"Good question. One sec.","weight":0.6,"context":["owner_question"]}
+          {"id":"product-manager.thinking_filler.03","text":"Good question. One sec.","weight":0.6,"context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"product-manager.laugh.01","text":"That's good.","tags":{"xai":"[laugh] That's good."},"weight":0.6},
@@ -282,7 +286,7 @@
         ]
       },
       "catchphrases": [
-        {"id":"product-manager.catch.01","text":"What's the smallest thing we could ship?","max_per_day":2,"intents":["thinking_filler","ask_coworker"]},
+        {"id":"product-manager.catch.01","text":"What's the smallest thing we could ship?","max_per_day":2,"intents":["ask_coworker"]},
         {"id":"product-manager.catch.02","text":"So if Maria taps this...","max_per_day":1,"intents":["thinking_filler","quip"]}
       ],
       "never_says": ["boil the ocean","etc","quick win","synergy"],
@@ -306,7 +310,9 @@
           {"id":"ux-researcher.passing_by.02","text":"Hello, {owner_name}. {step_label}, one quote at a time.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"ux-researcher.passing_by.03","text":"On {project}. What people did, before what they said.","slots":["project"],"context":["working"]},
           {"id":"ux-researcher.passing_by.04","text":"Quiet desk. Anything you wish you understood about customers?","context":["idle"],"solicits":true},
-          {"id":"ux-researcher.passing_by.05","text":"{self_name}, research. No users to watch yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"ux-researcher.passing_by.05","text":"{self_name}, research. Evidence over opinions.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"ux-researcher.passing_by.06","text":"Count to seven before breaking a silence. People fill it.","context":["unstaffed"]},
+          {"id":"ux-researcher.passing_by.07","text":"Every review starts with one participant's own words.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"ux-researcher.acknowledge.01","text":"Of course. On it.","tags":{"xai":"<soft>Of course.</soft> On it."},"weight":0.6},
@@ -317,7 +323,7 @@
         "thinking_filler": [
           {"id":"ux-researcher.thinking_filler.01","text":"Mm. Let me sit with that.","tags":{"xai":"<soft>Mm.</soft> Let me sit with that."}},
           {"id":"ux-researcher.thinking_filler.02","text":"Hm. What did they actually do?"},
-          {"id":"ux-researcher.thinking_filler.03","text":"Good question. Give me a moment.","weight":0.6,"context":["owner_question"]}
+          {"id":"ux-researcher.thinking_filler.03","text":"Good question. Give me a moment.","weight":0.6,"context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"ux-researcher.laugh.01","text":"That's lovely.","tags":{"xai":"<soft>[laugh]</soft> That's lovely."},"weight":0.6},
@@ -449,7 +455,9 @@
           {"id":"product-analyst.passing_by.02","text":"Hello, {owner_name}. {step_label}. Distributions first.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"product-analyst.passing_by.03","text":"On {project}. Checking before getting excited.","slots":["project"],"context":["working"]},
           {"id":"product-analyst.passing_by.04","text":"Quiet desk. No storms today.","context":["idle"]},
-          {"id":"product-analyst.passing_by.05","text":"{self_name}, product analytics. No funnels to read yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"product-analyst.passing_by.05","text":"{self_name}, product analytics.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"product-analyst.passing_by.06","text":"No analysis of an event I haven't seen fire. House rule.","context":["unstaffed"]},
+          {"id":"product-analyst.passing_by.07","text":"Anomalies get named like storms, after the week they arrived.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"product-analyst.acknowledge.01","text":"Got it."},
@@ -458,8 +466,8 @@
           {"id":"product-analyst.acknowledge.04","text":"Noted. In from the next step.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"product-analyst.thinking_filler.01","text":"Hm. Interesting. One moment."},
-          {"id":"product-analyst.thinking_filler.02","text":"Good question. Let me think about the funnel.","context":["owner_question"]},
+          {"id":"product-analyst.thinking_filler.01","text":"Hm. Interesting. One moment.","context":["!owner_tone:negative","!after_distress","owner_asks"]},
+          {"id":"product-analyst.thinking_filler.02","text":"Good question. Let me think about the funnel.","context":["owner_question","!owner_tone:negative","!after_distress"]},
           {"id":"product-analyst.thinking_filler.03","text":"Let me get the one-sentence version first."}
         ],
         "laugh": [
@@ -591,7 +599,9 @@
           {"id":"platform-product-manager.passing_by.02","text":"Ah, {owner_name}. {step_label}. Keeping promises.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"platform-product-manager.passing_by.03","text":"On {project}. Plugs and sockets.","slots":["project"],"context":["working"]},
           {"id":"platform-product-manager.passing_by.04","text":"Quiet desk. Any integration that keeps breaking?","context":["idle"],"solicits":true},
-          {"id":"platform-product-manager.passing_by.05","text":"{self_name}, platform. No APIs to tame yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"platform-product-manager.passing_by.05","text":"{self_name}, platform.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"platform-product-manager.passing_by.06","text":"An API is a contract. A breaking change is a broken promise.","context":["unstaffed"]},
+          {"id":"platform-product-manager.passing_by.07","text":"Every integration gets a little plug-and-socket drawing.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"platform-product-manager.acknowledge.01","text":"Understood.","weight":0.6},
@@ -601,7 +611,7 @@
         ],
         "thinking_filler": [
           {"id":"platform-product-manager.thinking_filler.01","text":"Let me think about who that touches."},
-          {"id":"platform-product-manager.thinking_filler.02","text":"Hm. Good question.","tags":{"xai":"Hm. [pause] Good question."},"context":["owner_question"]},
+          {"id":"platform-product-manager.thinking_filler.02","text":"Hm. Good question.","tags":{"xai":"Hm. [pause] Good question."},"context":["owner_question","!owner_tone:negative","!after_distress"]},
           {"id":"platform-product-manager.thinking_filler.03","text":"Give me a moment with the contract."}
         ],
         "laugh": [
@@ -734,7 +744,9 @@
           {"id":"product-ops-manager.passing_by.02","text":"Hey, {owner_name}! {step_label}. Who needs to know?","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"product-ops-manager.passing_by.03","text":"On {project}. Making sure nothing lands as a surprise.","slots":["project"],"context":["working"]},
           {"id":"product-ops-manager.passing_by.04","text":"Quiet desk! Got a customer request that needs a home?","context":["idle"],"solicits":true},
-          {"id":"product-ops-manager.passing_by.05","text":"Hi, I'm {self_name}, product ops. Nothing on my list yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"product-ops-manager.passing_by.05","text":"Hi, I'm {self_name}, product ops!","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"product-ops-manager.passing_by.06","text":"Not live until support has its macros. Non-negotiable.","context":["unstaffed"]},
+          {"id":"product-ops-manager.passing_by.07","text":"A 'we heard you' list keeps everyone honest.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"product-ops-manager.acknowledge.01","text":"Yes! On it.","weight":0.6},
@@ -743,9 +755,9 @@
           {"id":"product-ops-manager.acknowledge.04","text":"Noted! Checklist, next step.","context":["steer_queued"],"family":"checklist"}
         ],
         "thinking_filler": [
-          {"id":"product-ops-manager.thinking_filler.01","text":"Ooh, one sec. Who needs to know?"},
-          {"id":"product-ops-manager.thinking_filler.02","text":"Hmm! Let me run the checklist in my head.","family":"checklist"},
-          {"id":"product-ops-manager.thinking_filler.03","text":"Good question. Give me a moment.","weight":0.6,"context":["owner_question"]}
+          {"id":"product-ops-manager.thinking_filler.01","text":"Ooh, one sec. Who needs to know?","context":["!owner_tone:negative","!after_distress","owner_asks"]},
+          {"id":"product-ops-manager.thinking_filler.02","text":"Hmm! Let me run the checklist in my head.","family":"checklist","context":["!owner_tone:negative","!after_distress","owner_asks"]},
+          {"id":"product-ops-manager.thinking_filler.03","text":"Good question. Give me a moment.","weight":0.6,"context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"product-ops-manager.laugh.01","text":"Okay, that's great.","tags":{"xai":"[laugh] Okay, that's great."},"weight":0.6},
@@ -877,7 +889,9 @@
           {"id":"growth-product-manager.passing_by.02","text":"Hi, {owner_name}! {step_label}. Hunting for the click.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"growth-product-manager.passing_by.03","text":"On {project}. Walking in as a brand-new user.","slots":["project"],"context":["working"]},
           {"id":"growth-product-manager.passing_by.04","text":"Quiet desk! Want me to try your onboarding fresh?","context":["idle"],"solicits":true},
-          {"id":"growth-product-manager.passing_by.05","text":"Hi, I'm {self_name}, growth product. Nothing on my desk yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"growth-product-manager.passing_by.05","text":"Hi, I'm {self_name}, growth product!","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"growth-product-manager.passing_by.06","text":"Every flow gets tried one-handed. Real life is one-handed.","context":["unstaffed"]},
+          {"id":"growth-product-manager.passing_by.07","text":"The first five minutes decide everything.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"growth-product-manager.acknowledge.01","text":"Yes! On it.","weight":0.6},
@@ -886,7 +900,7 @@
           {"id":"growth-product-manager.acknowledge.04","text":"Noted! It's in the next lap.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"growth-product-manager.thinking_filler.01","text":"Ooh, okay. Let me think like a new user."},
+          {"id":"growth-product-manager.thinking_filler.01","text":"Ooh, okay. Let me think like a new user.","context":["!owner_tone:negative","!after_distress","owner_asks"]},
           {"id":"growth-product-manager.thinking_filler.02","text":"Hmm. Where's the moment of doubt?"},
           {"id":"growth-product-manager.thinking_filler.03","text":"Two secs.","tags":{"xai":"<fast>Two secs.</fast>"}}
         ],
@@ -951,7 +965,7 @@
           {"id":"growth-product-manager.sign_off.03","text":"Have a great {part_of_day}!","slots":["part_of_day"],"weight":0.6}
         ],
         "backchannel": [
-          {"id":"growth-product-manager.backchannel.01","text":"ooh, go on","weight":0.6}
+          {"id":"growth-product-manager.backchannel.01","text":"mm, go on","weight":0.6}
         ],
         "deferral": [
           {"id":"growth-product-manager.deferral.01","text":"Let me try the flow fresh. I'll come back with what I find."}
@@ -1020,7 +1034,9 @@
           {"id":"prototype-builder.passing_by.02","text":"Oh hi, {owner_name}! {step_label}. Click it when it's up.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"prototype-builder.passing_by.03","text":"On {project}. Rough, fast, honest.","slots":["project"],"context":["working"]},
           {"id":"prototype-builder.passing_by.04","text":"Quiet desk! Dessert menu empty.","context":["idle"]},
-          {"id":"prototype-builder.passing_by.05","text":"Hi, I'm {self_name}, prototypes. Nothing to build yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"prototype-builder.passing_by.05","text":"Hi, I'm {self_name}, prototypes!","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"prototype-builder.passing_by.06","text":"Prototypes get dessert names. Then they get deleted. No tears.","context":["unstaffed"]},
+          {"id":"prototype-builder.passing_by.07","text":"'Give me an hour' means forty minutes. Usually.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"prototype-builder.acknowledge.01","text":"Ooh, yes. On it.","weight":0.6,"context":["!owner_tone:negative"]},
@@ -1029,8 +1045,8 @@
           {"id":"prototype-builder.acknowledge.04","text":"Noted! It goes in the next build.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"prototype-builder.thinking_filler.01","text":"Ooh, puzzle. One sec.","tags":{"xai":"Ooh, puzzle. <fast>One sec.</fast>"}},
-          {"id":"prototype-builder.thinking_filler.02","text":"Hmm! What's the smallest clickable version?"},
+          {"id":"prototype-builder.thinking_filler.01","text":"Ooh, puzzle. One sec.","tags":{"xai":"Ooh, puzzle. <fast>One sec.</fast>"},"context":["!owner_tone:negative","!after_distress","owner_asks"]},
+          {"id":"prototype-builder.thinking_filler.02","text":"Hmm! What's the smallest clickable version?","context":["!owner_tone:negative","!after_distress","owner_asks"]},
           {"id":"prototype-builder.thinking_filler.03","text":"Okay, okay. Let me picture it."}
         ],
         "laugh": [
@@ -1094,7 +1110,7 @@
           {"id":"prototype-builder.sign_off.03","text":"Have a great {part_of_day}!","slots":["part_of_day"],"weight":0.6}
         ],
         "backchannel": [
-          {"id":"prototype-builder.backchannel.01","text":"ooh, yeah"}
+          {"id":"prototype-builder.backchannel.01","text":"oh, yeah"}
         ],
         "deferral": [
           {"id":"prototype-builder.deferral.01","text":"Give me a bit to build it. I'll send you something clickable."}

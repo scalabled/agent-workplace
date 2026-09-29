@@ -8,6 +8,7 @@ export interface Settings {
   leadId?: string | null;
   chiefName?: string | null;
   voiceOn?: boolean;
+  ambience?: 'quiet' | 'lively' | 'buzzing';
 }
 
 /** Set the owner's settings directly (fast setup; onboarding itself is covered in onboarding.spec). */
@@ -39,7 +40,13 @@ function installRecorder(): void {
   if (w.__hcHooked) return;
   w.__hcHooked = true;
   const frames: unknown[] = (w.__frames = []);
-  const hook = (hc: Hc) => hc.store.onFrame((f, info) => frames.push({ type: f.type, seq: f.seq, live: info.live, data: f.data, at: Date.now() }));
+  // The hook object is re-assigned as parts of the app load (the living runtime adds itself): record once per store.
+  let hooked: unknown = null;
+  const hook = (hc: Hc) => {
+    if (!hc?.store || hc.store === hooked) return;
+    hooked = hc.store;
+    hc.store.onFrame((f, info) => frames.push({ type: f.type, seq: f.seq, live: info.live, data: f.data, at: Date.now() }));
+  };
   if (w.__headcount) return void hook(w.__headcount);
   let value: Hc | undefined;
   Object.defineProperty(window, '__headcount', {
@@ -112,4 +119,69 @@ export async function faceDrawn(page: Page, selector: string): Promise<boolean> 
     for (let i = 3; i < data.length; i += 4 * 16) if (data[i]! > 0) painted++;
     return painted > 50;
   });
+}
+
+// ── the living workforce (Inc 0.5) ───────────────────────────────────────────────
+
+/**
+ * A time zone where it is working hours right now: the living layer keeps ambient chatter off in owner-local quiet
+ * hours (22:00–07:00), so specs about passing-by run in a daytime zone whatever the clock of the machine says.
+ */
+export function daytimeZone(at = new Date()): string {
+  const zones = ['Europe/London', 'America/New_York', 'America/Los_Angeles', 'Pacific/Honolulu', 'Pacific/Auckland', 'Asia/Tokyo', 'Asia/Kolkata', 'Europe/Berlin', 'America/Sao_Paulo'];
+  const hour = (tz: string) => Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: tz }).format(at));
+  return zones.find((tz) => hour(tz) >= 10 && hour(tz) <= 16) ?? zones.find((tz) => hour(tz) >= 8 && hour(tz) <= 19)!;
+}
+
+export interface Telemetry {
+  kind: string;
+  agentId: string;
+  intent: string;
+  turnId?: string;
+  lineId?: string;
+  reason?: string;
+  latencyMs?: number;
+  at: number;
+}
+export interface CaptionEntry {
+  at: number;
+  agentId: string;
+  text: string;
+  kind: string;
+}
+export interface CueEntry {
+  agentId: string;
+  cue: { gesture: string; expression?: string; holdMs: number };
+  at: number;
+}
+
+/** The living runtime is loaded (it boots once the app is idle) and knows the Chief of Staff. */
+export async function livingReady(page: Page, agentId = 'cw_chief'): Promise<void> {
+  await page.waitForFunction(
+    (id) => {
+      const l = (window as unknown as { __headcount?: { living?: { agent(id: string): unknown } } }).__headcount?.living;
+      return !!l && !!l.agent(id);
+    },
+    agentId,
+    { timeout: 30_000 },
+  );
+}
+
+/** What the living layer did so far: reflex telemetry, captions and bubbles shown, and face cues. */
+export async function livingLog(page: Page): Promise<{ telemetry: Telemetry[]; captions: CaptionEntry[]; cues: CueEntry[] }> {
+  return page.evaluate(() => {
+    const l = (window as unknown as { __headcount: { living: { telemetry: unknown[]; captions: unknown[]; cues: unknown[] } } }).__headcount.living;
+    return JSON.parse(JSON.stringify({ telemetry: l.telemetry, captions: l.captions, cues: l.cues }));
+  });
+}
+
+/** L6: every reflex that was voiced has its words on screen (a caption line or a bubble) by the same agent. */
+export async function expectVoicedCaptioned(page: Page, since = 0): Promise<number> {
+  const { telemetry, captions } = await livingLog(page);
+  const voiced = telemetry.filter((t) => t.kind === 'played' && t.at >= since && t.reason !== 'bubble');
+  for (const t of voiced) {
+    const shown = captions.some((c) => c.agentId === t.agentId && Math.abs(c.at - t.at) < 3000);
+    expect(shown, `${t.agentId} ${t.intent} (${t.lineId}) was voiced with a caption`).toBe(true);
+  }
+  return voiced.length;
 }

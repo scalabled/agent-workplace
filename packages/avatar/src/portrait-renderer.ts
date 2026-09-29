@@ -444,7 +444,8 @@ export class PortraitRenderer {
     this.frames++;
     if (this.tier === 3) return;
     const { openY, stretchX, jawDrop, cornerPull = 0, round = 0 } = viseme;
-    const isMoving = Math.abs(openY) > 0.001 || Math.abs(jawDrop) > 0.001 || Math.abs(stretchX) > 0.001 || cornerPull > 0.02 || round > 0.02;
+    // cornerPull < 0 is a mood frown (the same warp, downward).
+    const isMoving = Math.abs(openY) > 0.001 || Math.abs(jawDrop) > 0.001 || Math.abs(stretchX) > 0.001 || Math.abs(cornerPull) > 0.02 || round > 0.02;
     if (isMoving) this.drawWarp(ctx, openY, stretchX, jawDrop, cornerPull, round);
     if (this.tier === 1 && isMoving) this.drawMouthCavity(ctx, openY, stretchX, jawDrop, round, !!extras.tongue);
     if (this.tier === 1 && (extras.brow ?? 0) > 0.02) this.drawBrows(ctx, extras.brow!);

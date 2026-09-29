@@ -337,3 +337,31 @@ export async function createTestEnv(overrides: Partial<Env> = {}): Promise<TestE
   } as unknown as TestEnv['ctx'];
   return { env, d1, r2, namespaces, ctx };
 }
+
+/**
+ * A hibernatable feed socket (Inc 0.5, additive): records what the server sends and keeps its attachment
+ * (`serializeAttachment` / `deserializeAttachment`, structured-cloned like the runtime), so a test can hand the
+ * same socket to a revived Durable Object as the hibernation API does.
+ */
+export class FakeWebSocket {
+  readonly sent: string[] = [];
+  private attachment: unknown = null;
+  closed = false;
+  send(message: string): void {
+    if (this.closed) throw new Error('socket closed');
+    this.sent.push(message);
+  }
+  serializeAttachment(value: unknown): void {
+    this.attachment = structuredClone(value);
+  }
+  deserializeAttachment(): unknown {
+    return structuredClone(this.attachment);
+  }
+  close(): void {
+    this.closed = true;
+  }
+  /** Parsed JSON messages (frames and pongs), oldest first. */
+  messages<T = Record<string, unknown>>(): T[] {
+    return this.sent.map((m) => JSON.parse(m) as T);
+  }
+}

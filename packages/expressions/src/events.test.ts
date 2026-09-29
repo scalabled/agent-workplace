@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { moodEventFor, planServerReflex, reflexIntentFor } from './events';
+import { manifestClips, moodEventFor, planServerReflex, reflexIntentFor } from './events';
 import type { ServerReflexArgs, ViewerState } from './events';
 import { createChatterBudget, createTimingGate } from './gate';
 import { applyMoodEvent, createMoodState } from './mood';
@@ -64,5 +64,45 @@ describe('work events → mood and event reflexes (§2.5, §6.2)', () => {
     expect(voice.frame.clip?.key).toMatch(/^c1_/);
     const text = planServerReflex(args({ intent: 'gratitude_reply', exchange: 'text', turnId: 'turn_10', state: makeState('cw_chief', 'Samuel') }));
     expect(text.ok && text.frame.channels).toEqual({ voice: false, bubble: true, caption: 'none' });
+  });
+});
+
+describe('reflex-grade server picks (instantOnly, INC05-PLAN §3.8)', () => {
+  const chiefState = () => makeState('cw_chief', 'Samuel', { owner: { firstName: null } });
+
+  it('picks only a line whose clip is already in the manifest', async () => {
+    const full = await fixtureManifest(chief, catalog, 'xai', { self_name: 'Samuel' });
+    const probe = planServerReflex(args({ intent: 'thinking_filler', exchange: 'voice', turnId: 'turn_probe', state: chiefState(), manifest: full, instantOnly: true }));
+    if (!probe.ok) throw new Error(probe.reason);
+    // Keep exactly one rendered clip: the instant pick must be that line, whatever the seed.
+    const keep = Object.entries(full.clips).find(([k]) => k.startsWith(`${probe.frame.lineId}|`))!;
+    const one = { ...full, clips: { [keep[0]]: keep[1] } };
+    for (const turnId of ['turn_a', 'turn_b', 'turn_c']) {
+      const r = planServerReflex(args({ intent: 'thinking_filler', exchange: 'voice', turnId, state: chiefState(), manifest: one, instantOnly: true }));
+      if (!r.ok) throw new Error(r.reason);
+      expect(r.frame.lineId).toBe(probe.frame.lineId);
+      expect(r.frame.clip?.key).toBe(keep[1].clipKey);
+    }
+  });
+
+  it('skips as not_instant when nothing is rendered, and falls back to clips from the caller', async () => {
+    const empty = { agentId: 'cw_chief', catalogVersion: catalog.version, provider: 'xai' as const, voiceKey: 'xai:leo', clips: {} };
+    const r = planServerReflex(args({ intent: 'acknowledge', exchange: 'voice', turnId: 'turn_n', state: chiefState(), manifest: empty, instantOnly: true }));
+    expect(r).toMatchObject({ ok: false, reason: 'not_instant' });
+    // Without instantOnly the same request picks a line and asks the client to render it.
+    const any = planServerReflex(args({ intent: 'acknowledge', exchange: 'voice', turnId: 'turn_m', state: chiefState(), manifest: empty }));
+    expect(any.ok && any.frame.clip === null && any.frame.render !== null).toBe(true);
+    // Browser voices are always instant (speechSynthesis starts at once).
+    const browser = planServerReflex(args({ intent: 'acknowledge', exchange: 'voice', turnId: 'turn_b2', state: chiefState(), provider: 'browser', instantOnly: true }));
+    expect(browser.ok).toBe(true);
+    const full = await fixtureManifest(chief, catalog, 'xai', { self_name: 'Samuel' });
+    const viaClips = planServerReflex(args({ intent: 'acknowledge', exchange: 'voice', turnId: 'turn_c2', state: chiefState(), manifest: full, clips: manifestClips(full), instantOnly: true }));
+    expect(viaClips.ok && viaClips.frame.clip?.key).toMatch(/^c1_/);
+  });
+
+  it('reads availability and durations from a manifest', () => {
+    const m = { agentId: 'a', catalogVersion: 'v', provider: 'mock' as const, voiceKey: 'mock', clips: { 'x|': { clipKey: 'c1_a', durationMs: 640, scope: 'shared' as const, pronunciationChecked: true } } };
+    const c = manifestClips(m);
+    expect([c.has('c1_a'), c.has('c1_b'), c.durationMs('c1_a'), c.durationMs('c1_b'), c.pronunciationChecked?.('c1_a')]).toEqual([true, false, 640, null, true]);
   });
 });

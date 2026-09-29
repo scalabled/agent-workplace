@@ -72,6 +72,9 @@ const PATHS = {
       <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
     </>
   ),
+  /** Ambience: how much the office chatters (a quiet level meter). */
+  ambience: <path d="M4 10v4M9 7v10M14 4v16M19 9v6" />,
+  reply: <path d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 6 6v5" />,
 } satisfies Record<string, JSX.Element>;
 
 export type IconName = keyof typeof PATHS;

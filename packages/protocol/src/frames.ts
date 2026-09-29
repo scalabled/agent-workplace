@@ -1,5 +1,17 @@
 import type { ErrorCode, JobSnapshot, ProviderId, WorkspaceSettings } from './api';
 import type { ActorId, AgentId, JobId, MessageId, OpId, SteerId, StreamId, TurnId, WorkspaceId } from './ids';
+import type {
+  AttentionChangedData,
+  ExprIntentId,
+  ExprRecentOp,
+  MoodChangedData,
+  ReactHint,
+  ReflexFaceData,
+  ReflexSayData,
+  SideTalkLineData,
+  TalkSurface,
+  ViewerOp,
+} from './ext/expressions';
 import type { PresenceData } from './presence';
 
 /**
@@ -48,25 +60,41 @@ export interface FrameDataMap {
   /** First frame on every socket. Ephemeral. */
   ready: { workspaceId: WorkspaceId; streamId: StreamId; lastSeq: number; replayFrom: number; serverTime: string };
 
-  /** The owner's message, echoed with its opId. Persisted. */
-  'talk.owner': { turnId: TurnId; messageId: MessageId; text: string; via: 'text' | 'voice' };
-  /** Streaming text of the Chief of Staff's reply. Ephemeral. */
-  'talk.delta': { turnId: TurnId; messageId: MessageId; agentId: AgentId; delta: string };
+  /**
+   * The owner's message, echoed with its opId. Persisted. `agentId` is the addressee (absent = the Chief of Staff);
+   * `surface: 'floor'` marks a Floor quick-chat (never in the Talk transcript or the Chief's history).
+   */
+  'talk.owner': { turnId: TurnId; messageId: MessageId; text: string; via: 'text' | 'voice'; agentId?: AgentId; surface?: TalkSurface };
+  /**
+   * Streaming text of a reply. Ephemeral. `hint`: on the first delta of a Chief turn only, the reaction the model
+   * asked for with its `⟦react:…⟧` head token (already stripped from the text).
+   */
+  'talk.delta': { turnId: TurnId; messageId: MessageId; agentId: AgentId; delta: string; surface?: TalkSurface; hint?: ReactHint };
   /** A complete Chief of Staff message: a turn's reply, or a proactive one (job done). Persisted. */
   'talk.message': {
     turnId: TurnId | null;
     messageId: MessageId;
     agentId: AgentId;
     text: string;
-    /** reply = answer to the owner; announcement = proactive (e.g. job finished); status = from live job state. */
-    kind: 'reply' | 'announcement' | 'status';
+    /**
+     * reply = answer to the owner; announcement = proactive (e.g. job finished); status = from live job state;
+     * reflex = a phatic reply picked from the expression catalog without a model call (Inc 0.5).
+     */
+    kind: 'reply' | 'announcement' | 'status' | 'reflex';
     /** Job this message is about, if any. */
     jobId?: JobId;
+    surface?: TalkSurface;
+    /** `kind: 'reflex'` only: the intent and catalog line that produced the text. */
+    intent?: ExprIntentId;
+    lineId?: string;
   };
   /** The turn is over. Persisted. */
   'talk.done': {
     turnId: TurnId;
     messageId: MessageId | null;
+    /** Who answered (absent = the Chief of Staff). */
+    agentId?: AgentId;
+    surface?: TalkSurface;
     finish: TalkFinish;
     /** What the Chief of Staff did: answer | delegate | status | steer | cancel. */
     route?: string;
@@ -95,6 +123,18 @@ export interface FrameDataMap {
   'workspace.updated': { settings: WorkspaceSettings };
   /** A command or turn failed. Ephemeral. One sentence with its fix; names missing keys. */
   error: { code: ErrorCode; message: string; opId?: OpId; turnId?: TurnId; missingKeys?: string[] };
+
+  // ── Inc 0.5 living workforce (ext/expressions.ts). All ephemeral: never persisted, never replayed. ──
+  /** A reflex micro-utterance to voice, caption and animate. */
+  'reflex.say': ReflexSayData;
+  /** A face gesture only. */
+  'reflex.face': ReflexFaceData;
+  /** One line of coworker side-talk (Inc 1; the runner already handles it). */
+  'sidetalk.line': SideTalkLineData;
+  /** An agent's mood moved enough to show on the face. */
+  'mood.changed': MoodChangedData;
+  /** An agent's focus and background threads changed. */
+  'attention.changed': AttentionChangedData;
 }
 
 export type FrameType = keyof FrameDataMap;
@@ -115,7 +155,17 @@ export const PERSISTED_FRAME_TYPES: ReadonlySet<FrameType> = new Set<FrameType>(
   'workspace.updated',
 ]);
 
-export const EPHEMERAL_FRAME_TYPES: ReadonlySet<FrameType> = new Set<FrameType>(['ready', 'talk.delta', 'presence', 'error']);
+export const EPHEMERAL_FRAME_TYPES: ReadonlySet<FrameType> = new Set<FrameType>([
+  'ready',
+  'talk.delta',
+  'presence',
+  'error',
+  'reflex.say',
+  'reflex.face',
+  'sidetalk.line',
+  'mood.changed',
+  'attention.changed',
+]);
 
 export function isPersisted(type: FrameType): boolean {
   return PERSISTED_FRAME_TYPES.has(type);
@@ -139,8 +189,11 @@ export function makeFrame<T extends FrameType>(
   return frame;
 }
 
-/** Client → server socket messages (Inc 0: keepalive only; commands go over HTTP with an opId). */
-export type ClientSocketMessage = { op: 'ping'; t?: number } | { op: 'resume'; since: number };
+/**
+ * Client → server socket messages. Commands go over HTTP with an opId; the socket carries keepalive, replay paging
+ * and (Inc 0.5) the fire-and-forget viewer and expression-recency ops.
+ */
+export type ClientSocketMessage = { op: 'ping'; t?: number } | { op: 'resume'; since: number } | ViewerOp | ExprRecentOp;
 /** Server replies to `ping` with this (not a frame). */
 export interface PongMessage {
   op: 'pong';

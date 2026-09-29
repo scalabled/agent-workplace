@@ -1,5 +1,6 @@
 import { fullIndex } from '@headcount/catalog/full';
 import { TALK_MAX_CHARS, type TalkAccepted, type TalkRequest, type UpdateWorkspaceRequest, type WorkspaceResponse } from '@headcount/protocol';
+import { isAmbience } from '@headcount/protocol/ext/expressions';
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
 import { workspaceStub } from '../lib/stubs';
 
@@ -27,6 +28,10 @@ export const handlePutWorkspace: RouteHandler = async (req, { env }) => {
   if ('voiceOn' in body) {
     if (typeof body.voiceOn !== 'boolean') throw new HttpError('bad_request', 'voiceOn must be true or false.');
     patch.voiceOn = body.voiceOn;
+  }
+  if ('ambience' in body) {
+    if (!isAmbience(body.ambience)) throw new HttpError('bad_request', 'ambience must be "quiet", "lively" or "buzzing".');
+    patch.ambience = body.ambience;
   }
   return json<WorkspaceResponse>(await workspaceStub(env).updateSettings(patch));
 };

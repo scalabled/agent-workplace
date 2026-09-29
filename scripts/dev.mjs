@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// pnpm dev — builds the catalog bundle, applies local D1 migrations, then runs wrangler dev (worker, :8787)
+// pnpm dev — builds the catalog and expression bundles, applies local D1 migrations, then runs wrangler dev (worker, :8787)
 // and Vite (web, :5173) with prefixed logs. Ctrl-C (or either process exiting) stops both.
 //
 // Flags:
@@ -13,7 +13,7 @@
 //   --web-port <n>       default 5173
 //   --persist-to <dir>   wrangler local state dir (relative to apps/worker); default .wrangler/state
 //   --fresh              delete the persist dir first (clean DOs, D1, R2)
-//   --no-watch           do not rebuild the catalog bundle when catalog/ changes
+//   --no-watch           do not rebuild the catalog and expression bundles when catalog/ changes
 //
 // Env: HEADCOUNT_ALLOWED_ORIGINS adds origins the worker accepts besides the web and worker ports.
 
@@ -38,7 +38,7 @@ const workerDir = join(root, 'apps/worker');
 const webDir = join(root, 'apps/web');
 const bin = (dir, name) => join(dir, 'node_modules/.bin', name);
 
-const COLORS = { catalog: '\x1b[35m', db: '\x1b[36m', worker: '\x1b[33m', web: '\x1b[32m', dev: '\x1b[34m' };
+const COLORS = { catalog: '\x1b[35m', expressions: '\x1b[95m', db: '\x1b[36m', worker: '\x1b[33m', web: '\x1b[32m', dev: '\x1b[34m' };
 const tty = process.stdout.isTTY;
 const tag = (name) => (tty ? `${COLORS[name] ?? ''}[${name}]\x1b[0m` : `[${name}]`);
 const log = (name, line) => process.stdout.write(`${tag(name)} ${line}\n`);
@@ -80,6 +80,18 @@ try {
   log('catalog', `${report.counts.leads} leads, ${report.counts.personas} personas${report.warnings.length ? `, ${report.warnings.length} warning(s)` : ''}`);
 } catch (err) {
   log('catalog', `build failed: ${err.message}`);
+}
+
+// 1b. Expression bundle (the living workforce's lines; the worker imports it, the web fetches it from the worker).
+const buildExpressions = () => {
+  const r = spawnSync(process.execPath, [join(root, 'packages/expressions/scripts/build-expressions.mjs'), '--quiet'], { cwd: root, encoding: 'utf8' });
+  const out = `${r.stdout ?? ''}${r.stderr ?? ''}`.trim().split('\n').filter(Boolean);
+  if (r.status !== 0) log('expressions', `build failed: ${out.slice(-3).join(' · ') || `exit ${r.status}`}`);
+  return { ok: r.status === 0, changed: r.status === 0 && !/\(unchanged\)/.test(out.at(-1) ?? ''), summary: (out.at(-1) ?? '').replace(/ → .*$/, '') };
+};
+{
+  const { ok, summary } = buildExpressions();
+  if (ok) log('expressions', summary);
 }
 
 // 2. Local D1 migrations (non-interactive).
@@ -162,12 +174,22 @@ start('web', bin(webDir, 'vite'), ['--port', String(webPort), '--strictPort'], w
   HEADCOUNT_WORKER_PORT: String(workerPort),
 });
 
-// 4. Rebuild the catalog bundle when catalog/ changes (Vite and wrangler reload on the new bundle).
+// 4. Rebuild the catalog bundle when catalog/ changes, and the expression bundle when catalog/expressions/ changes
+//    (Vite and wrangler reload on a new bundle; an unchanged bundle is not rewritten).
 if (!flag('--no-watch')) {
   let timer = null;
+  let exprTimer = null;
   try {
     watch(join(root, 'catalog'), { recursive: true }, (_e, file) => {
       if (file && !String(file).endsWith('.json')) return;
+      if (file && /^expressions[\\/]/.test(String(file))) {
+        clearTimeout(exprTimer);
+        exprTimer = setTimeout(() => {
+          const { changed, summary } = buildExpressions();
+          if (changed) log('expressions', `rebuilt: ${summary}`);
+        }, 500);
+        return;
+      }
       clearTimeout(timer);
       timer = setTimeout(() => {
         try {

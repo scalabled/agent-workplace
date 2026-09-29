@@ -49,11 +49,25 @@ export interface JobRefusal {
   message: string;
 }
 
+/**
+ * A work signal outside the ledger (Inc 0.5): a failed attempt that will be retried. Ephemeral: losing one loses nothing
+ * (the WorkspaceDO folds it into mood and may play `oops`).
+ */
+export interface WorkSignal {
+  kind: 'step.retry';
+  jobId: JobId;
+  /** Attempts failed so far (1 … MAX_ATTEMPTS − 1). */
+  attempt: number;
+  /** Epoch ms. */
+  at: number;
+}
+
 /** Batch the ProjectDO mirrors into the owner feed (WorkspaceDO.ingest). */
 export interface MirrorBatch {
   source: StreamId;
   frames: Frame[];
   presence?: { agentId: typeof CHIEF_ID; claim: PresenceClaim | null };
+  signals?: WorkSignal[];
 }
 
 /** Pause between checkpoints when the Mock provider paces a demo (MOCK_DELAY_MS > 0), so there is time to steer. */
@@ -139,6 +153,8 @@ export class ProjectDO extends DurableObject<Env> {
   private flushChain: Promise<void> = Promise.resolve();
   private lastClaimKey: string | null = null;
   private readonly usage: DailyCounter;
+  /** Signals waiting for the next mirror batch (sent even when no frame is pending). */
+  private readonly signals: WorkSignal[] = [];
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -304,6 +320,7 @@ export class ProjectDO extends DurableObject<Env> {
         this.fail(row, 'provider_error', 'The model kept failing, so I stopped retrying. Try again in a minute, or check the provider key.', true);
       } else {
         this.patch(jobId, fence, { attempts, next_at: runtime.now() + 1000 * 2 ** (attempts - 1) });
+        this.signals.push({ kind: 'step.retry', jobId: jobId as JobId, attempt: attempts, at: runtime.now() });
       }
     } finally {
       this.inflight.delete(jobId);
@@ -508,9 +525,15 @@ export class ProjectDO extends DurableObject<Env> {
       const frames = this.ledger.unforwarded(100);
       const claim = this.presenceClaim();
       const key = JSON.stringify(claim);
-      if (!frames.length && key === this.lastClaimKey) return;
-      const batch: MirrorBatch = { source: this.streamId, frames, presence: { agentId: CHIEF_ID, claim } };
-      await workspaceStub(this.env).ingest(batch);
+      if (!frames.length && key === this.lastClaimKey && !this.signals.length) return;
+      const signals = this.signals.splice(0);
+      const batch: MirrorBatch = { source: this.streamId, frames, presence: { agentId: CHIEF_ID, claim }, ...(signals.length ? { signals } : {}) };
+      try {
+        await workspaceStub(this.env).ingest(batch);
+      } catch (err) {
+        this.signals.unshift(...signals);
+        throw err;
+      }
       this.lastClaimKey = key;
       if (!frames.length) return;
       this.ledger.markForwarded(frames[frames.length - 1]!.seq!);

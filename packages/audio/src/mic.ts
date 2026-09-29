@@ -95,7 +95,14 @@ export function recognitionError(code: string): MicError | null {
 
 export interface LevelMeter {
   level(): number;
+  /** The same 0–1 dB scale without the release smoothing (owner VAD: pauses register when they begin). */
+  raw(): number;
   close(): void;
+}
+
+/** A recording session plus the unsmoothed level the engine's owner VAD samples. */
+export interface RecorderSession extends MicSession {
+  rawLevel(): number;
 }
 
 /** RMS of the mic on a dB scale: −60 dBFS → 0, −15 dBFS → 1, fast attack, ~150 ms release. */
@@ -117,21 +124,25 @@ export function createLevelMeter(ctx: AudioContext, stream: MediaStream): LevelM
   }
   const buf = new Float32Array(analyser.fftSize);
   let smoothed = 0;
+  const read = (): number => {
+    try {
+      analyser.getFloatTimeDomainData(buf);
+    } catch {
+      return 0;
+    }
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i]! * buf[i]!;
+    const rms = Math.sqrt(sum / buf.length);
+    const db = rms > 0 ? 20 * Math.log10(rms) : -100;
+    return Math.max(0, Math.min(1, (db + 60) / 45));
+  };
   return {
     level() {
-      try {
-        analyser.getFloatTimeDomainData(buf);
-      } catch {
-        return 0;
-      }
-      let sum = 0;
-      for (let i = 0; i < buf.length; i++) sum += buf[i]! * buf[i]!;
-      const rms = Math.sqrt(sum / buf.length);
-      const db = rms > 0 ? 20 * Math.log10(rms) : -100;
-      const raw = Math.max(0, Math.min(1, (db + 60) / 45));
+      const raw = read();
       smoothed = raw > smoothed ? raw : smoothed * 0.85 + raw * 0.15;
       return smoothed;
     },
+    raw: read,
     close() {
       for (const n of [source, analyser, sink]) {
         try {
@@ -156,7 +167,7 @@ export interface OpenRecorderOptions {
 }
 
 /** Asks for the mic and starts recording. Throws MicError with a readable message. */
-export async function openRecorder(o: OpenRecorderOptions): Promise<MicSession> {
+export async function openRecorder(o: OpenRecorderOptions): Promise<RecorderSession> {
   if (!o.mediaDevices?.getUserMedia) throw micError(o.secureContext === false ? 'insecure' : 'unsupported');
   if (!o.Recorder) throw micError('unsupported');
   let stream: MediaStream;
@@ -224,6 +235,7 @@ export async function openRecorder(o: OpenRecorderOptions): Promise<MicSession> 
       return mime();
     },
     level: () => (released ? 0 : (meter?.level() ?? 0)),
+    rawLevel: () => (released ? 0 : (meter?.raw() ?? 0)),
     elapsedMs: () => o.now() - startedAt,
     stop() {
       if (stopped) return stopped;

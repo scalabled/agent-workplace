@@ -6,8 +6,8 @@ import { budgetClassFor, reflexProbability } from './gate';
 import { seededRng } from './hash';
 import { ownerDayKey, recordUtterance, selectLine } from './select';
 import type {
-  AffectCues, AgentIndex, CauseRef, ChannelPlan, ClipManifest, CompiledCatalog, FaceCue, GateInput, GroundingState, RecencyMemory, ReflexSayData,
-  TimingGate, Utterance,
+  AffectCues, AgentIndex, CauseRef, ChannelPlan, ClipAvailability, ClipManifest, CompiledCatalog, FaceCue, GateInput, GroundingState, RecencyMemory,
+  ReflexSayData, TimingGate, Utterance,
 } from './types';
 import type { Ambience, IntentId, Mood, MoodEventKind, Surface, TtsProvider } from './vocab';
 
@@ -79,6 +79,25 @@ export interface ServerReflexArgs {
   cues?: AffectCues;
   /** This agent's topics the owner's text mentions (E19, `topicsFor`). */
   topics?: readonly string[];
+  /**
+   * Reflex-grade picks (acknowledge, thinking filler): only lines whose clip is already rendered, so the voice can start
+   * at once (Inc 0.5, INC05-PLAN §3.8). Availability comes from `clips`, else from `manifest`; with neither, only Mock
+   * and browser voices count as instant.
+   */
+  instantOnly?: boolean;
+  /** Which clips exist (and their durations); forwarded to `selectLine`. Defaults to the manifest when `instantOnly` is set. */
+  clips?: ClipAvailability;
+}
+
+/** Clip availability from a manifest: a clip is available when any of its lines lists it. */
+export function manifestClips(manifest: ClipManifest): ClipAvailability {
+  const byKey = new Map<string, { durationMs: number; pronunciationChecked?: boolean }>();
+  for (const entry of Object.values(manifest.clips)) byKey.set(entry.clipKey, entry);
+  return {
+    has: (key) => byKey.has(key),
+    durationMs: (key) => byKey.get(key)?.durationMs ?? null,
+    pronunciationChecked: (key) => !!byKey.get(key)?.pronunciationChecked,
+  };
 }
 
 const EVENT_INTENTS = new Set<IntentId>(['micro_status', 'oops', 'blocked', 'unblocked', 'celebrate']);
@@ -109,9 +128,12 @@ export function planServerReflex(a: ServerReflexArgs): { ok: true; frame: Reflex
   const state: GroundingState = a.cues || a.topics?.length
     ? { ...a.state, exchange: { ...a.state.exchange, ...(a.cues ? { cues: a.cues } : {}), ...(a.topics?.length ? { topics: a.topics } : {}) } }
     : a.state;
+  const clips = a.clips ?? (a.instantOnly && a.manifest ? manifestClips(a.manifest) : undefined);
   const res = selectLine(a.index, {
     intent: a.intent, state, mood: a.mood, ambience: a.ambience, provider: a.provider, seed, now: a.now,
     channel: verdict.plan.voice ? 'voice' : 'text', clipKeyOf,
+    ...(a.instantOnly ? { instantOnly: true } : {}),
+    ...(clips ? { clips } : {}),
   }, a.recency);
   if (!res.ok) return { ok: false, reason: res.reason, face: verdict.plan.face };
   const u = res.utterance;

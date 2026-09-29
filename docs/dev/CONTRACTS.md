@@ -1,6 +1,7 @@
 # Headcount · Increment 0 contracts
 
-These are the contracts of **Inc 0 "First Light"** (docs/MVP-PLAN.md), as built and integrated. Every package
+These are the contracts of **Inc 0 "First Light"** (docs/MVP-PLAN.md), as built and integrated, plus **Inc 0.5 "the
+living workforce"** (§7, docs/dev/INC05.md). Every package
 and route below is implemented; `docs/dev/INC0.md` says what works, how to run it and the demo script. For later
 increments, builders still work **inside their own directories** and code against these contracts. If a contract
 has to change, ask the integrator; do not edit someone else's files.
@@ -18,10 +19,12 @@ Binding inputs: `docs/OWNER-DIRECTIVES.md` (D2 communication first, D3 minimal s
 | `pnpm dev` | `scripts/dev.mjs`: catalog bundle → local D1 migrations → `wrangler dev` on **:8787** + Vite on **:5173**, prefixed logs, catalog rebuild on change; Ctrl-C (or either process dying) stops both. Flags: `--mock` (every key blanked, Mock chat), `--local` (cloud keys blanked, Ollama kept: nothing leaves the machine), `--mock-media` (Mock TTS/STT answer and count as available), `--fresh`, `--worker-port`, `--web-port`, `--persist-to`, `--no-watch`. Fails fast if a port is taken. Each Vite port has its own dependency cache (`node_modules/.vite-<port>`), so several servers can run at once. |
 | `pnpm test` | Vitest across all workspace projects (`vitest.config.ts` → `packages/*/vitest.config.ts`, `apps/*/vitest.config.ts`). One project: `pnpm vitest run --project worker`. |
 | `pnpm typecheck` | `tsc --noEmit` per package (worker also checks its test program; web also checks its Vite config), then root configs + e2e. Every package pins `typescript ^7.0.2` as a devDependency, so it never picks up a global `tsc` (Inc 0.5's `packages/expressions` still needs the same line). |
-| `pnpm e2e` | Playwright (Chromium with a fake mic and camera, mic permission granted, autoplay allowed) against two keyless stacks: project **chromium** on `dev.mjs --mock --fresh` (**:5183 / :8797**, state `.wrangler/e2e-state`) and project **voice** (`e2e/voice.spec.ts`) on `dev.mjs --mock --mock-media --fresh` (**:5184 / :8798**, `.wrangler/e2e-voice-state`). Keyless even when `.dev.vars` has keys (`--mock` blanks them; `--var` beats `.dev.vars`, verified). |
+| `pnpm e2e` | Playwright (Chromium with a fake mic and camera, mic permission granted, autoplay allowed) against two keyless stacks: project **chromium** on `dev.mjs --mock --fresh` (**:5183 / :8797**, state `.wrangler/e2e-state`), and projects **voice** (`e2e/voice.spec.ts`) and **living-voice** (`e2e/living-voice.spec.ts`, a fake mic that talks in 2.8 s stretches with 0.7 s pauses, generated into the OS temp dir by `playwright.config.ts`) on `dev.mjs --mock --mock-media --fresh` (**:5184 / :8798**, `.wrangler/e2e-voice-state`). Keyless even when `.dev.vars` has keys (`--mock` blanks them; `--var` beats `.dev.vars`, verified). |
 | `pnpm e2e:screens` | `HEADCOUNT_SCREENS=1` run of `e2e/screens.spec.ts` on the Mock stack (the committed Inc 0.6 set was captured with the same spec against the keyed `pnpm dev` stack, with longer waits): writes `docs/dev/screens/inc0.6/<screen>-<desktop\|mobile>[-light].png` (landing hero, full page and wall; welcome; talk working and done; floor; profile; projects; inbox). Dark by default, with the OS asking for light. Opt-in, so normal runs never rewrite docs. |
 | `pnpm build` | Catalog bundle, `vite build` (web), `wrangler deploy --dry-run --outdir dist` (worker bundle check). |
 | `pnpm catalog:build` | Regenerates `packages/catalog/generated/*` (git-ignored). `--watch` to follow edits. |
+| `pnpm expressions:build` | Compiles `catalog/expressions/**` into `packages/expressions/generated/expressions.json` (git-ignored; the worker imports it, the web fetches it from `GET /api/expr/catalog`) and `report.json` (dropped lines). Writes only when the content changed. Runs in `postinstall`, `build`, `test`, `typecheck`, `e2e` and at `pnpm dev` start; `pnpm dev` rebuilds it when `catalog/expressions/**` changes (without `--no-watch`). `--check` fails on any dropped line. |
+| `node packages/expressions/scripts/prevoice-office.mjs` | Pre-voices the office on a running worker through its clip endpoints only (`GET /api/expr/catalog`, `GET /api/expr/agents/:id`, `POST /api/expr/prevoice`, `GET /api/expr/prevoice/:runId`): the 12 leads as they would be as Chief of Staff (`cw_<leadId>`: P0 plus slot-free `back_with_you`, `celebrate`, `oops`, `micro_status`) and the most staffed coworkers (`passing_by`, `greeting` an unstaffed coworker can say). `--dry-run`, `--leads`, `--coworkers <n>`, `--per-intent`, `--p0-per-intent`, `--max` (default 1500), `--reserve <n>` (leave n of today's clip renders for the owner), `--worker`, `--origin`. Stops at the daily clip budget; a later run skips what is stored. docs/dev/INC05.md §4. |
 | `pnpm portraits:generate` | Asks the running worker to generate portraits, `--concurrency <1–8>` at a time (default 3) with `[i/n]` progress: the 12 leads by default; `--all` (176), `--department <id>[,id]`, `--only <id,id>`, `--force`, `--dry-run`, `--worker <url>`. Checks capabilities first, skips existing portraits, and stops starting new ones on 503 (naming the key), on 429 (daily limit) or after 3 failures in a row. Uses `?wait=1`. `--force` stores a new version and clears its landmarks. |
 | `node scripts/landmarks-precompute.mjs` | Measures landmarks for every stored portrait without them: headless Chromium opens `apps/web/public/dev/landmarks.html` on the running Vite server, which runs `@headcount/avatar`'s own MediaPipe detection and PUTs each result bound to the version it measured. `--only`, `--force`, `--delegate CPU\|GPU`, `--dry-run`, `--headed`, `--web <url>`. |
 | `node scripts/marketing-images.mjs` | Generates the landing's seven images through `POST /api/media/image` on the running worker and writes `apps/web/public/marketing/<key>.webp` (quality 74, never larger than its JPEG) + `<key>-640/1024/1600.webp` for `srcset` (each below the full width) + `.jpg` + `manifest.json` (`srcset: [{width, file}]`). `--list`, `--only`, `--force`, `--provider openai\|xai`, `--note`, `--reprocess` (re-encode the stored R2 originals), `--concurrency`, `--dry-run`, `--worker`. Needs `ffmpeg` and `cwebp`. |
@@ -42,6 +45,7 @@ Builders may edit **only** inside their directories. Additive shared types go in
 | **avatar** | `packages/avatar/**` |
 | **audio** | `packages/audio/**` |
 | **web** | `apps/web/**` (the landing page is `apps/web/src/landing/**` + `apps/web/landing-data.ts`) |
+| **expressions** (Inc 0.5) | `packages/expressions/src/**` (engine; additive changes only), `catalog/expressions/**` is read-only content |
 | **integrator** | Router `apps/worker/src/index.ts`, `apps/worker/src/env.ts`, `apps/worker/src/lib/**`, `apps/worker/src/rooms/**`, `apps/worker/src/runs/**`, `apps/worker/test/**` (fake cloud), `apps/worker/wrangler.jsonc`, `apps/worker/.dev.vars.example`, `packages/protocol/src/*.ts` (core), `packages/catalog/**`, root configs (`package.json`, `pnpm-workspace.yaml`, `tsconfig*.json`, `vitest.config.ts`, `playwright.config.ts`), `scripts/dev.mjs`, `e2e/**`, `.claude/launch.json`, this file |
 
 Needs a new binding, var, route, frame type or dependency? Ask the integrator; it is a one-line change on their side.
@@ -104,10 +108,10 @@ type Frame = discriminated union over FrameType   // switch (frame.type) narrows
 | Type | Persisted | Data | Producer → consumer |
 |---|---|---|---|
 | `ready` | no | `{workspaceId, streamId, lastSeq, replayFrom, serverTime}` | WorkspaceDO → client, first frame on every socket |
-| `talk.owner` | yes | `{turnId, messageId, text, via: 'text'\|'voice'}` (+`opId`) | WorkspaceDO echoes the owner's message |
-| `talk.delta` | no | `{turnId, messageId, agentId, delta}` | Chief of Staff streaming reply |
-| `talk.message` | yes | `{turnId\|null, messageId, agentId, text, kind: 'reply'\|'announcement'\|'status', jobId?}` | Complete Chief of Staff message; `announcement` = proactive (job finished) |
-| `talk.done` | yes | `{turnId, messageId\|null, finish: 'stop'\|'cancelled'\|'error'\|'length', route?, usage?}` | Turn over; `route` ∈ answer, delegate, status, steer, cancel |
+| `talk.owner` | yes | `{turnId, messageId, text, via: 'text'\|'voice', agentId?, surface?}` (+`opId`) | WorkspaceDO echoes the owner's message; `agentId` = the addressee (absent = the Chief), `surface: 'floor'` = a Floor quick-chat |
+| `talk.delta` | no | `{turnId, messageId, agentId, delta, surface?, hint?}` | Streaming reply; `hint` (first delta of a Chief turn only) = the model's `⟦react:…⟧` head token, already stripped |
+| `talk.message` | yes | `{turnId\|null, messageId, agentId, text, kind: 'reply'\|'announcement'\|'status'\|'reflex', jobId?, surface?, intent?, lineId?}` | Complete message; `announcement` = proactive (job finished); `reflex` = a phatic reply from the catalog (no model call), with its `intent` and `lineId` |
+| `talk.done` | yes | `{turnId, messageId\|null, finish: 'stop'\|'cancelled'\|'error'\|'length', route?, usage?, agentId?, surface?}` | Turn over; `route` ∈ answer, delegate, status, steer, cancel, reflex |
 | `job.started` | yes | `{job: JobSnapshot}` | Everyday ProjectDO (mirrored to the feed) |
 | `job.progress` | yes | `{jobId, label, step, of, partial?}` | At each checkpoint; `label` is the Activity row's running sentence |
 | `job.steered` | yes | `{jobId, steerId, text, status: 'queued'\|'applied'}` | Queued on request, applied at the next checkpoint |
@@ -116,6 +120,7 @@ type Frame = discriminated union over FrameType   // switch (frame.type) narrows
 | `job.cancelled` | yes | `{jobId, reason?}` | |
 | `presence` | no | `PresenceData` (§4.3) | Server claims (thinking, working); `speaking` is client-local |
 | `workspace.updated` | yes | `{settings: WorkspaceSettings}` | Settings changed (other tab) |
+| `reflex.say` · `reflex.face` · `mood.changed` · `attention.changed` · `sidetalk.line` | no | `ReflexSayData` · `ReflexFaceData` · `MoodChangedData` · `AttentionChangedData` · `SideTalkLineData` (`@headcount/protocol/ext/expressions`) | Inc 0.5 living workforce (§7.3); never persisted, never replayed |
 | `error` | no | `{code, message, opId?, turnId?, missingKeys?}` | A command or turn failed |
 
 **Owner feed (Inc 0 simplification).** The client holds **one** socket: `GET /api/ws?since=<seq>` → WorkspaceDO,
@@ -126,7 +131,8 @@ So a single `since` cursor is enough.
 
 **Socket protocol.** On connect: `ready` → persisted frames with `seq > since` from the hot window (oldest first,
 ≤ `WS_REPLAY_LIMIT` = 500) → current presence snapshot → live. Client → server (`WsClientMessage`): `{op:'ping', t}`
-(server replies `{op:'pong', t}`, not a frame) and `{op:'resume', since}`, which replays the next page. Commands go
+(server replies `{op:'pong', t}`, not a frame), `{op:'resume', since}`, which replays the next page, and the Inc 0.5
+fire-and-forget ops `ViewerOp` and `ExprRecentOp` (§7.3). Commands go
 over HTTP with an `opId`; the resulting frames carry that `opId`. The client keeps the highest applied `seq`, ignores
 `seq <= lastSeq` (replay overlap) and reconnects with it (`apps/web/src/api/ws.ts`: backoff 500 ms × 2ⁿ up to 8 s,
 ping every 25 s).
@@ -179,8 +185,8 @@ Every non-2xx JSON response is `ApiErrorBody = {error: {code, message, missingKe
 |---|---|---|---|---|
 | `health` | GET `/api/health` | — | `HealthResponse {ok, service, version, time, workspaceId}` | integrator |
 | `capabilities` | GET `/api/capabilities` | — | `CapabilitiesResponse` (§4.6): whitelisted fields only, key lists carry env var names only | media |
-| `getWorkspace` | GET `/api/workspace` | — | `WorkspaceSettings {workspaceId, leadId, chiefName, voiceOn, updatedAt}` | worker-core |
-| `putWorkspace` | PUT `/api/workspace` | `UpdateWorkspaceRequest` (any of `leadId`, `chiefName`, `voiceOn`) | `WorkspaceSettings`; appends `workspace.updated` and upserts the D1 row. 400 for an unknown `leadId` or a non-boolean `voiceOn`; a blank `chiefName` becomes null | worker-core |
+| `getWorkspace` | GET `/api/workspace` | — | `WorkspaceSettings {workspaceId, leadId, chiefName, voiceOn, ambience, updatedAt}` (`ambience` always filled: stored settings without one mean Lively) | worker-core |
+| `putWorkspace` | PUT `/api/workspace` | `UpdateWorkspaceRequest` (any of `leadId`, `chiefName`, `voiceOn`, `ambience`) | `WorkspaceSettings`; appends `workspace.updated` and upserts the D1 row. 400 for an unknown `leadId`, a non-boolean `voiceOn` or an ambience other than `quiet`/`lively`/`buzzing`; a blank `chiefName` becomes null | worker-core |
 | `ws` | GET `/api/ws?since=<seq>` | WebSocket upgrade | frames (§4.2) | worker-core |
 | `talk` | POST `/api/talk` | `TalkRequest {text ≤8000, opId, via?}` | **202** `TalkAccepted {accepted, opId, turnId, messageId, duplicate?}` (idempotent on `opId`); **429** past `CHAT_DAILY_LIMIT` | worker-core |
 | `listJobs` | GET `/api/jobs?limit=<1–100>` | — | `JobsResponse {jobs: JobSnapshot[]}`, newest first (the web merges it on every connect) | worker-core |
@@ -194,6 +200,9 @@ Every non-2xx JSON response is `ApiErrorBody = {error: {code, message, missingKe
 | `getPortrait` | GET `/api/portraits/:personaId[?v=<version>]` | — | image bytes with `ETag` and `X-Portrait-Version`; `private, max-age=31536000, immutable` only when `v` is the current version **and** the stored object's `customMetadata.version` is that version (the landing asks this way; the R2 key is not versioned, so bytes a regeneration wrote before D1 moved are served `no-cache` under their own ETag), else `private, no-cache` (304 on match; the app's `api.portraitImage`); 404 with `X-Portrait-Status: none\|generating\|failed` → illustrated face | media |
 | `getLandmarks` | GET `/api/portraits/:personaId/landmarks` | — | `LandmarksResponse {personaId, landmarks: FaceLandmarks\|null}` + `X-Portrait-Version` | media |
 | `putLandmarks` | PUT `/api/portraits/:personaId/landmarks` | `PutLandmarksRequestWithVersion {landmarks, force?, portraitVersion?}` (≤110 KB) | `LandmarksResponse`. First valid write wins (409 after, unless `force`); an identical re-send is 200; a `portraitVersion` that is no longer current is 409; no portrait is 404 | media |
+
+Inc 0.5 adds `exprCatalog`, `exprAgent`, `exprClip`, `exprAlign`, `exprRender`, `exprPrevoice`, `exprPrevoiceStatus`
+and `deskSay` (§7.2).
 
 **Media routes outside the table** (media-owned tooling; the router hands every unmatched `/api/media/*` path to
 `handleMediaRoute` after the origin guard): `POST /api/media/image` `{prompt ≤1500 chars, aspect: '16:9'|'4:3'|'1:1'|'3:4',
@@ -460,7 +469,9 @@ is dropped after 400 ms). Browser speech is cut at 60 tokens, and its text-timed
 - API client (`src/api/client.ts`): `api.health/capabilities/getWorkspace/putWorkspace/talk/listJobs/getJob/steerJob/cancelJob/tts/ttsAudio/stt/listPortraits/generatePortrait/portraitUrl/portraitImage/portraitBlob/getLandmarks/putLandmarks(id, lm, portraitVersion?)`; errors throw `ApiError {status, code, message, missingKeys}`.
 - Feed (`src/api/ws.ts`): `connectFeed({onFrame, onStatus, since}) → {close(), reconnect()}` with replay paging (§4.2).
 - Voice (`src/voice/*`): one `AudioEngine`; `AgentSpeaker` per speaker feeds live deltas into `createSpeechStream` (TTS per sentence with `response:'json'` when TTS is available, else the browser voice); `chiefSpeaker.mouth` drives every Chief of Staff face; `bargeIn()` on send, push-to-talk, Esc or a tap on the face; push-to-talk uses provider STT when available, else browser dictation, and is hidden when neither exists.
-- Dev builds expose `window.__headcount = {store, applyFrame, chiefSpeaker}` for e2e.
+- Dev builds expose `window.__headcount = {store, applyFrame, chiefSpeaker, audio, living}` for e2e (`audio` = the
+  engine getter; `living` once the runtime loaded: `runner`, `captions` (caption log), `cues` (face-cue log),
+  `telemetry`, `clipsDecoded()`, `ambience()`, `viewer()`, `agent(id)`, `mood(id)`, `setQuietHours(v|null)`).
 - On Talk the floating bubble is hidden at every width; the Talk header face takes its gestures and wears the lamp's working arc while any job runs (`data-jobs`). On phones the bubble is 56 px and tucks away while the owner scrolls down (it returns on scroll up, at the end of the page, on focus, listening or news). Failed and stopped jobs offer **Ask again** (the brief back in the composer).
 - Catalog (`src/catalog.ts`): `loadCatalog()` → `catalog` signal of `slimIndex`.
 - Design tokens: `src/styles/tokens.css` (EXPERIENCE §10.2 colours, 8 px grid, radii 24/12, motion 200/250/400/1200 ms, dark by default under `:root`/`[data-theme='dark']`, light under `[data-theme='light']`, a brand spectrum and display type sizes for the landing), `src/styles/base.css` (shell: left rail ≥1024, icon rail 768–1023, bottom tabs <768 at 97% opacity; bubble 56 px).
@@ -484,16 +495,118 @@ is dropped after 400 ms). Browser speech is cut at 60 tokens, and its text-timed
   and with Ollama `qwen3:32b`. Details, numbers, the demo script and known gaps: `docs/dev/INC0.md`.
 - Inc 0.6 (landing, dark theme, new cast, media, job fix) is integrated and verified the same way, plus the full flow
   on the keyed stack with Anthropic (INC0.md §4, §4a).
-- Still stubs: `RoomDO`, `RunDO` (later increments).
+- Inc 0.5 (the living workforce, §7) is integrated and verified the same way, plus a keyed session on the
+  integrator's own stack (docs/dev/INC05.md).
+- Still a stub: `RoomDO` (Inc 2). `RunDO` hosts the pre-voice runner (§7.4).
 
-## 7. Heads-up: D5 / Inc 0.5 (added to the plan while this scaffold was built)
+## 7. Inc 0.5 · the living workforce
 
-OWNER-DIRECTIVES D5 ("a living workforce") and MVP-PLAN Inc 0.5 are built in parallel and integrated right after
-Inc 0. They are **not** part of these contracts yet; the integrator will extend them. Expected touch points, so
-Inc 0 builders do not design against them:
+OWNER-DIRECTIVES D5, specified in docs/LIVING-WORKFORCE.md and planned in docs/dev/INC05-PLAN.md (the plan's §3 is
+the contract text; this section is the as-built summary). Operator notes, tuning and known gaps: docs/dev/INC05.md.
 
-- New `packages/expressions` (reflex engine) and `catalog/expressions/` content → a new owner and new catalog bundle fields.
-- `WorkspaceSettings.ambience` (`quiet | lively | buzzing`) and a reflex/micro-utterance frame type.
-- Pre-voiced clips already fit `AudioEngine.speak({chunks, alignment})`; keep that path cheap to start (reflexes must play in under 200 ms).
-- A mood-driven expression palette on `FaceView` (a later `setExpression`-style method) — keep the renderer's parameter set open to brows/expression inputs.
-- Agents as actors with prioritized mailboxes: keep WorkspaceDO turn handling non-blocking so owner messages can pre-empt other work.
+### 7.1 Packages and ownership
+
+| Area | Paths | Notes |
+|---|---|---|
+| Engine | `packages/expressions/src/**` | Pure, isomorphic. 0.5 changes were additive: `ServerReflexArgs.instantOnly`/`clips` (events.ts); runner R1 (a server frame played first → `fire()` is false), R2 (`playServerSay` covers the turn), R3 (`ReflexTelemetry.turnId`), and a text filler's bubble cleared on the turn's first token. `@headcount/expressions/testing` fake captions record `cleared`. |
+| Bundle | `packages/expressions/scripts/**`, `generated/**` | `./bundle` export (`scripts/bundle.d.ts` types the 2.9 MB JSON). `prevoice-office.mjs` (§1). |
+| Wire types | `packages/protocol/src/ext/expressions.ts` | Structural mirrors of the engine types; `apps/worker/src/expr/conformance.test.ts` checks both directions. |
+| Worker | `apps/worker/src/expr/**` (catalog, profiles, clips, pre-voice, host = server reflexes, mood, attention, viewer), `apps/worker/src/desk/**` (quick-chat) | `RunDO` hosts the pre-voice runner; `WorkspaceDO` owns manifests, mood, viewer state and recency. |
+| Web | `apps/web/src/living/**` (lazy runtime, ports, clip store, captions, faces, grounding, viewer, policy), `components/{FloorBubble,SideThread,AmbienceControl}.tsx`, `voice/side-voice.ts` | The runtime is a lazy chunk loaded when the app is idle; until then every call is a no-op. |
+| Audio · Avatar | `packages/audio/src/engine.ts`, `mic.ts`; `packages/avatar/src/{motion,face-view}.ts` | §7.5, §7.6 |
+
+### 7.2 HTTP routes
+
+| Id | Method & path | Request → response | Errors |
+|---|---|---|---|
+| `exprCatalog` | GET `/api/expr/catalog` | → `ExprCatalogBundle {kind, version, input}`; `ETag: "<version>"`, `private, no-cache`, `If-None-Match` → 304 | — |
+| `exprAgent` | GET `/api/expr/agents/:agentId` | → `ExprAgentResponse` (profile, `staffed`, `provider`, `voiceKey`, rendered-clip `manifest`, latest `prevoice` run, `baseline`, `reactivity`, `mood`, `attention`); `no-store`. `:agentId` = `cw_chief` (needs a chosen lead), `cw_<personaId>`, or a **lead preview** `cw_<leadId>` (`cw_lead-…`: that lead as the Chief would be under its own name; used for speculative pre-voicing, its clips are the ones `cw_chief` finds when that lead is chosen) | 404 |
+| `exprClip` | GET `/api/expr/clips/:clipKey` | → audio bytes, `X-Clip-Duration-Ms`; shared clips `public, max-age=31536000, immutable`, workspace clips `private, …` | 400 key not `^c1_[a-z2-7]{32}$`, 404 |
+| `exprAlign` | GET `/api/expr/clips/:clipKey/align` | → `ExprClipAlignment {clipKey, text, alignment\|null}` | 400, 404 |
+| `exprRender` | POST `/api/expr/render` | `ExprRenderRequest {agentId, lineId (<id>, <id>~prefix\|~tail\|~gist), fills, provider}` → `ExprClipRef {clipKey, url, alignmentUrl, durationMs, scope, cached}` (renders once, in exactly the agent's provider) | 400 fills, 404 line, 409 provider changed, 429 `EXPR_RENDER_PER_MIN` / `EXPR_CLIP_DAILY_LIMIT`, 503 browser provider, 502 provider failed |
+| `exprPrevoice` | POST `/api/expr/prevoice` | `ExprPrevoiceRequest {agentIds (1–12), tiers?, perIntent?, allLinesFor?, items? (≤ 400), maxClips?, dryRun?}` → 202 `ExprPrevoiceAccepted {runId, provider, planned, alreadyCached, toRender, estAudioMs, remainingToday, reused?, dryRun?}` (200 for dry runs, reused runs and the browser provider). Clips already in R2 are recorded without TTS; a finished run with the same fingerprint is `reused` | 400, 404, 429 when nothing fits today |
+| `exprPrevoiceStatus` | GET `/api/expr/prevoice/:runId` | → `ExprPrevoiceStatus {state: queued\|running\|done\|failed\|stopped_budget, planned, cached, rendered, failed, …}` | 404 |
+| `deskSay` | POST `/api/desk/:personaId/say` | `DeskSayRequest {text ≤ 2000, opId, via?}` → 202 `DeskSayAccepted {accepted, opId, agentId, turnId, messageId, duplicate?}`; the reply streams on the owner feed as `talk.*` with `agentId: cw_<personaId>`, `surface: 'floor'` | 400, 404, 413, 429 (12 a minute; `CHAT_DAILY_LIMIT`) |
+
+### 7.3 Frames, socket ops, settings, env
+
+- **Frames** (ephemeral, on `ws:<ws>`, never persisted or replayed): `reflex.say` (`ReflexSayData`: line, caption,
+  clip or render request, channels, face cue, gain, priority, TTL, audience, `turnId?`, `cause?`), `reflex.face`,
+  `mood.changed` (only visible changes, small ones at most one per 10 s per agent; a snapshot on every connect),
+  `attention.changed` (the Chief's running jobs as background threads; a snapshot on connect), `sidetalk.line` (not
+  emitted in 0.5; the runner handles it).
+- **Which tab plays a `reflex.say`:** an owner-turn reflex (`turnId`) only in the tab that sent the turn (held until
+  that tab's 202 arrives); an event reflex only in a visible tab whose stage is that agent (Talk → `cw_chief`, a
+  profile → that coworker); every other tab shows the face cue only. A `celebrate` lead-in holds the Chief's next
+  answer (the job-done announcement) until it starts, at most 3.2 s, and a progress line still sounding gives way to it.
+- **Quick-chat frames** (`surface: 'floor'`) go to `sideThreads[agentId]` in the store, never to the Talk thread,
+  unread, the Chief's model history or the announcement logic; they replay into the side-thread.
+- **Socket ops (client → server):** `ViewerOp {op:'viewer', surface, stageAgentId, floorVisible, visibleProjectIds,
+  listeningProjectIds, audioArmed, voiceOn, pageVisible, reducedMotion, quietHours, tzOffsetMin, voice}` on every
+  connect and change (debounced 250 ms; stored in the socket attachment, survives hibernation) and `ExprRecentOp
+  {op:'expr.recent', agents}` (≤ 32 line ids per agent; merged into the workspace recency memory).
+- **Settings:** `WorkspaceSettings.ambience: 'quiet' | 'lively' | 'buzzing'` (default Lively; `ambienceOf()`).
+- **Env** (optional, `apps/worker/src/env.ts`, defaults in `expr/config.ts`): `EXPR_CLIP_DAILY_LIMIT` (600 renders per
+  UTC day, runtime + pre-voice, D1 `media_usage` kind `expr_clip`; Mock is free), `EXPR_RENDER_PER_MIN` (30),
+  `EXPR_PREVOICE_MAX_CLIPS` (300 per run, ceiling 600).
+
+### 7.4 Worker internals
+
+- **Provider per agent** (`exprProviderFor`): the registry resolves TTS as for speech (`xai` when the voice has an xAI
+  id, then `openai`; Mock only with `MOCK_MEDIA`); nothing → `browser` (speechSynthesis in the tab, nothing to
+  pre-voice). Clips are rendered in exactly that provider (no failover).
+- **Clips:** content-addressed `clipKey(toDelivery(utterance, voice, provider))`; R2 `expr/clips/<key>.<ext>` (+
+  `.align.json`) for shared clips, `ws/<ws>/expr/<key>.<ext>` for clips holding workspace data (slots such as
+  `chief_name`, `step_label`, a renamed Chief's `self_name`). Duration from the WAV header or an MP3 frame scan.
+- **WorkspaceDO tables** (create-if-missing): `expr_manifest`, `expr_mood`, `expr_recent`, `expr_rate`, `expr_work`
+  (running jobs for attention and progress grounding). RPCs `deskSay`, `exprRecordClips`, `exprTakeRate`,
+  `exprAgentState`.
+- **RunDO `run:expr-prevoice:<ws>`:** `prevoiceEnqueue`, `prevoiceStatus`, `prevoiceFind`, `prevoiceLatestFor`,
+  `prevoicePending`; an alarm loop renders 3 clips at a time, P0 before P1 before P2, stops with `stopped_budget` at
+  the daily limit and resumes after a restart. Queue key (run, agent, line).
+- **Server reflexes for the Chief** (`expr/host.ts`): phatic replies ("thanks", "hi", "bye") from the catalog with no
+  model call (`talk.message {kind:'reflex'}` + `talk.done {route:'reflex'}` + `reflex.say`; the chat count is given
+  back; with voice on it is voiced like any answer, typed turns included); the thinking-filler safety net (no text
+  after 1.2 s voice / 2.5 s text); `acknowledge` after a delegation or a queued steer; one `micro_status` after the
+  turn ends and the voice is free (2-minute cooldown); `celebrate` right before the job-done announcement; `oops` on
+  a retried step (the ProjectDO's `MirrorBatch.signals: {kind:'step.retry', jobId, attempt, at}[]`); face cues on a
+  failed job and on owner messages while a job runs. Progress and celebration lines play only to a viewer at Talk.
+- **Mood** moves only on real events (the owner's words, job done, job failed, a retried step). **Attention**: one
+  work thread per running job; the Chief's prompt may mention a running job in a few words, never as a reason to wait.
+- **Reaction hint:** the Chief may open with `⟦react:laugh|surprise|delight|concern|sympathy|encouragement|apology|none⟧`;
+  it is stripped even when split across chunks and rides on the first `talk.delta` as `hint`; it never reaches the
+  text, the message, the history or TTS.
+- **Desk quick-chat:** fast tier, no tools, the persona's prompt with "You are not on any project yet"; replies are
+  released a whole sentence at a time through an honesty guard that replaces any sentence claiming or promising work
+  (two patterns: claims and contracted promises such as "I'll draft it").
+
+### 7.5 Audio engine additions (`packages/audio`)
+
+`prepare(bytes, {key?, mime?, alignment?, text?}) → PreparedAudio` (decodes before `arm()` too) · `playPrepared({speakerId,
+audio, bus: 'reflex'|'ambient', gainDb, priority, ttlMs, mode?: 'now'|'interject', duringOwner?, onStart?}) → ReflexHandle
+{started, done, stop()}` · `speakReflexText(…)` (keyless browser voice lane) · `activity(speakerId) → {conversation,
+reflex, ambient, remainingMs, streamOpen}` · `foregroundActive()` · `stopReflexes(filter?)` · `stopAtBoundary(speakerId)`
+(end after the sentence now playing) · `onOwnerVad(cb)` (`start`/`pause`/`resume`/`end` from the push-to-talk mic level,
+20 Hz, pause after 350 ms below 0.02). The ladder: owner > answer > reflex > ambient; a reflex never starts over the
+owner except a `duringOwner` backchannel inside a real pause (ducked 6 dB, stopped when the owner resumes); one reflex
+voice at a time; an answer for the same speaker starts right after that speaker's reflex; the mouth follows prepared
+audio (alignment, else text timing) through the same per-speaker channel; `speaking()` still reports answers only.
+
+### 7.6 Face additions (`packages/avatar`)
+
+`FaceView.cue({gesture, expression?, weight?, holdMs})` (nod, double_nod, look_up, brow_flash, head_tilt, smile, wince,
+exhale, glance, still; latest cue wins; tokens ignore gestures; reduced motion keeps only the static expression) and
+`setExpressionBias(bias | null)` (the mood palette, eased, 1.2 s hysteresis on expression changes). The mount element
+carries `data-face-cue` while a gesture plays and always `data-face-expression`. No new rAF, no new assets.
+
+### 7.7 Web
+
+- `living/index.ts` is the light entry (`startLiving`, `livingOwnerTurn`, `livingHover`, `livingSendDecision`,
+  `livingBargeIn`, `livingSetAmbience`, `livingCue`); `living/runtime.ts` builds one `ReflexRunner` per tab with ports
+  over the audio engine, the face registry (`Face` takes an `agentId`), captions/bubbles (`living/captions.ts`) and a
+  clip store (Cache Storage `hc-expr-v1` + a decoded LRU). Talk mounting pre-voices the Chief's P0 then P1 (idempotent).
+- Sending while the Chief speaks (X5 amended): typing never stops the voice; a stop or steer cue, or more than 8 s
+  left, ends the reply at the sentence boundary; 2.5–8 s left finishes it with "hold that thought … all yours";
+  Esc, a tap on the face and holding to talk still stop at once.
+- Test ids: Floor cards `data-agent-id`; `floor-bubble`, `bubble-reply`, `bubble-input`, `bubble-answer`,
+  `live-caption` (+ `data-kind`), `face-bubble`, `ambience-control`; reflex replies render as `li.msg[data-kind="reflex"]`.

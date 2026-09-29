@@ -212,6 +212,36 @@ export class UtteranceSampler implements MouthSampler {
     this.text = null;
   }
 
+  /**
+   * Forget every window and timeline entry that starts at or after `from` (performance ms): those chunks were
+   * taken off the audio clock (an interjection moved them, or the utterance ends at a sentence boundary).
+   */
+  truncate(from: number): void {
+    this.last = null;
+    this.windows = this.windows.filter((w) => w.start < from - 0.5);
+    this.timeline = this.timeline.filter((e) => e.start < from - 0.5);
+  }
+
+  /** The audio now ends at `at` (performance ms): windows and timeline entries are clipped there (a boundary stop). */
+  clipAt(at: number): void {
+    this.last = null;
+    this.windows = this.windows.filter((w) => w.start < at).map((w) => (w.end > at ? { start: w.start, end: at } : w));
+    this.timeline = this.timeline.filter((e) => e.start < at).map((e) => (e.end > at ? { ...e, end: at } : e));
+  }
+
+  /** Is this utterance audible at `now` (inside a scheduled window, or browser speech running)? */
+  activeAt(now: number): boolean {
+    return this.phase === 'playing' && (this.text !== null || this.inWindow(now));
+  }
+
+  /** Browser speech: estimated ms left of the sentence now being spoken, or null when none is. */
+  textRemainingMs(now: number): number | null {
+    const t = this.text;
+    if (!t) return null;
+    const pos = t.anchorIndex + ((now - t.anchorAt) / 1000) * t.cps;
+    return (Math.max(0, t.chars.length - pos) / t.cps) * 1000;
+  }
+
   end(): void {
     this.last = null;
     this.phase = 'ended';
@@ -334,10 +364,17 @@ export class UtteranceSampler implements MouthSampler {
   }
 }
 
-/** Follows whichever utterance a speaker is currently playing; rests otherwise. */
+/**
+ * Follows whichever utterance a speaker is currently playing; rests otherwise. A reflex (a short clip on the
+ * speaker's reflex or ambient bus) is layered as `overlay`: while it is audible it drives the mouth, and the
+ * conversation utterance (`current`) takes over again in its own windows (they never overlap in time).
+ */
 export class SpeakerSampler implements MouthSampler {
   current: MouthSampler | null = null;
+  overlay: UtteranceSampler | null = null;
   sample(now: number): MouthSample {
+    const o = this.overlay;
+    if (o && o.activeAt(now)) return o.sample(now);
     return this.current ? this.current.sample(now) : REST_SAMPLE;
   }
 }

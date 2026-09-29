@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'preact/hooks';
+import { CHIEF_ID } from '@headcount/protocol';
 import { chiefName, currentLead } from '../chief';
 import { navigate, paths, route } from '../router';
 import { activeJobs, chiefPresence, onboarded } from '../store';
@@ -95,7 +96,7 @@ export function ChiefBubble() {
       title={canHold ? `Tap to talk to ${name}. Hold to speak.` : `Talk to ${name}`}
       {...handlers}
     >
-      {lead ? <Face subject={leadSubject(lead, name)} tier="tile" state={shown.state} sampler={chiefSpeaker.mouth} decorative /> : <span class="chief-bubble-empty" aria-hidden="true" />}
+      {lead ? <Face subject={leadSubject(lead, name)} tier="tile" state={shown.state} sampler={chiefSpeaker.mouth} agentId={CHIEF_ID} decorative /> : <span class="chief-bubble-empty" aria-hidden="true" />}
       {fresh > 0 ? (
         <span class="bubble-badge tabular" data-kind="unread" aria-hidden="true">
           {fresh}

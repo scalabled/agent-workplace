@@ -123,6 +123,77 @@ export class MicError extends Error {
   }
 }
 
+// ── living workforce (Inc 0.5, docs/dev/INC05-PLAN.md §3.6) ─────────────────────
+
+/** Which lane a sound plays on: answers (speak()), reflexes (owner-directed micro-talk), ambient (side-talk). */
+export type AudioBus = 'conversation' | 'reflex' | 'ambient';
+
+/** A clip decoded once and played many times (opaque: holds the AudioBuffer). */
+export interface PreparedAudio {
+  readonly key: string;
+  readonly durationMs: number;
+  readonly alignment: Alignment | null;
+  /** Spoken text: the mouth is text-timed over the clip when there is no alignment. */
+  readonly text: string | null;
+  /** Decoded size in bytes, for the client's LRU. */
+  readonly bytes: number;
+}
+
+export interface PlayPreparedRequest {
+  speakerId: string;
+  audio: PreparedAudio;
+  bus: 'reflex' | 'ambient';
+  /** dB on top of the speaker's gain (backchannel −8, passing-by −4, side-talk −6). */
+  gainDb: number;
+  /** intents.json priority class, 1 (juggling, phatic replies) … 6 (quips). Lower is more important. */
+  priority: number;
+  /** Must start within this many ms of the call, else it is dropped — never started late. */
+  ttlMs: number;
+  /** 'interject': wait (≤ ttlMs) for this speaker's next conversation chunk boundary, play, then the conversation resumes. */
+  mode?: 'now' | 'interject';
+  /** May play while the owner's mic is live (a backchannel inside a real pause). */
+  duringOwner?: boolean;
+  onStart?(): void;
+}
+
+export interface ReflexHandle {
+  /** Resolves true when the first sample is heard, false when dropped. */
+  readonly started: Promise<boolean>;
+  /** Never rejects. */
+  readonly done: Promise<'completed' | 'stopped' | 'dropped'>;
+  /** 60 ms fade, idempotent. */
+  stop(): void;
+}
+
+export interface SpeakerActivity {
+  /** A conversation utterance (speak()) is sounding or queued for this speaker. */
+  conversation: boolean;
+  reflex: boolean;
+  ambient: boolean;
+  /** Heard-time ms left of conversation audio already decoded and scheduled; null when none is scheduled. */
+  remainingMs: number | null;
+  /** More conversation chunks may still arrive (the stream has not ended). */
+  streamOpen: boolean;
+}
+
+/** Owner voice activity while a recording mic is live. `at` is epoch ms (Date.now()). */
+export interface OwnerVadEvent {
+  kind: 'start' | 'pause' | 'resume' | 'end';
+  at: number;
+  pauseMs?: number;
+  utteranceMs: number;
+}
+
+export interface SpeakReflexTextRequest {
+  speakerId: string;
+  text: string;
+  bus: 'reflex' | 'ambient';
+  priority: number;
+  ttlMs: number;
+  voiceHint?: BrowserVoiceHint;
+  onStart?(): void;
+}
+
 /**
  * The client audio engine (ARCHITECTURE §8.6): one AudioContext created in a user gesture;
  * voice sources → per-speaker gain → analyser tap → voices bus → ducker → master. Owner speech ducks voices.
@@ -154,6 +225,21 @@ export interface AudioEngine {
   onMicChange(cb: (live: boolean) => void): () => void;
   support(): AudioSupport;
   destroy(): void;
+
+  // ── reflexes (Inc 0.5). The ladder: owner > answer > reflex > ambient (INC05-PLAN §3.6). ──
+  /** Decode once (works before arm(): an OfflineAudioContext decodes when the main context does not exist yet). */
+  prepare(bytes: ArrayBuffer, opts?: { key?: string; mime?: string; alignment?: Alignment | null; text?: string }): Promise<PreparedAudio>;
+  /** Play a prepared clip on the speaker's reflex or ambient bus, through the speaker's mouth tap. */
+  playPrepared(req: PlayPreparedRequest): ReflexHandle;
+  /** Keyless path: a short line in the browser voice on the reflex/ambient bus. null when speechSynthesis is unavailable. */
+  speakReflexText(req: SpeakReflexTextRequest): ReflexHandle | null;
+  activity(speakerId: string): SpeakerActivity;
+  /** Any conversation utterance is sounding or queued, for any speaker. */
+  foregroundActive(): boolean;
+  stopReflexes(filter?: { speakerId?: string; bus?: 'reflex' | 'ambient' }): void;
+  /** The speaker's conversation utterance ends after the chunk now playing (a sentence boundary); queued chunks are dropped. */
+  stopAtBoundary(speakerId: string): void;
+  onOwnerVad(cb: (e: OwnerVadEvent) => void): () => void;
 }
 
 /** Minimal shape of the (vendor-prefixed) Web Speech recognition API. */
@@ -195,4 +281,8 @@ export interface AudioEngineDeps {
   gestureTarget?: EventTarget | null;
   /** window.isSecureContext (the mic needs https or localhost). */
   secureContext?: boolean;
+  /** Decodes clips before the main context exists (prepare() before arm()). Omitted → globalThis; null → unavailable. */
+  OfflineAudioContext?: (new (channels: number, length: number, sampleRate: number) => BaseAudioContext) | null;
+  /** Epoch clock for OwnerVadEvent.at (Date.now()). */
+  wallClock?: () => number;
 }

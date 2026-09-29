@@ -389,6 +389,14 @@ export function selectLine(index: AgentIndex, req: SelectRequest, recency: Recen
   const lastSame = new Set(recency.recentFor(index.agentId, req.intent).slice(0, n).map((e) => e.lineId));
   const unrepeated = pool.filter((e) => !lastSame.has(e.wl.line.id));
   if (unrepeated.length) pool = unrepeated;
+  // Hard exclusion across intents (E1): a text among this agent's last N picks is never said again right away, when
+  // alternatives exist (a catchphrase that is both an acknowledgement and a filler: "Let me sketch it." twice).
+  const textN = Math.max(0, Math.floor(num(d.recent_text_hard_exclude, 4)));
+  if (textN) {
+    const lastTexts = new Set(recency.recent(index.agentId).slice(0, textN).map((e) => e.textHash));
+    const freshText = pool.filter((e) => !lastTexts.has(e.wl.line.textHash));
+    if (freshText.length) pool = freshText;
+  }
 
   const scoreReq: SelectRequest = req.state.self.agentId === index.agentId ? req : { ...req, state: { ...req.state, self: { ...req.state.self, agentId: index.agentId } } };
   const T = Math.max(0.05, num(d.selection_temperature, 0.7));

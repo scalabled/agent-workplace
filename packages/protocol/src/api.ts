@@ -1,3 +1,4 @@
+import type { Ambience, ExprRecentOp, ViewerOp } from './ext/expressions';
 import type { FaceLandmarks } from './face';
 import type { JobId, MessageId, OpId, ProjectId, SteerId, TurnId, WorkspaceId } from './ids';
 import type { Alignment, VoiceRef } from './voice';
@@ -88,6 +89,11 @@ export interface WorkspaceSettings {
   chiefName: string | null;
   /** Speak the Chief of Staff's replies aloud. */
   voiceOn: boolean;
+  /**
+   * How much the office chatters (Inc 0.5). GET and PUT responses always fill it; absent in stored or replayed
+   * settings means Lively (`ambienceOf` in ext/expressions).
+   */
+  ambience?: Ambience;
   updatedAt: string;
 }
 
@@ -99,6 +105,7 @@ export interface UpdateWorkspaceRequest {
   leadId?: string | null;
   chiefName?: string | null;
   voiceOn?: boolean;
+  ambience?: Ambience;
 }
 
 // ── talk ────────────────────────────────────────────────────────────────────────
@@ -261,4 +268,4 @@ export const WS_REPLAY_LIMIT = 500;
  * - `resume` pages the replay: after `ready`, when the last replayed seq is still below `ready.lastSeq`, the
  *   client asks for the next page of persisted frames with seq > since (see feedCatchUp in ext/worker-core).
  */
-export type WsClientMessage = { op: 'ping'; t: number } | { op: 'resume'; since: number };
+export type WsClientMessage = { op: 'ping'; t: number } | { op: 'resume'; since: number } | ViewerOp | ExprRecentOp;

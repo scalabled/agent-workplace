@@ -20,7 +20,9 @@
           {"id":"contracts-analyst.passing_by.02","text":"Ah, {owner_name}. {step_label}. Slowly.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"contracts-analyst.passing_by.03","text":"{project}. Schedules first, as ever.","slots":["project"],"context":["working"]},
           {"id":"contracts-analyst.passing_by.04","text":"A clear desk. Any contract you'd like read properly?","context":["idle"],"solicits":true},
-          {"id":"contracts-analyst.passing_by.05","text":"{self_name}, contracts. Nothing on my desk as yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"contracts-analyst.passing_by.05","text":"{self_name}, contracts. Clauses, ranked by risk.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"contracts-analyst.passing_by.06","text":"'Including without limitation.' I always read it twice.","context":["unstaffed"]},
+          {"id":"contracts-analyst.passing_by.07","text":"Some auto-renewal clauses are audacious. I keep the best ones.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"contracts-analyst.acknowledge.01","text":"Understood. I'll read it properly."},
@@ -30,7 +32,7 @@
         ],
         "thinking_filler": [
           {"id":"contracts-analyst.thinking_filler.01","text":"A moment, please. Let me find the clause.","tags":{"xai":"A moment, please. [pause] Let me find the clause."}},
-          {"id":"contracts-analyst.thinking_filler.02","text":"Good question. Let me read that twice.","context":["owner_question"]},
+          {"id":"contracts-analyst.thinking_filler.02","text":"Good question. Let me read that twice.","context":["owner_question","!owner_tone:negative","!after_distress"]},
           {"id":"contracts-analyst.thinking_filler.03","text":"Mm. Let me be precise about it."}
         ],
         "laugh": [
@@ -163,7 +165,9 @@
           {"id":"privacy-specialist.passing_by.02","text":"Hey, {owner_name}. {step_label}, arrows and boxes.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"privacy-specialist.passing_by.03","text":"On {project}. Asking every field why it's here.","slots":["project"],"context":["working"]},
           {"id":"privacy-specialist.passing_by.04","text":"Quiet desk. Want to map where your customer data lives?","context":["idle"],"solicits":true},
-          {"id":"privacy-specialist.passing_by.05","text":"{self_name}, privacy. No data to follow yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"privacy-specialist.passing_by.05","text":"{self_name}, privacy.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"privacy-specialist.passing_by.06","text":"Do we actually need this field? I ask until the answer is honest.","context":["unstaffed"]},
+          {"id":"privacy-specialist.passing_by.07","text":"Every first conversation gets a data-flow diagram.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"privacy-specialist.acknowledge.01","text":"Of course. On it.","weight":0.6},
@@ -305,7 +309,9 @@
           {"id":"compliance-coordinator.passing_by.02","text":"Hello, {owner_name}! {step_label}, date by date.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"compliance-coordinator.passing_by.03","text":"On {project}. Nothing sneaks up on us.","slots":["project"],"context":["working"]},
           {"id":"compliance-coordinator.passing_by.04","text":"Quiet desk! Every date green.","context":["idle"]},
-          {"id":"compliance-coordinator.passing_by.05","text":"Hi, I'm {self_name}, compliance. Nothing on my calendar yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"compliance-coordinator.passing_by.05","text":"Hi, I'm {self_name}, compliance!","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"compliance-coordinator.passing_by.06","text":"Deadlines, colour-coded like a festival programme.","context":["unstaffed"]},
+          {"id":"compliance-coordinator.passing_by.07","text":"A renewal filed early deserves a tiny celebration.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"compliance-coordinator.acknowledge.01","text":"Yes! On it.","weight":0.6},
@@ -314,7 +320,7 @@
           {"id":"compliance-coordinator.acknowledge.04","text":"Noted! It joins the plan next step.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"compliance-coordinator.thinking_filler.01","text":"Ooh, okay. Let me think about dates."},
+          {"id":"compliance-coordinator.thinking_filler.01","text":"Ooh, okay. Let me think about dates.","context":["!owner_tone:negative","!after_distress","owner_asks"]},
           {"id":"compliance-coordinator.thinking_filler.02","text":"One sec. Who owns that?","tags":{"xai":"One sec. [pause] Who owns that?"}},
           {"id":"compliance-coordinator.thinking_filler.03","text":"Hmm, let me get that right for you."}
         ],
@@ -448,7 +454,9 @@
           {"id":"ip-research-specialist.passing_by.02","text":"Hey, {owner_name}. {step_label}. Saying names out loud.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"ip-research-specialist.passing_by.03","text":"On {project}. Searching before anyone prints.","slots":["project"],"context":["working"]},
           {"id":"ip-research-specialist.passing_by.04","text":"Quiet desk. Got a name you're in love with?","context":["idle"],"solicits":true},
-          {"id":"ip-research-specialist.passing_by.05","text":"Hi, {self_name}, trademarks. Nothing to search yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"ip-research-specialist.passing_by.05","text":"Hi, {self_name}, trademarks.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"ip-research-specialist.passing_by.06","text":"Say a name at three speeds and the sound-alikes show up.","context":["unstaffed"]},
+          {"id":"ip-research-specialist.passing_by.07","text":"Lovely rejected names get saved for later. Just in case.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"ip-research-specialist.acknowledge.01","text":"Got it. Searching properly."},
@@ -457,9 +465,9 @@
           {"id":"ip-research-specialist.acknowledge.04","text":"Noted. Joins the search at the next step.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"ip-research-specialist.thinking_filler.01","text":"Ooh, puzzle. One sec."},
+          {"id":"ip-research-specialist.thinking_filler.01","text":"Ooh, puzzle. One sec.","context":["!owner_tone:negative","!after_distress","owner_asks"]},
           {"id":"ip-research-specialist.thinking_filler.02","text":"Hm. Let me say it out loud a few times."},
-          {"id":"ip-research-specialist.thinking_filler.03","text":"Good question. Let me think about the classes.","context":["owner_question"]}
+          {"id":"ip-research-specialist.thinking_filler.03","text":"Good question. Let me think about the classes.","context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"ip-research-specialist.laugh.01","text":"Okay, that's good.","tags":{"xai":"[laugh] Okay, that's good."},"weight":0.6},
@@ -591,7 +599,9 @@
           {"id":"employment-policy-drafter.passing_by.02","text":"Ah, {owner_name}. {step_label}. Plain words only.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"employment-policy-drafter.passing_by.03","text":"On {project}. Writing it for day one.","slots":["project"],"context":["working"]},
           {"id":"employment-policy-drafter.passing_by.04","text":"Quiet desk. The handbook is resting.","context":["idle"]},
-          {"id":"employment-policy-drafter.passing_by.05","text":"{self_name}, employment policy. No handbook to draft yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"employment-policy-drafter.passing_by.05","text":"{self_name}, employment policy.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"employment-policy-drafter.passing_by.06","text":"Would my mum understand this paragraph? That's my test.","context":["unstaffed"]},
+          {"id":"employment-policy-drafter.passing_by.07","text":"A policy should read well on a new starter's first day.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"employment-policy-drafter.acknowledge.01","text":"Of course. I'll take care with it."},
@@ -602,7 +612,7 @@
         "thinking_filler": [
           {"id":"employment-policy-drafter.thinking_filler.01","text":"Let me think about that for a moment."},
           {"id":"employment-policy-drafter.thinking_filler.02","text":"Mm. How would a new starter read it?"},
-          {"id":"employment-policy-drafter.thinking_filler.03","text":"Good question. Let me be careful with it.","context":["owner_question"]}
+          {"id":"employment-policy-drafter.thinking_filler.03","text":"Good question. Let me be careful with it.","context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"employment-policy-drafter.laugh.01","text":"Very good.","tags":{"xai":"<soft>[laugh]</soft> Very good."},"weight":0.6},
@@ -734,7 +744,9 @@
           {"id":"regulatory-research-analyst.passing_by.02","text":"{owner_name}. {step_label}, dating every sentence.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"regulatory-research-analyst.passing_by.03","text":"On {project}. Citations first, commentary after.","slots":["project"],"context":["working"]},
           {"id":"regulatory-research-analyst.passing_by.04","text":"Quiet desk. Any rule you'd like checked properly?","context":["idle"],"solicits":true},
-          {"id":"regulatory-research-analyst.passing_by.05","text":"{self_name}, regulatory research. No rules to read yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"regulatory-research-analyst.passing_by.05","text":"{self_name}, regulatory research. Primary sources only.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"regulatory-research-analyst.passing_by.06","text":"Secondary sources are rumours with footnotes.","context":["unstaffed"]},
+          {"id":"regulatory-research-analyst.passing_by.07","text":"Any sentence that could go stale gets a date.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"regulatory-research-analyst.acknowledge.01","text":"Understood.","weight":0.6},
@@ -745,7 +757,7 @@
         "thinking_filler": [
           {"id":"regulatory-research-analyst.thinking_filler.01","text":"Hm. Let me separate what's said from what isn't."},
           {"id":"regulatory-research-analyst.thinking_filler.02","text":"One moment. Precision takes a second."},
-          {"id":"regulatory-research-analyst.thinking_filler.03","text":"Good question. Let me be exact.","context":["owner_question"]}
+          {"id":"regulatory-research-analyst.thinking_filler.03","text":"Good question. Let me be exact.","context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"regulatory-research-analyst.laugh.01","text":"Fair.","tags":{"xai":"<soft>[laugh]</soft> Fair."},"weight":0.6},
@@ -877,7 +889,9 @@
           {"id":"legal-ops-coordinator.passing_by.02","text":"Hi, {owner_name}! {step_label}, one box at a time.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"legal-ops-coordinator.passing_by.03","text":"On {project}. Every stop on the line.","slots":["project"],"context":["working"]},
           {"id":"legal-ops-coordinator.passing_by.04","text":"Quiet desk! Trains running on time.","context":["idle"]},
-          {"id":"legal-ops-coordinator.passing_by.05","text":"Hi, I'm {self_name}, legal ops. No trains running yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"legal-ops-coordinator.passing_by.05","text":"Hi, I'm {self_name}, legal ops!","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"legal-ops-coordinator.passing_by.06","text":"Every workflow gets a train-line name. The NDA express runs on time.","context":["unstaffed"]},
+          {"id":"legal-ops-coordinator.passing_by.07","text":"Every form gets tested as a confused new hire.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"legal-ops-coordinator.acknowledge.01","text":"Ooh, yes. On it.","weight":0.6,"context":["!owner_tone:negative"]},
@@ -886,7 +900,7 @@
           {"id":"legal-ops-coordinator.acknowledge.04","text":"Noted! It boards at the next stop.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"legal-ops-coordinator.thinking_filler.01","text":"Ooh, fun. Let me sketch that in my head."},
+          {"id":"legal-ops-coordinator.thinking_filler.01","text":"Ooh, fun. Let me sketch that in my head.","context":["!owner_tone:negative","!after_distress","owner_asks"]},
           {"id":"legal-ops-coordinator.thinking_filler.02","text":"Hmm. What happens when this goes wrong?"},
           {"id":"legal-ops-coordinator.thinking_filler.03","text":"Okay, one sec. Mapping it."}
         ],
@@ -951,7 +965,7 @@
           {"id":"legal-ops-coordinator.sign_off.03","text":"Have a great {part_of_day}!","slots":["part_of_day"],"weight":0.6}
         ],
         "backchannel": [
-          {"id":"legal-ops-coordinator.backchannel.01","text":"ooh, okay","weight":0.6}
+          {"id":"legal-ops-coordinator.backchannel.01","text":"oh, okay","weight":0.6}
         ],
         "deferral": [
           {"id":"legal-ops-coordinator.deferral.01","text":"Let me map that properly. I'll come back with the route."}
@@ -1020,7 +1034,9 @@
           {"id":"risk-ethics-advisor.passing_by.02","text":"Ah, {owner_name}. {step_label}. Asking who isn't in the room.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"risk-ethics-advisor.passing_by.03","text":"On {project}. Keeping the register alive.","slots":["project"],"context":["working"]},
           {"id":"risk-ethics-advisor.passing_by.04","text":"Quiet desk. Any decision that doesn't sit right yet?","context":["idle"],"solicits":true},
-          {"id":"risk-ethics-advisor.passing_by.05","text":"{self_name}, risk and ethics. No hard calls yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"risk-ethics-advisor.passing_by.05","text":"{self_name}, risk and ethics.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"risk-ethics-advisor.passing_by.06","text":"Who isn't in the room? Always worth asking.","context":["unstaffed"]},
+          {"id":"risk-ethics-advisor.passing_by.07","text":"Every judgement gets a confidence score out of five. Mine too.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"risk-ethics-advisor.acknowledge.01","text":"Understood. I'll give it proper thought."},

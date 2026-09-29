@@ -20,6 +20,11 @@ export interface Feed {
   close(): void;
   /** Drop the socket and connect again at once with the current `since()` (e.g. after a resync). */
   reconnect(): void;
+  /**
+   * A fire-and-forget op (the living layer's `viewer` and `expr.recent`). Sent now when the socket is open, else
+   * queued (latest wins per op) and sent when it opens. Senders re-send their state after every `ready` anyway.
+   */
+  send(op: Exclude<WsClientMessage, { op: 'ping' } | { op: 'resume' }>): void;
 }
 
 export const PING_MS = 25_000;
@@ -46,6 +51,18 @@ export function connectFeed(opts: FeedOptions): Feed {
   let retry: ReturnType<typeof setTimeout> | undefined;
   /** Messages (frames and pongs) the current socket has delivered. */
   let heard = 0;
+  /** Ops waiting for an open socket, latest per op. */
+  const outbox = new Map<string, WsClientMessage>();
+  const flushOutbox = (sock: WebSocket) => {
+    for (const [op, msg] of outbox) {
+      try {
+        sock.send(JSON.stringify(msg));
+        outbox.delete(op);
+      } catch {
+        return; // still closing: the next open sends it
+      }
+    }
+  };
 
   const url = (since: number) => {
     if (opts.url) return opts.url(since);
@@ -159,6 +176,7 @@ export function connectFeed(opts: FeedOptions): Feed {
       opts.onStatus?.('open');
       clearInterval(ping);
       ping = setInterval(() => probe(sock), PING_MS);
+      flushOutbox(sock);
     };
     sock.onmessage = (e) => {
       if (ws !== sock) return;
@@ -195,6 +213,11 @@ export function connectFeed(opts: FeedOptions): Feed {
       const sock = ws;
       ws = null;
       sock?.close();
+    },
+    send(op) {
+      if (closed) return;
+      outbox.set(op.op, op);
+      if (ws && ws.readyState === WS.OPEN) flushOutbox(ws);
     },
     reconnect() {
       if (closed) return;

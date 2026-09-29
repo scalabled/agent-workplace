@@ -7,6 +7,7 @@ import { chiefName } from '../chief';
 import { Face, personaSubject } from '../components/Face';
 import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
+import { SideThread } from '../components/SideThread';
 import { useSampleSpeaker, VoiceSample } from '../components/VoiceSample';
 import { navigate, paths } from '../router';
 import { localPresence, onboarded } from '../store';
@@ -61,7 +62,7 @@ function Profile({ persona: p }: { persona: PersonaSlim }) {
     <article class="page profile" aria-labelledby="profile-title" style={{ '--accent': accentFor(p.avatar.accent_color) }}>
       <BackToFloor />
       <header class="profile-hero">
-        <Face subject={personaSubject(p)} tier="hero" state={speaking ? 'speaking' : 'idle'} sampler={speaker.mouth} label={`${p.name}, ${p.title}`} class="profile-face" />
+        <Face subject={personaSubject(p)} tier="hero" state={speaking ? 'speaking' : 'idle'} sampler={speaker.mouth} label={`${p.name}, ${p.title}`} class="profile-face" agentId={coworkerAgentId(p.id)} />
         <div class="profile-id">
           <p class="profile-dept">
             {dept?.name ?? p.department} · {SENIORITY[p.seniority]}
@@ -87,6 +88,9 @@ function Profile({ persona: p }: { persona: PersonaSlim }) {
           </div>
         </div>
       </header>
+
+      {/* Their desk: the same quick chat as the Floor bubble (LIVING-WORKFORCE §8.2). */}
+      {onboarded.value && <SideThread agentId={coworkerAgentId(p.id)} first={first} />}
 
       <blockquote class="profile-intro">
         <p>{p.intro_line}</p>

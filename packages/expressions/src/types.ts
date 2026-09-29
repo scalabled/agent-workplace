@@ -393,6 +393,8 @@ export interface ClipStore {
 }
 export interface ReflexPlayRequest {
   agentId: string; clip: PreparedClip; bus: AudioBus; gainDb: number; priority: number; ttlMs: number; caption: string; onStart?(): void;
+  /** Additive (Inc 0.5): the intent, so a host can let only a backchannel sound while the owner's mic is live (L5). */
+  intent?: IntentId;
 }
 export interface ReflexPlayHandle {
   readonly started: Promise<boolean>; readonly done: Promise<'completed' | 'stopped' | 'dropped'>; stop(): void;
@@ -412,6 +414,8 @@ export interface ReflexCaptionPort {
     threadId?: string; toAgentId?: string;
     /** English gloss of non-English words (E17), shown beside the text. */
     gloss?: string;
+    /** Additive (Inc 0.5): the intent, so a host can keep fillers out of what an agent "last said" (§9.4). */
+    intent?: IntentId;
   }): void;
   clear(agentId: string, kind?: 'reaction' | 'line' | 'bubble' | 'sidetalk'): void;
 }
@@ -428,6 +432,8 @@ export interface RenderRequest { agentId: string; lineId: string; fills: SlotVal
 export interface ReflexTelemetry {
   kind: 'played' | 'skipped' | 'dropped' | 'wasted_filler' | 'late_tail'; agentId: string; intent: IntentId;
   lineId?: string; reason?: string; latencyMs?: number;
+  /** Additive (Inc 0.5): the owner turn the reflex belonged to, when it had one. */
+  turnId?: string;
 }
 export interface ReflexRunnerDeps {
   catalog: CompiledCatalog;

@@ -1,17 +1,22 @@
 import { DurableObject } from 'cloudflare:workers';
 import { fullIndex } from '@headcount/catalog/full';
+import { sniffOwnerText, type AffectCues } from '@headcount/expressions';
 import type { ChatProvider } from '@headcount/models';
 import {
   CHIEF_ID,
   DEFAULT_WORKSPACE_ID,
   OWNER_ACTOR,
+  coworkerAgentId,
   ids,
   isPersisted,
   workspaceStream,
+  type AgentId,
   type ClientSocketMessage,
   type Frame,
   type FrameInput,
   type JobId,
+  type MessageId,
+  type OpId,
   type StreamId,
   type TalkAccepted,
   type TalkRequest,
@@ -19,17 +24,24 @@ import {
   type UpdateWorkspaceRequest,
   type WorkspaceSettings,
 } from '@headcount/protocol';
+import { ambienceOf, type DeskSayAccepted, type DeskSayRequest, type ExprCause, type ExprTtsProvider, type TalkSurface } from '@headcount/protocol/ext/expressions';
+import { closeDeskTurn, newDeskTurnState, runDeskTurn, type DeskHost, type DeskTurnState } from '../desk/desk';
 import type { Env } from '../env';
+import { exprLexicon } from '../expr/catalog';
+import { DESK_PER_MIN } from '../expr/config';
+import { ExprHost, type ExprAgentState, type ManifestRow } from '../expr/host';
+import { parseRecentOp, parseViewerOp } from '../expr/viewer';
 import { DailyCounter, dailyLimit, limitMessage } from '../lib/limits';
 import type { MirrorBatch } from '../jobs/project-do';
 import { projectStub } from '../lib/stubs';
+import { mockMediaEnabled } from '../media/speech';
 import { composeAnnouncement, templateAnnouncement, type AnnouncementFacts } from './announce';
 import type { ProjectApi } from './chief-tools';
 import { Feed, PresenceBoard, type FeedSocket } from './feed';
 import { Ledger } from './ledger';
 import { rollupEvents, upsertWorkspace } from './rollup';
 import { logError, logWarn, runtime } from './runtime';
-import { closeTurn, newTurnState, runChiefTurn, type TurnState } from './talk';
+import { closeReflexTurn, closeTurn, newTurnState, runChiefTurn, type TurnState } from './talk';
 
 /** Idempotency records for owner commands (ARCHITECTURE §3.4: 24 h). */
 const OP_TTL_MS = 24 * 60 * 60 * 1000;
@@ -63,12 +75,46 @@ export interface TalkRefusal {
   message: string;
 }
 
+/** A quick-chat the WorkspaceDO refused (RPC-safe). */
+export interface DeskRefusal {
+  accepted: false;
+  code: 'rate_limited' | 'not_found';
+  message: string;
+}
+
 interface ActiveTurn {
   turnId: TurnId;
   controller: AbortController;
   state: TurnState;
   done: Promise<void>;
+  /** The turn's work is over (its reply persisted or cut). */
+  settled: boolean;
 }
+
+/**
+ * A typed follow-up lets the reply still being written finish (its voice stops at a sentence on the client; the text
+ * stays whole on screen) before the next answer starts, but waits at most `previousFinishMaxMs` before cutting it.
+ * Mutable so tests can shorten it.
+ */
+export const talkTiming = { previousFinishMaxMs: 6000 };
+export const defaultTalkTiming = { ...talkTiming };
+/**
+ * A typed message that is only a stop ("stop", "wait, cancel that") cuts the reply still streaming at once
+ * (LIVING-WORKFORCE §2.3). A longer message with a steer word ("Oh wait, also, what about …") is a follow-up.
+ */
+const STOP_CUE = 0.6;
+const STOP_MAX_WORDS = 4;
+const isHardStop = (c: AffectCues): boolean => c.stopOrSteer >= STOP_CUE && c.words <= STOP_MAX_WORDS;
+
+interface ActiveDeskTurn {
+  turnId: TurnId;
+  controller: AbortController;
+  state: DeskTurnState;
+  done: Promise<void>;
+}
+
+/** A phatic owner turn ("thanks", "bye"): answered from the catalog with no model call (no distress, no sincere-AI question). */
+const isPhatic = (c: AffectCues): boolean => c.phatic && !c.distress && !c.sincereAi;
 
 /**
  * WorkspaceDO — the tenant (ARCHITECTURE §2.2). In Inc 0 it also hosts:
@@ -87,8 +133,13 @@ export class WorkspaceDO extends DurableObject<Env> {
   private readonly presence: PresenceBoard;
   readonly feed: Feed;
   private turn: ActiveTurn | null = null;
+  /** A previous reply still writing after a typed follow-up or a phatic "thanks" (it finishes; nothing cuts it). */
+  private finishing: ActiveTurn | null = null;
+  private readonly deskTurns = new Map<AgentId, ActiveDeskTurn>();
   private rollupPending = false;
   private readonly usage: DailyCounter;
+  /** The living-workforce layer: viewers, recency, manifests, mood, attention and server reflexes (Inc 0.5). */
+  readonly expr: ExprHost;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -97,6 +148,19 @@ export class WorkspaceDO extends DurableObject<Env> {
     this.presence = new PresenceBoard(ctx.storage);
     this.feed = new Feed(this.workspaceId, this.ledger, this.presence, () => this.ctx.getWebSockets() as unknown as FeedSocket[], runtime.now);
     this.usage = new DailyCounter(ctx.storage);
+    this.expr = new ExprHost({
+      sql: ctx.storage.sql,
+      feed: this.feed,
+      streamId: this.ledger.streamId,
+      workspaceId: this.workspaceId,
+      presence: (agentId) => this.presence.merged(agentId).state,
+      sockets: () => this.ctx.getWebSockets(),
+      settings: () => this.getSettings(),
+      registry: () => runtime.registry(this.env),
+      mockMedia: () => mockMediaEnabled(this.env),
+      now: () => runtime.now(),
+      jobTitle: (jobId) => this.ctx.storage.sql.exec<{ title: string }>('SELECT title FROM jobs_seen WHERE job_id = ?', jobId).toArray()[0]?.title ?? null,
+    });
     this.recoverInterruptedTurn();
     this.postStrandedAnnouncements();
   }
@@ -116,6 +180,12 @@ export class WorkspaceDO extends DurableObject<Env> {
     const [client, server] = [pair[0], pair[1]];
     this.ctx.acceptWebSocket(server, ['feed']);
     this.feed.open(server, since);
+    // After the presence snapshot: moods of agents with an event and the Chief's attention (never replayed).
+    try {
+      for (const f of this.expr.connectFrames()) this.feed.sendTo(server, f);
+    } catch (err) {
+      logError('expr.connect', err);
+    }
     return new Response(null, { status: 101, webSocket: client });
   }
 
@@ -129,6 +199,13 @@ export class WorkspaceDO extends DurableObject<Env> {
     }
     if (msg?.op === 'ping') ws.send(JSON.stringify({ op: 'pong', t: msg.t }));
     else if (msg?.op === 'resume' && typeof msg.since === 'number' && msg.since >= 0) this.feed.replay(ws, Math.floor(msg.since));
+    else if (msg?.op === 'viewer') {
+      const op = parseViewerOp(msg);
+      if (op) this.expr.setViewer(ws, op);
+    } else if (msg?.op === 'expr.recent') {
+      const op = parseRecentOp(msg);
+      if (op) await this.expr.mergeRecent(op).catch((err) => logError('expr.recent', err));
+    }
   }
 
   override async webSocketClose(ws: WebSocket, code: number, reason: string): Promise<void> {
@@ -145,9 +222,11 @@ export class WorkspaceDO extends DurableObject<Env> {
 
   // ── settings ────────────────────────────────────────────────────────────────────
 
+  /** The owner's settings; `ambience` is always filled (settings stored before Inc 0.5 mean Lively). */
   async getSettings(): Promise<WorkspaceSettings> {
     const stored = await this.ctx.storage.get<WorkspaceSettings>('settings');
-    return stored ?? { workspaceId: this.workspaceId, leadId: null, chiefName: null, voiceOn: true, updatedAt: new Date(0).toISOString() };
+    const s = stored ?? { workspaceId: this.workspaceId, leadId: null, chiefName: null, voiceOn: true, updatedAt: new Date(0).toISOString() };
+    return { ...s, ambience: ambienceOf(s) };
   }
 
   /** Apply a settings patch, persist it, and tell every tab (workspace.updated). */
@@ -157,6 +236,9 @@ export class WorkspaceDO extends DurableObject<Env> {
     if (patch.leadId !== undefined) next.leadId = patch.leadId;
     if (patch.chiefName !== undefined) next.chiefName = patch.chiefName;
     if (patch.voiceOn !== undefined) next.voiceOn = patch.voiceOn;
+    if (patch.ambience !== undefined) next.ambience = patch.ambience;
+    // A new lead has its own baseline mood.
+    if (next.leadId !== current.leadId) this.expr.resetMood(CHIEF_ID);
     await this.ctx.storage.put('settings', next);
     this.feed.append({ type: 'workspace.updated', data: { settings: next }, actor: OWNER_ACTOR });
     this.scheduleRollup(next);
@@ -173,21 +255,30 @@ export class WorkspaceDO extends DurableObject<Env> {
   async talk(req: TalkRequest): Promise<TalkAccepted | TalkRefusal> {
     const prior = this.ctx.storage.sql.exec<{ result: string }>('SELECT result FROM ops WHERE op_id = ?', req.opId).toArray()[0];
     if (prior) return { ...(JSON.parse(prior.result) as TalkAccepted), duplicate: true };
-    // CHAT_DAILY_LIMIT: every new owner message costs a model turn. Counted synchronously with the command.
+    // The owner-affect sniff (under a millisecond, straight from the bundle's lexicon: nothing compiles here).
+    const cues = sniffOwnerText(req.text, exprLexicon());
+    const phatic = isPhatic(cues);
+    // CHAT_DAILY_LIMIT: every new owner message costs a model turn. Counted synchronously with the command. A phatic
+    // turn is answered from the catalog and costs nothing (it is counted only if it falls back to the model).
     const limit = dailyLimit(this.env, 'chat');
-    if (!this.usage.take('chat', limit, runtime.now()).allowed) return { accepted: false, code: 'rate_limited', message: limitMessage('chat', limit) };
+    if (!phatic && !this.usage.take('chat', limit, runtime.now()).allowed) return { accepted: false, code: 'rate_limited', message: limitMessage('chat', limit) };
 
     const turnId = ids.turn();
     const messageId = ids.message();
     const accepted: TalkAccepted = { accepted: true, opId: req.opId, turnId, messageId };
     const now = runtime.now();
-    // Barge-in: a reply still streaming is cut here. Its partial text and talk.done land before the new
-    // owner message, so each turn stays contiguous in the ledger (and in a replayed thread).
-    const previous = this.turn;
-    if (previous) {
+    const via = req.via === 'voice' ? 'voice' : 'text';
+    // Barge-in: a reply still streaming is cut here when the owner speaks over it or says stop. Its partial text and
+    // talk.done land before the new owner message, so each turn stays contiguous in the ledger. A typed follow-up or a
+    // phatic "thanks" never cuts it: that reply finishes writing (the client places it in its own turn).
+    const previous = this.turn && !this.turn.settled ? this.turn : this.finishing && !this.finishing.settled ? this.finishing : null;
+    const letFinish = !!previous && !previous.state.closed && (phatic || (via === 'text' && !isHardStop(cues)));
+    if (previous && !letFinish) {
       previous.controller.abort();
       closeTurn(this.feed, previous.state, 'cancelled');
+      this.expr.turnEnded(previous.turnId);
     }
+    if (previous && letFinish) this.finishing = previous;
     const owner = this.ledger.tx(() => {
       const f = this.ledger.append({ type: 'talk.owner', data: { turnId, messageId, text: req.text, via: req.via === 'voice' ? 'voice' : 'text' }, opId: req.opId, actor: OWNER_ACTOR });
       this.ctx.storage.sql.exec('INSERT INTO ops (op_id, result, at) VALUES (?, ?, ?)', req.opId, JSON.stringify(accepted), now);
@@ -200,21 +291,183 @@ export class WorkspaceDO extends DurableObject<Env> {
 
     const controller = new AbortController();
     const state = newTurnState(turnId, req.opId);
+    const cause: ExprCause = { streamId: this.ledger.streamId, seq: owner.seq! };
+    this.expr.ownerGlance(CHIEF_ID, cause);
+    const waitForPrevious = async () => {
+      if (!previous) return;
+      if (!letFinish) return void (await previous.done); // let the cut turn wind down (tools in flight) first
+      // The reply still writing finishes first (bounded): the next answer then sees it whole.
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([previous.done, new Promise<void>((r) => (timer = setTimeout(r, talkTiming.previousFinishMaxMs)))]);
+      if (timer) clearTimeout(timer);
+      if (!previous.settled) {
+        previous.controller.abort();
+        closeTurn(this.feed, previous.state, 'cancelled');
+        await previous.done;
+      }
+    };
     const done = (async () => {
-      if (previous) await previous.done; // let the cut turn wind down (tools in flight) before the next model call
-      await runChiefTurn(this.talkHost(), { turnId, ownerSeq: owner.seq!, opId: req.opId, signal: controller.signal }, state);
+      // A phatic reply answers at once from the catalog; a model turn waits for the previous one.
+      if (!phatic) await waitForPrevious();
+      if (phatic) {
+        if (await this.phaticTurn({ agentId: CHIEF_ID, turnId, via, cues, ownerSeq: owner.seq!, state, source: 'talk' })) return;
+        await waitForPrevious();
+        // No grounded line fits: the model answers after all, and the turn is counted now.
+        if (!this.usage.take('chat', limit, runtime.now()).allowed) {
+          this.feed.emit({ type: 'error', data: { code: 'rate_limited', message: limitMessage('chat', limit), turnId, opId: req.opId } });
+          closeTurn(this.feed, state, 'error');
+          this.feed.claim(CHIEF_ID, 'talk', null);
+          return;
+        }
+      }
+      await runChiefTurn(this.talkHost(), { turnId, ownerSeq: owner.seq!, opId: req.opId, signal: controller.signal, via, cues }, state);
     })()
       .catch((err) => logError('talk', err))
       .finally(() => {
+        turn.settled = true;
         if (this.turn?.turnId === turnId) {
           this.turn = null;
           this.ctx.storage.sql.exec(`DELETE FROM meta WHERE key = 'active_turn'`);
         }
+        if (this.finishing?.turnId === turnId) this.finishing = null;
         this.scheduleRollup();
+        // Mood from the owner's words, after the reply started (it may compile the catalog once per isolate).
+        this.expr.ownerMood(CHIEF_ID, cues, cause).catch((err) => logError('expr.mood', err));
       });
-    this.turn = { turnId, controller, state, done };
+    const turn: ActiveTurn = { turnId, controller, state, done, settled: false };
+    this.turn = turn;
     this.ctx.waitUntil(done);
     return accepted;
+  }
+
+  /**
+   * Answer a phatic owner turn from the catalog in the addressee's own voice (A9): thinking → the line persisted as
+   * `talk.message {kind:'reflex'}` + `talk.done {route:'reflex'}` → `reflex.say` with its clip (or a render request).
+   * False when no grounded line fits (the caller asks the model).
+   */
+  private async phaticTurn(p: {
+    agentId: AgentId;
+    turnId: TurnId;
+    via: 'voice' | 'text';
+    cues: AffectCues;
+    ownerSeq: number;
+    state: { turnId: TurnId; opId: OpId; replyId: MessageId; text: string; closed: boolean };
+    source: 'talk' | 'desk';
+  }): Promise<boolean> {
+    const surface: TalkSurface | undefined = p.source === 'desk' ? 'floor' : undefined;
+    const current = () => (p.source === 'talk' ? this.turn?.turnId === p.turnId : this.deskTurns.get(p.agentId)?.turnId === p.turnId);
+    this.feed.claim(p.agentId, p.source, { state: 'thinking', label: 'Thinking', causeSeq: p.ownerSeq });
+    let reply;
+    try {
+      reply = await this.expr.phaticReply({ agentId: p.agentId, turnId: p.turnId, via: p.via, cues: p.cues, history: { firstMeeting: this.firstMeeting(p.agentId, p.turnId) } });
+    } catch (err) {
+      logError('expr.phatic', err);
+      return false;
+    }
+    if (!reply) return false;
+    const closed = closeReflexTurn(this.feed, this.ledger, p.state, { agentId: p.agentId, text: reply.text, intent: reply.intent, lineId: reply.lineId, ...(surface ? { surface } : {}) });
+    if (closed) this.expr.emitSay(reply.frame);
+    // A reply still writing behind this "thanks" keeps the face on Thinking until it is done.
+    const behind = p.source === 'talk' && this.finishing && !this.finishing.settled;
+    if ((closed || current()) && !behind) this.feed.claim(p.agentId, p.source, null);
+    this.scheduleRollup();
+    return true;
+  }
+
+  /**
+   * True when the owner never wrote to this coworker before this turn (first meeting). Never for the Chief of Staff:
+   * Talk always opens with the lead's own introduction, so a "hi" is not answered with a second "Hi, I'm …".
+   */
+  private firstMeeting(agentId: AgentId, turnId: TurnId): boolean {
+    if (agentId === CHIEF_ID) return false;
+    return !this.ledger
+      .recent(['talk.owner'], 400)
+      .some((f) => f.type === 'talk.owner' && f.data.turnId !== turnId && f.data.surface === 'floor' && f.data.agentId === agentId);
+  }
+
+  /**
+   * A Floor quick-chat message to a catalog coworker (A11): 202 path like talk(), idempotent on opId, ≤ 12 a minute.
+   * The reply streams as talk.* frames with the coworker's agentId and `surface: 'floor'`; a newer message to the same
+   * coworker cuts a reply still streaming, and nothing here touches the Chief of Staff's turn.
+   */
+  async deskSay(personaId: string, req: DeskSayRequest): Promise<DeskSayAccepted | DeskRefusal> {
+    const prior = this.ctx.storage.sql.exec<{ result: string }>('SELECT result FROM ops WHERE op_id = ?', req.opId).toArray()[0];
+    if (prior) return { ...(JSON.parse(prior.result) as DeskSayAccepted), duplicate: true };
+    const persona = fullIndex.persona(personaId);
+    if (!persona) return { accepted: false, code: 'not_found', message: `There is no coworker called ${personaId}.` };
+    if (!this.expr.takeRate('desk', DESK_PER_MIN)) {
+      return { accepted: false, code: 'rate_limited', message: `That is a lot of quick chats: at most ${DESK_PER_MIN} a minute. Wait a moment and try again.` };
+    }
+    const cues = sniffOwnerText(req.text, exprLexicon());
+    const phatic = isPhatic(cues);
+    const limit = dailyLimit(this.env, 'chat');
+    if (!phatic && !this.usage.take('chat', limit, runtime.now()).allowed) return { accepted: false, code: 'rate_limited', message: limitMessage('chat', limit) };
+
+    const agentId = coworkerAgentId(persona.id);
+    const turnId = ids.turn();
+    const messageId = ids.message();
+    const accepted: DeskSayAccepted = { accepted: true, opId: req.opId, agentId, turnId, messageId };
+    const now = runtime.now();
+    const via = req.via === 'voice' ? 'voice' : 'text';
+    const previous = this.deskTurns.get(agentId);
+    if (previous) {
+      previous.controller.abort();
+      closeDeskTurn(this.feed, previous.state, 'cancelled');
+    }
+    const owner = this.ledger.tx(() => {
+      const f = this.ledger.append({ type: 'talk.owner', data: { turnId, messageId, text: req.text, via, agentId, surface: 'floor' }, opId: req.opId, actor: OWNER_ACTOR });
+      this.ctx.storage.sql.exec('INSERT INTO ops (op_id, result, at) VALUES (?, ?, ?)', req.opId, JSON.stringify(accepted), now);
+      this.ctx.storage.sql.exec(`INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, `active_desk:${agentId}`, JSON.stringify({ turnId, opId: req.opId, agentId }));
+      return f;
+    });
+    this.feed.broadcast(owner);
+    this.scheduleRollup();
+
+    const controller = new AbortController();
+    const state = newDeskTurnState(turnId, req.opId, agentId);
+    const cause: ExprCause = { streamId: this.ledger.streamId, seq: owner.seq! };
+    const done = (async () => {
+      if (previous) await previous.done;
+      if (phatic) {
+        if (await this.phaticTurn({ agentId, turnId, via, cues, ownerSeq: owner.seq!, state, source: 'desk' })) return;
+        if (!this.usage.take('chat', limit, runtime.now()).allowed) {
+          this.feed.emit({ type: 'error', data: { code: 'rate_limited', message: limitMessage('chat', limit), turnId, opId: req.opId } });
+          closeDeskTurn(this.feed, state, 'error');
+          this.feed.claim(agentId, 'desk', null);
+          return;
+        }
+      }
+      await runDeskTurn(this.deskHost(), { persona, ownerSeq: owner.seq!, signal: controller.signal }, state);
+    })()
+      .catch((err) => logError('desk', err))
+      .finally(() => {
+        if (this.deskTurns.get(agentId)?.turnId === turnId) {
+          this.deskTurns.delete(agentId);
+          this.ctx.storage.sql.exec('DELETE FROM meta WHERE key = ?', `active_desk:${agentId}`);
+        }
+        this.scheduleRollup();
+        this.expr.ownerMood(agentId, cues, cause).catch((err) => logError('expr.mood', err));
+      });
+    this.deskTurns.set(agentId, { turnId, controller, state, done });
+    this.ctx.waitUntil(done);
+    return accepted;
+  }
+
+  // ── living workforce RPC (routes in src/expr) ─────────────────────────────────────
+
+  /** Record rendered clips in the agents' manifests (render route, pre-voice runner). */
+  async exprRecordClips(rows: ManifestRow[]): Promise<number> {
+    return this.expr.recordClips(rows);
+  }
+
+  /** Count one use of a per-minute limit (EXPR_RENDER_PER_MIN, quick-chat); false when used up. */
+  async exprTakeRate(kind: 'render' | 'desk', limit: number): Promise<boolean> {
+    return this.expr.takeRate(kind, limit);
+  }
+
+  /** An agent's manifest, mood and attention (GET /api/expr/agents/:id). */
+  async exprAgentState(agentId: string, voiceKey: string, catalogVersion: string, provider: ExprTtsProvider): Promise<ExprAgentState> {
+    return this.expr.agentState(agentId, voiceKey, catalogVersion, provider);
   }
 
   /** Persisted frames after `since` (debugging, tests, and a future `GET /api/streams/:id?since`). */
@@ -261,6 +514,14 @@ export class WorkspaceDO extends DurableObject<Env> {
       applied++;
       this.feed.broadcast(written.mirrored);
       lastSeq = written.mirrored.seq!;
+      // Mood, attention and event reflexes; a celebration leads into the announcement broadcast next (or, when the
+      // fast model is still writing it, into that announcement when it is posted).
+      try {
+        const announcementPending = !written.announcement && voicing.some((v) => v.causeSeq === written.mirrored.seq);
+        await this.expr.onMirrored(written.mirrored as Frame, { announcementPending });
+      } catch (err) {
+        logError('expr.mirror', err);
+      }
       if (written.announcement) {
         this.feed.broadcast(written.announcement);
         lastSeq = written.announcement.seq!;
@@ -269,6 +530,13 @@ export class WorkspaceDO extends DurableObject<Env> {
     if (batch.presence) {
       const claim = batch.presence.claim;
       this.feed.claim(batch.presence.agentId, batch.source, claim ? { ...claim, causeSeq: lastSeq ?? claim.causeSeq } : null);
+    }
+    if (batch.signals?.length) {
+      try {
+        await this.expr.onSignals(batch.signals);
+      } catch (err) {
+        logError('expr.signals', err);
+      }
     }
     if (applied) this.scheduleRollup();
     // The mirror never waits for the voice: the model writes in the background and the line is posted when ready.
@@ -328,6 +596,8 @@ export class WorkspaceDO extends DurableObject<Env> {
     } catch (err) {
       logError('workspace.announce', err);
     }
+    // The celebration held for this announcement leads into it now: its speech renders while the lead-in plays.
+    if (plan.facts.kind === 'done' && plan.frame.data.jobId) await this.expr.celebratePending(plan.frame.data.jobId).catch((err) => logError('expr.celebrate', err));
     this.postAnnouncement(causeSeq, { ...plan.frame, data: { ...plan.frame.data, text } });
   }
 
@@ -378,8 +648,26 @@ export class WorkspaceDO extends DurableObject<Env> {
       registry: () => runtime.registry(this.env),
       project: () => this.project(),
       settings: () => this.getSettings(),
-      isCurrent: (turnId: TurnId) => this.turn?.turnId === turnId,
+      // The current turn, or one that finished writing after a newer turn that is already over (it may clear Thinking).
+      isCurrent: (turnId: TurnId) => this.turn?.turnId === turnId || !this.turn || this.turn.settled,
       now: () => runtime.now(),
+      reflexes: {
+        started: (turnId: TurnId, via: 'voice' | 'text', cues?: AffectCues) => this.expr.turnStarted(turnId, via, CHIEF_ID, cues),
+        spoke: (turnId: TurnId) => this.expr.spokeFor(turnId),
+        firstText: (turnId: TurnId) => this.expr.firstText(turnId),
+        delegated: (turnId: TurnId) => this.expr.delegated(turnId),
+        ended: (turnId: TurnId) => this.expr.turnEnded(turnId),
+      },
+    };
+  }
+
+  private deskHost(): DeskHost {
+    return {
+      feed: this.feed,
+      ledger: this.ledger,
+      registry: () => runtime.registry(this.env),
+      settings: () => this.getSettings(),
+      isCurrent: (agentId, turnId) => this.deskTurns.get(agentId)?.turnId === turnId,
     };
   }
 
@@ -390,6 +678,7 @@ export class WorkspaceDO extends DurableObject<Env> {
    */
   private recoverInterruptedTurn(): void {
     this.presence.claim(CHIEF_ID, 'talk', null, runtime.now());
+    this.recoverDeskTurns();
     const row = this.ctx.storage.sql.exec<{ value: string }>(`SELECT value FROM meta WHERE key = 'active_turn'`).toArray()[0];
     if (!row) return;
     try {
@@ -399,6 +688,23 @@ export class WorkspaceDO extends DurableObject<Env> {
       logError('workspace.recover', err);
     }
     this.ctx.storage.sql.exec(`DELETE FROM meta WHERE key = 'active_turn'`);
+  }
+
+  /** Quick-chats in flight when the object stopped: close them, and clear stale `desk` Thinking claims. */
+  private recoverDeskTurns(): void {
+    const now = runtime.now();
+    const stale = this.ctx.storage.sql.exec<{ agent_id: string }>(`SELECT DISTINCT agent_id FROM presence_claims WHERE source = 'desk'`).toArray();
+    for (const r of stale) this.presence.claim(r.agent_id as AgentId, 'desk', null, now);
+    const rows = this.ctx.storage.sql.exec<{ key: string; value: string }>(`SELECT key, value FROM meta WHERE key LIKE 'active_desk:%'`).toArray();
+    for (const r of rows) {
+      try {
+        const { turnId, opId, agentId } = JSON.parse(r.value) as { turnId: TurnId; opId?: string; agentId: AgentId };
+        this.ledger.append({ type: 'talk.done', data: { turnId, messageId: null, finish: 'error', agentId, surface: 'floor' }, actor: agentId, ...(opId ? { opId } : {}) });
+      } catch (err) {
+        logError('desk.recover', err);
+      }
+    }
+    if (rows.length) this.ctx.storage.sql.exec(`DELETE FROM meta WHERE key LIKE 'active_desk:%'`);
   }
 
   /** Copy new ledger rows (and settings) to D1 in the background; retried on the next append after a failure. */

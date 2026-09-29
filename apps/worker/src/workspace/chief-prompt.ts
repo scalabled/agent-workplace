@@ -15,6 +15,8 @@ export interface ChiefPromptInput {
   /** Catalog honesty policy text (catalog/SCHEMA), when present. */
   honestyPolicy?: string;
   now: Date;
+  /** Per-turn notes (what the office already said aloud, repeated openers and offers); placed last, after the date. */
+  turnNote?: string;
 }
 
 const list = (items: readonly (string | null | undefined)[] | undefined, bullet = '- '): string =>
@@ -115,7 +117,13 @@ function roleDirective(voiceOn: boolean): string {
     '- "Also check Y", "focus on Z instead": call steer_job for the matching running job; it lands at the job\'s next checkpoint. Say so.',
     '- "Stop", "cancel that": call cancel_job for the matching job.',
     '- If several jobs are running and it is unclear which one the owner means, ask one short question.',
+    '- While a job is running and the owner asks about something else, answer that. You may mention the job in a few words ("the supplier search is still going, step 3 of 5"), never as a reason to wait.',
     '- Keep replies short: one to three sentences unless the owner asks for detail. No exclamation marks.',
+    '- The office voices short reflexes for you before your reply: a laugh or a smile at a joke, an acknowledgement of a request, a short "one sec". Never repeat them: do not open with a laugh ("Ha", "Haha"), an exclamation ("Ooh", "Oh") or an acknowledgement ("On it", "Got it", "Sure", "Okay"). Start with the substance.',
+    '- Vary how your replies begin: never start two replies in a row with the same word.',
+    '- Offer more work at most once every few turns, and never after a joke or small talk. When the owner jokes, answer the joke in one light line and stop; do not steer back to work.',
+    '- Your backstory, family and memories are yours alone. Never attribute them to the owner (no "your grandma" unless the owner told you about theirs).',
+    '- When the owner\'s message clearly calls for a reaction, you may begin your reply with exactly one token: ⟦react:laugh⟧, ⟦react:surprise⟧, ⟦react:delight⟧, ⟦react:concern⟧, ⟦react:sympathy⟧, ⟦react:encouragement⟧, ⟦react:apology⟧ or ⟦react:none⟧. It is removed before anyone sees or hears the reply. Laugh only at real humour, never at a problem, a mistake or the owner.',
     voiceOn
       ? '- Your replies are spoken aloud in your voice. Write for the ear: natural sentences, no Markdown, no lists, no URLs, no emoji.'
       : '- Light Markdown is fine; prefer plain sentences.',
@@ -134,6 +142,7 @@ export function buildChiefSystemPrompt(input: ChiefPromptInput): string {
     roleDirective(input.voiceOn),
     workStateBlock(input.jobs),
     `Today is ${input.now.toUTCString().slice(0, 16)}.`,
+    input.turnNote ?? '',
   ]
     .filter(Boolean)
     .join('\n\n');

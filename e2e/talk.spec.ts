@@ -122,9 +122,11 @@ test('a reload rebuilds the thread and jobs from the feed replay', async ({ page
   const owners = await page.locator('.msg-owner').count();
   await page.reload();
   await expect(page.locator('.msg-owner')).toHaveCount(owners);
-  // Replayed frames are never treated as live (nothing is spoken or animated on reload).
-  await expect.poll(async () => (await frames(page)).filter((f) => f.type === 'talk.owner').length).toBe(owners);
-  const replayed = (await frames(page)).filter((f) => f.type === 'talk.owner');
+  // Replayed frames are never treated as live (nothing is spoken or animated on reload). Floor quick-chats replay
+  // too (surface 'floor'), into their side-threads, never into Talk.
+  const toChief = (f: { type: string; data: Record<string, unknown> }) => f.type === 'talk.owner' && f.data.surface !== 'floor';
+  await expect.poll(async () => (await frames(page)).filter(toChief).length).toBe(owners);
+  const replayed = (await frames(page)).filter(toChief);
   expect(replayed.length).toBe(owners);
   expect(replayed.every((f) => !f.live)).toBe(true);
   const jobs = (await (await request.get('/api/jobs')).json()).jobs as { jobId: string; status: string }[];

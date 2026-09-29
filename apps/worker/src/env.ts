@@ -28,4 +28,10 @@ export interface Env extends ProviderEnv {
   MAX_ACTIVE_JOBS?: string;
   /** Comma-separated origins allowed to call the API and open the feed (scripts/dev.mjs passes the dev ports). */
   ALLOWED_ORIGINS?: string;
+  /** Inc 0.5 living workforce (src/expr/config.ts): expression clip renders per UTC day (runtime + pre-voice; default 600). */
+  EXPR_CLIP_DAILY_LIMIT?: string;
+  /** Runtime clip renders (POST /api/expr/render) per minute (default 30). */
+  EXPR_RENDER_PER_MIN?: string;
+  /** Default and ceiling (600) of clips one pre-voice run renders (default 300). */
+  EXPR_PREVOICE_MAX_CLIPS?: string;
 }

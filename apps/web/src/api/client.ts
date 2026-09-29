@@ -20,6 +20,17 @@ import {
   type UpdateWorkspaceRequest,
   type WorkspaceResponse,
 } from '@headcount/protocol';
+import type {
+  DeskSayAccepted,
+  ExprAgentResponse,
+  ExprCatalogBundle,
+  ExprClipAlignment,
+  ExprClipRef,
+  ExprPrevoiceAccepted,
+  ExprPrevoiceRequest,
+  ExprPrevoiceStatus,
+  ExprRenderRequest,
+} from '@headcount/protocol/ext/expressions';
 import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcount/protocol/ext/media';
 
 export class ApiError extends Error {
@@ -99,4 +110,16 @@ export const api = {
   /** First valid write wins. `portraitVersion` (from X-Portrait-Version) makes a replaced image answer 409, not store stale geometry. */
   putLandmarks: (personaId: string, landmarks: FaceLandmarks, portraitVersion?: string | null) =>
     request<LandmarksResponse>(routePath('putLandmarks', { personaId }), jsonInit('PUT', { landmarks, ...(portraitVersion ? { portraitVersion } : {}) } satisfies PutLandmarksRequestWithVersion)),
+
+  // ── living workforce (Inc 0.5) ──
+  /** The expression catalog bundle (about 2.9 MB; ETag-cached by the browser). Compile it off the critical path. */
+  exprCatalog: () => request<ExprCatalogBundle>(routePath('exprCatalog')),
+  exprAgent: (agentId: string) => request<ExprAgentResponse>(routePath('exprAgent', { agentId })),
+  exprRender: (req: ExprRenderRequest) => request<ExprClipRef>(routePath('exprRender'), jsonInit('POST', req)),
+  exprPrevoice: (req: ExprPrevoiceRequest) => request<ExprPrevoiceAccepted>(routePath('exprPrevoice'), jsonInit('POST', req)),
+  exprPrevoiceStatus: (runId: string) => request<ExprPrevoiceStatus>(routePath('exprPrevoiceStatus', { runId })),
+  exprAlignment: (clipKey: string) => request<ExprClipAlignment>(routePath('exprAlign', { clipKey })),
+  /** 202: a Floor quick-chat to a catalog coworker; the reply streams on the socket (talk.* with surface 'floor'). */
+  deskSay: (personaId: string, text: string, opId: string = ids.op()) =>
+    request<DeskSayAccepted>(routePath('deskSay', { personaId }), jsonInit('POST', { text, opId, via: 'text' })),
 };

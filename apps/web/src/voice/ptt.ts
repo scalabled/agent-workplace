@@ -6,6 +6,7 @@ import { signal } from '@preact/signals';
 import { createPushToTalk, type PushToTalk, type PushToTalkResult } from '@headcount/audio';
 import { CHIEF_ID } from '@headcount/protocol';
 import { api } from '../api/client';
+import { livingCue } from '../living';
 import { can, setLocalPresence } from '../store';
 import { errorSentence, sendOwnerMessage } from '../talk/actions';
 import { showNotice } from '../ui/notice';
@@ -34,6 +35,10 @@ export function pttMode(): 'stt' | 'dictation' | null {
 
 let controller: PushToTalk | null = null;
 let poll: ReturnType<typeof setInterval> | undefined;
+/** When the owner let go (the living layer times the turn from here, not from the end of STT). */
+let releasedAt: number | null = null;
+/** The face looks up and thinks while speech is transcribed. */
+const TRANSCRIBING_CUE_MS = 1500;
 
 function set(patch: Partial<PttState>) {
   ptt.value = { ...ptt.value, ...patch };
@@ -57,7 +62,9 @@ async function onResult(result: PushToTalkResult): Promise<void> {
     showNotice('I did not catch that. Hold to talk, release to send.');
     return;
   }
-  await sendOwnerMessage(text, 'voice');
+  const at = releasedAt ?? Date.now();
+  releasedAt = null;
+  await sendOwnerMessage(text, 'voice', { at });
 }
 
 function ptc(): PushToTalk {
@@ -99,6 +106,10 @@ export function startPtt(): void {
 
 /** Release: stop listening and send what was heard. */
 export function endPtt(): void {
+  if (controller && ptt.value.phase === 'listening') {
+    releasedAt = Date.now();
+    livingCue(CHIEF_ID, { gesture: 'look_up', expression: 'thinking', holdMs: TRANSCRIBING_CUE_MS });
+  }
   controller?.release();
 }
 

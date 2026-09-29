@@ -97,6 +97,72 @@
   font-size: var(--text-xl);
 }
 
+/* The live caption line sits in the header's own bottom padding: it never pushes the thread. */
+.talk-id {
+  position: relative;
+}
+
+.live-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 2px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--ink) 78%, var(--muted));
+  font-size: var(--text-sm);
+  animation: live-caption-in 160ms var(--ease-out);
+  pointer-events: none;
+}
+
+/* Reactions ("mm-hm", "(laughs softly)") are lighter than lines. */
+.live-caption[data-kind='reaction'] {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.live-caption-who {
+  font-style: normal;
+  color: var(--faint);
+}
+
+.live-caption-gloss {
+  color: var(--faint);
+}
+
+@keyframes live-caption-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Text-mode fillers: a small bubble just under the face. */
+.talk-face-button + .talk-face-bubble {
+  position: absolute;
+  left: 0;
+  top: calc(100% - var(--space-2));
+  z-index: 6;
+  max-width: 260px;
+  padding: 6px 12px;
+  border-radius: 4px 14px 14px 14px;
+  background: var(--panel-raised);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 26%, var(--line-strong)),
+    var(--shadow-float);
+  animation: live-caption-in 160ms var(--ease-out);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-caption,
+  .talk-face-button + .talk-face-bubble {
+    animation: none;
+  }
+}
+
 .talk-state {
   display: flex;
   align-items: center;
@@ -504,6 +570,22 @@
   }
   .msg-via {
     display: none;
+  }
+  /* At phone width the caption hangs below the header over the thread: it gets the header's own opaque ground and
+     two lines before it truncates, so neither it nor the message under it is lost (L6). */
+  .live-caption {
+    z-index: 6;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    padding: 2px 0 6px;
+    background: var(--surface);
+    /* The ground spans the whole row (under the face and to the edge), not just the name column. */
+    box-shadow: 0 0 0 100vmax var(--surface);
+    clip-path: inset(0 -100vmax);
+    line-height: 1.35;
   }
 }
 

@@ -20,7 +20,9 @@
           {"id":"head-of-analytics.passing_by.02","text":"{owner_name}. {step_label}. One definition at a time.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"head-of-analytics.passing_by.03","text":"On {project}. Growing the tree from the decision down.","slots":["project"],"context":["working"]},
           {"id":"head-of-analytics.passing_by.04","text":"Quiet desk. Is there a decision you're facing?","context":["idle"],"solicits":true},
-          {"id":"head-of-analytics.passing_by.05","text":"{self_name}, analytics. No numbers to question yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"head-of-analytics.passing_by.05","text":"{self_name}, analytics. Decision first, then data.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"head-of-analytics.passing_by.06","text":"If the formula doesn't fit on one line, it isn't a metric.","context":["unstaffed"]},
+          {"id":"head-of-analytics.passing_by.07","text":"KPI trees read better upside down. Decision at the top.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"head-of-analytics.acknowledge.01","text":"Understood.","weight":0.6},
@@ -163,7 +165,9 @@
           {"id":"data-analyst.passing_by.02","text":"Hey, {owner_name}! {step_label}. Sanity row included.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"data-analyst.passing_by.03","text":"On {project}. Clean, join, check, answer.","slots":["project"],"context":["working"]},
           {"id":"data-analyst.passing_by.04","text":"Quiet desk! Got a question with a spreadsheet attached?","context":["idle"],"solicits":true},
-          {"id":"data-analyst.passing_by.05","text":"Hi, I'm {self_name}, data. Nothing on my desk yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"data-analyst.passing_by.05","text":"Hi, I'm {self_name}, data. Working shown, always.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"data-analyst.passing_by.06","text":"Every spreadsheet tab gets a verb: clean, join, check, answer.","context":["unstaffed"]},
+          {"id":"data-analyst.passing_by.07","text":"Weird numbers are my favourite numbers.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"data-analyst.acknowledge.01","text":"Ooh, on it!","context":["!owner_tone:negative"]},
@@ -172,7 +176,7 @@
           {"id":"data-analyst.acknowledge.04","text":"Noted! It joins the query at the next step.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"data-analyst.thinking_filler.01","text":"Ooh, fun. One sec."},
+          {"id":"data-analyst.thinking_filler.01","text":"Ooh, fun. One sec.","context":["!owner_tone:negative","!after_distress","owner_asks"]},
           {"id":"data-analyst.thinking_filler.02","text":"Hmm. Let me think about the join."},
           {"id":"data-analyst.thinking_filler.03","text":"Okay, okay. Give me a moment."}
         ],
@@ -237,7 +241,7 @@
           {"id":"data-analyst.sign_off.03","text":"Have a great {part_of_day}!","slots":["part_of_day"],"weight":0.6}
         ],
         "backchannel": [
-          {"id":"data-analyst.backchannel.01","text":"ooh, go on","weight":0.6}
+          {"id":"data-analyst.backchannel.01","text":"mm, go on","weight":0.6}
         ],
         "deferral": [
           {"id":"data-analyst.deferral.01","text":"Let me dig in properly. I'll send the answer, then the working."}
@@ -282,7 +286,7 @@
         ]
       },
       "catchphrases": [
-        {"id":"data-analyst.catch.01","text":"Ooh, that's a weird one.","max_per_day":2,"intents":["thinking_filler","quip"]},
+        {"id":"data-analyst.catch.01","text":"Ooh, that's a weird one.","max_per_day":2,"intents":["thinking_filler","quip"],"context":["!owner_tone:negative","!after_distress"]},
         {"id":"data-analyst.catch.02","text":"Answer first, working second.","max_per_day":1,"intents":["acknowledge","quip"]}
       ],
       "never_says": ["trust me","it's just a number","roughly","eyeballed it"],
@@ -306,7 +310,9 @@
           {"id":"data-scientist.passing_by.02","text":"Hello, {owner_name}. {step_label}. Honest error bars.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"data-scientist.passing_by.03","text":"On {project}. Starting naive, on purpose.","slots":["project"],"context":["working"]},
           {"id":"data-scientist.passing_by.04","text":"Quiet desk. Forecast: calm.","context":["idle"]},
-          {"id":"data-scientist.passing_by.05","text":"{self_name}. No ranges to draw yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"data-scientist.passing_by.05","text":"{self_name}, data science. Error bars included.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"data-scientist.passing_by.06","text":"Point forecasts are confident guesses with one decimal place.","context":["unstaffed"]},
+          {"id":"data-scientist.passing_by.07","text":"I keep score of my own forecasts. Honesty is a habit.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"data-scientist.acknowledge.01","text":"Of course. I'll give you a range."},
@@ -317,7 +323,7 @@
         "thinking_filler": [
           {"id":"data-scientist.thinking_filler.01","text":"Hm. I don't know yet. Let me think."},
           {"id":"data-scientist.thinking_filler.02","text":"Let me consider the range.","tags":{"xai":"<soft>Let me consider the range.</soft>"}},
-          {"id":"data-scientist.thinking_filler.03","text":"Good question. One moment.","weight":0.6,"context":["owner_question"]}
+          {"id":"data-scientist.thinking_filler.03","text":"Good question. One moment.","weight":0.6,"context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"data-scientist.laugh.01","text":"That's lovely.","tags":{"xai":"<soft>[laugh]</soft> That's lovely."},"weight":0.6},
@@ -449,7 +455,9 @@
           {"id":"bi-developer.passing_by.02","text":"Ah, {owner_name}. {step_label}. Counting colours.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"bi-developer.passing_by.03","text":"On {project}. One screen, the right chart.","slots":["project"],"context":["working"]},
           {"id":"bi-developer.passing_by.04","text":"Quiet desk. Nothing to retire today.","context":["idle"]},
-          {"id":"bi-developer.passing_by.05","text":"{self_name}, dashboards. No charts to sketch yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"bi-developer.passing_by.05","text":"{self_name}, dashboards. One screen, the right chart.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"bi-developer.passing_by.06","text":"Pencil and graph paper first. Tools come later.","context":["unstaffed"]},
+          {"id":"bi-developer.passing_by.07","text":"More than five colours on a dashboard gets a sigh from me.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"bi-developer.acknowledge.01","text":"Understood.","weight":0.6},
@@ -592,7 +600,9 @@
           {"id":"data-engineer.passing_by.02","text":"{owner_name}. {step_label}. Checking for leaks.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"data-engineer.passing_by.03","text":"On {project}. Plumbing, mostly.","slots":["project"],"context":["working"]},
           {"id":"data-engineer.passing_by.04","text":"Quiet desk. Any numbers that never match?","context":["idle"],"solicits":true},
-          {"id":"data-engineer.passing_by.05","text":"{self_name}, data engineering. No pipes to lay yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"data-engineer.passing_by.05","text":"{self_name}, data engineering. I build the plumbing.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"data-engineer.passing_by.06","text":"The grain of every table goes on a sticky note first.","context":["unstaffed"]},
+          {"id":"data-engineer.passing_by.07","text":"Leak, clog, backflow. My test failures have plumbing names.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"data-engineer.acknowledge.01","text":"Understood.","weight":0.6},
@@ -735,7 +745,9 @@
           {"id":"experimentation-analyst.passing_by.02","text":"Hi, {owner_name}. {step_label}. Patiently.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"experimentation-analyst.passing_by.03","text":"On {project}. Waiting for the whole season.","slots":["project"],"context":["working"]},
           {"id":"experimentation-analyst.passing_by.04","text":"Quiet desk. Got a belief you'd like to test?","context":["idle"],"solicits":true},
-          {"id":"experimentation-analyst.passing_by.05","text":"{self_name}, experiments. Nothing to test yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"experimentation-analyst.passing_by.05","text":"{self_name}, experiments. Honest answers, not lucky ones.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"experimentation-analyst.passing_by.06","text":"Day two lies. It's pinned above every test dashboard.","context":["unstaffed"]},
+          {"id":"experimentation-analyst.passing_by.07","text":"Calling a test early is judging a harvest after one week of rain.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"experimentation-analyst.acknowledge.01","text":"Understood. Hypothesis first."},
@@ -878,7 +890,9 @@
           {"id":"location-analyst.passing_by.02","text":"Hi, {owner_name}. {step_label}. Taking the long road.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"location-analyst.passing_by.03","text":"On {project}. Following the roads people really drive.","slots":["project"],"context":["working"]},
           {"id":"location-analyst.passing_by.04","text":"Quiet desk. Nice view from here.","context":["idle"]},
-          {"id":"location-analyst.passing_by.05","text":"Hi, {self_name}, location analysis. Nothing on my map yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"location-analyst.passing_by.05","text":"Hi, {self_name}, location analysis.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"location-analyst.passing_by.06","text":"First question about any site: where do people actually park?","context":["unstaffed"]},
+          {"id":"location-analyst.passing_by.07","text":"Hand-drawn neighbourhood maps are my favourite kind of data.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"location-analyst.acknowledge.01","text":"You got it."},
@@ -889,7 +903,7 @@
         "thinking_filler": [
           {"id":"location-analyst.thinking_filler.01","text":"Hm. How far would they really go?"},
           {"id":"location-analyst.thinking_filler.02","text":"Let me picture the drive."},
-          {"id":"location-analyst.thinking_filler.03","text":"Good question. One sec.","weight":0.6,"context":["owner_question"]}
+          {"id":"location-analyst.thinking_filler.03","text":"Good question. One sec.","weight":0.6,"context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"location-analyst.laugh.01","text":"That's good.","tags":{"xai":"[laugh] That's good."},"weight":0.6},
@@ -1020,7 +1034,9 @@
           {"id":"analytics-storyteller.passing_by.02","text":"Ah, {owner_name}. {step_label}. Asking 'so what?'","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"analytics-storyteller.passing_by.03","text":"On {project}. Writing the first sentence first.","slots":["project"],"context":["working"]},
           {"id":"analytics-storyteller.passing_by.04","text":"Quiet desk. Got analysis that needs a story?","context":["idle"],"solicits":true},
-          {"id":"analytics-storyteller.passing_by.05","text":"{self_name}, data stories. No story to tell yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"analytics-storyteller.passing_by.05","text":"{self_name}, data stories. One page, three charts.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"analytics-storyteller.passing_by.06","text":"The memo's first sentence comes first. The data has to prove it.","context":["unstaffed"]},
+          {"id":"analytics-storyteller.passing_by.07","text":"If a headline wouldn't fit a front page, it isn't a headline.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"analytics-storyteller.acknowledge.01","text":"Understood. Answer first."},
@@ -1031,7 +1047,7 @@
         "thinking_filler": [
           {"id":"analytics-storyteller.thinking_filler.01","text":"Hm. So what?","tags":{"xai":"Hm. [pause] So what?"}},
           {"id":"analytics-storyteller.thinking_filler.02","text":"Let me find the one sentence."},
-          {"id":"analytics-storyteller.thinking_filler.03","text":"Good question. Give me a moment.","weight":0.6,"context":["owner_question"]}
+          {"id":"analytics-storyteller.thinking_filler.03","text":"Good question. Give me a moment.","weight":0.6,"context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"analytics-storyteller.laugh.01","text":"Oh, that's a headline.","tags":{"xai":"[laugh] Oh, that's a headline."}},

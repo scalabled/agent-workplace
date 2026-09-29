@@ -33,7 +33,7 @@ export {
 
 // ── grounding ───────────────────────────────────────────────────────────────────
 export {
-  deriveContexts, etaPhrase, isGerundLabel, isOwnerQuestion, numberWord, ownerToneOf, partOfDay, resolveSlots, sanitizeGist, weekdayName,
+  deriveContexts, etaPhrase, isGerundLabel, isOwnerAsk, isOwnerQuestion, numberWord, ownerToneOf, partOfDay, resolveSlots, sanitizeGist, weekdayName,
 } from './state';
 
 // ── recency and randomness ──────────────────────────────────────────────────────
@@ -78,4 +78,4 @@ export {
 } from './frames';
 
 // ── client reflex runner ────────────────────────────────────────────────────────
-export { createReflexRunner } from './runner';
+export { createReflexRunner, humourOnly } from './runner';

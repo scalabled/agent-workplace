@@ -72,6 +72,13 @@ export function navigate(to: string, opts: { replace?: boolean } = {}): void {
       /* state not writable: Back starts at the top */
     }
     history.pushState(null, '', target);
+    // A new page starts at the top (the Floor never opens mid-directory at Talk's scroll position); Talk then follows
+    // its thread to the end itself. Back and Forward restore the saved position instead (main.tsx).
+    try {
+      window.scrollTo(0, 0);
+    } catch {
+      /* no window scrolling (tests) */
+    }
   }
   navKind = opts.replace ? 'replace' : 'push';
   path.value = location.pathname;

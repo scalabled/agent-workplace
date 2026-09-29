@@ -2,8 +2,12 @@ import { CHIEF_ID, makeFrame, type Frame, type FrameInput, type FrameType } from
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   addPendingOwner,
+  addPendingSide,
   applyFrame,
   chiefPresence,
+  feedEpoch,
+  markSideAccepted,
+  sideThreads,
   jobs,
   lastSeq,
   localPresence,
@@ -46,6 +50,14 @@ describe('store.applyFrame', () => {
       ['Hello.', false],
     ]);
     expect(lastSeq.value).toBe(2);
+  });
+
+  it('a reply that finished writing after the next owner message stays with its own turn (live and replayed)', () => {
+    applyFrame(f({ type: 'talk.owner', data: { turnId: 'turn_a', messageId: 'msg_oa', text: 'tell me about suppliers', via: 'text' } }, 1));
+    applyFrame(f({ type: 'talk.owner', data: { turnId: 'turn_b', messageId: 'msg_ob', text: 'thanks', via: 'text' } }, 2));
+    applyFrame(f({ type: 'talk.message', data: { turnId: 'turn_b', messageId: 'msg_cb', agentId: CHIEF_ID, text: 'Anytime.', kind: 'reflex' } }, 3));
+    applyFrame(f({ type: 'talk.message', data: { turnId: 'turn_a', messageId: 'msg_ca', agentId: CHIEF_ID, text: 'Three stand out.', kind: 'reply' } }, 4));
+    expect(thread.value.map((m) => m.text)).toEqual(['tell me about suppliers', 'Three stand out.', 'thanks', 'Anytime.']);
   });
 
   it('reconciles an optimistic owner message by opId (echo first or 202 first)', () => {
@@ -146,5 +158,51 @@ describe('store.applyFrame', () => {
     setLocalPresence(CHIEF_ID, 'speaking', false);
     applyFrame(f({ type: 'talk.done', data: { turnId: 'turn_1', messageId: null, finish: 'stop' } }, 1));
     expect(chiefPresence.value.state).toBe('idle');
+  });
+});
+
+describe('Floor quick-chats (Inc 0.5)', () => {
+  beforeEach(() => {
+    lastSeq.value = 0;
+    replayThrough.value = 0;
+    thread.value = [];
+    sideThreads.value = {};
+    presence.value = {};
+    localPresence.value = {};
+  });
+
+  it('routes floor frames to the coworker’s side-thread, never to the Talk transcript', () => {
+    const cw = 'cw_tech-lead';
+    addPendingSide(cw, 'op_1', 'what do you do?');
+    markSideAccepted(cw, { accepted: true, opId: 'op_1', agentId: cw, turnId: 'turn_s', messageId: 'msg_o' });
+    applyFrame(f({ type: 'talk.owner', data: { turnId: 'turn_s', messageId: 'msg_o', text: 'what do you do?', via: 'text', agentId: cw, surface: 'floor' }, opId: 'op_1' }, 1));
+    applyFrame(f({ type: 'talk.delta', data: { turnId: 'turn_s', messageId: 'msg_r', agentId: cw, delta: 'I design systems', surface: 'floor' } }));
+    applyFrame(f({ type: 'talk.message', data: { turnId: 'turn_s', messageId: 'msg_r', agentId: cw, text: 'I design systems that last.', kind: 'reply', surface: 'floor' } }, 2));
+    applyFrame(f({ type: 'talk.done', data: { turnId: 'turn_s', messageId: 'msg_r', agentId: cw, surface: 'floor', finish: 'stop', route: 'answer' } }, 3));
+    expect(thread.value).toEqual([]);
+    expect(sideThreads.value[cw]!.map((m) => [m.from, m.text, m.streaming, m.status])).toEqual([
+      ['owner', 'what do you do?', false, undefined],
+      [cw, 'I design systems that last.', false, undefined],
+    ]);
+  });
+
+  it('a coworker’s finished turn never resets the Chief’s face; the Chief’s own does', () => {
+    applyFrame(f({ type: 'presence', data: { agentId: CHIEF_ID, state: 'thinking', label: 'Thinking', causeSeq: 1 } }));
+    applyFrame(f({ type: 'talk.done', data: { turnId: 'turn_s', messageId: null, agentId: 'cw_tech-lead', surface: 'floor', finish: 'stop' } }, 1));
+    expect(chiefPresence.value.state).toBe('thinking');
+    applyFrame(f({ type: 'talk.done', data: { turnId: 'turn_c', messageId: null, finish: 'stop' } }, 2));
+    expect(chiefPresence.value.state).toBe('idle');
+  });
+
+  it('a reflex reply is a normal message in the transcript, marked as a reflex', () => {
+    applyFrame(f({ type: 'talk.message', data: { turnId: 'turn_t', messageId: 'msg_t', agentId: CHIEF_ID, text: 'Anytime.', kind: 'reflex', intent: 'gratitude_reply', lineId: 'warm.gratitude_reply.01' } }, 1));
+    expect(thread.value.map((m) => [m.text, m.kind])).toEqual([['Anytime.', 'reflex']]);
+  });
+
+  it('counts every ready frame (the living layer re-sends its state then)', () => {
+    const before = feedEpoch.value;
+    applyFrame(ready(0));
+    applyFrame(ready(0));
+    expect(feedEpoch.value).toBe(before + 2);
   });
 });

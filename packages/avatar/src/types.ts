@@ -1,7 +1,8 @@
 import type { Appearance } from '@headcount/catalog';
 import type { FaceLandmarks, FaceTier, MouthSampler, PresenceState } from '@headcount/protocol';
+import type { ExpressionBias, FaceCue, FaceGesture, PaletteState } from '@headcount/protocol/ext/expressions';
 
-export type { Appearance, FaceLandmarks, FaceTier, MouthSampler, PresenceState };
+export type { Appearance, ExpressionBias, FaceCue, FaceGesture, FaceLandmarks, FaceTier, MouthSampler, PaletteState, PresenceState };
 
 export interface PortraitSource {
   /** Same-origin URL (GET /api/portraits/:personaId) or object URL. */
@@ -52,5 +53,9 @@ export interface FaceViewApi {
   attachSampler(sampler: MouthSampler | null): void;
   /** hero (1024 px, animated) · tile (animated, ≤3 at once) · token (still + ring). */
   setTier(tier: FaceTier): void;
+  /** A reflex gesture (+ optional palette expression) for cue.holdMs. Latest cue wins (INC05-PLAN §3.7). */
+  cue(cue: FaceCue): void;
+  /** The mood palette (mood.changed / expressionBias). null → neutral. */
+  setExpressionBias(bias: ExpressionBias | null): void;
   destroy(): void;
 }

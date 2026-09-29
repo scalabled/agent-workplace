@@ -315,3 +315,476 @@
 .profile-actions:empty {
   display: none;
 }
+
+/* ── the living Floor (Inc 0.5): desks that look up, bubbles, a chat in place ── */
+.floor-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.floor-head-text {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* A desk: the card and its bubble. The active one rises above its neighbours so the bubble is never covered. */
+.cw-slot {
+  position: relative;
+  display: grid;
+}
+
+.cw-slot[data-active] {
+  z-index: 5; /* above the sticky search bar (4): a bubble is never covered */
+}
+
+.cw-slot > .cw-card {
+  min-width: 0;
+}
+
+/* The face wakes (token → tile) while you are at the desk: keep its size, add the agent's own light. */
+.cw-slot[data-active] .cw-card .face {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent),
+    0 6px 18px -6px color-mix(in srgb, var(--accent) var(--glow-mix), transparent);
+}
+
+/* The Chief of Staff's desk, pinned above the Directory. */
+.chief-slot {
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.chief-card {
+  align-items: center;
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+}
+
+.chief-card .face {
+  width: 56px;
+  height: 56px;
+}
+
+.chief-card-state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.chief-card-state > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chief-card-jobs {
+  font-size: var(--text-xs);
+  color: color-mix(in srgb, var(--lamp) 70%, var(--muted));
+}
+
+/* A line next to a face: two lines at most, anchored above the card, its tail toward the face. */
+.floor-bubble {
+  position: absolute;
+  left: var(--space-3);
+  bottom: calc(100% - var(--space-2));
+  z-index: 6;
+  display: grid;
+  gap: var(--space-2);
+  width: max-content;
+  max-width: min(340px, calc(100vw - 2 * var(--space-4)));
+  padding: 10px 14px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--panel-raised);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 26%, var(--line-strong)),
+    var(--shadow-float);
+  animation: floor-bubble-in 180ms var(--ease-out);
+}
+
+.floor-bubble[data-replying] {
+  width: min(340px, calc(100vw - 2 * var(--space-4)));
+}
+
+.floor-bubble::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background: var(--panel-raised);
+  border-right: 1px solid color-mix(in srgb, var(--accent) 26%, var(--line-strong));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 26%, var(--line-strong));
+  transform: rotate(45deg);
+  border-bottom-right-radius: 2px;
+}
+
+/* Near the top of the screen the bubble opens below the card, its tail up toward the face. */
+.floor-bubble[data-below] {
+  bottom: auto;
+  top: calc(100% - var(--space-2));
+  border-radius: 4px 14px 14px 14px;
+}
+
+.floor-bubble[data-below]::after {
+  bottom: auto;
+  top: -5px;
+  transform: rotate(-135deg);
+}
+
+@keyframes floor-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.floor-bubble-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.floor-bubble-gloss {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.floor-bubble-reply {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  transition:
+    color var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out);
+}
+
+.floor-bubble-reply:hover,
+.floor-bubble-reply:focus-visible {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line-strong));
+}
+
+.floor-bubble-reply kbd,
+.ambience-option kbd {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  padding: 0 5px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  color: var(--faint);
+}
+
+/* ── the quick side-thread (bubble and profile) ── */
+.side-thread {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.side-who {
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+  margin-right: 2px;
+}
+
+.side-you {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-you .side-who {
+  color: var(--muted);
+}
+
+/* The whole answer stays readable: a long one scrolls inside the bubble instead of being cut off. */
+.side-answer {
+  max-height: 9em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.side-typing::after {
+  content: '···';
+  letter-spacing: 2px;
+  color: var(--muted);
+  animation: side-typing 1.2s var(--ease-in-out) infinite;
+}
+
+@keyframes side-typing {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.side-error {
+  color: var(--blocked);
+  font-size: var(--text-xs);
+}
+
+.side-more {
+  justify-self: start;
+  font-size: var(--text-xs);
+}
+
+.side-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.side-input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  outline: none;
+}
+
+.side-input:focus {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--line-strong));
+}
+
+.side-send {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--lamp);
+  color: var(--lamp-ink);
+}
+
+.side-send:disabled {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--faint);
+}
+
+/* On a profile: the whole chat, under the primary action. */
+.side-thread:not([data-compact]) {
+  max-width: 560px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  background: var(--panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.side-log {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 280px;
+  overflow-y: auto;
+  font-size: var(--text-sm);
+}
+
+.side-line[data-from='owner'] {
+  color: var(--muted);
+}
+
+.side-line[data-from='owner'] .side-who {
+  color: var(--muted);
+}
+
+.side-line[data-status='pending'] {
+  opacity: 0.7;
+}
+
+/* ── Ambience: one small control in the Floor header ── */
+.ambience {
+  position: relative;
+  flex: none;
+}
+
+.ambience-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  transition:
+    color var(--dur-state) var(--ease-out),
+    border-color var(--dur-state) var(--ease-out);
+}
+
+.ambience-button:hover,
+.ambience-button[aria-expanded='true'] {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+.ambience-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  width: 280px;
+  padding: 6px;
+  border-radius: var(--radius-card);
+  background: var(--panel-raised);
+  box-shadow: var(--shadow-float);
+  animation: floor-bubble-in 140ms var(--ease-out);
+}
+
+.ambience-set {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ambience-legend {
+  padding: 6px 10px 4px;
+  color: var(--faint);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.ambience-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  column-gap: var(--space-2);
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.ambience-option:hover {
+  background: var(--panel-hover);
+}
+
+.ambience-option:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.ambience-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The chosen one wears the lamp: a filled dot, never colour alone (the words say it too). */
+.ambience-option::before {
+  content: '';
+  grid-row: 1;
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--faint);
+}
+
+.ambience-option[data-checked]::before {
+  border-color: var(--lamp);
+  background: var(--lamp);
+  box-shadow: 0 0 8px -1px color-mix(in srgb, var(--lamp) 70%, transparent);
+}
+
+.ambience-name {
+  grid-column: 2;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.ambience-line {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+
+@media (max-width: 767px) {
+  .floor-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .ambience-pop {
+    left: 0;
+    right: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floor-bubble,
+  .ambience-pop {
+    animation: none;
+  }
+  .side-typing::after {
+    animation: none;
+  }
+}
+
+/* Quiet hours: the chip says so, and one button lifts them for the rest of the night. */
+.ambience-button[data-quiet-hours] {
+  color: var(--ink);
+}
+
+.ambience-quiet {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px 10px 6px;
+  border-top: 1px solid var(--line);
+}
+
+.ambience-quiet-line {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.ambience-quiet-toggle {
+  justify-self: start;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--text-xs);
+}
+
+.ambience-quiet-toggle:hover {
+  border-color: var(--muted);
+}
+
+.ambience-quiet-toggle:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}

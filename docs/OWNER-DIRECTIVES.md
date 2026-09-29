@@ -36,6 +36,14 @@ The owner can text, talk (push-to-talk or voice notes) or hold a live voice conv
 - **Dark by default, everywhere.** The app and the landing page share one dark theme, with rich blacks, luminous per-agent accents and subtle glow. A light theme stays available as an option. Inside the app, dark stays calm and minimal.
 - **A flashy landing page.** The public marketing page is where bold motion, generated imagery and big typography belong. It uses generated images and shows the real coworker faces. It contains no fabricated testimonials, customer logos or metrics.
 - **Modern, hip knowledge workers.** Every lead and coworker has a contemporary name and the look of a modern creative or knowledge professional. The whole cast shares one editorial "staff photo shoot" art direction and stays diverse in gender and heritage.
+- **The Floor looks like a real office.** An interactive office view offers two modes:
+  - **Desk mode:** coworkers sit in office chairs at desks arranged in a floor plan, grouped by department or project.
+  - **Conference room mode:** coworkers sit around a meeting table. The owner can invite people in and talk to the room.
+
+  The office has windows with a city skyline, glass meeting rooms and ordinary office things: plants, a coffee bar, whiteboards, bookshelves, lamps and a lounge.
+  - Faces stay live and show each coworker's state.
+  - The owner can pan, zoom, hover (for passing-by lines) and click to talk.
+  - A list view (the Directory) remains the accessible alternative.
 - **Zero-config start.** Onboarding is a conversation with the chosen lead plus the match quiz. The app works keyless with the mock provider or local Ollama, and adding a provider key is one step.
 - **Obvious next action.** Every screen has one clear primary action. Advanced controls (grants, budgets, model policy) sit behind "More" or Settings.
 

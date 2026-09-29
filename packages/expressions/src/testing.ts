@@ -461,10 +461,14 @@ export function createFakeFace(clock: FakeClock): FakeFace {
   return { cues, biases, cue: (agentId, cue) => cues.push({ agentId, cue, at: clock.now() }), bias: (agentId, bias) => biases.push({ agentId, bias }) };
 }
 
-export interface FakeCaptions extends ReflexCaptionPort { shown: (Parameters<ReflexCaptionPort['show']>[0] & { at: number })[] }
+export interface FakeCaptions extends ReflexCaptionPort {
+  shown: (Parameters<ReflexCaptionPort['show']>[0] & { at: number })[];
+  cleared: { agentId: string; kind: Parameters<ReflexCaptionPort['clear']>[1]; at: number }[];
+}
 export function createFakeCaptions(clock: FakeClock): FakeCaptions {
   const shown: FakeCaptions['shown'] = [];
-  return { shown, show: (c) => shown.push({ ...c, at: clock.now() }), clear: () => undefined };
+  const cleared: FakeCaptions['cleared'] = [];
+  return { shown, cleared, show: (c) => shown.push({ ...c, at: clock.now() }), clear: (agentId, kind) => void cleared.push({ agentId, kind, at: clock.now() }) };
 }
 
 export interface FakeClips extends ClipStore {

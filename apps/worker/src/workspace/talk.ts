@@ -1,7 +1,9 @@
 import { callBudget, runTurn, type TurnResult } from '@headcount/agent-loop';
 import { fullIndex, catalogFull } from '@headcount/catalog/full';
+import { REACT_HINT_MAX_CHARS, humourOnly, maybeReactHintPrefix, parseReactHint, type AffectCues } from '@headcount/expressions';
 import { MissingProviderError, type ChatMessage, type ReasoningEffort, type Registry } from '@headcount/models';
-import { CHIEF_ID, ids, type Frame, type JobId, type JobSnapshot, type MessageId, type OpId, type TalkFinish, type TurnId, type UsageSummary, type WorkspaceSettings } from '@headcount/protocol';
+import { CHIEF_ID, ids, type AgentId, type Frame, type JobId, type JobSnapshot, type MessageId, type OpId, type TalkFinish, type TurnId, type UsageSummary, type WorkspaceSettings } from '@headcount/protocol';
+import type { ExprIntentId, ReactHint, TalkSurface } from '@headcount/protocol/ext/expressions';
 import { buildChiefSystemPrompt, honestyPolicyText } from './chief-prompt';
 import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
 import type { Feed } from './feed';
@@ -18,6 +20,20 @@ export const TALK_MAX_TOKENS = 900;
 /** Replies are short and must start fast (D2): think briefly. */
 export const TALK_EFFORT: ReasoningEffort = 'low';
 
+/** Where a turn's reflexes hook in (Inc 0.5, src/expr/host.ts): the filler safety net and acknowledgements. */
+export interface TurnReflexHooks {
+  /** The model turn started (arms the thinking-filler safety net unless the owner's cues rule it out). */
+  started(turnId: TurnId, via: 'voice' | 'text', cues?: AffectCues): void;
+  /** A server reflex (a filler, an acknowledgement) was already sent for this turn. */
+  spoke?(turnId: TurnId): boolean;
+  /** The first text delta was streamed (the filler is no longer needed). */
+  firstText(turnId: TurnId): void;
+  /** `start_background_job` succeeded in this turn. */
+  delegated(turnId: TurnId, jobId: string): void;
+  /** The turn is over (persisted or cut). */
+  ended(turnId: TurnId): void;
+}
+
 export interface TalkHost {
   feed: Feed;
   ledger: Ledger;
@@ -27,6 +43,8 @@ export interface TalkHost {
   /** False once a newer owner message has taken over (then this turn must not reset presence). */
   isCurrent(turnId: TurnId): boolean;
   now(): number;
+  /** Reflex hooks (optional: tests and older hosts run without them). */
+  reflexes?: TurnReflexHooks;
 }
 
 export interface TurnSpec {
@@ -35,17 +53,92 @@ export interface TurnSpec {
   ownerSeq: number;
   opId: OpId;
   signal: AbortSignal;
+  /** How the owner sent it (the filler safety net waits 1.2 s in voice, 2.5 s in text). */
+  via?: 'voice' | 'text';
+  /** The owner's words as the reflex layer read them: what the office already said aloud before this reply. */
+  cues?: AffectCues;
+}
+
+/** An offer of more work at the end of a reply ("Want me to…?"). */
+const OFFER_RE = /\b(want me to|should i|shall i|would you like me to|do you want me to|i can also)\b[^.?!]*\?/i;
+
+/**
+ * What the reflex layer already said aloud for this turn, as a note for the model (so it never laughs or
+ * acknowledges a second time), plus conversation-shape reminders drawn from the owner's cues and recent replies.
+ */
+export function turnNoteFor(cues: AffectCues | undefined, recentReplies: readonly string[]): string {
+  const notes: string[] = [];
+  if (cues?.sincereAi) notes.push('The owner is sincerely asking what you are: say plainly, first, that you are an AI.');
+  else if (cues?.distress) notes.push('The owner shared something hard. Answer with care first, briefly: no jokes, no cheerfulness, and no offer of work unless they ask.');
+  else if (cues && humourOnly(cues)) notes.push('The owner is joking, and the office already laughed or smiled aloud for you. Answer the joke in one short, light line: no laugh or "Ha" of your own, no steering back to work, no offer.');
+  else if (cues && (cues.request >= 0.6 || cues.stopOrSteer >= 0.6)) notes.push('A short acknowledgement ("got it") already played aloud for you: start straight with the substance, never with "On it", "Got it" or "Sure".');
+  if (recentReplies.slice(-2).some((r) => OFFER_RE.test(r))) notes.push('You offered more work in one of your last two replies: do not offer again in this one.');
+  const first = recentReplies.slice(-1)[0]?.trim().match(/^[\p{L}']+/u)?.[0];
+  if (first) notes.push(`Your last reply began with "${first}": begin this one differently.`);
+  return notes.length ? `## This turn\n${notes.map((n) => `- ${n}`).join('\n')}` : '';
+}
+
+/** Openers a reflex already covered: a laugh, an exclamation, an acknowledgement ("Ha,", "Ooh,", "On it —"). */
+const COVERED_OPENER = /^\s*(?:(?:ha(?:ha|h)?|heh|hah|ooh+|oh|on it|got it|sure|okay|ok|alright|copy|noted|will do|understood)(?:\s*[—–]\s*|\s+-\s+|[,.!:]+\s+))+/i;
+/** How much of a reply's head to hold before deciding (a few words; only when a reflex covered the turn). */
+const OPENER_HOLD_CHARS = 24;
+
+/**
+ * Removes a leading laugh or acknowledgement when a reflex already said one aloud for this turn (the model's
+ * "Ha, …" after the office's "Ha! You're funny."). The rest starts with a capital; a reply that is only the opener
+ * is kept as it is.
+ */
+export class CoveredOpenerFilter {
+  private head = '';
+  private done = false;
+
+  constructor(private readonly covered: () => boolean) {}
+
+  push(delta: string): string {
+    if (this.done) return delta;
+    this.head += delta;
+    if (this.head.length < OPENER_HOLD_CHARS && !/[.!?]\s+\S/.test(this.head.slice(1))) {
+      if (!this.covered()) return this.release(false);
+      return '';
+    }
+    return this.release(this.covered());
+  }
+
+  flush(): string {
+    return this.done ? '' : this.release(this.covered());
+  }
+
+  private release(strip: boolean): string {
+    this.done = true;
+    const head = this.head;
+    this.head = '';
+    if (!strip) return head;
+    const m = COVERED_OPENER.exec(head);
+    if (!m) return head;
+    const rest = head.slice(m[0].length);
+    if (!/\p{L}/u.test(rest)) return head;
+    return rest.charAt(0).toUpperCase() + rest.slice(1);
+  }
+}
+
+/** A frame of the Chief of Staff's own conversation: not a Floor quick-chat, not another agent's message. */
+export function isChiefConversation(f: Frame): boolean {
+  if (f.type === 'talk.owner') return f.data.surface !== 'floor' && (f.data.agentId === undefined || f.data.agentId === CHIEF_ID);
+  if (f.type === 'talk.message') return f.data.surface !== 'floor' && f.data.agentId === CHIEF_ID;
+  return false;
 }
 
 /**
  * Owner and Chief of Staff messages from the ledger → a provider transcript (starts with user, roles
  * alternate). A reply is placed right after the owner message of its own turn, so the transcript always
  * ends with what the owner said last even if a reply was persisted late. Announcements (no turn) keep
- * ledger order.
+ * ledger order. Floor quick-chats with coworkers (`surface: 'floor'`) and other agents' messages are not the
+ * Chief's conversation and are left out.
  */
 export function historyFromFrames(frames: Frame[], maxChars = HISTORY_CHARS): ChatMessage[] {
   const raw: { role: 'user' | 'assistant'; content: string; turnId: string | null }[] = [];
   for (const f of frames) {
+    if (!isChiefConversation(f)) continue;
     if (f.type === 'talk.owner') raw.push({ role: 'user', content: f.data.text, turnId: f.data.turnId });
     else if (f.type === 'talk.message' && f.data.text.trim()) {
       const entry = { role: 'assistant' as const, content: f.data.text, turnId: f.data.turnId };
@@ -126,6 +219,79 @@ export function closeTurn(feed: Feed, state: TurnState, finish: TalkFinish, usag
 }
 
 /**
+ * Close a phatic turn answered by a reflex (no model call): the line as `talk.message {kind:'reflex'}` and
+ * `talk.done {route:'reflex'}`, persisted in one transaction and then broadcast. Returns false when the turn was
+ * already closed (a newer message cut it).
+ */
+export function closeReflexTurn(
+  feed: Feed,
+  ledger: Ledger,
+  state: Pick<TurnState, 'turnId' | 'opId' | 'replyId' | 'text' | 'closed'>,
+  reply: { agentId: AgentId; text: string; intent: ExprIntentId; lineId: string; surface?: TalkSurface },
+): boolean {
+  if (state.closed) return false;
+  state.closed = true;
+  state.text = reply.text;
+  const { turnId, opId, replyId } = state;
+  const where = reply.surface === 'floor' ? { surface: 'floor' as const } : {};
+  const chief = reply.agentId === CHIEF_ID;
+  const frames = ledger.tx(() => [
+    ledger.append({
+      type: 'talk.message',
+      data: { turnId, messageId: replyId, agentId: reply.agentId, text: reply.text, kind: 'reflex', intent: reply.intent, lineId: reply.lineId, ...where },
+      actor: reply.agentId,
+      opId,
+    }),
+    ledger.append({
+      type: 'talk.done',
+      data: { turnId, messageId: replyId, finish: 'stop', route: 'reflex', ...(chief ? {} : { agentId: reply.agentId }), ...where },
+      actor: reply.agentId,
+      opId,
+    }),
+  ]);
+  for (const f of frames) feed.broadcast(f);
+  return true;
+}
+
+/**
+ * Streams a reply's head through the `⟦react:…⟧` parser (A10): the leading token, if any, is removed and its hint
+ * rides on the first non-empty delta. The token never reaches a delta, the persisted message, the history or TTS.
+ */
+export class ReactHintSplitter {
+  private head = '';
+  private done = false;
+  private hint: ReactHint | null = null;
+
+  /** Text to stream now (possibly '') and the hint to attach when this is the first non-empty delta. */
+  push(delta: string): { text: string; hint: ReactHint | null } {
+    if (this.done) return this.take(delta);
+    this.head += delta;
+    if (maybeReactHintPrefix(this.head) && this.head.length <= REACT_HINT_MAX_CHARS) return { text: '', hint: null };
+    return this.release();
+  }
+
+  /** End of stream: whatever is still buffered (a lone partial token is plain text). */
+  flush(): { text: string; hint: ReactHint | null } {
+    return this.done ? { text: '', hint: null } : this.release();
+  }
+
+  private release(): { text: string; hint: ReactHint | null } {
+    const { hint, rest } = parseReactHint(this.head);
+    this.done = true;
+    this.head = '';
+    this.hint = hint;
+    return this.take(rest);
+  }
+
+  private take(text: string): { text: string; hint: ReactHint | null } {
+    if (!text) return { text: '', hint: null };
+    const hint = this.hint;
+    this.hint = null;
+    return { text, hint };
+  }
+}
+
+/**
  * One Chief of Staff turn (the conversation loop). Streams `talk.delta`, persists one `talk.message`
  * and one `talk.done`. It reads live work state and calls quick ProjectDO RPCs through its tools, but
  * never waits for background work.
@@ -135,10 +301,33 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
   const { turnId, opId, signal } = spec;
   const { log } = state;
   feed.claim(CHIEF_ID, 'talk', { state: 'thinking', label: 'Thinking', causeSeq: spec.ownerSeq });
+  host.reflexes?.started(turnId, spec.via === 'voice' ? 'voice' : 'text', spec.cues);
 
   let newStep = false;
   let finish: TalkFinish = 'stop';
   let usage: UsageSummary | undefined;
+  const heads = new ReactHintSplitter();
+  // The office already laughed or acknowledged for this turn (the cues say a reflex was due, or the server sent one):
+  // the model's own "Ha," or "On it —" would be a second one.
+  const c = spec.cues;
+  const cueCovered = !!c && !c.sincereAi && !c.distress && (humourOnly(c) || c.request >= 0.6 || c.stopOrSteer >= 0.6);
+  const openers = new CoveredOpenerFilter(() => cueCovered || !!host.reflexes?.spoke?.(turnId));
+  let hintHeld: ReactHint | null = null;
+  let firstDelta = true;
+  const stream = (raw: string) => emit(heads.push(raw));
+  const emit = ({ text: raw, hint }: { text: string; hint: ReactHint | null }) => {
+    hintHeld ??= hint;
+    const text = state.text || !firstDelta ? raw : openers.push(raw);
+    if (!text) return;
+    hint = hintHeld;
+    hintHeld = null;
+    const delta = newStep && state.text.trim() ? `\n\n${text}` : text;
+    newStep = false;
+    state.text += delta;
+    if (firstDelta) host.reflexes?.firstText(turnId);
+    firstDelta = false;
+    feed.emit({ type: 'talk.delta', data: { turnId, messageId: state.replyId, agentId: CHIEF_ID, delta, ...(hint ? { hint } : {}) } });
+  };
 
   try {
     const settings = await host.settings();
@@ -160,9 +349,19 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
       }
       throw err;
     }
-    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()) });
-    const messages = historyFromFrames(host.ledger.recent(['talk.owner', 'talk.message'], HISTORY_MESSAGES));
-    const tools = createChiefTools({ project: host.project(), turnId, jobs: jobs ?? [], log, leadId: settings.leadId, chiefName: settings.chiefName });
+    // Floor quick-chats share the ledger: read more rows so the Chief still sees its own recent turns.
+    const messages = historyFromFrames(host.ledger.recent(['talk.owner', 'talk.message'], HISTORY_MESSAGES * 3).filter(isChiefConversation).slice(-HISTORY_MESSAGES));
+    const turnNote = turnNoteFor(spec.cues, messages.filter((m) => m.role === 'assistant').map((m) => (typeof m.content === 'string' ? m.content : '')));
+    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote });
+    const tools = createChiefTools({
+      project: host.project(),
+      turnId,
+      jobs: jobs ?? [],
+      log,
+      leadId: settings.leadId,
+      chiefName: settings.chiefName,
+      onDelegated: (jobId) => host.reflexes?.delegated(turnId, jobId),
+    });
 
     const result = await runTurn({
       provider: resolved.provider,
@@ -176,14 +375,16 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
       onEvent: (e) => {
         if (state.closed) return;
         if (e.type === 'step') newStep = true;
-        else if (e.type === 'text' && e.delta) {
-          const delta = newStep && state.text.trim() ? `\n\n${e.delta}` : e.delta;
-          newStep = false;
-          state.text += delta;
-          feed.emit({ type: 'talk.delta', data: { turnId, messageId: state.replyId, agentId: CHIEF_ID, delta } });
-        }
+        else if (e.type === 'text' && e.delta) stream(e.delta);
       },
     });
+    if (!state.closed) {
+      emit(heads.flush());
+      if (firstDelta) {
+        const rest = openers.flush();
+        if (rest) emit({ text: rest, hint: null });
+      }
+    }
     usage = { provider: resolved.providerId, input: result.usage.input, output: result.usage.output, usd: result.usage.usd };
     finish = talkFinish(result, state.text);
     // A model that acted but said nothing still owes the owner a sentence: use what the tools reported.
@@ -199,5 +400,6 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
   } finally {
     closeTurn(feed, state, finish, usage);
     if (host.isCurrent(turnId)) feed.claim(CHIEF_ID, 'talk', null);
+    host.reflexes?.ended(turnId);
   }
 }

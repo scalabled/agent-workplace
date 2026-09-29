@@ -8,6 +8,7 @@ import { Nav } from './components/Nav';
 import { closePalette, openPalette, Palette, paletteOpen } from './components/Palette';
 import { PttCaption } from './components/PttCaption';
 import { startClock } from './lib/time';
+import { startLiving } from './living';
 import { navigate, paths, route } from './router';
 import { CoworkerProfile } from './routes/CoworkerProfile';
 import { Floor } from './routes/Floor';
@@ -20,8 +21,9 @@ import { acceptSettings, applyFrame, capabilities, clearServerPresence, connecti
 import { draft } from './talk/draft';
 import { startUnread } from './ui/unread';
 import { bargeIn, chiefIsSpeaking, chiefSpeaker, startChiefVoice } from './voice/chief-voice';
-import { armAudio } from './voice/engine';
+import { armAudio, audio } from './voice/engine';
 import { cancelPtt, endPtt, ptt, pttMode, startPtt } from './voice/ptt';
+import { startSideVoice } from './voice/side-voice';
 import './styles/components.css';
 
 async function loadSettings(attempt = 0): Promise<void> {
@@ -55,6 +57,7 @@ function useBoot() {
     refreshCapabilities();
     void loadCatalog();
     const stopVoice = startChiefVoice();
+    const stopSideVoices = startSideVoice();
     const stopClock = startClock();
     const stopUnread = startUnread();
     let feed: Feed | null = null;
@@ -77,15 +80,23 @@ function useBoot() {
       },
       since: () => lastSeq.value,
     });
+    // The living workforce loads once the app is idle; its socket ops ride this feed.
+    const stopLiving = startLiving((op) => feed?.send(op));
     // The first gesture anywhere arms audio, so later announcements can be heard (X4: never before a gesture).
     const arm = () => armAudio();
     window.addEventListener('pointerdown', arm, { once: true, capture: true });
     window.addEventListener('keydown', arm, { once: true, capture: true });
-    // Dev builds only: e2e reads the store and the Chief of Staff's mouth (lip sync) through this hook.
-    if (import.meta.env.DEV) (window as unknown as { __headcount?: unknown }).__headcount = { store, applyFrame, chiefSpeaker };
+    // Dev builds only: e2e reads the store, the Chief of Staff's mouth (lip sync) and the audio engine (what is
+    // sounding, the owner's voice activity) through this hook.
+    if (import.meta.env.DEV) {
+      const w = window as unknown as { __headcount?: Record<string, unknown> };
+      w.__headcount = { ...(w.__headcount ?? {}), store, applyFrame, chiefSpeaker, audio };
+    }
     return () => {
+      stopLiving();
       feed?.close();
       stopVoice();
+      stopSideVoices();
       stopClock();
       stopUnread();
       window.removeEventListener('pointerdown', arm, { capture: true });

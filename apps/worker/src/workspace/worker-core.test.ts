@@ -8,7 +8,7 @@ import { handle } from '../index';
 import type { ProjectDO } from '../jobs/project-do';
 import { announceConfig } from './announce';
 import { defaultRuntime, runtime } from './runtime';
-import { WorkspaceDO } from './workspace-do';
+import { WorkspaceDO, defaultTalkTiming, talkTiming } from './workspace-do';
 
 const ANNOUNCE_TIMEOUT = announceConfig.timeoutMs;
 afterEach(() => {
@@ -166,7 +166,7 @@ describe('talk (conversation loop)', () => {
     const s = await setup();
     const requests = useProvider();
     await s.talk('Can you look into office chairs under $500 for me?');
-    await s.talk('thanks');
+    await s.talk('What else is on today?');
     const system = requests.at(-1)!.system!;
     expect(system).toContain('You are Rosa');
     expect(system).toContain('Ben Addo');
@@ -175,7 +175,7 @@ describe('talk (conversation loop)', () => {
     expect(system).toContain('“Office chairs under $500” — running, planning; now: Making a plan for “Office chairs under $500”');
   });
 
-  it('lets a newer owner message pre-empt a reply that is still streaming', async () => {
+  it('lets a newer owner message spoken over a reply pre-empt it while it is still streaming (barge-in)', async () => {
     const s = await setup();
     // The first reply streams a few words, then stalls until the second message arrives.
     const hold = gate();
@@ -191,7 +191,7 @@ describe('talk (conversation loop)', () => {
     });
     const a = await s.api('POST', '/api/talk', { text: 'tell me a long story', opId: 'op_a' });
     await new Promise((r) => setTimeout(r, 0));
-    const b = await s.api('POST', '/api/talk', { text: 'look into standing desks', opId: 'op_b' });
+    const b = await s.api('POST', '/api/talk', { text: 'look into standing desks', opId: 'op_b', via: 'voice' });
     hold.open();
     await s.t.ctx.drain();
     const done = (await s.ofType('talk.done')).map((f) => f.data);
@@ -219,9 +219,74 @@ describe('talk (conversation loop)', () => {
     expect(reply.data.turnId).toBe(b.body.turnId);
   });
 
+  it('lets a reply still streaming finish writing when the owner types a follow-up (the rest stays on screen)', async () => {
+    const s = await setup();
+    const hold = gate();
+    const requests = useProvider({
+      stream: (req) =>
+        req.messages.at(-1)?.content === 'tell me a long story'
+          ? (async function* () {
+              yield { type: 'text', delta: 'Once upon a time' } as ModelEvent;
+              await hold.opened;
+              yield { type: 'text', delta: ', there was a candle shop.' } as ModelEvent;
+              yield { type: 'done', finish: req.signal?.aborted ? 'cancelled' : 'stop' } as ModelEvent;
+            })()
+          : null,
+    });
+    const a = await s.api('POST', '/api/talk', { text: 'tell me a long story', opId: 'op_a' });
+    await new Promise((r) => setTimeout(r, 0));
+    const b = await s.api('POST', '/api/talk', { text: 'Oh wait, also, what about a candle subscription box?', opId: 'op_b' });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(requests).toHaveLength(1); // the next answer waits for the first to finish writing
+    hold.open();
+    await s.t.ctx.drain();
+    const done = (await s.ofType('talk.done')).map((f) => [f.data.turnId, f.data.finish]);
+    expect(done).toEqual([
+      [a.body.turnId, 'stop'],
+      [b.body.turnId, 'stop'],
+    ]);
+    const first = (await s.ofType('talk.message')).find((m) => m.data.turnId === a.body.turnId)!;
+    expect(first.data.text).toBe('Once upon a time, there was a candle shop.');
+    // The follow-up's model call sees the whole first answer.
+    expect(requests[1]!.messages.at(-2)).toEqual({ role: 'assistant', content: 'Once upon a time, there was a candle shop.' });
+  });
+
+  it('cuts a reply that is still writing after PREVIOUS_FINISH_MAX_MS when the owner typed a follow-up', async () => {
+    const s = await setup();
+    const hold = gate();
+    useProvider({
+      stream: (req) =>
+        req.messages.at(-1)?.content === 'tell me a long story'
+          ? (async function* () {
+              yield { type: 'text', delta: 'Once upon a time' } as ModelEvent;
+              await Promise.race([hold.opened, new Promise((r) => req.signal?.addEventListener('abort', r))]);
+              yield { type: 'done', finish: req.signal?.aborted ? 'cancelled' : 'stop' } as ModelEvent;
+            })()
+          : null,
+    });
+    expect(defaultTalkTiming.previousFinishMaxMs).toBeLessThanOrEqual(8000);
+    talkTiming.previousFinishMaxMs = 30;
+    try {
+      const a = await s.api('POST', '/api/talk', { text: 'tell me a long story', opId: 'op_a' });
+      await new Promise((r) => setTimeout(r, 0));
+      const b = await s.api('POST', '/api/talk', { text: 'and a second thing', opId: 'op_b' });
+      await new Promise((r) => setTimeout(r, 80));
+      await s.t.ctx.drain();
+      const done = (await s.ofType('talk.done')).map((f) => [f.data.turnId, f.data.finish]);
+      expect(done).toEqual([
+        [a.body.turnId, 'cancelled'],
+        [b.body.turnId, 'stop'],
+      ]);
+      expect((await s.ofType('talk.message')).find((m) => m.data.turnId === a.body.turnId)!.data.text).toBe('Once upon a time');
+    } finally {
+      Object.assign(talkTiming, defaultTalkTiming);
+      hold.open();
+    }
+  });
+
   it('names the missing keys when no chat provider is configured', async () => {
     const s = await setup({ ENABLE_MOCK: 'false', DEFAULT_CHAT: 'auto' });
-    await s.talk('hello');
+    await s.talk('What should I focus on today?');
     const err = s.live.find((f): f is Extract<Frame, { type: 'error' }> => f.type === 'error');
     expect(err?.data.code).toBe('not_configured');
     expect(err?.data.missingKeys?.length).toBeGreaterThan(0);
@@ -249,8 +314,8 @@ describe('talk (conversation loop)', () => {
 
   it('answers 429 naming CHAT_DAILY_LIMIT when today\'s turns are used up', async () => {
     const s = await setup({ CHAT_DAILY_LIMIT: '1' });
-    expect((await s.talk('hello')).status).toBe(202);
-    const second = await s.talk('hello again');
+    expect((await s.talk('What should I focus on today?')).status).toBe(202);
+    const second = await s.talk('And after that?');
     expect(second.status).toBe(429);
     expect(second.body.error).toMatchObject({ code: 'rate_limited', message: expect.stringContaining('CHAT_DAILY_LIMIT') });
     expect(await s.ofType('talk.owner')).toHaveLength(1);

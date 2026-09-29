@@ -1,3 +1,4 @@
+import type { ViewerOp } from '@headcount/protocol/ext/expressions';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PING_MS, PONG_TIMEOUT_MS, RESUME_IDLE_MS, RESUME_RETRY_MS, connectFeed } from './ws';
 
@@ -56,6 +57,21 @@ describe('connectFeed', () => {
     expect(FakeSocket.all).toHaveLength(1);
     vi.advanceTimersByTime(1);
     expect(FakeSocket.all[1]!.url).toBe('ws://x/api/ws?since=12');
+    feed.close();
+  });
+
+  it('send() queues ops until the socket opens (latest per op) and sends at once while open', () => {
+    const feed = connectFeed({ url: () => 'ws://x', since: () => 0, onFrame: () => undefined, WebSocketImpl: FakeSocket as unknown as typeof WebSocket });
+    const sock = FakeSocket.all[0]!;
+    const viewer = (surface: 'talk' | 'floor'): ViewerOp => ({ op: 'viewer', surface, stageAgentId: null, floorVisible: false, visibleProjectIds: [], listeningProjectIds: [], audioArmed: false, voiceOn: true, pageVisible: true, reducedMotion: false, quietHours: false, tzOffsetMin: 0, voice: null });
+    feed.send(viewer('talk'));
+    feed.send(viewer('floor'));
+    feed.send({ op: 'expr.recent', agents: {} });
+    expect(sock.sent).toEqual([]);
+    sock.open();
+    expect(sock.sent.map((m) => JSON.parse(m) as { op: string; surface?: string }).map((m) => m.surface ?? m.op)).toEqual(['floor', 'expr.recent']);
+    feed.send(viewer('talk'));
+    expect(JSON.parse(sock.sent.at(-1)!)).toMatchObject({ op: 'viewer', surface: 'talk' });
     feed.close();
   });
 

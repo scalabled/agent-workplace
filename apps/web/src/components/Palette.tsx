@@ -1,12 +1,14 @@
 // ⌘K: go to a place or a coworker, or flip a setting. It navigates and toggles; it never approves.
 import { signal } from '@preact/signals';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { AMBIENCES, ambienceOf } from '@headcount/protocol/ext/expressions';
 import { catalog, loadCatalog } from '../catalog';
 import { chiefName } from '../chief';
 import { setTheme, theme } from '../lib/theme';
 import { navigate, paths } from '../router';
 import { onboarded, settings } from '../store';
-import { setVoiceOn } from '../talk/actions';
+import { setAmbience, setVoiceOn } from '../talk/actions';
+import { AMBIENCE_LABEL, AMBIENCE_LINE } from './AmbienceControl';
 import { Icon, type IconName } from './Icon';
 
 export const paletteOpen = signal(false);
@@ -74,6 +76,20 @@ function useItems(): PaletteItem[] {
     if (t !== 'dark') items.push({ id: 'set:dark', label: 'Use dark theme', group: 'Settings', icon: 'moon', keywords: 'night theme appearance', run: () => setTheme('dark') });
     if (t !== 'light') items.push({ id: 'set:light', label: 'Use light theme', group: 'Settings', icon: 'sun', keywords: 'day theme appearance', run: () => setTheme('light') });
     if (t !== 'system') items.push({ id: 'set:system', label: 'Match system theme', group: 'Settings', icon: 'sun', keywords: 'auto theme appearance', run: () => setTheme('system') });
+    if (s && onboarded.value) {
+      // Ambience (LIVING-WORKFORCE §9.1): how much the office chatters. The current one is marked.
+      const current = ambienceOf(s);
+      for (const a of AMBIENCES)
+        items.push({
+          id: `set:ambience:${a}`,
+          label: `Ambience: ${AMBIENCE_LABEL[a]}`,
+          hint: a === current ? `Current · ${AMBIENCE_LINE[a]}` : AMBIENCE_LINE[a],
+          group: 'Settings',
+          icon: a === current ? 'check' : 'ambience',
+          keywords: 'chatter quiet lively buzzing noise bubbles hello',
+          run: () => void setAmbience(a),
+        });
+    }
     for (const p of c?.catalog.personas ?? []) {
       items.push({ id: `cw:${p.id}`, label: p.name, hint: p.title, group: 'Coworkers', icon: 'user', keywords: `${c?.department(p.department)?.name ?? ''} ${p.handle}`, run: go(paths.coworker(p.id)) });
     }

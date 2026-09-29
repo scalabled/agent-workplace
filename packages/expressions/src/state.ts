@@ -147,6 +147,9 @@ export function ownerToneOf(cues: AffectCues): OwnerTone {
 /** A real question, not a request phrased as one ("Can you draft…?" is a request): E4 `owner_question`. */
 export const isOwnerQuestion = (cues: AffectCues): boolean => cues.question && cues.request < 0.6 && cues.stopOrSteer < 0.6;
 
+/** The owner asked for something (a question or a request): upbeat "ooh, a puzzle" fillers require it (E4 `owner_asks`). */
+export const isOwnerAsk = (cues: AffectCues): boolean => cues.question || cues.request >= 0.6;
+
 /** True when a step label reads as a gerund phrase ("reading 14 reports"), so "Still {step_label}" is grammatical (E23). */
 export function isGerundLabel(label: string | null | undefined): boolean {
   const first = String(label ?? '').trim().split(/\s+/)[0]?.toLowerCase().replace(/[^a-z'-]/g, '') ?? '';
@@ -189,6 +192,7 @@ export function deriveContexts(state: GroundingState): ReadonlySet<string> {
   }
   if ((h?.winsToday ?? 0) >= 3) c.add('streak');
   if ((h?.unseenUpdates ?? 0) > 0) c.add('has_updates');
+  if (h?.distressThisSession) c.add('after_distress');
   const x = state.exchange;
   if (x?.mode === 'voice') c.add('voice_mode');
   if (x?.mode === 'text') c.add('text_mode');
@@ -200,6 +204,7 @@ export function deriveContexts(state: GroundingState): ReadonlySet<string> {
   const cues = x?.cues;
   if (cues) {
     if (isOwnerQuestion(cues)) c.add('owner_question');
+    if (isOwnerAsk(cues)) c.add('owner_asks');
     if (cues.praise >= 0.6) c.add('owner_praise');
     if (cues.gratitude >= 0.6) c.add('owner_gratitude');
     if ((cues.selfDoubt ?? 0) >= 0.6) c.add('owner_self_doubt');

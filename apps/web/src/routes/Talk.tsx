@@ -12,10 +12,11 @@ import { Deliverable, JobRow } from '../components/JobRow';
 import { Markdown } from '../components/Markdown';
 import { useHoldToTalk } from '../components/useHoldToTalk';
 import { ago, now } from '../lib/time';
+import { bubbles, liveCaptions } from '../living/captions';
 import { navigate, paths } from '../router';
 import { activeJobs, can, chiefPresence, connection, dismissThreadItem, jobList, jobs, onboarded, settings, thread, type ThreadItem } from '../store';
 import { retryOwnerMessage, sendOwnerMessage, setVoiceOn } from '../talk/actions';
-import { draft, focusComposer, greetOnArrival, prefillComposer } from '../talk/draft';
+import { draft, focusComposer, greetedThisSession, greetOnArrival, prefillComposer } from '../talk/draft';
 import { notice } from '../ui/notice';
 import { bargeIn, chiefIsSpeaking, chiefSpeaker } from '../voice/chief-voice';
 import { armAudio, audioSupport } from '../voice/engine';
@@ -69,6 +70,7 @@ export function Talk() {
   useEffect(() => {
     if (!lead || !greetOnArrival.value) return;
     greetOnArrival.value = false;
+    greetedThisSession.value = true; // no second hello from the living layer this session
     if (settings.value?.voiceOn) chiefSpeaker.say(greeting, 'greeting');
   }, [lead?.id]);
 
@@ -114,8 +116,9 @@ function TalkHead() {
         aria-label={`${name}, ${words}${running > 0 ? `, ${running === 1 ? '1 job' : `${running} jobs`} running` : ''}.${shown.state === 'speaking' ? ' Tap to stop.' : ''}${canHold ? ' Hold to speak.' : ''}`}
         {...handlers}
       >
-        <Face subject={leadSubject(lead, name)} tier="hero" state={shown.state} sampler={chiefSpeaker.mouth} class="talk-face" decorative />
+        <Face subject={leadSubject(lead, name)} tier="hero" state={shown.state} sampler={chiefSpeaker.mouth} class="talk-face" agentId={CHIEF_ID} decorative />
       </button>
+      <FaceBubble />
       <div class="talk-id">
         <h1 id="talk-title">{name}</h1>
         <p class="talk-state" data-state={shown.state}>
@@ -125,6 +128,7 @@ function TalkHead() {
             {running > 0 && ` · ${running === 1 ? '1 job' : `${running} jobs`} running`}
           </span>
         </p>
+        <LiveCaption name={name} />
       </div>
       {canSpeak && (
         <button
@@ -142,6 +146,36 @@ function TalkHead() {
         </button>
       )}
     </header>
+  );
+}
+
+/**
+ * The live caption line (LIVING-WORKFORCE §9.4, L6): every voiced micro-utterance, in a lighter "reaction" style
+ * ("Joy: mm-hm"). Never aria-live: micro-talk is not announced (EXPERIENCE §9.2).
+ */
+function LiveCaption({ name }: { name: string }) {
+  const c = liveCaptions.value[CHIEF_ID];
+  if (!c) return null;
+  return (
+    <p class="live-caption" data-testid="live-caption" data-kind={c.kind} key={c.id}>
+      <span class="live-caption-who">{name}:</span> {c.text}
+      {c.gloss && <span class="live-caption-gloss"> ({c.gloss})</span>}
+    </p>
+  );
+}
+
+/**
+ * A small bubble under the face: text-mode fillers ("one sec…") and anything else said in a bubble here, except
+ * words the transcript already shows (a reflex reply such as "Anytime." is a message too).
+ */
+function FaceBubble() {
+  const b = bubbles.value[CHIEF_ID];
+  if (!b?.text) return null;
+  if (thread.value.slice(-3).some((m) => m.from === CHIEF_ID && m.text.trim() === b.text)) return null;
+  return (
+    <p class="talk-face-bubble" data-testid="face-bubble" data-agent-id={CHIEF_ID} key={b.id}>
+      {b.text}
+    </p>
   );
 }
 
@@ -389,9 +423,8 @@ function Composer({ name }: { name: string }) {
           placeholder={mode && !coarsePointer() ? `Message ${name}, or hold Space to talk` : `Message ${name}`}
           autoComplete="off"
           onInput={(e) => {
+            // Typing no longer stops their voice (X5 amended, LIVING-WORKFORCE §2.3): sending decides.
             draft.value = e.currentTarget.value;
-            // Typing while they talk is a barge-in (X5).
-            if (chiefIsSpeaking()) bargeIn();
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {

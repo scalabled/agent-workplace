@@ -1,9 +1,16 @@
-// Owner commands: send (optimistic, idempotent by opId), retry, steer and stop jobs, voice on/off.
-import { ids, TALK_MAX_CHARS, type OpId, type UpdateWorkspaceRequest } from '@headcount/protocol';
+// Owner commands: send (optimistic, idempotent by opId), retry, steer and stop jobs, voice on/off, Ambience, and
+// the Floor quick-chat with a coworker.
+import { CHIEF_ID, coworkerAgentId, ids, TALK_MAX_CHARS, type OpId, type UpdateWorkspaceRequest } from '@headcount/protocol';
+import type { Ambience } from '@headcount/protocol/ext/expressions';
 import { api, ApiError } from '../api/client';
-import { addPendingOwner, markOwnerAccepted, markOwnerFailed, markOwnerRetrying, settings, type ThreadItem } from '../store';
+import { beginSend, livingOwnerTurn, livingSendDecision, livingSetAmbience } from '../living';
+import { addPendingOwner, addPendingSide, markOwnerAccepted, markOwnerFailed, markOwnerRetrying, markSideAccepted, markSideFailed, settings, type ThreadItem } from '../store';
 import { showNotice } from '../ui/notice';
-import { bargeIn } from '../voice/chief-voice';
+import { bargeIn, stopChiefAtBoundary } from '../voice/chief-voice';
+import { stopSideVoice } from '../voice/side-voice';
+
+/** A Floor quick-chat message is short (the worker answers 413 over this). */
+export const DESK_MAX_CHARS = 2000;
 
 /** One plain sentence with its fix (X8). Never provider JSON. */
 export function errorSentence(err: unknown): string {
@@ -14,28 +21,71 @@ export function errorSentence(err: unknown): string {
   return 'Could not reach Headcount. Check that it is running, then try again.';
 }
 
-async function deliver(opId: OpId, text: string, via: 'text' | 'voice'): Promise<boolean> {
+async function deliver(opId: OpId, text: string, via: 'text' | 'voice', at = Date.now()): Promise<boolean> {
+  const settle = beginSend();
   try {
-    markOwnerAccepted(await api.talk(text, via, opId));
+    const accepted = await api.talk(text, via, opId);
+    markOwnerAccepted(accepted);
+    // The living layer's clock for this turn starts when the owner finished, not when the 202 came back.
+    livingOwnerTurn({ agentId: CHIEF_ID, turnId: accepted.turnId, at, mode: via, text });
     return true;
   } catch (err) {
     markOwnerFailed(opId, errorSentence(err));
     return false;
+  } finally {
+    settle();
   }
 }
 
-/** Send a message to the Chief of Staff. Shown at once; the reply streams in over the feed. */
-export async function sendOwnerMessage(text: string, via: 'text' | 'voice' = 'text'): Promise<boolean> {
+/**
+ * Send a message to the Chief of Staff. Shown at once; the reply streams in over the feed. `at`: when the owner
+ * finished (the push-to-talk release for voice).
+ *
+ * Sending while they speak (LIVING-WORKFORCE §2.3): a stop or steer, or more than 8 s left, ends their reply at
+ * the sentence boundary; otherwise it finishes and the new answer follows (with "hold that thought" when 2.5–8 s
+ * are left). Without the living layer the voice stops at once, as before.
+ */
+export async function sendOwnerMessage(text: string, via: 'text' | 'voice' = 'text', opts: { at?: number; opId?: OpId } = {}): Promise<boolean> {
   const t = text.trim();
   if (!t) return false;
   if (t.length > TALK_MAX_CHARS) {
     showNotice(`Keep messages under ${TALK_MAX_CHARS.toLocaleString()} characters.`, 'error');
     return false;
   }
-  bargeIn();
-  const opId = ids.op();
+  const at = opts.at ?? Date.now();
+  const decision = livingSendDecision(CHIEF_ID, t);
+  if (decision === null) bargeIn();
+  else if (decision === 'boundary') stopChiefAtBoundary();
+  const opId = opts.opId ?? ids.op();
   addPendingOwner(opId, t, via);
-  return deliver(opId, t, via);
+  return deliver(opId, t, via, at);
+}
+
+/** A Floor quick-chat message to a catalog coworker; their reply streams into the bubble (and their profile). */
+export async function sendDeskMessage(personaId: string, text: string, opts: { opId?: OpId } = {}): Promise<boolean> {
+  const t = text.trim();
+  if (!t) return false;
+  if (t.length > DESK_MAX_CHARS) {
+    showNotice(`Keep quick messages under ${DESK_MAX_CHARS.toLocaleString()} characters.`, 'error');
+    return false;
+  }
+  const agentId = coworkerAgentId(personaId);
+  stopSideVoice(agentId); // a new message cuts their reply (the worker does the same with its text)
+  const opId = opts.opId ?? ids.op();
+  const at = Date.now();
+  addPendingSide(agentId, opId, t);
+  const settle = beginSend();
+  try {
+    const accepted = await api.deskSay(personaId, t, opId);
+    markSideAccepted(agentId, accepted);
+    livingOwnerTurn({ agentId, turnId: accepted.turnId, at, mode: 'text', text: t });
+    return true;
+  } catch (err) {
+    markSideFailed(agentId, opId, errorSentence(err));
+    return false;
+  } finally {
+    settle();
+  }
 }
 
 /** Retry a failed message with the same opId (the server treats it as the same command). */
@@ -82,4 +132,11 @@ export async function updateSettings(patch: UpdateWorkspaceRequest): Promise<boo
 export function setVoiceOn(on: boolean): Promise<boolean> {
   if (!on) bargeIn();
   return updateSettings({ voiceOn: on });
+}
+
+/** Quiet · Lively · Buzzing: how much the office chatters (LIVING-WORKFORCE §9.1). */
+export async function setAmbience(a: Ambience): Promise<boolean> {
+  const ok = await updateSettings({ ambience: a });
+  if (ok) livingSetAmbience(a);
+  return ok;
 }

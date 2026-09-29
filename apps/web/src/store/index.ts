@@ -16,6 +16,7 @@ import {
   type TurnId,
   type WorkspaceSettings,
 } from '@headcount/protocol';
+import type { DeskSayAccepted } from '@headcount/protocol/ext/expressions';
 import type { FeedStatus } from '../api/ws';
 
 export type ThreadFrom = 'owner' | AgentId | 'system';
@@ -28,7 +29,7 @@ export interface ThreadItem {
   text: string;
   /** True while talk.delta frames are still arriving. */
   streaming: boolean;
-  kind?: 'reply' | 'announcement' | 'status' | 'error';
+  kind?: 'reply' | 'announcement' | 'status' | 'reflex' | 'error';
   jobId?: JobId;
   via?: 'text' | 'voice';
   opId?: OpId;
@@ -42,6 +43,13 @@ export interface ThreadItem {
 }
 
 export const settings = signal<WorkspaceSettings | null>(null);
+/**
+ * Floor quick-chats per coworker agent id (Inc 0.5): talk.* frames with `surface: 'floor'` (or an owner message
+ * addressed to someone else) land here, never in `thread`. The Talk transcript is the Chief of Staff's alone.
+ */
+export const sideThreads = signal<Record<string, ThreadItem[]>>({});
+/** Bumped on every `ready` frame (each (re)connect): the living layer re-sends its viewer state then. */
+export const feedEpoch = signal(0);
 export const capabilities = signal<CapabilitiesResponse | null>(null);
 export const connection = signal<FeedStatus>('connecting');
 /** Highest persisted seq applied from the owner feed. */
@@ -121,7 +129,26 @@ export function clearServerPresence(): void {
 function upsertThread(item: ThreadItem, match?: (m: ThreadItem) => boolean) {
   const list = thread.value;
   const i = list.findIndex((m) => m.messageId === item.messageId || (match?.(m) ?? false));
-  thread.value = i < 0 ? [...list, item] : list.map((m, j) => (j === i ? { ...m, ...item } : m));
+  if (i >= 0) {
+    thread.value = list.map((m, j) => (j === i ? { ...m, ...item } : m));
+    return;
+  }
+  // A reply lands with its own turn: one that finished writing after the owner's next message (a typed follow-up
+  // or a "thanks" never cuts it) sits right after its turn, live and in a replayed thread alike.
+  if (item.from !== 'owner' && item.turnId) {
+    let at = -1;
+    for (let j = list.length - 1; j >= 0; j--) {
+      if (list[j]!.turnId === item.turnId) {
+        at = j;
+        break;
+      }
+    }
+    if (at >= 0 && at < list.length - 1) {
+      thread.value = [...list.slice(0, at + 1), item, ...list.slice(at + 1)];
+      return;
+    }
+  }
+  thread.value = [...list, item];
 }
 
 function patchThread(messageId: string, patch: Partial<ThreadItem>) {
@@ -197,8 +224,91 @@ export function resetFeedState(): void {
   lastSeq.value = 0;
   replayThrough.value = 0;
   thread.value = thread.value.filter((m) => m.from === 'owner' && m.status !== undefined);
+  const side: Record<string, ThreadItem[]> = {};
+  for (const [id, list] of Object.entries(sideThreads.value)) {
+    const keep = list.filter((m) => m.from === 'owner' && m.status !== undefined);
+    if (keep.length) side[id] = keep;
+  }
+  sideThreads.value = side;
   jobs.value = {};
   presence.value = {};
+}
+
+// ── Floor quick-chats ───────────────────────────────────────────────────────────
+function upsertSide(agentId: string, item: ThreadItem, match?: (m: ThreadItem) => boolean) {
+  const list = sideThreads.value[agentId] ?? [];
+  const i = list.findIndex((m) => m.messageId === item.messageId || (match?.(m) ?? false));
+  const next = i < 0 ? [...list, item] : list.map((m, j) => (j === i ? { ...m, ...item } : m));
+  sideThreads.value = { ...sideThreads.value, [agentId]: next };
+}
+
+function patchSide(agentId: string, pred: (m: ThreadItem) => boolean, patch: Partial<ThreadItem>) {
+  const list = sideThreads.value[agentId];
+  if (!list?.some(pred)) return;
+  sideThreads.value = { ...sideThreads.value, [agentId]: list.map((m) => (pred(m) ? { ...m, ...patch } : m)) };
+}
+
+/** Optimistic Floor quick-chat message (reconciled by opId when the echo arrives). */
+export function addPendingSide(agentId: string, opId: OpId, text: string): void {
+  upsertSide(agentId, { messageId: localId(opId), turnId: null, from: 'owner', text, streaming: false, via: 'text', opId, status: 'pending', ts: new Date().toISOString() });
+}
+
+/** 202 from POST /api/desk/:personaId/say. */
+export function markSideAccepted(agentId: string, accepted: DeskSayAccepted): void {
+  const list = sideThreads.value[agentId] ?? [];
+  const item = list.find((m) => m.messageId === localId(accepted.opId));
+  if (!item) return;
+  if (list.some((m) => m.messageId === accepted.messageId)) sideThreads.value = { ...sideThreads.value, [agentId]: list.filter((m) => m !== item) };
+  else patchSide(agentId, (m) => m === item, { messageId: accepted.messageId, turnId: accepted.turnId, status: undefined, error: undefined });
+}
+
+export function markSideFailed(agentId: string, opId: OpId, message: string): void {
+  patchSide(agentId, (m) => m.opId === opId && m.from === 'owner' && m.status !== undefined, { status: 'failed', error: message });
+}
+
+/** A talk.* frame that belongs to a Floor quick-chat, and the coworker it is with. */
+function floorAgent(frame: Frame): string | null {
+  switch (frame.type) {
+    case 'talk.owner':
+      return frame.data.surface === 'floor' || (frame.data.agentId && frame.data.agentId !== CHIEF_ID) ? (frame.data.agentId ?? null) : null;
+    case 'talk.delta':
+    case 'talk.message':
+      return frame.data.surface === 'floor' ? frame.data.agentId : null;
+    case 'talk.done':
+      return frame.data.surface === 'floor' || (frame.data.agentId && frame.data.agentId !== CHIEF_ID) ? (frame.data.agentId ?? null) : null;
+    default:
+      return null;
+  }
+}
+
+function reduceSide(agentId: string, frame: Frame): void {
+  switch (frame.type) {
+    case 'talk.owner':
+      upsertSide(
+        agentId,
+        { messageId: frame.data.messageId, turnId: frame.data.turnId, from: 'owner', text: frame.data.text, streaming: false, via: frame.data.via, ...(frame.opId ? { opId: frame.opId } : {}), status: undefined, error: undefined, ts: frame.ts },
+        (m) => !!frame.opId && m.opId === frame.opId && m.from === 'owner',
+      );
+      break;
+    case 'talk.delta': {
+      const cur = sideThreads.value[agentId]?.find((m) => m.messageId === frame.data.messageId);
+      if (cur && !cur.streaming) break;
+      upsertSide(agentId, { messageId: frame.data.messageId, turnId: frame.data.turnId, from: frame.data.agentId, text: (cur?.text ?? '') + frame.data.delta, streaming: true, kind: 'reply', ts: cur?.ts ?? frame.ts });
+      break;
+    }
+    case 'talk.message':
+      upsertSide(agentId, { messageId: frame.data.messageId, turnId: frame.data.turnId, from: frame.data.agentId, text: frame.data.text, streaming: false, kind: frame.data.kind, ts: frame.ts });
+      break;
+    case 'talk.done': {
+      const cancelled = frame.data.finish === 'cancelled';
+      patchSide(agentId, (m) => m.turnId === frame.data.turnId && m.streaming, { streaming: false, ...(cancelled ? { interrupted: true } : {}) });
+      const agent = presence.value[agentId];
+      if (agent?.state === 'thinking') presence.value = { ...presence.value, [agentId]: { ...agent, state: 'idle', label: '' } };
+      break;
+    }
+    default:
+      break;
+  }
 }
 
 export type ApplyResult = 'applied' | 'ignored' | 'resync';
@@ -215,6 +325,7 @@ export function applyFrame(frame: Frame): ApplyResult {
       return 'resync';
     }
     replayThrough.value = frame.data.lastSeq;
+    feedEpoch.value++;
     return 'applied';
   }
   if (frame.seq !== undefined) {
@@ -234,6 +345,8 @@ export function applyFrame(frame: Frame): ApplyResult {
 }
 
 function reduce(frame: Frame, live: boolean): void {
+  const side = floorAgent(frame);
+  if (side) return reduceSide(side, frame);
   switch (frame.type) {
     case 'talk.owner':
       upsertThread(
@@ -264,6 +377,7 @@ function reduce(frame: Frame, live: boolean): void {
       if (id) patchThread(id, { streaming: false, ...(frame.data.finish === 'cancelled' ? { interrupted: true } : {}) });
       // Any other half-streamed message of this turn stops streaming too.
       thread.value = thread.value.map((m) => (m.turnId === frame.data.turnId && m.streaming ? { ...m, streaming: false, interrupted: frame.data.finish === 'cancelled' || m.interrupted } : m));
+      // The Chief of Staff's turn is over (a coworker's quick-chat never resets the Chief's face).
       const chief = presence.value[CHIEF_ID];
       if (chief?.state === 'thinking') presence.value = { ...presence.value, [CHIEF_ID]: { ...chief, state: 'idle', label: '' } };
       break;

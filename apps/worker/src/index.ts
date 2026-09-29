@@ -1,10 +1,12 @@
-// Headcount worker router (integrator-owned). Every Inc 0 route in @headcount/protocol ROUTES is registered
+// Headcount worker router (integrator-owned). Every route in @headcount/protocol ROUTES is registered
 // here to a handler in its owner's directory; the Record<RouteId, …> type makes a missing handler a type error.
 import { MissingProviderError, ProviderError, createRegistry, type Registry } from '@headcount/models';
 import { LandmarksError, ROUTES, matchRoute, type RouteDef, type RouteId } from '@headcount/protocol';
 import type { Env } from './env';
 import { handleCancelJob, handleGetJob, handleListJobs, handleSteerJob } from './jobs/routes';
 import { handleHealth } from './lib/health';
+import { handleDeskSay } from './desk/routes';
+import { handleExprAgent, handleExprAlign, handleExprCatalog, handleExprClip, handleExprPrevoice, handleExprPrevoiceStatus, handleExprRender } from './expr/routes';
 import { HttpError, errorResponse, type RouteContext, type RouteHandler } from './lib/http';
 import { guardRequest, originPolicy, type OriginPolicy } from './lib/origin';
 import { handleCapabilities } from './media/capabilities';
@@ -36,6 +38,14 @@ export const HANDLERS: Record<RouteId, RouteHandler> = {
   getPortrait: handleGetPortrait,
   getLandmarks: handleGetLandmarks,
   putLandmarks: handlePutLandmarks,
+  exprCatalog: handleExprCatalog,
+  exprAgent: handleExprAgent,
+  exprClip: handleExprClip,
+  exprAlign: handleExprAlign,
+  exprRender: handleExprRender,
+  exprPrevoice: handleExprPrevoice,
+  exprPrevoiceStatus: handleExprPrevoiceStatus,
+  deskSay: handleDeskSay,
 };
 
 /** Reject bodies over the route's cap before the handler runs (Content-Length, or by counting a streamed body). */

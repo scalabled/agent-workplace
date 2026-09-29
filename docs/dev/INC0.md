@@ -11,6 +11,11 @@ and a re-cast of all 176 people (12 leads, 164 coworkers) as modern knowledge wo
 shoot" art direction and a new generated portrait for each of them. It also fixes background jobs that failed with
 "The model returned an empty step." on reasoning models.
 
+**Inc 0.5** (§4c, [INC05.md](INC05.md)) makes the workforce feel alive: reflexes in each agent's own pre-voiced
+voice (acknowledgements, fillers, laughs, backchannels in your pauses, instant replies to "thanks"), a job's progress
+and finish felt at Talk, passing-by lines and in-place chat on the Floor, all captioned and governed by one Ambience
+setting (Quiet · Lively · Buzzing).
+
 Everything runs without keys, on the Mock provider or your local Ollama. Adding a key upgrades one capability at a
 time; a capability without a provider is hidden, never shown broken.
 
@@ -45,7 +50,7 @@ Tests:
 ```sh
 pnpm typecheck        # TypeScript 7, every package
 pnpm test             # Vitest, all packages and apps
-pnpm e2e              # Playwright: two keyless stacks (Mock :5183/:8797 and Mock + mock media :5184/:8798), fake mic
+pnpm e2e              # Playwright: two keyless stacks (Mock :5183/:8797 and Mock + mock media :5184/:8798), fake mics
 pnpm e2e:screens      # regenerates docs/dev/screens/inc0.6/*.png on the keyless Mock stack (illustrated faces)
 pnpm build            # vite build + wrangler dry-run bundle
 ```
@@ -320,6 +325,23 @@ Flash for 'none'). A `?v=` portrait is cached for good only when the stored byte
 **Web shell.** The landing's dark theme is pinned before the first render (no light flash for owners who chose light),
 `/#pricing` scrolls to its section once the lazy page exists, the first render keeps the browser's own scroll, and
 Back from the app returns to where you were on the landing.
+
+## 4c. Inc 0.5: the living workforce
+
+Everything about it (what is alive, how to tune Ambience, pre-voicing commands, the keyed reflex timeline, fixes and
+known gaps) is in [INC05.md](INC05.md); contracts in [CONTRACTS.md](CONTRACTS.md) §7. In short:
+
+- Run it as before; opening Talk pre-voices the Chief of Staff's reflex lines in their own voice (keyless: the
+  browser voice, or faces and captions with voice off). `pnpm dev --mock --mock-media` shows the whole voice path
+  without keys.
+- Talk: acknowledgements, fillers, laughs, backchannels in your pauses (never over you), instant replies to "thanks",
+  "hi", "bye"; a stop cue ends the Chief's sentence, Esc still stops at once; a job's progress line, a celebration
+  before the job-done announcement and a mood that follows real events.
+- Floor: the Chief's card; rest on a desk for a look-up and a short, true line; **R** replies in place (in character,
+  in their voice, never promising work); Ambience in the Floor header and ⌘K.
+- `node packages/expressions/scripts/prevoice-office.mjs` pre-voices the 12 leads and the most staffed coworkers on a
+  running worker (clip endpoints only, stops at the daily clip budget).
+- Screenshots: `docs/dev/screens/inc05/`.
 
 ## 5. Screenshots
 

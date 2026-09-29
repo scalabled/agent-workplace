@@ -3,6 +3,7 @@ import { speechChunkFromResponse } from '@headcount/audio';
 import { CHIEF_ID } from '@headcount/protocol';
 import { api, ApiError } from '../api/client';
 import { chiefVoiceHint, chiefVoiceRef } from '../chief';
+import { livingBargeIn } from '../living';
 import { can, capabilities, onFrame, settings } from '../store';
 import { audio } from './engine';
 import { AgentSpeaker, type SpeakerDeps } from './speaker';
@@ -38,10 +39,11 @@ export function startChiefVoice(): () => void {
         if (frame.data.agentId === CHIEF_ID) chiefSpeaker.delta(frame.data.messageId, frame.data.delta);
         break;
       case 'talk.message':
-        if (frame.data.agentId === CHIEF_ID) chiefSpeaker.complete(frame.data.messageId, frame.data.text);
+        // A reflex reply ("Anytime.") is voiced by its pre-voiced clip (reflex.say), never a second time here.
+        if (frame.data.agentId === CHIEF_ID && frame.data.kind !== 'reflex' && frame.data.surface !== 'floor') chiefSpeaker.complete(frame.data.messageId, frame.data.text);
         break;
       case 'talk.done':
-        if (frame.data.messageId) chiefSpeaker.complete(frame.data.messageId);
+        if (frame.data.messageId && frame.data.surface !== 'floor') chiefSpeaker.complete(frame.data.messageId);
         break;
       default:
         break;
@@ -49,8 +51,20 @@ export function startChiefVoice(): () => void {
   });
 }
 
-/** Barge-in: the owner speaks or sends; the Chief of Staff stops at once. */
+/** Barge-in (Esc, a tap on the face, holding to talk): the Chief of Staff stops at once, reflexes too. */
 export function bargeIn(): void {
+  livingBargeIn(CHIEF_ID);
+  chiefSpeaker.stop();
+}
+
+/** The Chief of Staff ends the sentence now playing, then stops; the rest of the reply stays on screen (§2.3). */
+export function stopChiefAtBoundary(): void {
+  try {
+    const e = audio();
+    if (typeof e.stopAtBoundary === 'function') return e.stopAtBoundary(CHIEF_ID);
+  } catch {
+    /* no audio engine: nothing is sounding */
+  }
   chiefSpeaker.stop();
 }
 

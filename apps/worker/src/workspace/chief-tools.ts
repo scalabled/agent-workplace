@@ -44,6 +44,8 @@ export interface ChiefToolDeps {
   log: TurnLog;
   leadId: string | null;
   chiefName: string | null;
+  /** Called once a job really started (Inc 0.5: the office plays an acknowledgement for the turn). */
+  onDelegated?: (jobId: string) => void;
 }
 
 // Mock triggers (regex sources, case-insensitive) so the keyless Mock provider exercises every route.
@@ -137,6 +139,11 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
       if ('accepted' in job) return fail(job.message);
       const say = `On it. I started “${job.title}” in the background and will tell you when it is done. Keep talking to me meanwhile.`;
       log.note('delegate', say, job.jobId);
+      try {
+        deps.onDelegated?.(job.jobId);
+      } catch {
+        /* a reflex must never break the tool */
+      }
       return ok({ jobId: job.jobId, title: job.title, status: job.status, say }, `Started “${job.title}”`);
     },
   };

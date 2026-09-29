@@ -20,7 +20,9 @@
           {"id":"people-partner.passing_by.02","text":"Hey, {owner_name}. {step_label}, with both sides in mind.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"people-partner.passing_by.03","text":"On {project}. Keeping it fair.","slots":["project"],"context":["working"]},
           {"id":"people-partner.passing_by.04","text":"Quiet desk. Room to listen.","context":["idle"]},
-          {"id":"people-partner.passing_by.05","text":"{self_name}, people. Nothing to talk through yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"people-partner.passing_by.05","text":"{self_name}, people.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"people-partner.passing_by.06","text":"What would you want if you were them? I ask before hard talks.","context":["unstaffed"]},
+          {"id":"people-partner.passing_by.07","text":"In rehearsals I play the employee. Never the manager.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"people-partner.acknowledge.01","text":"Of course. I hear you."},
@@ -31,7 +33,7 @@
         "thinking_filler": [
           {"id":"people-partner.thinking_filler.01","text":"Let me think about how they'd hear it."},
           {"id":"people-partner.thinking_filler.02","text":"Mm. Give me a moment with that."},
-          {"id":"people-partner.thinking_filler.03","text":"Good question. One moment.","weight":0.6,"context":["owner_question"]}
+          {"id":"people-partner.thinking_filler.03","text":"Good question. One moment.","weight":0.6,"context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"people-partner.laugh.01","text":"That's good.","tags":{"xai":"<soft>[laugh]</soft> That's good."},"weight":0.6},
@@ -163,7 +165,9 @@
           {"id":"talent-partner.passing_by.02","text":"Hi, {owner_name}! {step_label}. Candidate first.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"talent-partner.passing_by.03","text":"On {project}. Nobody gets ghosted.","slots":["project"],"context":["working"]},
           {"id":"talent-partner.passing_by.04","text":"Quiet desk! Got a role on your mind?","context":["idle"],"solicits":true},
-          {"id":"talent-partner.passing_by.05","text":"Hi, I'm {self_name}, talent. No roles on my desk yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"talent-partner.passing_by.05","text":"Hi, I'm {self_name}, talent!","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"talent-partner.passing_by.06","text":"The rejection email gets written before the job ad. Kindness first.","context":["unstaffed"]},
+          {"id":"talent-partner.passing_by.07","text":"Every Boolean string gets tested. Screenshot of the count, too.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"talent-partner.acknowledge.01","text":"Love it. On it.","weight":0.6,"context":["!owner_tone:negative"]},
@@ -172,9 +176,9 @@
           {"id":"talent-partner.acknowledge.04","text":"Noted! Next step, it's in.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"talent-partner.thinking_filler.01","text":"Ooh, okay. One sec."},
+          {"id":"talent-partner.thinking_filler.01","text":"Ooh, okay. One sec.","context":["!owner_tone:negative","!after_distress","owner_asks"]},
           {"id":"talent-partner.thinking_filler.02","text":"Hmm. What would great look like?","tags":{"xai":"Hmm. [pause] What would great look like?"}},
-          {"id":"talent-partner.thinking_filler.03","text":"Good question! Let me think.","context":["owner_question"]}
+          {"id":"talent-partner.thinking_filler.03","text":"Good question! Let me think.","context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"talent-partner.laugh.01","text":"Oh, that's good.","tags":{"xai":"[laugh] Oh, that's good."},"weight":0.6},
@@ -237,7 +241,7 @@
           {"id":"talent-partner.sign_off.03","text":"Have a great {part_of_day}!","slots":["part_of_day"],"weight":0.6}
         ],
         "backchannel": [
-          {"id":"talent-partner.backchannel.01","text":"ooh, okay","weight":0.6}
+          {"id":"talent-partner.backchannel.01","text":"oh, okay","weight":0.6}
         ],
         "deferral": [
           {"id":"talent-partner.deferral.01","text":"Let me look at that properly. I'll come back with a shortlist of options."}
@@ -306,7 +310,9 @@
           {"id":"learning-designer.passing_by.02","text":"Hi, {owner_name}! {step_label}. Turning it into practice.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"learning-designer.passing_by.03","text":"On {project}. Less telling, more doing.","slots":["project"],"context":["working"]},
           {"id":"learning-designer.passing_by.04","text":"Quiet desk! Anything your team keeps getting stuck on?","context":["idle"],"solicits":true},
-          {"id":"learning-designer.passing_by.05","text":"Hi, I'm {self_name}, learning design. Nothing on my desk yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"learning-designer.passing_by.05","text":"Hi, I'm {self_name}, learning design!","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"learning-designer.passing_by.06","text":"What will they do differently on Monday? That's the whole brief.","context":["unstaffed"]},
+          {"id":"learning-designer.passing_by.07","text":"SOPs make great choose-your-path stories.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"learning-designer.acknowledge.01","text":"Love it. On it.","weight":0.6,"context":["!owner_tone:negative"]},
@@ -315,9 +321,9 @@
           {"id":"learning-designer.acknowledge.04","text":"Noted! It'll be in from the next step.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"learning-designer.thinking_filler.01","text":"Ooh, let me picture Monday morning."},
+          {"id":"learning-designer.thinking_filler.01","text":"Ooh, let me picture Monday morning.","context":["!owner_tone:negative","!after_distress","owner_asks"]},
           {"id":"learning-designer.thinking_filler.02","text":"Hmm. What would they actually do?"},
-          {"id":"learning-designer.thinking_filler.03","text":"Ooh! Give me a sec."}
+          {"id":"learning-designer.thinking_filler.03","text":"Ooh! Give me a sec.","context":["!owner_tone:negative","!after_distress","owner_asks"]}
         ],
         "laugh": [
           {"id":"learning-designer.laugh.01","text":"Oh, that's great.","tags":{"xai":"[laugh] Oh, that's great."},"weight":0.6},
@@ -425,7 +431,7 @@
         ]
       },
       "catchphrases": [
-        {"id":"learning-designer.catch.01","text":"What will they do differently on Monday?","max_per_day":2,"intents":["thinking_filler","quip"]},
+        {"id":"learning-designer.catch.01","text":"What will they do differently on Monday?","max_per_day":2,"intents":["quip"]},
         {"id":"learning-designer.catch.02","text":"Less telling, more doing.","max_per_day":1,"intents":["acknowledge","quip"]}
       ],
       "never_says": ["mandatory fun","click next to continue","synergy","e-learning module"],
@@ -449,7 +455,9 @@
           {"id":"compensation-analyst.passing_by.02","text":"Hello, {owner_name}. {step_label}, with dated sources.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"compensation-analyst.passing_by.03","text":"On {project}. Making it defensible.","slots":["project"],"context":["working"]},
           {"id":"compensation-analyst.passing_by.04","text":"Quiet desk. Any offer you're unsure about?","context":["idle"],"solicits":true},
-          {"id":"compensation-analyst.passing_by.05","text":"{self_name}, compensation. No pay bands to build yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"compensation-analyst.passing_by.05","text":"{self_name}, compensation.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"compensation-analyst.passing_by.06","text":"Could you explain this number to the person receiving it?","context":["unstaffed"]},
+          {"id":"compensation-analyst.passing_by.07","text":"Inflated job titles, untangled. I keep a list.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"compensation-analyst.acknowledge.01","text":"Understood. I'll show the method."},
@@ -460,7 +468,7 @@
         "thinking_filler": [
           {"id":"compensation-analyst.thinking_filler.01","text":"Let me think about how that would be explained."},
           {"id":"compensation-analyst.thinking_filler.02","text":"Mm. One moment.","tags":{"xai":"Mm. [pause] One moment."}},
-          {"id":"compensation-analyst.thinking_filler.03","text":"Good question. Let me be fair about it.","context":["owner_question"]}
+          {"id":"compensation-analyst.thinking_filler.03","text":"Good question. Let me be fair about it.","context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"compensation-analyst.laugh.01","text":"Fair.","tags":{"xai":"<soft>[laugh]</soft> Fair."},"weight":0.6},
@@ -591,7 +599,9 @@
           {"id":"culture-engagement-lead.passing_by.02","text":"Hi, {owner_name}! {step_label}. The team's own words.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"culture-engagement-lead.passing_by.03","text":"On {project}. You said, we did.","slots":["project"],"context":["working"]},
           {"id":"culture-engagement-lead.passing_by.04","text":"Quiet desk! Good vibes, low volume.","context":["idle"]},
-          {"id":"culture-engagement-lead.passing_by.05","text":"Hi, I'm {self_name}, culture. Nothing on my desk yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"culture-engagement-lead.passing_by.05","text":"Hi, I'm {self_name}, culture!","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"culture-engagement-lead.passing_by.06","text":"Every open comment gets read. Even when there are hundreds.","context":["unstaffed"]},
+          {"id":"culture-engagement-lead.passing_by.07","text":"Thirty seconds for a win of the week. Best start to a meeting.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"culture-engagement-lead.acknowledge.01","text":"Yes! On it.","weight":0.6},
@@ -600,8 +610,8 @@
           {"id":"culture-engagement-lead.acknowledge.04","text":"Noted! We'll pick it up at the next step.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"culture-engagement-lead.thinking_filler.01","text":"Ooh, okay. Let me think."},
-          {"id":"culture-engagement-lead.thinking_filler.02","text":"Hmm! What would the team say?","tags":{"xai":"Hmm! [pause] What would the team say?"}},
+          {"id":"culture-engagement-lead.thinking_filler.01","text":"Ooh, okay. Let me think.","context":["!owner_tone:negative","!after_distress","owner_asks"]},
+          {"id":"culture-engagement-lead.thinking_filler.02","text":"Hmm! What would the team say?","tags":{"xai":"Hmm! [pause] What would the team say?"},"context":["!owner_tone:negative","!after_distress","owner_asks"]},
           {"id":"culture-engagement-lead.thinking_filler.03","text":"One sec, let me get this right."}
         ],
         "laugh": [
@@ -665,7 +675,7 @@
           {"id":"culture-engagement-lead.sign_off.03","text":"Have a brilliant {part_of_day}!","slots":["part_of_day"]}
         ],
         "backchannel": [
-          {"id":"culture-engagement-lead.backchannel.01","text":"ooh, go on","weight":0.6}
+          {"id":"culture-engagement-lead.backchannel.01","text":"mm, go on","weight":0.6}
         ],
         "deferral": [
           {"id":"culture-engagement-lead.deferral.01","text":"Let me read what people said properly. I'll come back with what we'll do."}
@@ -734,7 +744,9 @@
           {"id":"payroll-benefits-admin.passing_by.02","text":"Hi, {owner_name}. {step_label}. Boring is the goal.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"payroll-benefits-admin.passing_by.03","text":"On {project}. Counting back from pay day.","slots":["project"],"context":["working"]},
           {"id":"payroll-benefits-admin.passing_by.04","text":"Quiet desk. Any cut-off questions?","context":["idle"],"solicits":true},
-          {"id":"payroll-benefits-admin.passing_by.05","text":"{self_name}, payroll and benefits. No payday to prep yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"payroll-benefits-admin.passing_by.05","text":"{self_name}, payroll and benefits.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"payroll-benefits-admin.passing_by.06","text":"Payroll should be boringly right. Every single cycle.","context":["unstaffed"]},
+          {"id":"payroll-benefits-admin.passing_by.07","text":"Mid-column is no time for interruptions. Ask anyone.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"payroll-benefits-admin.acknowledge.01","text":"Understood. I'll put a date on it."},
@@ -745,7 +757,7 @@
         "thinking_filler": [
           {"id":"payroll-benefits-admin.thinking_filler.01","text":"Let me count back from pay day."},
           {"id":"payroll-benefits-admin.thinking_filler.02","text":"Mm. Give me a moment.","tags":{"xai":"Mm. [pause] Give me a moment."},"weight":0.6},
-          {"id":"payroll-benefits-admin.thinking_filler.03","text":"Good question. Let me be exact.","context":["owner_question"]}
+          {"id":"payroll-benefits-admin.thinking_filler.03","text":"Good question. Let me be exact.","context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"payroll-benefits-admin.laugh.01","text":"Oh, that's good.","tags":{"xai":"[laugh] Oh, that's good."},"weight":0.6},
@@ -877,7 +889,9 @@
           {"id":"inclusion-partner.passing_by.02","text":"Hi, {owner_name}. {step_label}. Who's this missing?","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"inclusion-partner.passing_by.03","text":"On {project}. Practical, not performative.","slots":["project"],"context":["working"]},
           {"id":"inclusion-partner.passing_by.04","text":"Quiet desk. Got a form or policy for me?","context":["idle"],"solicits":true},
-          {"id":"inclusion-partner.passing_by.05","text":"Hi, {self_name}, inclusion and access. No doors to open yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"inclusion-partner.passing_by.05","text":"Hi, {self_name}, inclusion and access.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"inclusion-partner.passing_by.06","text":"Small fixes, big welcome. Most take under ten minutes.","context":["unstaffed"]},
+          {"id":"inclusion-partner.passing_by.07","text":"A screen reader checks every document before it's done.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"inclusion-partner.acknowledge.01","text":"Got it. On it.","weight":0.6},
@@ -887,7 +901,7 @@
         ],
         "thinking_filler": [
           {"id":"inclusion-partner.thinking_filler.01","text":"Hm. Who's missing from this?","tags":{"xai":"Hm. [pause] Who's missing from this?"}},
-          {"id":"inclusion-partner.thinking_filler.02","text":"Good question. One sec.","weight":0.6,"context":["owner_question"]},
+          {"id":"inclusion-partner.thinking_filler.02","text":"Good question. One sec.","weight":0.6,"context":["owner_question","!owner_tone:negative","!after_distress"]},
           {"id":"inclusion-partner.thinking_filler.03","text":"Let me think about who this leaves out."}
         ],
         "laugh": [
@@ -1020,7 +1034,9 @@
           {"id":"org-design-planner.passing_by.02","text":"Hi, {owner_name}. {step_label}, diagram open.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"org-design-planner.passing_by.03","text":"On {project}. Asking who decides.","slots":["project"],"context":["working"]},
           {"id":"org-design-planner.passing_by.04","text":"Quiet desk. Chart of the work, resting.","context":["idle"]},
-          {"id":"org-design-planner.passing_by.05","text":"{self_name}, org design. No boxes to draw yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"org-design-planner.passing_by.05","text":"{self_name}, org design.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"org-design-planner.passing_by.06","text":"The chart of the work comes before the chart of the people.","context":["unstaffed"]},
+          {"id":"org-design-planner.passing_by.07","text":"Who decides? I ask it three times, gently.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"org-design-planner.acknowledge.01","text":"Understood. First, the work."},
@@ -1031,7 +1047,7 @@
         "thinking_filler": [
           {"id":"org-design-planner.thinking_filler.01","text":"Let me picture the structure."},
           {"id":"org-design-planner.thinking_filler.02","text":"Hm. Who decides, here?","tags":{"xai":"Hm. [pause] Who decides, here?"}},
-          {"id":"org-design-planner.thinking_filler.03","text":"Good question. Let me draw it in my head.","context":["owner_question"]}
+          {"id":"org-design-planner.thinking_filler.03","text":"Good question. Let me draw it in my head.","context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"org-design-planner.laugh.01","text":"Good one.","tags":{"xai":"<soft>[laugh]</soft> Good one."},"weight":0.6},
@@ -1164,7 +1180,9 @@
           {"id":"employee-experience-specialist.passing_by.02","text":"Hello, {owner_name}! {step_label}, with a welcome in mind.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"employee-experience-specialist.passing_by.03","text":"On {project}. Nobody stands alone on day one.","slots":["project"],"context":["working"]},
           {"id":"employee-experience-specialist.passing_by.04","text":"Quiet desk! Anyone joining the team?","context":["idle"],"solicits":true},
-          {"id":"employee-experience-specialist.passing_by.05","text":"Hi, I'm {self_name}, onboarding. Nothing on my desk yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"employee-experience-specialist.passing_by.05","text":"Hi, I'm {self_name}, employee experience!","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"employee-experience-specialist.passing_by.06","text":"The welcome message goes out the Thursday before. Never Monday.","context":["unstaffed"]},
+          {"id":"employee-experience-specialist.passing_by.07","text":"New hires' first-week questions are pure gold.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"employee-experience-specialist.acknowledge.01","text":"Of course! On it.","weight":0.6},
@@ -1173,9 +1191,9 @@
           {"id":"employee-experience-specialist.acknowledge.04","text":"Noted! I'll weave it in at the next step.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"employee-experience-specialist.thinking_filler.01","text":"Ooh, let me think like a new starter."},
+          {"id":"employee-experience-specialist.thinking_filler.01","text":"Ooh, let me think like a new starter.","context":["!owner_tone:negative","!after_distress","owner_asks"]},
           {"id":"employee-experience-specialist.thinking_filler.02","text":"Hmm. What would day one feel like?","tags":{"xai":"Hmm. [pause] What would day one feel like?"}},
-          {"id":"employee-experience-specialist.thinking_filler.03","text":"One sec! Let me get it right."}
+          {"id":"employee-experience-specialist.thinking_filler.03","text":"One sec! Let me get it right.","context":["!owner_tone:negative","!after_distress","owner_asks"]}
         ],
         "laugh": [
           {"id":"employee-experience-specialist.laugh.01","text":"Oh, that's lovely.","tags":{"xai":"[laugh] Oh, that's lovely."},"weight":0.6},

@@ -13,7 +13,7 @@ import type {
   GroundingState, IntentDef, OwnerSpeechEvent, OwnerTurnEvent, PreparedClip, ReflexPlayHandle, ReflexRunner, ReflexRunnerDeps,
   ReflexSayData, ReflexSettings, ReflexTelemetry, SelectRequest, SideTalkLineData, SlotValues, Utterance,
 } from './types';
-import { FLOOR_INTENTS as FLOOR_INTENT_LIST } from './vocab';
+import { FLOOR_INTENTS as FLOOR_INTENT_LIST, REACTION_INTENTS } from './vocab';
 import type { Ambience, IntentId, Surface } from './vocab';
 
 interface Trigger {
@@ -35,6 +35,15 @@ interface Trigger {
   maxDurationMs?: number;
   /** Cap the line by the agent's p50 first-chunk latency so the reflex never delays the real answer (E6). */
   coverLatency?: boolean;
+  /**
+   * The owner started this (a hover dwell on the Floor): quiet hours do not mute it (§9.2), but it is not voiced
+   * during them either (a bubble and the face).
+   */
+  ownerInitiated?: boolean;
+  /** No decoded clip for a voiced line: show it as a bubble instead of skipping (a filler still covers the wait). */
+  bubbleFallback?: boolean;
+  /** The gate allows only the face (no audio yet, voice off): show the line as a caption instead (a hello on open). */
+  captionFallback?: boolean;
 }
 
 interface Item {
@@ -56,6 +65,8 @@ interface Item {
   clipKey?: string;
   /** A server frame's render request, when it has no pre-voiced clip. */
   renderReq?: { lineId: string; fills: SlotValues } | null;
+  /** Its caption is already on screen (shown at the glance while the voice renders, §9.4). */
+  captioned?: boolean;
 }
 
 interface Active { item: Item; handle: ReflexPlayHandle }
@@ -74,12 +85,31 @@ interface Turn {
   holdingDone: boolean;
   silent: boolean;
   onlySympathy: boolean;
+  /** An acknowledgement fired for this turn (the filler then waits for `ack_covers_filler_until_ms`). */
+  acked: boolean;
+  /** Only humour, no question or request: the laugh or smile is the reflex, never a thinking filler. */
+  humourOnly: boolean;
   /** This agent's topics the owner's text mentions (E19). */
   topics: readonly string[];
 }
 
 /** After distress: no laughs, quips or celebrations for `distress_lock_ms` (30 min, §1.4.4, H4, E11). */
 const AFTER_DISTRESS_BLOCKED = new Set<IntentId>(['laugh', 'quip', 'celebrate']);
+/** How a reaction the gate kept to the face reads in the caption line (a typed joke gets "(smiles)", L6). */
+const FACE_ONLY_CAPTION: Readonly<Partial<Record<IntentId, string>>> = {
+  laugh: '(smiles)',
+  delight: '(beams)',
+  surprise: '(looks surprised)',
+  concern: '(looks concerned)',
+  sympathy: '(softens)',
+  encouragement: '(nods)',
+  apology: '(winces)',
+};
+
+/** A turn that is only humour: no question, request, steer or news the owner wants answered (E4). */
+export function humourOnly(c: OwnerTurnEvent['cues']): boolean {
+  return c.humor >= 0.6 && !c.question && c.request < 0.6 && c.stopOrSteer < 0.6 && c.badNews < 0.3 && c.goodNews < 0.6 && !c.distress;
+}
 const OWNER_THREAD_KINDS = new Set(['talk', 'desk', 'sidethread']);
 
 export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
@@ -106,12 +136,14 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     chunkPrior: num(d.first_chunk_p50_prior_ms, 1400),
     reflexFloor: num(d.reflex_cover_min_ms, 900),
     signOffDefer: num(d.sign_off_defer_ms, 1500),
-    signOffIdle: num(d.sign_off_idle_ms, 5 * 60_000),
     solicitGap: num(d.solicit_gap_ms, 10 * 60_000),
     floorVoiceRecent: num(d.floor_voice_recent_interaction_ms, 120_000),
     habituation: num(d.floor_habituation_ms, 10 * 60_000),
   };
+  /** A typed turn's "one sec" bubble: never before 2.5 s, later when the brain usually answers later (≤ 6 s). */
   const TEXT_FILLER_MS = 2500;
+  const TEXT_FILLER_MAX_MS = 6000;
+  const TEXT_FILLER_MARGIN_MS = 400;
   const HOLDING_GAP_MS = 800;
   const BACK_WITH_YOU_MIN_MS = 6000;
   const WASTED_FILLER_MS = 200;
@@ -131,8 +163,15 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
   let lastSolicitAt: number | null = null;
   /** Recent first-chunk latencies per agent (E6). */
   const chunkLatency = new Map<string, number[]>();
-  const idleSignOff = new Map<string, number>();
+  /** Recent first-token latencies of typed turns per agent: the text filler waits past the usual answer. */
+  const tokenLatency = new Map<string, number[]>();
   let lastStageOpenAt = Number.NEGATIVE_INFINITY;
+  /** Agents greeted on a stage open in this session (voiced, or shown when audio was not armed yet). */
+  const greeted = new Set<string>();
+  /** When the pointer last left each desk: a runtime-rendered hover voice that arrives after it stays unheard. */
+  const hoverLeftAt = new Map<string, number>();
+  /** When the last voiced reflex of each owner turn ended (a server filler never follows one within 1.8 s). */
+  const turnVoiceEnd = new Map<string, number>();
 
   const pending = new Map<number, { item: Item; cancel: () => void }>();
   const timers = new Map<number, { cancel: () => void; agentId: string; turnId?: string }>();
@@ -150,6 +189,8 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
   const seenProgress = new Map<string, string>();
   const shownUnblock = new Map<string, number>();
   const played = new Set<string>();
+  /** `${agentId}|${intent}|${turnId}` of reflexes a server frame already voiced (R1): the runner never repeats them. */
+  const serverPlayed = new Set<string>();
   const threads = new Map<string, number>();
   const lastVoiceEnd = new Map<string, number>();
 
@@ -162,6 +203,8 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       /* telemetry never breaks a reflex */
     }
   };
+  /** The owner turn a telemetry event belongs to (R3), when there is one. */
+  const tid = (turnId: string | undefined): { turnId?: string } => (turnId ? { turnId } : {});
 
   const later = (ms: number, fn: () => void, meta: { agentId: string; turnId?: string }): number => {
     const id = ++seq;
@@ -182,11 +225,11 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     for (const [id, p] of pending) if (pred(p.item)) {
       p.cancel();
       pending.delete(id);
-      tel({ kind: 'dropped', agentId: p.item.agentId, intent: p.item.intent, lineId: p.item.u.lineId, reason });
+      tel({ kind: 'dropped', agentId: p.item.agentId, intent: p.item.intent, ...tid(p.item.turnId), lineId: p.item.u.lineId, reason });
     }
     queue = queue.filter((it) => {
       if (!pred(it)) return true;
-      tel({ kind: 'dropped', agentId: it.agentId, intent: it.intent, lineId: it.u.lineId, reason });
+      tel({ kind: 'dropped', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId, reason });
       return false;
     });
   };
@@ -215,13 +258,24 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
   const bubbleTtl = (text: string) => Math.min(D.bubbleMax, D.bubbleBase + D.bubblePerChar * text.length);
   const distressed = () => now() < distressUntil;
 
-  /** Rolling median of this agent's first-chunk latency (E6); the prior until three turns have been seen. */
-  const p50FirstChunk = (agentId: string): number => {
-    const xs = chunkLatency.get(agentId);
-    if (!xs || xs.length < CHUNK_MIN_SAMPLES) return D.chunkPrior;
+  const median = (xs: readonly number[]): number => {
     const sorted = [...xs].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
+  };
+  /** Rolling median of this agent's first-chunk latency (E6); the prior until three turns have been seen. */
+  const p50FirstChunk = (agentId: string): number => {
+    const xs = chunkLatency.get(agentId);
+    return !xs || xs.length < CHUNK_MIN_SAMPLES ? D.chunkPrior : median(xs);
+  };
+  /**
+   * When a typed turn's "one sec" bubble shows: 2.5 s, or the agent's usual first token + 400 ms when that is later
+   * (≤ 6 s). An answer that usually lands at 2.8 s then never flashes a bubble for a quarter of a second.
+   */
+  const textFillerMs = (agentId: string): number => {
+    const xs = tokenLatency.get(agentId);
+    if (!xs || xs.length < CHUNK_MIN_SAMPLES) return TEXT_FILLER_MS;
+    return clamp(median(xs) + TEXT_FILLER_MARGIN_MS, TEXT_FILLER_MS, TEXT_FILLER_MAX_MS);
   };
 
   /** Keep track of how long the Floor has been on screen (E9 habituation). */
@@ -252,15 +306,19 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     if (destroyed || stopped) return false;
     const s = settings();
     if (s.approvalInProgress) return false;
+    if (trig.turnId && serverPlayed.has(`${agentId}|${intent}|${trig.turnId}`)) {
+      tel({ kind: 'skipped', agentId, intent, reason: 'server_played', ...tid(trig.turnId) });
+      return false; // R1: the server's frame for this turn played first
+    }
     if (distressed() && AFTER_DISTRESS_BLOCKED.has(intent)) {
-      tel({ kind: 'skipped', agentId, intent, reason: 'after_distress' });
+      tel({ kind: 'skipped', agentId, intent, reason: 'after_distress', ...tid(trig.turnId) });
       return false;
     }
     const def = catalog.intents.get(intent);
     const index = deps.index(agentId);
     const state0 = deps.state(agentId);
     if (!def || !index || !state0) {
-      tel({ kind: 'skipped', agentId, intent, reason: 'no_agent' });
+      tel({ kind: 'skipped', agentId, intent, reason: 'no_agent', ...tid(trig.turnId) });
       return false;
     }
     const state = trig.stateOverride ? trig.stateOverride(state0) : state0;
@@ -290,7 +348,8 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       voiceOn: s.voiceOn,
       listening: trig.listening ?? false,
       exchange: trig.exchange ?? turn?.mode ?? 'none',
-      quietHours: s.quietHours || state.quietHours,
+      // An owner-initiated exchange keeps its reflexes during quiet hours (§9.2); it is only not voiced (below).
+      quietHours: !trig.ownerInitiated && (s.quietHours || state.quietHours),
       reducedMotion: s.reducedMotion,
       approvalInProgress: !!s.approvalInProgress,
       stopped,
@@ -298,12 +357,21 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     };
     const rng = seededRng(`${agentId}|${intent}|${trig.cause}|gate`);
     const verdict = gate.check(input, rng);
-    if (!verdict.allow) {
+    let captionOnly = false;
+    if (!verdict.allow && trig.captionFallback && verdict.reason === 'face_only' && s.captions) captionOnly = true;
+    else if (!verdict.allow) {
       if (!trig.quietFace) face(agentId, verdict.faceOnly);
-      tel({ kind: 'skipped', agentId, intent, reason: verdict.reason });
+      if (verdict.faceOnly) faceOnlyCaption(agentId, intent, trig, ownerAtStage);
+      tel({ kind: 'skipped', agentId, intent, reason: verdict.reason, ...tid(trig.turnId) });
       return false;
     }
-    const plan: ChannelPlan = { ...verdict.plan };
+    const plan: ChannelPlan = verdict.allow
+      ? { ...verdict.plan }
+      : { voice: false, bubble: false, caption: 'line', face: verdict.faceOnly, gainDb: 0, priority: def.priority, ttlMs: def.timing.ttl_ms, delayMs: def.timing.delay_ms[0] };
+    if (trig.ownerInitiated && (s.quietHours || state.quietHours)) {
+      plan.voice = false; // quiet hours: the owner's own hover gets its bubble and the face, not a voice
+      if (!plan.bubble) plan.caption = 'none';
+    }
     if (plan.bubble && input.surface === 'floor') plan.caption = 'none'; // on the Floor the bubble is the caption (§9.4)
     if (trig.bubbleOnly) {
       plan.voice = false;
@@ -316,8 +384,11 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     const mood = deps.mood(agentId);
     const p = reflexProbability(catalog, index, intent, ambience, mood);
     if (p < 1 && rng.next() >= p) {
-      if (!trig.quietFace && (intent === 'backchannel' || intent === 'laugh')) face(agentId, plan.face);
-      tel({ kind: 'skipped', agentId, intent, reason: 'probability' });
+      if (!trig.quietFace && (intent === 'backchannel' || intent === 'laugh')) {
+        face(agentId, plan.face);
+        if (intent === 'laugh') faceOnlyCaption(agentId, intent, trig, ownerAtStage);
+      }
+      tel({ kind: 'skipped', agentId, intent, reason: 'probability', ...tid(trig.turnId) });
       return false;
     }
     const manifest = deps.clips.manifest(agentId);
@@ -351,15 +422,16 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       ...(soliciting ? { excludeSoliciting: true } : {}),
     };
     let res = selectLine(index, req, deps.recency);
-    if (!res.ok && res.reason === 'not_instant' && plan.bubble) {
+    if (!res.ok && res.reason === 'not_instant' && (plan.bubble || trig.bubbleFallback)) {
       // Nothing decoded: degrade to the bubble alone (§1.4.11: face → bubble → nothing).
       plan.voice = false;
+      plan.bubble = true;
       plan.caption = 'none';
       res = selectLine(index, { ...req, channel: 'text', instantOnly: false }, deps.recency);
     }
     if (!res.ok) {
       if (!trig.quietFace) face(agentId, plan.face);
-      tel({ kind: 'skipped', agentId, intent, reason: res.reason });
+      tel({ kind: 'skipped', agentId, intent, reason: res.reason, ...tid(trig.turnId) });
       return false;
     }
     const u = res.utterance;
@@ -393,14 +465,14 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
   function start(it: Item): void {
     if (stopped || destroyed) return;
     const t = now();
-    const drop = (reason: string) => tel({ kind: 'dropped', agentId: it.agentId, intent: it.intent, lineId: it.u.lineId, reason });
+    const drop = (reason: string) => tel({ kind: 'dropped', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId, reason });
     if (settings().approvalInProgress) return drop('approval');
     if (t > it.expiresAt) return drop('ttl');
     if (it.guard && !it.guard()) return drop('guard');
     if (ownerSpeaking(it.agentId)) return drop('owner_speaking');
     if (it.plan.bubble) {
       deps.captions.show({
-        agentId: it.agentId, text: it.u.caption, kind: 'bubble', ttlMs: bubbleTtl(it.u.caption), replyable: it.replyable,
+        agentId: it.agentId, text: it.u.caption, kind: 'bubble', ttlMs: bubbleTtl(it.u.caption), replyable: it.replyable, intent: it.intent,
         ...(it.u.gloss ? { gloss: it.u.gloss } : {}),
       });
     }
@@ -408,21 +480,34 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     if (it.index) recordUtterance(deps.recency, it.index, it.u, t, it.dayKey);
     if (it.turnId) played.add(`${it.agentId}|${it.intent}|${it.turnId}`);
     if (it.plan.voice) voice(it);
-    else tel({ kind: 'played', agentId: it.agentId, intent: it.intent, lineId: it.u.lineId, reason: 'bubble', latencyMs: t - it.triggeredAt });
+    else {
+      if (!it.plan.bubble) showCaption(it); // caption only (a hello before audio is armed)
+      tel({ kind: 'played', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId, reason: it.plan.bubble ? 'bubble' : 'caption', latencyMs: t - it.triggeredAt });
+    }
+  }
+
+  /** A reaction the gate kept to the face, at the owner's stage: say so in the caption line ("(smiles)", L6). */
+  function faceOnlyCaption(agentId: string, intent: IntentId, trig: Trigger, ownerAtStage: boolean): void {
+    const text = FACE_ONLY_CAPTION[intent];
+    const s = settings();
+    if (!text || !trig.turnId || !ownerAtStage || !s.captions || !s.captionReactions || trig.quietFace) return;
+    deps.captions.show({ agentId, text, kind: 'reaction', ttlMs: 1800, replyable: false, intent });
   }
 
   function showCaption(it: Item, text = it.u.caption): void {
     const s = settings();
     if (it.plan.caption === 'none' || !s.captions) return;
+    if (it.captioned && text === it.u.caption) return;
+    it.captioned = true;
     const kind = it.plan.caption === 'reaction' ? 'reaction' : 'line';
     if (kind === 'reaction' && !s.captionReactions) return;
-    deps.captions.show({ agentId: it.agentId, text, kind, ttlMs: Math.max(1500, it.u.estMs + 1000), replyable: false, ...(it.u.gloss ? { gloss: it.u.gloss } : {}) });
+    deps.captions.show({ agentId: it.agentId, text, kind, ttlMs: Math.max(1500, it.u.estMs + 1000), replyable: false, intent: it.intent, ...(it.u.gloss ? { gloss: it.u.gloss } : {}) });
   }
 
   function voice(it: Item): void {
     if (it.bus === 'ambient') {
       if (activeAmbient || deps.audio.foregroundActive()) {
-        tel({ kind: 'dropped', agentId: it.agentId, intent: it.intent, lineId: it.u.lineId, reason: 'ambient_busy' });
+        tel({ kind: 'dropped', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId, reason: 'ambient_busy' });
         return; // ambient voices are dropped, never queued
       }
     } else if (activeReflex) {
@@ -443,7 +528,7 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       void h.started.then((ok) => {
         if (ok) {
           showCaption(it);
-          tel({ kind: 'played', agentId: it.agentId, intent: it.intent, lineId: it.u.lineId, latencyMs: now() - it.triggeredAt });
+          tel({ kind: 'played', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId, latencyMs: now() - it.triggeredAt });
         }
       });
       return;
@@ -458,9 +543,11 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     }
     if (it.def.latency === 'reflex') {
       // Reflex-grade intents never wait on the network (§1.4.11): the face cue already played.
-      tel({ kind: 'skipped', agentId: it.agentId, intent: it.intent, lineId: it.u.lineId, reason: 'not_decoded' });
+      tel({ kind: 'skipped', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId, reason: 'not_decoded' });
       return;
     }
+    // The caption goes up with the glance; the voice follows if it renders in time (§9.4: captions never wait).
+    showCaption(it);
     const deadline = now() + Math.min(it.plan.ttlMs, D.runtimeTts);
     const pending$: Promise<PreparedClip | null> = key
       ? deps.clips.load(key)
@@ -471,9 +558,14 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     pending$.then(
       (c) => {
         if (stopped || destroyed) return;
+        if (FLOOR_INTENTS.has(it.intent) && (hoverLeftAt.get(it.agentId) ?? Number.NEGATIVE_INFINITY) >= it.triggeredAt) {
+          // The owner moved on before the voice rendered: the bubble stays, the voice is not played late.
+          tel({ kind: 'dropped', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId, reason: 'hover_left' });
+          return;
+        }
         if (!c || now() > deadline || ownerSpeaking(it.agentId)) {
           showCaption(it);
-          tel({ kind: 'dropped', agentId: it.agentId, intent: it.intent, lineId: it.u.lineId, reason: c ? 'late_voice' : 'no_voice' });
+          tel({ kind: 'dropped', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId, reason: c ? 'late_voice' : 'no_voice' });
           return;
         }
         if (it.bus === 'reflex' && activeReflex) return showCaption(it);
@@ -500,6 +592,10 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     if (activeReflex === a) activeReflex = null;
     if (activeAmbient === a) activeAmbient = null;
     lastVoiceEnd.set(a.item.agentId, now());
+    if (a.item.turnId) {
+      turnVoiceEnd.set(a.item.turnId, now());
+      if (turnVoiceEnd.size > REMEMBER_KEYS) turnVoiceEnd.delete(turnVoiceEnd.keys().next().value!);
+    }
     pump();
   }
 
@@ -509,7 +605,7 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     while (queue.length) {
       const next = queue.shift()!;
       if (t > next.expiresAt || ownerSpeaking(next.agentId)) {
-        tel({ kind: 'dropped', agentId: next.agentId, intent: next.intent, lineId: next.u.lineId, reason: 'ttl' });
+        tel({ kind: 'dropped', agentId: next.agentId, intent: next.intent, ...tid(next.turnId), lineId: next.u.lineId, reason: 'ttl' });
         continue;
       }
       voice(next);
@@ -536,6 +632,7 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       : null;
     const h = deps.audio.play({
       agentId: it.agentId,
+      intent: it.intent,
       clip,
       bus: it.bus,
       gainDb: it.plan.gainDb,
@@ -544,7 +641,7 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       caption: it.u.caption,
       onStart: () => {
         showCaption(it);
-        tel({ kind: 'played', agentId: it.agentId, intent: it.intent, lineId: it.u.lineId, latencyMs: now() - it.triggeredAt });
+        tel({ kind: 'played', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId, latencyMs: now() - it.triggeredAt });
       },
     });
     track(it, h);
@@ -554,22 +651,22 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       const graceEnd = now() + D.tailGrace;
       const playTail = (c: PreparedClip) => {
         if (stopped || destroyed || ownerSpeaking(it.agentId) || now() > graceEnd) {
-          tel({ kind: 'late_tail', agentId: it.agentId, intent: it.intent, lineId: it.u.lineId });
+          tel({ kind: 'late_tail', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId });
           return;
         }
-        const th = deps.audio.play({ agentId: it.agentId, clip: c, bus: it.bus, gainDb: it.plan.gainDb, priority: it.plan.priority, ttlMs: D.tailGrace, caption: it.u.caption });
+        const th = deps.audio.play({ agentId: it.agentId, intent: it.intent, clip: c, bus: it.bus, gainDb: it.plan.gainDb, priority: it.plan.priority, ttlMs: D.tailGrace, caption: it.u.caption });
         track({ ...it, id: ++seq }, th);
       };
       if (tailSettled) {
         if (tailClip) playTail(tailClip);
-        else tel({ kind: 'late_tail', agentId: it.agentId, intent: it.intent, lineId: it.u.lineId, reason: 'no_tail' });
+        else tel({ kind: 'late_tail', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId, reason: 'no_tail' });
         return;
       }
       let done = false;
       const timer = later(D.tailGrace, () => {
         if (!done) {
           done = true;
-          tel({ kind: 'late_tail', agentId: it.agentId, intent: it.intent, lineId: it.u.lineId });
+          tel({ kind: 'late_tail', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId });
         }
       }, { agentId: it.agentId });
       void tail$.then((c) => {
@@ -597,18 +694,20 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       ...extra,
       stateOverride: (s0) => {
         const s = inner ? inner(s0) : s0;
-        return { ...s, exchange: { ...s.exchange, cues: turn.cues, ...(turn.topics.length ? { topics: turn.topics } : {}) } };
+        // Within the distress lock (§1.4.4) upbeat lines are out: they forbid `after_distress`.
+        const history = distressed() && !s.history.distressThisSession ? { ...s.history, distressThisSession: true } : s.history;
+        return { ...s, history, exchange: { ...s.exchange, cues: turn.cues, ...(turn.topics.length ? { topics: turn.topics } : {}) } };
       },
     };
   };
 
   function fillerCheck(turnId: string): void {
     const turn = turns.get(turnId);
-    if (!turn || turn.done || turn.silent || turn.onlySympathy || turn.firstTokenAt !== null || turn.fillerAt !== null) return;
+    if (!turn || turn.done || turn.silent || turn.onlySympathy || turn.humourOnly || turn.firstTokenAt !== null || turn.fillerAt !== null) return;
     if (settings().frontAcks) return;
     const elapsed = now() - turn.at;
     if (turn.mode === 'voice' && elapsed > D.fillerLatest) return; // a late filler sounds robotic
-    if (fire(turn.agentId, 'thinking_filler', turnTrigger(turn, { coverLatency: true, guard: () => turn.firstTokenAt === null && !turn.done }))) turn.fillerAt = now();
+    if (fire(turn.agentId, 'thinking_filler', turnTrigger(turn, { coverLatency: true, bubbleFallback: turn.mode === 'text', guard: () => turn.firstTokenAt === null && !turn.done }))) turn.fillerAt = now();
   }
 
   function holdingCheck(turnId: string): void {
@@ -621,7 +720,8 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       return;
     }
     turn.holdingDone = true;
-    fire(turn.agentId, 'holding_filler', turnTrigger(turn, { guard: () => turn.firstChunkAt === null && !turn.done }));
+    // Nothing decoded to say it: a "still thinking" bubble is better than more dead air (§1.4.11).
+    fire(turn.agentId, 'holding_filler', turnTrigger(turn, { bubbleFallback: true, guard: () => turn.firstChunkAt === null && !turn.done }));
   }
 
   function whenVoiceFree(agentId: string, maxWaitMs: number, fn: () => void, turnId?: string): void {
@@ -652,12 +752,12 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     const index = deps.index(agentId);
     const turn: Turn = {
       turnId, agentId, at: e.at, mode: e.mode, cues, firstTokenAt: null, firstChunkAt: null, done: false, reacted: false,
-      fillerAt: null, holdingDone: false, silent: cues.sincereAi, onlySympathy: cues.distress,
+      fillerAt: null, holdingDone: false, silent: cues.sincereAi, onlySympathy: cues.distress, acked: false, humourOnly: humourOnly(cues),
       topics: index ? topicsFor(index, e.text) : [],
     };
     turns.set(turnId, turn);
     currentTurn.set(agentId, turnId);
-    scheduleIdleSignOff(agentId);
+    if (turns.size > REMEMBER_KEYS) turns.delete(turns.keys().next().value!);
     if (stopped || turn.silent) return; // a sincere "are you an AI?" gets no reflex at all (H6)
     if (cues.distress) distressUntil = t + D.distressLock;
 
@@ -666,17 +766,25 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       face(agentId, { gesture: cues.farewell > 0 && cues.gratitude === 0 ? 'nod' : 'smile', expression: 'delighted', holdMs: 1200 });
       return;
     }
-    face(agentId, { gesture: 'look_up', expression: 'thinking', holdMs: 1200 });
+    // A reaction's own face (a smile, a tilt) is the first thing the owner sees; the thinking look-up would cover it.
+    const reaction = reactionFor(cues, null, d);
+    const reacting = !!reaction && reaction !== 'acknowledge' && (!turn.onlySympathy || reaction === 'sympathy');
+    const lookUp = () => face(agentId, { gesture: 'look_up', expression: 'thinking', holdMs: 1200 });
+    if (!reacting) lookUp();
 
     // Owner message while this agent is still speaking a reply (§2.3).
     const rep = replying.get(agentId);
     const remaining = rep && rep.remainingMs !== null ? rep.remainingMs - (t - rep.at) : rep ? null : undefined;
     if (rep && rep.turnId !== turnId && deps.audio.voiceBusy(agentId).busy) {
-      if (cues.stopOrSteer >= 0.6) {
+      if (reacting) lookUp();
+      const stop = cues.stopOrSteer >= 0.6;
+      if (stop || (remaining !== undefined && remaining !== null && remaining > D.juggleMax)) {
+        // The reply ends at its sentence boundary (§2.3): then a short "got it" before the new answer. A stop cue
+        // gets the interrupted lines ("Okay, switching."); a long reply cut for a follow-up gets a plain one.
         whenVoiceFree(agentId, D.boundaryWait, () => {
-          fire(agentId, 'acknowledge', turnTrigger(turn, {
-            stateOverride: (s) => ({ ...s, exchange: { ...s.exchange, mode: turn.mode, interrupted: true } }),
-          }));
+          if (fire(agentId, 'acknowledge', turnTrigger(turn, {
+            stateOverride: (s) => ({ ...s, exchange: { ...s.exchange, mode: turn.mode, interrupted: stop } }),
+          }))) turn.acked = true;
         }, turnId);
         turn.reacted = true;
         scheduleCovers(turn, D.ackCovers);
@@ -704,6 +812,7 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       };
       const c = contentionFor(foreign, { mailbox: 'owner', threadId: `owner:${agentId}` }, t);
       if (c.kind !== 'none' && (c.etaMs === null || c.etaMs >= D.juggleMin)) {
+        if (reacting) lookUp();
         if (fire(agentId, 'juggling', turnTrigger(turn, {
           instantOnly: false,
           stateOverride: (s) => ({ ...s, attention: { otherThread: c.otherThread, etaMs: c.etaMs !== null && c.etaMs <= D.juggleMax ? c.etaMs : null } }),
@@ -714,9 +823,8 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     }
 
     // Latency masking (§1.3).
-    const reaction = reactionFor(cues, null, d);
     let covered = false;
-    if (reaction && reaction !== 'acknowledge' && (!turn.onlySympathy || reaction === 'sympathy')) {
+    if (reacting) {
       covered = fire(agentId, reaction, turnTrigger(turn));
       turn.reacted = covered;
     }
@@ -725,6 +833,7 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
         coverLatency: true,
         stateOverride: (s) => ({ ...s, exchange: { ...s.exchange, mode: turn.mode } }),
       }));
+      turn.acked = covered;
     }
     scheduleCovers(turn, covered ? D.ackCovers : D.fillerDeadline);
   }
@@ -736,7 +845,7 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       later(fillerAt - elapsed, () => fillerCheck(turn.turnId), { agentId: turn.agentId, turnId: turn.turnId });
       later(D.holding - elapsed, () => holdingCheck(turn.turnId), { agentId: turn.agentId, turnId: turn.turnId });
     } else {
-      later(TEXT_FILLER_MS - elapsed, () => fillerCheck(turn.turnId), { agentId: turn.agentId, turnId: turn.turnId });
+      later(textFillerMs(turn.agentId) - elapsed, () => fillerCheck(turn.turnId), { agentId: turn.agentId, turnId: turn.turnId });
     }
   }
 
@@ -765,7 +874,11 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     switch (e.kind) {
       case 'first_token': {
         turn.firstTokenAt = e.at;
+        const tl = e.at - turn.at;
+        if (turn.mode === 'text' && tl >= 0 && Number.isFinite(tl)) tokenLatency.set(turn.agentId, [...(tokenLatency.get(turn.agentId) ?? []), tl].slice(-CHUNK_SAMPLES));
         cancelPending((it) => it.turnId === turn.turnId && (it.intent === 'thinking_filler' || it.intent === 'holding_filler'), 'first_token');
+        // A filler shown as a bubble (a text exchange) yields to the answer the moment it starts (§1.3).
+        if (played.has(`${turn.agentId}|thinking_filler|${turn.turnId}`) || played.has(`${turn.agentId}|holding_filler|${turn.turnId}`)) deps.captions.clear(turn.agentId, 'bubble');
         if (e.hint && e.hint !== 'none' && !turn.reacted && !turn.silent && e.at - turn.at <= HINT_WINDOW_MS) {
           const r = reactionFor(turn.cues, e.hint, d);
           if (r && r !== 'acknowledge' && (!turn.onlySympathy || r === 'sympathy')) turn.reacted = fire(turn.agentId, r, turnTrigger(turn, { cause: `${turn.turnId}:hint` }));
@@ -779,7 +892,7 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
           const xs = [...(chunkLatency.get(turn.agentId) ?? []), lat].slice(-CHUNK_SAMPLES);
           chunkLatency.set(turn.agentId, xs);
         }
-        if (turn.fillerAt !== null && e.at - turn.fillerAt < WASTED_FILLER_MS) tel({ kind: 'wasted_filler', agentId: turn.agentId, intent: 'thinking_filler' });
+        if (turn.fillerAt !== null && e.at - turn.fillerAt < WASTED_FILLER_MS) tel({ kind: 'wasted_filler', agentId: turn.agentId, intent: 'thinking_filler', turnId: turn.turnId });
         // Brain audio queues behind a reflex already playing; anything not yet started is cancelled (§1.3).
         cancelPending((it) => it.turnId === turn.turnId, 'brain_audio');
         cancelTimers((m) => m.turnId === turn.turnId);
@@ -853,6 +966,7 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
   function hover(agentId: string, phase: 'enter' | 'dwell' | 'leave', via: 'pointer' | 'keyboard' | 'touch'): void {
     if (destroyed || stopped) return;
     if (phase === 'leave') {
+      hoverLeftAt.set(agentId, now());
       cancelPending((it) => it.agentId === agentId && FLOOR_INTENTS.has(it.intent), 'hover_leave');
       return;
     }
@@ -868,7 +982,7 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     if (!state) return;
     const t = now();
     const cause = `hover:${agentId}:${Math.floor(t / 60_000)}`;
-    const base: Trigger = { cause, surface: 'floor', exchange: 'none', ownerAtStage: false, bubbleOnly: via === 'keyboard', replyable: true, instantOnly: false };
+    const base: Trigger = { cause, surface: 'floor', exchange: 'none', ownerAtStage: false, bubbleOnly: via === 'keyboard', replyable: true, instantOnly: false, ownerInitiated: true };
     const order: IntentId[] = [];
     const working = state.self.presence === 'working' || state.self.presence === 'thinking';
     if (state.self.blocked) order.push('blocked');
@@ -896,26 +1010,8 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
   /** Two or more owner turns with this agent in the last 10 minutes: a real conversation worth a goodbye. */
   const hadConversation = (agentId: string, t: number) => (turnLog.get(agentId) ?? []).filter((x) => t - x < 10 * 60_000).length >= 2;
 
-  /**
-   * Sign-off after `sign_off_idle_ms` (5 min) of owner silence at a stage that is still open (E20). Every owner turn
-   * re-arms it; closing or leaving the stage cancels it.
-   */
-  function scheduleIdleSignOff(agentId: string): void {
-    const prev = idleSignOff.get(agentId);
-    if (prev !== undefined) {
-      timers.get(prev)?.cancel();
-      timers.delete(prev);
-    }
-    const armedAt = now();
-    idleSignOff.set(agentId, later(D.signOffIdle, () => {
-      idleSignOff.delete(agentId);
-      const t = now();
-      if (!stageOpenAt.has(agentId) || (speech.get(agentId)?.lastInputAt ?? 0) > armedAt || !hadConversation(agentId, armedAt + 1)) return;
-      const { sf } = stageFor(agentId);
-      if (sf.stageAgentId !== agentId) return;
-      fire(agentId, 'sign_off', { cause: `idle:${agentId}:${Math.floor(t / 60_000)}`, surface: sf.surface, ownerAtStage: true, exchange: 'none', instantOnly: false });
-    }, { agentId }));
-  }
+  // No sign-off after a quiet spell at an open stage: an owner reading or thinking has not left, and the Chief is
+  // always reachable (D2). A goodbye follows only a real exit (leaving the app) or the owner's own farewell.
 
   function stage(agentId: string, phase: 'open' | 'close', reason: 'navigate' | 'leave' = 'navigate'): void {
     if (destroyed || stopped) return;
@@ -928,25 +1024,23 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       cancelPending((it) => it.intent === 'sign_off', 'stage_opened');
       const st = deps.state(agentId);
       if (!st || !(st.history.newDay || st.history.returning || st.history.firstMeeting)) return;
+      // One hello per session: a later Floor → Talk hop stays quiet, even if the first one was only shown.
+      if (greeted.has(agentId)) return;
       const openedAt = t;
-      fire(agentId, 'greeting', {
+      if (fire(agentId, 'greeting', {
         cause: `stage:${agentId}:${Math.floor(t / 60_000)}`,
         surface,
         ownerAtStage: true,
         exchange: 'none',
         instantOnly: false,
+        // Audio is not armed yet on a fresh page load: the hello shows as a caption instead of nothing.
+        captionFallback: true,
         guard: () => (speech.get(agentId)?.lastInputAt ?? 0) < openedAt && stageOpenAt.get(agentId) === openedAt,
-      });
+      })) greeted.add(agentId);
       return;
     }
     stageOpenAt.delete(agentId);
     cancelPending((it) => it.agentId === agentId && it.intent === 'greeting', 'stage_closed');
-    const idle = idleSignOff.get(agentId);
-    if (idle !== undefined) {
-      timers.get(idle)?.cancel();
-      timers.delete(idle);
-      idleSignOff.delete(agentId);
-    }
     // Talk ↔ Floor and other in-app moves never get a goodbye (E20); leaving the app does, deferred so a quick
     // return (another stage opened, or the owner speaking again) cancels it.
     if (reason !== 'leave' || !hadConversation(agentId, t)) return;
@@ -970,11 +1064,38 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     if (distressed() && AFTER_DISTRESS_BLOCKED.has(data.intent)) return;
     const key = data.turnId ? `${data.agentId}|${data.intent}|${data.turnId}` : null;
     if (key && played.has(key)) return; // the runner already played this one locally
-    if (key) played.add(key);
     const index = deps.index(data.agentId);
     const def = catalog.intents.get(data.intent);
     if (!def) return;
     const t = now();
+    // R2: the server covered this turn: the runner's own filler, hold or reaction for it would be a second one.
+    const covered = data.turnId ? turns.get(data.turnId) : undefined;
+    if (covered && covered.agentId === data.agentId && data.audience === 'owner') {
+      const skip = (reason: string) => tel({ kind: 'skipped', agentId: data.agentId, intent: data.intent, lineId: data.lineId, reason, ...tid(data.turnId) });
+      // A sincere "are you an AI?" gets no reflex at all (H6); distress gets sympathy only (§1.4.4).
+      if (covered.silent) return skip('silent_turn');
+      if (covered.onlySympathy && data.intent !== 'sympathy') return skip('only_sympathy');
+      if (data.intent === 'thinking_filler' || data.intent === 'holding_filler') {
+        // The server's safety net never repeats what already covered the wait: an acknowledgement or a reaction, a
+        // reflex of this turn still sounding or queued, or one that ended less than `ack_covers_filler_until_ms` ago.
+        const end = turnVoiceEnd.get(covered.turnId);
+        const busy = [...active.values()].some((a) => a.item.turnId === covered.turnId) || queue.some((it) => it.turnId === covered.turnId);
+        if (covered.humourOnly) return skip('humour_only');
+        if (data.intent === 'thinking_filler' && (covered.acked || covered.reacted || covered.fillerAt !== null)) return skip('covered');
+        if (busy || (end !== undefined && t - end < D.ackCovers)) return skip('covered');
+      }
+    }
+    if (key) {
+      played.add(key);
+      remember(serverPlayed, key);
+    }
+    if (covered && covered.agentId === data.agentId) {
+      if (data.intent === 'thinking_filler') covered.fillerAt ??= t;
+      else if (data.intent === 'holding_filler') covered.holdingDone = true;
+      else if (data.intent === 'acknowledge') covered.acked = covered.reacted = true;
+      else if (REACTIONS.has(data.intent)) covered.reacted = true;
+      cancelPending((it) => it.turnId === covered.turnId && it.agentId === data.agentId && it.intent === data.intent, 'server_played');
+    }
     face(data.agentId, data.face);
     const plan: ChannelPlan = { voice: data.channels.voice, bubble: data.channels.bubble, caption: data.channels.caption, face: data.face, gainDb: data.gainDb, priority: data.priority, ttlMs: data.ttlMs, delayMs: 0 };
     const u: Utterance = {
@@ -992,12 +1113,12 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
     if (index && st) recordUtterance(deps.recency, index, u, t, ownerDayKey(st));
     if (data.clip) it.clipKey = data.clip.key;
     else it.renderReq = data.render ?? null;
-    if (plan.bubble) deps.captions.show({ agentId: it.agentId, text: u.caption, kind: 'bubble', ttlMs: bubbleTtl(u.caption), replyable: it.replyable, ...(u.gloss ? { gloss: u.gloss } : {}) });
+    if (plan.bubble) deps.captions.show({ agentId: it.agentId, text: u.caption, kind: 'bubble', ttlMs: bubbleTtl(u.caption), replyable: it.replyable, intent: it.intent, ...(u.gloss ? { gloss: u.gloss } : {}) });
     const s = settings();
     if (!(plan.voice && deps.audio.armed() && s.voiceOn)) return;
     const go = () => {
       if (stopped || destroyed || now() > it.expiresAt) return;
-      if (ownerSpeaking(it.agentId)) return tel({ kind: 'dropped', agentId: it.agentId, intent: it.intent, lineId: it.u.lineId, reason: 'owner_speaking' });
+      if (ownerSpeaking(it.agentId)) return tel({ kind: 'dropped', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId, reason: 'owner_speaking' });
       voice(it); // same single-voice queue and clip rules as local reflexes
     };
     // Event reflexes wait for the agent's own line to end (+400 ms, §1.4.5); replies to the owner do not.
@@ -1030,7 +1151,7 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       const sf = deps.surface();
       deps.captions.show({
         agentId: data.agentId, text: data.text, kind: 'sidetalk', ttlMs: bubbleTtl(data.text), replyable: data.replyable,
-        threadId: data.threadId, toAgentId: data.toAgentId,
+        threadId: data.threadId, toAgentId: data.toAgentId, intent: data.intent,
       });
       gate.noteBubble(now() + bubbleTtl(data.text)); // side-talk bubbles count toward max_visible_bubbles (E8)
       const def = catalog.intents.get(data.intent);
@@ -1055,7 +1176,7 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       };
       const h = deps.audio.play({
         agentId: it.agentId, clip, bus: 'ambient', gainDb: it.plan.gainDb, priority: it.plan.priority, ttlMs: it.plan.ttlMs, caption: data.text,
-        onStart: () => tel({ kind: 'played', agentId: it.agentId, intent: it.intent, lineId: it.u.lineId, reason: 'sidetalk', latencyMs: now() - it.triggeredAt }),
+        onStart: () => tel({ kind: 'played', agentId: it.agentId, intent: it.intent, ...tid(it.turnId), lineId: it.u.lineId, reason: 'sidetalk', latencyMs: now() - it.triggeredAt }),
       });
       track(it, h);
       if (!data.gist || data.opener === data.text) return;
@@ -1150,8 +1271,8 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
       currentTurn.clear();
       replying.clear();
       juggles.clear();
-      idleSignOff.clear();
       speech.clear();
+      turnVoiceEnd.clear();
     },
     destroy(): void {
       clearAll();
@@ -1161,3 +1282,11 @@ export function createReflexRunner(deps: ReflexRunnerDeps): ReflexRunner {
 }
 
 const FLOOR_INTENTS = new Set<IntentId>(FLOOR_INTENT_LIST);
+const REACTIONS = new Set<IntentId>(REACTION_INTENTS);
+const REMEMBER_KEYS = 500;
+
+/** Add to a bounded set (oldest out first), so a long session never grows it without end. */
+function remember(set: Set<string>, key: string): void {
+  set.add(key);
+  if (set.size > REMEMBER_KEYS) set.delete(set.values().next().value!);
+}

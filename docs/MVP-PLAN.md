@@ -70,6 +70,15 @@ Each increment ends with a demo script that you run, or that I run and show you,
   - Faces: the mood model drives the avatar's expression palette.
 - **Asynchronous actors.** Every agent gets prioritized mailboxes and multiple attention threads, and owner communication always goes first.
 
+### Inc 0.7 · The Office (owner request)
+
+- **Desk mode.** An interactive 2.5D floor plan shows coworkers at desks in office chairs, grouped in department neighbourhoods.
+  - The room: windows with a city skyline that follows the time of day, glass conference rooms and the Chief of Staff's office.
+  - Office things: plants, a coffee bar, whiteboards, bookshelves, a lounge and lamps.
+  - Interaction: pan and zoom. Hovering over a desk triggers a passing-by line (Inc 0.5), and clicking opens a 1:1 quick chat. The Directory stays as the list alternative.
+- **Conference room mode.** Walk into a room and invite coworkers to the table; they take seats. Then talk to the room: each participant answers in turn, in character and in their own voice with lip sync, and the owner can barge in. This is the precursor of Inc 2 meetings.
+- **Later increments.** Inc 1 turns the neighbourhoods into project pods, and Inc 2 turns the rooms into real RoomDO meetings.
+
 ### Inc 1 · Hire a team in a sentence
 
 - **Routes.** The Chief of Staff chooses a route: answer, ask a coworker, delegate, or start a project. Routes are stored as a data table, and each has a running and a finished sentence [OC orchestrator + BB bizbot].

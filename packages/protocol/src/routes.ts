@@ -38,6 +38,15 @@ export const ROUTES = {
   getPortrait: { method: 'GET', path: '/api/portraits/:personaId', auth: 'owner' },
   getLandmarks: { method: 'GET', path: '/api/portraits/:personaId/landmarks', auth: 'owner' },
   putLandmarks: { method: 'PUT', path: '/api/portraits/:personaId/landmarks', auth: 'owner', body: 'json', bodyCap: 110 * 1024 },
+  // Inc 0.5 living workforce (ext/expressions.ts).
+  exprCatalog: { method: 'GET', path: '/api/expr/catalog', auth: 'owner' },
+  exprAgent: { method: 'GET', path: '/api/expr/agents/:agentId', auth: 'owner' },
+  exprClip: { method: 'GET', path: '/api/expr/clips/:clipKey', auth: 'owner' },
+  exprAlign: { method: 'GET', path: '/api/expr/clips/:clipKey/align', auth: 'owner' },
+  exprRender: { method: 'POST', path: '/api/expr/render', auth: 'owner', body: 'json', bodyCap: 8 * 1024 },
+  exprPrevoice: { method: 'POST', path: '/api/expr/prevoice', auth: 'owner', body: 'json', bodyCap: 128 * 1024 },
+  exprPrevoiceStatus: { method: 'GET', path: '/api/expr/prevoice/:runId', auth: 'owner' },
+  deskSay: { method: 'POST', path: '/api/desk/:personaId/say', auth: 'owner', body: 'json', bodyCap: 16 * 1024 },
 } as const satisfies Record<string, RouteDef>;
 
 export type RouteId = keyof typeof ROUTES;

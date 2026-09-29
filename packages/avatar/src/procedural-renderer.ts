@@ -587,12 +587,14 @@ export class ProceduralRenderer {
     ctx.strokeStyle = css(st.brow, 0.92);
     ctx.lineWidth = 3.1 * st.browWeight;
     ctx.lineCap = 'round';
+    // A concerned palette lifts the inner ends of the brows (INC05-PLAN §3.7: browInner = 0.4 × weight).
+    const inner = clamp(pose.browInner ?? 0, 0, 1) * 3.4;
     for (const side of [-1, 1]) {
       const ex = head.cx + side * 23 * st.eyeSpacing + head.fx;
       const by = head.eyeY - 17 + head.fy - clamp(pose.brow, 0, 1) * 4.5 + (side > 0 ? st.asym * 0.8 : 0);
       ctx.beginPath();
-      ctx.moveTo(ex - side * 10, by + 1.6);
-      ctx.quadraticCurveTo(ex + side * 1.5, by - 2.8, ex + side * 11.5, by + 1.2);
+      ctx.moveTo(ex - side * 10, by + 1.6 - inner);
+      ctx.quadraticCurveTo(ex + side * 1.5, by - 2.8 - inner * 0.35, ex + side * 11.5, by + 1.2);
       ctx.stroke();
     }
   }
@@ -604,7 +606,8 @@ export class ProceduralRenderer {
     const open = clamp((m.openY + m.jawDrop) / 0.062, -0.5, 1.15);
     const wide = clamp(m.stretchX / 0.03, -1, 1);
     const round = clamp(m.round, 0, 1);
-    const corner = clamp(m.cornerPull, 0, 1);
+    // Negative corner pull (a mood frown) lowers the corners.
+    const corner = clamp(m.cornerPull, -1, 1);
     const k = st.mouthSize;
     const mx = head.cx + head.fx;
     const my = head.mouthY + head.fy + Math.max(0, open) * 1.2;

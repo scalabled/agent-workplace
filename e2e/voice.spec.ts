@@ -85,7 +85,7 @@ test('the landing page plays each lead in their own voice when a speech provider
   await expect(first.getByRole('button', { name: `Hear ${name}'s voice` })).toBeVisible({ timeout: 30_000 });
 });
 
-test('a spoken reply moves the mouth with the audio, and sending a message barges in', async ({ page }) => {
+test('a spoken reply moves the mouth with the audio; a stop cue ends it at the sentence, Esc at once', async ({ page }) => {
   await page.goto('/app/talk');
   await expect(page.getByRole('button', { name: /Voice on/ })).toBeVisible();
   await recordFrames(page);
@@ -103,19 +103,35 @@ test('a spoken reply moves the mouth with the audio, and sending a message barge
   // The mouth follows the playing audio (character timing from TTS), not a timer: it opens while speaking.
   await expect.poll(() => mouthOpenness(page), { timeout: 5_000, intervals: [50] }).toBeGreaterThan(0.05);
 
-  // Barge-in: the owner sends while the Chief of Staff is talking → playback stops at once.
+  // Sending while they speak (X5 amended, LIVING-WORKFORCE §2.3): typing does not stop them; a stop cue ends the
+  // reply at the end of the sentence now playing (the rest stays on screen), and the new answer follows.
+  // Mock TTS speaks 60 ms a character: the whole three-sentence reply is about 11 s, its first sentence about 5 s.
+  await page.locator('#composer').fill('Hold on');
+  await page.waitForTimeout(300);
+  await expect(page.locator('.talk-face')).toHaveAttribute('data-state', 'speaking');
   const sentAt = await page.evaluate(() => performance.now());
-  await say(page, 'Hold on, one quick thing');
-  await expect
-    .poll(async () => page.evaluate((t) => (window as unknown as { __faceStates: { state: string; at: number }[] }).__faceStates.some((s) => s.at > t && s.state !== 'speaking'), sentAt), { timeout: 3_000 })
-    .toBe(true);
-  const stoppedAfter = await page.evaluate((t) => {
-    const s = (window as unknown as { __faceStates: { state: string; at: number }[] }).__faceStates.find((x) => x.at > t && x.state !== 'speaking');
-    return s ? s.at - t : Infinity;
-  }, sentAt);
-  expect(stoppedAfter, 'speech stopped within 1 s of the owner sending').toBeLessThan(1000);
+  await page.locator('#composer').fill('Hold on, one quick thing');
+  await page.locator('#composer').press('Enter');
+  const stoppedAfter = async () =>
+    page.evaluate((t) => {
+      const s = (window as unknown as { __faceStates: { state: string; at: number }[] }).__faceStates.find((x) => x.at > t && x.state !== 'speaking');
+      return s ? s.at - t : null;
+    }, sentAt);
+  await expect.poll(stoppedAfter, { timeout: 8_000 }).not.toBeNull();
+  expect(await stoppedAfter(), 'the reply ended at its sentence boundary, not after the whole reply').toBeLessThan(6500);
   // The new reply is spoken in turn.
-  await waitForFrame(page, (f) => f.type === 'talk.done' && f.live && f.data.route === 'answer' && String(f.data.messageId ?? '').length > 0, 15_000);
+  const second = await waitForFrame(page, (f) => f.type === 'talk.owner' && f.live && f.data.text === 'Hold on, one quick thing');
+  await waitForFrame(page, (f) => f.type === 'talk.done' && f.live && f.data.turnId === second.data.turnId && !!f.data.messageId, 15_000);
+  await expect(page.locator('.talk-face')).toHaveAttribute('data-state', 'speaking', { timeout: 15_000 });
+
+  // Esc is still a barge-in: playback stops at once.
+  const escAt = await page.evaluate(() => performance.now());
+  await page.keyboard.press('Escape');
+  await expect
+    .poll(async () => page.evaluate((t) => (window as unknown as { __faceStates: { state: string; at: number }[] }).__faceStates.find((x) => x.at > t && x.state !== 'speaking')?.at ?? null, escAt), { timeout: 3_000 })
+    .not.toBeNull();
+  const escStopped = await page.evaluate((t) => (window as unknown as { __faceStates: { state: string; at: number }[] }).__faceStates.find((x) => x.at > t && x.state !== 'speaking')!.at - t, escAt);
+  expect(escStopped, 'Esc stopped speech within 1 s').toBeLessThan(1000);
 });
 
 test('push-to-talk records the microphone and sends what was said', async ({ page }) => {

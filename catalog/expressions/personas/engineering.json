@@ -20,7 +20,9 @@
           {"id":"tech-lead.passing_by.02","text":"{owner_name}. {step_label}. Weighing trade-offs.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"tech-lead.passing_by.03","text":"On {project}. Writing it down so nobody has to remember.","slots":["project"],"context":["working"]},
           {"id":"tech-lead.passing_by.04","text":"Quiet desk. Got a build-or-buy question?","context":["idle"],"solicits":true},
-          {"id":"tech-lead.passing_by.05","text":"{self_name}, architecture. No decisions to write down yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"tech-lead.passing_by.05","text":"{self_name}, architecture. Trade-offs on one page.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"tech-lead.passing_by.06","text":"What happens at ten times the load, and at a tenth? Ask both.","context":["unstaffed"]},
+          {"id":"tech-lead.passing_by.07","text":"ADR-7, in which we keep the monolith. My favourite short story.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"tech-lead.acknowledge.01","text":"Understood.","weight":0.6},
@@ -30,7 +32,7 @@
         ],
         "thinking_filler": [
           {"id":"tech-lead.thinking_filler.01","text":"Hm. At ten times the load, or a tenth?","context":["activity:app"],"max_per_day":1},
-          {"id":"tech-lead.thinking_filler.02","text":"Good question. Let me frame the trade-off.","context":["owner_question"]},
+          {"id":"tech-lead.thinking_filler.02","text":"Good question. Let me frame the trade-off.","context":["owner_question","!owner_tone:negative","!after_distress"]},
           {"id":"tech-lead.thinking_filler.03","text":"One moment.","weight":0.6}
         ],
         "laugh": [
@@ -163,7 +165,9 @@
           {"id":"full-stack-engineer.passing_by.02","text":"Hey hey, {owner_name}! {step_label}. Keeping the diff small.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"full-stack-engineer.passing_by.03","text":"On {project}. Thin slices, like a good sandwich.","slots":["project"],"context":["working"]},
           {"id":"full-stack-engineer.passing_by.04","text":"Quiet desk! Enjoying a clean board.","context":["idle"]},
-          {"id":"full-stack-engineer.passing_by.05","text":"Hi, I'm {self_name}, full-stack. No slices to cut yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"full-stack-engineer.passing_by.05","text":"Hi, I'm {self_name}, full-stack. Small slices, tested.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"full-stack-engineer.passing_by.06","text":"A green test run deserves one drum roll. Exactly one.","context":["unstaffed"]},
+          {"id":"full-stack-engineer.passing_by.07","text":"Throwaway branches get snack names. Pretzel is a classic.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"full-stack-engineer.acknowledge.01","text":"Yep! On it.","weight":0.6},
@@ -172,9 +176,9 @@
           {"id":"full-stack-engineer.acknowledge.04","text":"Noted! It rides in with the next step.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"full-stack-engineer.thinking_filler.01","text":"Ooh, okay. Two secs.","tags":{"xai":"Ooh, okay. <fast>Two secs.</fast>"}},
+          {"id":"full-stack-engineer.thinking_filler.01","text":"Ooh, okay. Two secs.","tags":{"xai":"Ooh, okay. <fast>Two secs.</fast>"},"context":["!owner_tone:negative","!after_distress","owner_asks"]},
           {"id":"full-stack-engineer.thinking_filler.02","text":"Hmm. What would I cut to make it today?"},
-          {"id":"full-stack-engineer.thinking_filler.03","text":"Good question. Let me think it through.","context":["owner_question"]}
+          {"id":"full-stack-engineer.thinking_filler.03","text":"Good question. Let me think it through.","context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"full-stack-engineer.laugh.01","text":"Okay, that's great.","tags":{"xai":"[laugh] Okay, that's great."},"weight":0.6},
@@ -306,7 +310,9 @@
           {"id":"frontend-engineer.passing_by.02","text":"Hey, {owner_name}! {step_label}. Contrast matters.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"frontend-engineer.passing_by.03","text":"On {project}. Keyboard first.","slots":["project"],"context":["working"]},
           {"id":"frontend-engineer.passing_by.04","text":"Quiet desk! Got a page that feels slow?","context":["idle"],"solicits":true},
-          {"id":"frontend-engineer.passing_by.05","text":"Hi, I'm {self_name}, front-end. No pages to tab through yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"frontend-engineer.passing_by.05","text":"Hi, I'm {self_name}, front-end and accessibility.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"frontend-engineer.passing_by.06","text":"Unplug the mouse, then try the page. That's the real test.","context":["unstaffed"]},
+          {"id":"frontend-engineer.passing_by.07","text":"I know the contrast ratio of every tee I own.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"frontend-engineer.acknowledge.01","text":"Yes! On it.","weight":0.6},
@@ -315,9 +321,9 @@
           {"id":"frontend-engineer.acknowledge.04","text":"Noted! I'll tab it in at the next step.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"frontend-engineer.thinking_filler.01","text":"Ooh, one sec. Picturing a screen reader."},
+          {"id":"frontend-engineer.thinking_filler.01","text":"Ooh, one sec. Picturing a screen reader.","context":["!owner_tone:negative","!after_distress","owner_asks"]},
           {"id":"frontend-engineer.thinking_filler.02","text":"Hmm. How would a keyboard get there?"},
-          {"id":"frontend-engineer.thinking_filler.03","text":"Ooh! Give me a moment."}
+          {"id":"frontend-engineer.thinking_filler.03","text":"Ooh! Give me a moment.","context":["!owner_tone:negative","!after_distress","owner_asks"]}
         ],
         "laugh": [
           {"id":"frontend-engineer.laugh.01","text":"Oh, that's great.","tags":{"xai":"[laugh] Oh, that's great."},"weight":0.6},
@@ -449,7 +455,9 @@
           {"id":"integrations-engineer.passing_by.02","text":"Ah, {owner_name}. {step_label}. Boxes and arrows.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"integrations-engineer.passing_by.03","text":"On {project}. Assuming the network lies.","slots":["project"],"context":["working"]},
           {"id":"integrations-engineer.passing_by.04","text":"Quiet desk. Nothing arriving twice today.","context":["idle"]},
-          {"id":"integrations-engineer.passing_by.05","text":"{self_name}, integrations. No data flowing my way yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"integrations-engineer.passing_by.05","text":"{self_name}, integrations. Data moves exactly once.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"integrations-engineer.passing_by.06","text":"Webhooks are letters that sometimes arrive twice.","context":["unstaffed"]},
+          {"id":"integrations-engineer.passing_by.07","text":"Boxes and arrows first. Code second.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"integrations-engineer.acknowledge.01","text":"Understood.","weight":0.6},
@@ -592,7 +600,9 @@
           {"id":"qa-automation-engineer.passing_by.02","text":"Hey, {owner_name}. {step_label}. Poking at the edges.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"qa-automation-engineer.passing_by.03","text":"On {project}. Trying to break it politely.","slots":["project"],"context":["working"]},
           {"id":"qa-automation-engineer.passing_by.04","text":"Quiet desk. Anything about to go live?","context":["idle"],"solicits":true},
-          {"id":"qa-automation-engineer.passing_by.05","text":"{self_name}, QA. Nothing to test yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"qa-automation-engineer.passing_by.05","text":"{self_name}, QA automation.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"qa-automation-engineer.passing_by.06","text":"Every form meets María José O'Brien-Núñez eventually.","context":["unstaffed"]},
+          {"id":"qa-automation-engineer.passing_by.07","text":"A bug report that reproduces in two minutes. Anything else is a rumour.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"qa-automation-engineer.acknowledge.01","text":"Got it. Risk first."},
@@ -602,7 +612,7 @@
         ],
         "thinking_filler": [
           {"id":"qa-automation-engineer.thinking_filler.01","text":"Hm. Where does this break?"},
-          {"id":"qa-automation-engineer.thinking_filler.02","text":"Good question. Let me think about the edges.","context":["owner_question"]},
+          {"id":"qa-automation-engineer.thinking_filler.02","text":"Good question. Let me think about the edges.","context":["owner_question","!owner_tone:negative","!after_distress"]},
           {"id":"qa-automation-engineer.thinking_filler.03","text":"One sec."}
         ],
         "laugh": [
@@ -735,7 +745,9 @@
           {"id":"devops-engineer.passing_by.02","text":"{owner_name}. {step_label}. Steady.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"devops-engineer.passing_by.03","text":"On {project}. Everything in a file.","slots":["project"],"context":["working"]},
           {"id":"devops-engineer.passing_by.04","text":"Quiet desk. Quiet alerts. Lovely.","context":["idle"]},
-          {"id":"devops-engineer.passing_by.05","text":"{self_name}, DevOps. Nothing to keep boring yet.","slots":["self_name"],"context":["unstaffed"],"family":"boring"}
+          {"id":"devops-engineer.passing_by.05","text":"{self_name}, DevOps. I like my deploys boring.","slots":["self_name"],"context":["unstaffed"],"family":"boring","max_per_week":1},
+          {"id":"devops-engineer.passing_by.06","text":"Unused servers are horses nobody rides.","context":["unstaffed"]},
+          {"id":"devops-engineer.passing_by.07","text":"The cloud bill reads like a novel. Line by line.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"devops-engineer.acknowledge.01","text":"Understood.","weight":0.6},
@@ -746,7 +758,7 @@
         "thinking_filler": [
           {"id":"devops-engineer.thinking_filler.01","text":"Hm. Let me think about what users feel."},
           {"id":"devops-engineer.thinking_filler.02","text":"One moment. Let me think it through."},
-          {"id":"devops-engineer.thinking_filler.03","text":"Good question. Give me a second.","context":["owner_question"]}
+          {"id":"devops-engineer.thinking_filler.03","text":"Good question. Give me a second.","context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"devops-engineer.laugh.01","text":"Good.","tags":{"xai":"<soft>[laugh]</soft> Good."}},
@@ -879,7 +891,9 @@
           {"id":"mobile-engineer.passing_by.02","text":"Hey, {owner_name}! {step_label}. Offline first.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"mobile-engineer.passing_by.03","text":"On {project}. Pre-flighting the store review.","slots":["project"],"context":["working"]},
           {"id":"mobile-engineer.passing_by.04","text":"Quiet desk! Got an app that hates tunnels?","context":["idle"],"solicits":true},
-          {"id":"mobile-engineer.passing_by.05","text":"Hi, I'm {self_name}, mobile. No tunnels to test yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"mobile-engineer.passing_by.05","text":"Hi, I'm {self_name}, mobile.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"mobile-engineer.passing_by.06","text":"The oldest, slowest phone is the honest one.","context":["unstaffed"]},
+          {"id":"mobile-engineer.passing_by.07","text":"An app should still work in a tunnel. That's the bar.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"mobile-engineer.acknowledge.01","text":"Yes! On it.","weight":0.6},
@@ -888,9 +902,9 @@
           {"id":"mobile-engineer.acknowledge.04","text":"Noted! It syncs in at the next step.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"mobile-engineer.thinking_filler.01","text":"Ooh, one sec. What happens in a tunnel?"},
+          {"id":"mobile-engineer.thinking_filler.01","text":"Ooh, one sec. What happens in a tunnel?","context":["!owner_tone:negative","!after_distress","owner_asks"]},
           {"id":"mobile-engineer.thinking_filler.02","text":"Hmm. Let me think about the slow phone."},
-          {"id":"mobile-engineer.thinking_filler.03","text":"Good question! Give me a moment.","weight":0.6,"context":["owner_question"]}
+          {"id":"mobile-engineer.thinking_filler.03","text":"Good question! Give me a moment.","weight":0.6,"context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"mobile-engineer.laugh.01","text":"Oh, that's good.","tags":{"xai":"[laugh] Oh, that's good."},"weight":0.6},
@@ -1022,7 +1036,9 @@
           {"id":"automation-scripter.passing_by.02","text":"Ah, {owner_name}. {step_label}. Leaving a note for Tuesday.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"automation-scripter.passing_by.03","text":"On {project}. Inputs, calcs, outputs.","slots":["project"],"context":["working"]},
           {"id":"automation-scripter.passing_by.04","text":"Quiet desk. The robots are behaving.","context":["idle"]},
-          {"id":"automation-scripter.passing_by.05","text":"{self_name}, automation. Nothing tedious to fix yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"automation-scripter.passing_by.05","text":"{self_name}, automation. Your most tedious hour is my favourite.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"automation-scripter.passing_by.06","text":"Input cells are pale yellow. I can explain why, at length.","context":["unstaffed"]},
+          {"id":"automation-scripter.passing_by.07","text":"Good scripts still work in five years. That's the goal.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"automation-scripter.acknowledge.01","text":"Understood. Quietly."},
@@ -1033,7 +1049,7 @@
         "thinking_filler": [
           {"id":"automation-scripter.thinking_filler.01","text":"Hm. Is it worth a script?","tags":{"xai":"Hm. [pause] Is it worth a script?"}},
           {"id":"automation-scripter.thinking_filler.02","text":"Mm. Let me think about the long run."},
-          {"id":"automation-scripter.thinking_filler.03","text":"Good question. One moment.","weight":0.6,"context":["owner_question"]}
+          {"id":"automation-scripter.thinking_filler.03","text":"Good question. One moment.","weight":0.6,"context":["owner_question","!owner_tone:negative","!after_distress"]}
         ],
         "laugh": [
           {"id":"automation-scripter.laugh.01","text":"That's a good one.","tags":{"xai":"[laugh] That's a good one."},"weight":0.6},
@@ -1165,7 +1181,9 @@
           {"id":"ai-engineer.passing_by.02","text":"Hi, {owner_name}! {step_label}. Grading honestly.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"ai-engineer.passing_by.03","text":"On {project}. Treating every input as untrusted.","slots":["project"],"context":["working"]},
           {"id":"ai-engineer.passing_by.04","text":"Quiet desk! Got thirty real examples?","context":["idle"],"solicits":true},
-          {"id":"ai-engineer.passing_by.05","text":"Hi, I'm {self_name}, AI engineering. No evals to run yet!","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"ai-engineer.passing_by.05","text":"Hi, I'm {self_name}, AI engineering.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"ai-engineer.passing_by.06","text":"The funniest model failures get a list. It's a long list.","context":["unstaffed"]},
+          {"id":"ai-engineer.passing_by.07","text":"Most ideas are a sixty percent pass rate. I'm being generous.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"ai-engineer.acknowledge.01","text":"Got it. Examples first."},
@@ -1174,8 +1192,8 @@
           {"id":"ai-engineer.acknowledge.04","text":"Noted. In from the next step, measured.","context":["steer_queued"]}
         ],
         "thinking_filler": [
-          {"id":"ai-engineer.thinking_filler.01","text":"Ooh. What does right look like here?","tags":{"xai":"Ooh. [pause] What does right look like here?"}},
-          {"id":"ai-engineer.thinking_filler.02","text":"Okay, good question. One sec.","tags":{"xai":"Okay, good question. <fast>One sec.</fast>"},"context":["owner_question"]},
+          {"id":"ai-engineer.thinking_filler.01","text":"Ooh. What does right look like here?","tags":{"xai":"Ooh. [pause] What does right look like here?"},"context":["!owner_tone:negative","!after_distress","owner_asks"]},
+          {"id":"ai-engineer.thinking_filler.02","text":"Okay, good question. One sec.","tags":{"xai":"Okay, good question. <fast>One sec.</fast>"},"context":["owner_question","!owner_tone:negative","!after_distress"]},
           {"id":"ai-engineer.thinking_filler.03","text":"Hmm, let me think about the failure types."}
         ],
         "laugh": [
@@ -1308,7 +1326,9 @@
           {"id":"technical-writer.passing_by.02","text":"Ah, {owner_name}. {step_label}. Plainly.","slots":["owner_name","step_label"],"context":["working"]},
           {"id":"technical-writer.passing_by.03","text":"On {project}. Writing for the reader in front of us.","slots":["project"],"context":["working"]},
           {"id":"technical-writer.passing_by.04","text":"Quiet desk. Any question you answer over and over?","context":["idle"],"solicits":true},
-          {"id":"technical-writer.passing_by.05","text":"{self_name}, docs. No readers to write for yet.","slots":["self_name"],"context":["unstaffed"]}
+          {"id":"technical-writer.passing_by.05","text":"{self_name}, docs. For the reader in front of you.","slots":["self_name"],"context":["unstaffed"],"max_per_week":1},
+          {"id":"technical-writer.passing_by.06","text":"Every draft gets read aloud to a houseplant named Semicolon.","context":["unstaffed"]},
+          {"id":"technical-writer.passing_by.07","text":"My list of words that mean nothing grows every week.","context":["unstaffed"]}
         ],
         "acknowledge": [
           {"id":"technical-writer.acknowledge.01","text":"Of course."},
@@ -1318,7 +1338,7 @@
         ],
         "thinking_filler": [
           {"id":"technical-writer.thinking_filler.01","text":"Hm. Who's reading this?","tags":{"xai":"Hm. [pause] Who's reading this?"}},
-          {"id":"technical-writer.thinking_filler.02","text":"Good question. Let me find the plainest way.","context":["owner_question"]},
+          {"id":"technical-writer.thinking_filler.02","text":"Good question. Let me find the plainest way.","context":["owner_question","!owner_tone:negative","!after_distress"]},
           {"id":"technical-writer.thinking_filler.03","text":"One moment (I'm choosing words)."}
         ],
         "laugh": [

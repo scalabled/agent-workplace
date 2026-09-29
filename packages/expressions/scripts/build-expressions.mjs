@@ -12,7 +12,7 @@
 // The engine is TypeScript; this script runs it through Node's type stripping (built in from Node 22.18 and
 // 23.6, re-executed with --experimental-strip-types on older 22.x) — no build step, no dependencies.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { register } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -63,8 +63,18 @@ const counts = { archetypePacks: cleaned.packs.length, signaturePacks: cleaned.s
 
 mkdirSync(outDir, { recursive: true });
 const bundle = { kind: 'expression_bundle', version: catalog.version, input: cleaned };
-writeFileSync(join(outDir, 'expressions.json'), `${JSON.stringify(bundle)}\n`);
-writeFileSync(join(outDir, 'report.json'), `${JSON.stringify({ version: catalog.version, counts, files, skipped, dropped, problems }, null, 2)}\n`);
+// Write only what changed: a running `pnpm dev` (wrangler and Vite) reloads on every write of the bundle.
+const writeIfChanged = (file, text) => {
+  try {
+    if (readFileSync(file, 'utf8') === text) return false;
+  } catch {
+    /* missing: write it */
+  }
+  writeFileSync(file, text);
+  return true;
+};
+const changed = writeIfChanged(join(outDir, 'expressions.json'), `${JSON.stringify(bundle)}\n`);
+writeIfChanged(join(outDir, 'report.json'), `${JSON.stringify({ version: catalog.version, counts, files, skipped, dropped, problems }, null, 2)}\n`);
 
 if (!quiet) {
   for (const s of skipped) console.warn(`skip  ${s.path}: ${s.reason}`);
@@ -72,6 +82,6 @@ if (!quiet) {
 }
 console.log(
   `expressions ${catalog.version}: ${counts.archetypePacks} archetype packs, ${counts.signaturePacks} signature packs, ${counts.lines} lines` +
-    ` · ${dropped.length} dropped, ${skipped.length} files skipped → ${join(outDir, 'expressions.json')}`,
+    ` · ${dropped.length} dropped, ${skipped.length} files skipped → ${join(outDir, 'expressions.json')}${changed ? '' : ' (unchanged)'}`,
 );
 process.exit(flag('--check') && (dropped.length || skipped.length) ? 1 : 0);

@@ -42,8 +42,9 @@ function Root() {
   // The route's theme is pinned before this render paints (the landing is dark even for owners who chose light).
   forceTheme(forcedThemeFor(name));
   const first = useRef(true);
-  // Moving between the landing and the app starts at the top of the new page; Back returns to where the owner
-  // was. The first render leaves the browser's own position alone (a reload, or a #section link).
+  // A new page starts at the top (navigate() scrolls before the page renders, so Talk can still follow its thread to
+  // the end); Back and Forward return to where the owner was, between app pages too. The first render leaves the
+  // browser's own position alone (a reload, or a #section link).
   useLayoutEffect(() => {
     if (first.current) {
       first.current = false;
@@ -54,8 +55,13 @@ function Root() {
       if (y !== null) requestAnimationFrame(() => window.scrollTo(0, y));
       return;
     }
-    window.scrollTo(0, 0);
+    if (lastNav() === 'push') window.scrollTo(0, 0);
   }, [landing]);
+  useLayoutEffect(() => {
+    if (lastNav() !== 'pop' || landing) return;
+    const y = savedScroll();
+    if (y !== null) requestAnimationFrame(() => window.scrollTo(0, y));
+  }, [name]);
   return landing ? <Lazy key="landing" load={loadLanding} /> : <Lazy key="app" load={loadApp} />;
 }
 

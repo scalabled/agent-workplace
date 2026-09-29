@@ -6,6 +6,7 @@ import { initials, type Appearance, type Lead, type PersonaSlim } from '@headcou
 import type { FaceTier, MouthSampler, PresenceState } from '@headcount/protocol';
 import { portraitEpoch, portraitFor, saveLandmarks } from '../lib/portraits';
 import { accentFor } from '../lib/accent';
+import { registerFace } from '../living/faces';
 
 export interface FaceSubject {
   /** Portrait id: catalog persona id or lead id. */
@@ -30,9 +31,11 @@ export interface FaceProps {
   /** Hide from assistive tech when adjacent text already names the person. */
   decorative?: boolean;
   class?: string;
+  /** The agent this face belongs to: reflex gestures and their mood reach it (the living workforce). */
+  agentId?: string;
 }
 
-export function Face({ subject, tier, state = 'idle', label, sampler = null, lazy = false, decorative = false, class: cls }: FaceProps) {
+export function Face({ subject, tier, state = 'idle', label, sampler = null, lazy = false, decorative = false, class: cls, agentId }: FaceProps) {
   const host = useRef<HTMLDivElement>(null);
   const face = useRef<FaceView | null>(null);
   const subjectId = useRef<string | undefined>(subject?.id);
@@ -106,6 +109,13 @@ export function Face({ subject, tier, state = 'idle', label, sampler = null, laz
   useEffect(() => face.current?.setState(state, presenceText(subject, state, label)), [state, label, subject?.name, mounted]);
 
   useEffect(() => face.current?.attachSampler(sampler), [sampler, mounted]);
+
+  useEffect(() => {
+    const view = face.current;
+    if (!agentId || !view || !mounted) return;
+    // Optional calls: a hot-reloaded page can briefly hold an older FaceView without the reflex API.
+    return registerFace(agentId, { cue: (c) => view.cue?.(c), setExpressionBias: (b) => view.setExpressionBias?.(b) });
+  }, [agentId, mounted]);
 
   return (
     <div

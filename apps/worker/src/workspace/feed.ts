@@ -135,6 +135,11 @@ export class Feed {
     return frame;
   }
 
+  /** Send one ephemeral frame to one socket (connect snapshots after presence: mood, attention). */
+  sendTo<T extends FrameType>(ws: FeedSocket, input: FrameInput<T>): void {
+    send(ws, this.ephemeral(input));
+  }
+
   /** Update a presence claim and broadcast the merged state when it changed. */
   claim(agentId: AgentId, source: string, claim: PresenceClaim | null): void {
     const merged = this.presence.claim(agentId, source, claim, this.clock());

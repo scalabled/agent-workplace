@@ -13,7 +13,8 @@ export const news = signal(0);
 
 export function startUnread(): () => void {
   const off = onFrame((f, { live }) => {
-    if (!live || f.type !== 'talk.message' || f.data.agentId !== CHIEF_ID) return;
+    // Floor quick-chats are answered in their bubble (and a reflex reply is to a message just sent): not news.
+    if (!live || f.type !== 'talk.message' || f.data.agentId !== CHIEF_ID || f.data.surface === 'floor') return;
     if (route.value.name === 'talk') return;
     unread.value++;
     news.value++;
