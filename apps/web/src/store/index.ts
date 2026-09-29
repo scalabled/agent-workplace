@@ -17,7 +17,7 @@ import {
   type WorkspaceSettings,
 } from '@headcount/protocol';
 import type { DeskSayAccepted } from '@headcount/protocol/ext/expressions';
-import type { Decision, ProjectsResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { ChannelEntry, Decision, ProjectsResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { FeedStatus } from '../api/ws';
 import { applyServerVoice } from '../voice/owner';
 
@@ -79,6 +79,22 @@ export const jobList = computed(() => Object.values(jobs.value).sort((a, b) => (
 // ── Inc 1 team projects and the Inbox ─────────────────────────────────────────
 export const teamProjects = signal<Record<string, TeamProjectSnapshot>>({});
 export const openDecisions = signal<Record<string, Decision>>({});
+/** Each team project's channel (oldest first, one entry per seq): loaded on the project page, then live. */
+export const projectChannels = signal<Record<string, ChannelEntry[]>>({});
+
+/** Merge channel entries into a project's channel (dedupe by seq, keep order). */
+export function mergeChannel(projectId: string, entries: readonly ChannelEntry[]): void {
+  const cur = projectChannels.value[projectId] ?? [];
+  const bySeq = new Map(cur.map((e) => [e.seq, e]));
+  let changed = false;
+  for (const e of entries) {
+    if (bySeq.has(e.seq)) continue;
+    bySeq.set(e.seq, e);
+    changed = true;
+  }
+  if (!changed) return;
+  projectChannels.value = { ...projectChannels.value, [projectId]: [...bySeq.values()].sort((a, b) => a.seq - b.seq).slice(-400) };
+}
 export const projectList = computed(() => Object.values(teamProjects.value).sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0)));
 export const decisionList = computed(() => Object.values(openDecisions.value).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)));
 /** The Inbox counts raised hands only, so it can reach zero (X1). */
@@ -124,6 +140,16 @@ export const teamWork = computed(() => {
       const lead = p.team.find((m) => m.role === 'lead') ?? p.team[0];
       if (lead) out[`cw_${lead.personaId}`] = { state: 'raised_hand', label: `Waiting on you: ${p.title}` };
       continue;
+    }
+    // A meeting: the one speaking now.
+    if (p.discussion) out[`cw_${p.discussion.speakerId}`] = { state: 'thinking', label: p.kickoff === 'pending' ? 'Speaking in the kickoff' : `In the discussion: ${p.discussion.question}` };
+    // A teammate (or the owner) asked someone who has not answered yet: they are working out the answer.
+    const lines = projectChannels.value[p.projectId] ?? [];
+    const answered = new Set(lines.filter((e) => e.replyTo).map((e) => e.replyTo!));
+    for (const e of lines) {
+      if (answered.has(e.seq) || !e.toId || e.toId === 'owner') continue;
+      if (e.kind === 'ask') out[`cw_${e.toId}`] ??= { state: 'thinking', label: `Answering ${p.team.find((m) => m.personaId === e.fromId)?.name.split(' ')[0] ?? 'a teammate'}` };
+      else if (e.kind === 'owner' && Date.now() - Date.parse(e.at) < 120_000) out[`cw_${e.toId}`] ??= { state: 'thinking', label: 'Replying to you' };
     }
     // Paused: a step already under way still finishes, so its people still show it.
     if (p.status !== 'running' && p.status !== 'paused') continue;
@@ -305,6 +331,7 @@ export function resetFeedState(): void {
   presence.value = {};
   teamProjects.value = {};
   openDecisions.value = {};
+  projectChannels.value = {};
 }
 
 // ── Floor quick-chats ───────────────────────────────────────────────────────────
@@ -510,6 +537,9 @@ function reduce(frame: Frame, live: boolean): void {
       break;
     case 'project.updated':
       upsertProject(frame.data.project);
+      break;
+    case 'project.channel':
+      mergeChannel(frame.data.entry.projectId, [frame.data.entry]);
       break;
     case 'decision.opened':
       if (frame.data.decision.status === 'open') openDecisions.value = { ...openDecisions.value, [frame.data.decision.decisionId]: frame.data.decision };

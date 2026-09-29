@@ -44,7 +44,11 @@ import { researchKitFactory } from '../tools/kit';
 import { mergeSources, type Source } from '../tools/web-search';
 import { logError, runtime } from '../workspace/runtime';
 import { MAX_EDITED_STEPS, forecastOf, forecastSentence, normalizePlan, ownersOf, readySteps, recipesOf, shortlist, staffingNote, stepEditError, stepsFrom, teamFrom, titleFromGoal, type Recipe } from './staffing';
-import { chooseRecipe, doStepWork, planProject, qaDeliverable, reviewStep, reviseStep, writeDeliverable, type Captured, type ProjectBrief, type Worker } from './team-work';
+import { chooseRecipe, consultCoworker, discussionTurn, doStepWork, planProject, qaDeliverable, replyToOwner, reviewStep, reviseStep, writeDeliverable, type Captured, type DiscussionPhase, type ProjectBrief, type Worker } from './team-work';
+import { TeamChannel, mentionsIn } from './channel';
+import { MAX_ADDED_SPECIALISTS, MAX_TEAM, collabTools, type CollabHost } from './collab';
+import { words } from './staffing';
+import type { ChannelEntry } from '@headcount/protocol/ext/projects';
 
 export const MAX_PARALLEL = 3;
 export const MAX_ACTIVE_PROJECTS_DEFAULT = 2;
@@ -83,6 +87,8 @@ export interface TeamHostPorts {
   armAlarm(at: number): Promise<void>;
   /** The owner's overrides for these coworkers (WorkspaceDO); absent in tests → catalog defaults. */
   agents?(personaIds: string[]): Promise<AgentSetup>;
+  /** Keep work alive after the request that started it answered (ctx.waitUntil). */
+  background?(work: Promise<unknown>): void;
 }
 
 type ProjectRow = {
@@ -113,6 +119,10 @@ type ProjectRow = {
   budget_tokens: number | null;
   final_direction: string | null;
   lead_id: string | null;
+  kickoff: string | null;
+  pending_discussion: string | null;
+  discussion_state: string | null;
+  added_count: number | null;
 };
 type StepRow = {
   project_id: string;
@@ -142,7 +152,7 @@ type StepRow = {
   draft: string | null;
   revisions: number | null;
 };
-type NoteRow = { note_id: string; project_id: string; op_id: string | null; to_id: string | null; via: string; text: string; status: string; at: string; applied_at: string | null; applied_step: string | null };
+type NoteRow = { note_id: string; project_id: string; op_id: string | null; to_id: string | null; via: string; text: string; status: string; at: string; applied_at: string | null; applied_step: string | null; from_id: string | null };
 type DecisionRow = { decision_id: string; kind: string; project_id: string; title: string; body: string; status: string; created_at: string; resolved_at: string | null; step_id: string | null; from_id: string | null; answer: string | null };
 type RunRow = { run_id: string; project_id: string; step_id: string | null; phase: string; persona_id: string; at: string; in_tokens: number; out_tokens: number; usd: number | null; data: string };
 
@@ -194,7 +204,19 @@ const TEAM_MIGRATIONS = [
   'ALTER TABLE tdecisions ADD COLUMN step_id TEXT',
   'ALTER TABLE tdecisions ADD COLUMN from_id TEXT',
   'ALTER TABLE tdecisions ADD COLUMN answer TEXT',
+  'ALTER TABLE tprojects ADD COLUMN kickoff TEXT',
+  'ALTER TABLE tprojects ADD COLUMN pending_discussion TEXT',
+  'ALTER TABLE tprojects ADD COLUMN discussion_state TEXT',
+  'ALTER TABLE tprojects ADD COLUMN added_count INTEGER',
+  'ALTER TABLE tnotes ADD COLUMN from_id TEXT',
 ];
+
+/** A discussion to hold: the kickoff (teams of three or more) or one the owner asked for. */
+interface PendingDiscussion {
+  question: string;
+  rounds: number;
+  kind: 'kickoff' | 'discussion';
+}
 
 /** Projects under way: they count toward the cap, take notes, and show on the Floor. */
 const ACTIVE = `('planning','proposed','running','paused','needs_review')`;
@@ -253,9 +275,11 @@ function askOwnerTool(sink: (q: { text: string; detail?: string }) => void): Age
 export class TeamProjects {
   private readonly inflight = new Map<string, AbortController>();
   private readonly index = fullIndex;
+  readonly channel: TeamChannel;
 
   constructor(private readonly p: TeamHostPorts) {
     for (const stmt of TEAM_SCHEMA) p.storage.sql.exec(stmt);
+    this.channel = new TeamChannel(p.storage.sql, (input) => p.append(input), iso);
     for (const stmt of TEAM_MIGRATIONS) {
       try {
         p.storage.sql.exec(stmt);
@@ -335,8 +359,11 @@ export class TeamProjects {
     if (row.status === 'planning') return { accepted: false, code: 'conflict', message: 'The plan is still being drafted; it will be in your Inbox in a moment.' };
     if (row.status !== 'proposed') return { accepted: false, code: 'conflict', message: `That project is ${row.status}.` };
     const at = iso();
-    this.sql.exec(`UPDATE tprojects SET status = 'running', next_at = ?, updated_at = ? WHERE project_id = ?`, runtime.now(), at, projectId);
+    // Teams of three or more hold a kickoff before the first step (FORMATION: meetings).
+    const kickoff = (JSON.parse(row.team) as TeamMember[]).length >= 3 && (this.p.env.KICKOFF ?? '').toLowerCase() !== 'off' ? 'pending' : 'skipped';
+    this.sql.exec(`UPDATE tprojects SET status = 'running', next_at = ?, updated_at = ?, kickoff = COALESCE(kickoff, ?) WHERE project_id = ?`, runtime.now(), at, kickoff, projectId);
     if (row.decision_id) this.resolve(row.decision_id, 'approved', at);
+    this.channel.add(projectId, { kind: 'decision', fromId: 'owner', text: 'The owner approved the plan. Work starts now.' });
     this.emit(projectId);
     await this.p.armAlarm(runtime.now() + 10);
     void this.p.flush();
@@ -362,7 +389,7 @@ export class TeamProjects {
    * Direction from the owner for a project under way: queued, then picked up by the next step that starts (the whole
    * team's, or only `toId`'s). Idempotent by opId.
    */
-  note(projectId: string, req: { text: string; toId?: string; via: ProjectNote['via']; opId?: string }): { accepted: true; project: TeamProjectSnapshot; note: ProjectNote } | ProjectRefusal {
+  note(projectId: string, req: { text: string; toId?: string; via: ProjectNote['via']; opId?: string; fromId?: string }): { accepted: true; project: TeamProjectSnapshot; note: ProjectNote } | ProjectRefusal {
     const row = this.row(projectId);
     if (!row) return { accepted: false, code: 'not_found', message: 'No such project.' };
     if (req.opId) {
@@ -376,7 +403,9 @@ export class TeamProjects {
     if (req.toId && !team.some((m) => m.personaId === req.toId)) return { accepted: false, code: 'bad_request', message: 'That person is not on this project.' };
     const noteId = newId('note');
     const at = iso();
-    this.sql.exec(`INSERT INTO tnotes (note_id, project_id, op_id, to_id, via, text, status, at) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?)`, noteId, projectId, req.opId ?? null, req.toId ?? null, req.via, text, at);
+    this.sql.exec(`INSERT INTO tnotes (note_id, project_id, op_id, to_id, via, text, status, at, from_id) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?)`, noteId, projectId, req.opId ?? null, req.toId ?? null, req.via, text, at, req.fromId ?? null);
+    // The owner's direction is part of the team's record (a teammate's hand-off and a channel post already are).
+    if (req.via !== 'teammate' && req.via !== 'channel') this.channel.add(projectId, { kind: 'owner', fromId: 'owner', ...(req.toId ? { toId: req.toId } : {}), text });
     this.sql.exec('UPDATE tprojects SET updated_at = ? WHERE project_id = ?', at, projectId);
     this.emit(projectId);
     void this.p.flush();
@@ -441,6 +470,13 @@ export class TeamProjects {
       this.sql.exec(`UPDATE tprojects SET budget_tokens = COALESCE(budget_tokens, ?) + ?, status = 'running', next_at = ? WHERE project_id = ?`, tokenBudget(this.p.env), tokenBudget(this.p.env), runtime.now(), d.project_id);
     }
     this.sql.exec(`UPDATE tdecisions SET status = ?, resolved_at = ?, answer = ? WHERE decision_id = ?`, a.action === 'answer' ? 'answered' : a.action === 'approve' ? 'approved' : 'declined', at, a.action === 'answer' ? text : null, decisionId);
+    this.channel.add(d.project_id, {
+      kind: 'decision',
+      fromId: 'owner',
+      ...(d.from_id ? { toId: d.from_id } : {}),
+      ...(d.step_id ? { stepId: d.step_id } : {}),
+      text: `${d.title} — ${a.action === 'answer' ? text : a.action === 'approve' ? (kind === 'budget' ? 'Raised the budget.' : kind === 'input' ? 'Go with your recommendation.' : 'Accepted as it is.') : kind === 'budget' ? 'Kept it paused.' : 'Declined.'}`,
+    });
     this.sql.exec(`UPDATE tprojects SET updated_at = ? WHERE project_id = ?`, at, d.project_id);
     const resolved = this.decision(decisionId)!;
     this.p.append({ type: 'decision.resolved', data: { decision: resolved } });
@@ -618,10 +654,219 @@ export class TeamProjects {
   /** Alarm tick: plan each due planning project, advance each due running one, concurrently. */
   async tick(now: number): Promise<void> {
     const due = this.sql
-      .exec<{ project_id: string; status: string }>(`SELECT project_id, status FROM tprojects WHERE status IN ('planning','running') AND next_at <= ? ORDER BY created_at ASC`, now)
+      .exec<{ project_id: string; status: string }>(
+        `SELECT project_id, status FROM tprojects WHERE (status IN ('planning','running') AND next_at <= ?) OR (pending_discussion IS NOT NULL AND status IN ('proposed','paused','needs_review')) ORDER BY created_at ASC`,
+        now,
+      )
       .toArray()
       .filter((r) => !this.inflight.has(r.project_id));
-    await Promise.all(due.map((r) => (r.status === 'planning' ? this.plan(r.project_id) : this.advance(r.project_id))));
+    await Promise.all(due.map((r) => (r.status === 'planning' ? this.plan(r.project_id) : r.status === 'running' ? this.advance(r.project_id) : this.discussOnly(r.project_id))));
+  }
+
+  // ── the team channel, discussions and consultations (parity stage 4) ────────────────
+
+  /** The channel of one project (the owner's view), oldest first. */
+  channelEntries(projectId: string): ChannelEntry[] {
+    return this.channel.list(projectId);
+  }
+
+  /**
+   * The owner writes to the team. "@Ann" addresses someone (up to three answer; "@everyone" the first three), else the
+   * lead answers. Answers come at once, in the background; the words also reach the addressees' next steps.
+   */
+  postChannel(projectId: string, text: string): { accepted: true; entry: ChannelEntry } | ProjectRefusal {
+    const row = this.row(projectId);
+    if (!row) return { accepted: false, code: 'not_found', message: 'No such project.' };
+    if (row.status === 'cancelled') return { accepted: false, code: 'conflict', message: 'That project was stopped.' };
+    const said = text.replace(/\r\n/g, '\n').trim().slice(0, 2000);
+    if (!said) return { accepted: false, code: 'bad_request', message: 'Say something to the team.' };
+    const team = JSON.parse(row.team) as TeamMember[];
+    const { ids, everyone } = mentionsIn(said, team);
+    const lead = team.find((m) => m.role === 'lead')?.personaId ?? team[0]!.personaId;
+    const targets = (everyone ? team.map((m) => m.personaId) : ids.length ? ids : [lead]).slice(0, 3);
+    const entry = this.channel.add(projectId, { kind: 'owner', fromId: 'owner', ...(ids.length === 1 && !everyone ? { toId: ids[0]! } : {}), text: said });
+    // Work still to do takes it into account (as a note to those named, or to the team).
+    if (['planning', 'proposed', 'running', 'paused', 'needs_review'].includes(row.status)) {
+      if (ids.length && !everyone) for (const id of ids) this.note(projectId, { text: said, toId: id, via: 'channel' });
+      else this.note(projectId, { text: said, via: 'channel' });
+    }
+    const work = (async () => {
+      const setup = await this.setupOf(team);
+      for (const id of targets) {
+        try {
+          const w = this.worker(id, setup, deadlineSignal(120_000), this.collabExtras(projectId, setup, new AbortController().signal, id, 1));
+          const r = await replyToOwner(w, this.briefOf(projectId), said);
+          this.recordRun(projectId, null, 'ask', w, r.run, r.sources);
+          this.channel.add(projectId, { kind: 'answer', fromId: id, toId: 'owner', replyTo: entry.seq, text: r.text });
+        } catch (err) {
+          logError(`project.reply ${projectId}`, err);
+          this.channel.add(projectId, { kind: 'system', fromId: 'chief', replyTo: entry.seq, text: `${firstOf(team.find((m) => m.personaId === id)?.name ?? id)} could not answer just now.` });
+        }
+        void this.p.flush();
+      }
+    })();
+    if (this.p.background) this.p.background(work);
+    else void work;
+    void this.p.flush();
+    return { accepted: true, entry };
+  }
+
+  /** The owner asks the team to discuss something (the chair frames it, members speak, the chair sums up). */
+  async discuss(projectId: string, question: string, rounds = 2): Promise<Ok | ProjectRefusal> {
+    const row = this.row(projectId);
+    if (!row) return { accepted: false, code: 'not_found', message: 'No such project.' };
+    if (!['proposed', 'running', 'paused', 'needs_review'].includes(row.status)) return { accepted: false, code: 'conflict', message: `The team cannot meet while the project is ${row.status}.` };
+    if (row.pending_discussion || row.discussion_state) return { accepted: false, code: 'conflict', message: 'The team is already in a discussion.' };
+    const q = question.replace(/\s+/g, ' ').trim().slice(0, 1000);
+    if (!q) return { accepted: false, code: 'bad_request', message: 'Say what the team should discuss.' };
+    const r = Math.min(3, Math.max(1, Math.floor(rounds) || 2));
+    this.sql.exec('UPDATE tprojects SET pending_discussion = ?, next_at = ?, updated_at = ? WHERE project_id = ?', JSON.stringify({ question: q, rounds: r, kind: 'discussion' } satisfies PendingDiscussion), runtime.now(), iso(), projectId);
+    this.channel.add(projectId, { kind: 'owner', fromId: 'owner', text: `Let's discuss: ${q}` });
+    this.emit(projectId);
+    await this.p.armAlarm(runtime.now() + 10);
+    void this.p.flush();
+    return { accepted: true, project: this.snapshot(this.row(projectId)!) };
+  }
+
+  /** A discussion for a project that is not running (proposed, paused, waiting on the owner). */
+  private async discussOnly(projectId: string): Promise<void> {
+    const row = this.row(projectId);
+    const pending = json<PendingDiscussion | null>(row?.pending_discussion, null);
+    if (!row || !pending) return;
+    const ac = new AbortController();
+    this.inflight.set(projectId, ac);
+    try {
+      await this.runDiscussion(projectId, row.fence, await this.setupOf(JSON.parse(row.team) as TeamMember[]), ac.signal, pending);
+    } catch (err) {
+      logError(`project.discuss ${projectId}`, err);
+      this.sql.exec('UPDATE tprojects SET pending_discussion = NULL, discussion_state = NULL WHERE project_id = ?', projectId);
+    } finally {
+      this.inflight.delete(projectId);
+      void this.p.flush();
+    }
+  }
+
+  /** Still this project and not stopped (a discussion may run while proposed or paused). */
+  private meeting(projectId: string, fence: number): boolean {
+    const r = this.sql.exec<{ status: string; fence: number }>('SELECT status, fence FROM tprojects WHERE project_id = ?', projectId).toArray()[0];
+    return !!r && ['proposed', 'running', 'paused', 'needs_review'].includes(r.status) && Number(r.fence) === fence;
+  }
+
+  /**
+   * A structured discussion (biz-bot swarm.js runDiscussion): round 1 the chair frames and each member opens; later
+   * rounds each member debates; the chair sums up. Strictly one after another, each hearing everything before. A turn
+   * that fails is noted and the discussion goes on. The chair's summary becomes direction for the team's next steps.
+   */
+  private async runDiscussion(projectId: string, fence: number, setup: AgentSetup, signal: AbortSignal, d: PendingDiscussion): Promise<void> {
+    const row = this.row(projectId)!;
+    const team = JSON.parse(row.team) as TeamMember[];
+    const chair = team.find((m) => m.role === 'lead') ?? team[0]!;
+    const members = team.filter((m) => m.personaId !== chair.personaId);
+    const turns: { id: string; phase: DiscussionPhase; round: number }[] = [{ id: chair.personaId, phase: 'framing', round: 1 }, ...members.map((m) => ({ id: m.personaId, phase: 'opening' as const, round: 1 }))];
+    for (let r = 2; r <= d.rounds; r++) turns.push(...members.map((m) => ({ id: m.personaId, phase: 'debate' as const, round: r })));
+    turns.push({ id: chair.personaId, phase: 'synthesis', round: d.rounds });
+    this.sql.exec('UPDATE tprojects SET pending_discussion = NULL WHERE project_id = ?', projectId);
+    if (d.kind === 'discussion' || d.rounds > 1) this.channel.add(projectId, { kind: 'system', fromId: 'chief', text: `${chair.name.split(' ')[0]} chairs: ${turns.length} turns over ${d.rounds} round${d.rounds === 1 ? '' : 's'}.` });
+    let soFar = '';
+    let summary = '';
+    for (const t of turns) {
+      if (!this.meeting(projectId, fence)) return;
+      const who = team.find((m) => m.personaId === t.id)!;
+      this.sql.exec('UPDATE tprojects SET discussion_state = ? WHERE project_id = ?', JSON.stringify({ question: d.question, speakerId: t.id, round: t.round, rounds: d.rounds }), projectId);
+      this.emit(projectId);
+      void this.p.flush();
+      try {
+        const w = this.worker(t.id, setup, deadlineSignal(120_000, signal));
+        const said = await discussionTurn(w, this.briefOf(projectId), d.question, t.phase, soFar, t.round, d.rounds);
+        if (!this.meeting(projectId, fence)) return;
+        this.recordRun(projectId, null, 'discussion', w, said.run, []);
+        this.channel.add(projectId, { kind: 'discussion', fromId: t.id, round: t.round, phase: t.phase, text: said.text });
+        soFar += `\n${who.name.split(' ')[0]} (${t.phase}): ${said.text}`;
+        if (t.phase === 'synthesis') summary = said.text;
+      } catch (err) {
+        if (err instanceof MissingProviderError) throw err;
+        logError(`project.discussion ${projectId}`, err);
+        this.channel.add(projectId, { kind: 'system', fromId: 'chief', text: `${who.name.split(' ')[0]} could not take their turn.` });
+      }
+    }
+    const kickoff = d.kind === 'kickoff';
+    this.sql.exec(`UPDATE tprojects SET discussion_state = NULL${kickoff ? ", kickoff = 'done'" : ''}, updated_at = ? WHERE project_id = ?`, iso(), projectId);
+    if (summary) this.note(projectId, { text: `${kickoff ? 'Kickoff agreement' : 'Discussion outcome'} (${chair.name.split(' ')[0]} chairing): ${clipText(summary, 900)}`, via: 'channel' });
+    this.emit(projectId);
+  }
+
+  private teamOf(projectId: string): TeamMember[] {
+    const row = this.row(projectId);
+    return row ? (JSON.parse(row.team) as TeamMember[]) : [];
+  }
+
+  /** ask_coworker and friends for one coworker, when the owner lets them consult (their ask_coworker grant). */
+  private collabExtras(projectId: string, setup: AgentSetup, signal: AbortSignal, selfId: string, depth: number, stepId?: string): Pick<Worker, 'extraTools' | 'extraDescribe'> {
+    const persona = this.persona(selfId);
+    if (!persona || !agentOf(persona, setup).granted('ask_coworker')) return {};
+    const lead = this.teamOf(projectId).find((m) => m.role === 'lead')?.personaId === selfId;
+    const host: CollabHost = {
+      team: () => this.teamOf(projectId),
+      consult: (from, to, question, d) => this.consult(projectId, setup, signal, from, to, question, d, stepId),
+      handoff: (from, to, message) => this.handoff(projectId, from, to, message, stepId),
+      findSpecialists: (need) => this.findSpecialists(projectId, need),
+      addSpecialist: (by, personaId, why) => this.addSpecialist(projectId, by, personaId, why),
+    };
+    const kit = collabTools(host, selfId, { depth, lead });
+    return kit.tools.length ? { extraTools: kit.tools, extraDescribe: kit.describe } : {};
+  }
+
+  /** A teammate answers a colleague mid-step (in the channel and the inspector). */
+  private async consult(projectId: string, setup: AgentSetup, signal: AbortSignal, fromId: string, toId: string, question: string, depth: number, stepId?: string): Promise<string> {
+    const team = this.teamOf(projectId);
+    const fromName = team.find((m) => m.personaId === fromId)?.name ?? fromId;
+    const ask = this.channel.add(projectId, { kind: 'ask', fromId, toId, text: question, ...(stepId ? { stepId } : {}) });
+    void this.p.flush();
+    const w = this.worker(toId, setup, deadlineSignal(180_000, signal), this.collabExtras(projectId, setup, signal, toId, depth, stepId));
+    const r = await consultCoworker(w, this.briefOf(projectId), fromName, question);
+    this.recordRun(projectId, stepId ?? null, 'ask', w, r.run, r.sources);
+    this.channel.add(projectId, { kind: 'answer', fromId: toId, toId: fromId, replyTo: ask.seq, text: r.text, ...(stepId ? { stepId } : {}) });
+    void this.p.flush();
+    return r.text;
+  }
+
+  /** A hand-off: the channel says so, and it reaches the teammate's next step as a note. */
+  private handoff(projectId: string, fromId: string, toId: string, message: string, stepId?: string): void {
+    this.channel.add(projectId, { kind: 'handoff', fromId, toId, text: message, ...(stepId ? { stepId } : {}) });
+    this.note(projectId, { text: message, toId, via: 'teammate', fromId });
+  }
+
+  /** Coworkers not on the team whose discipline matches the need (keyword score over title, expertise and skills). */
+  findSpecialists(projectId: string, need: string): { personaId: string; name: string; title: string; oneLiner: string }[] {
+    const on = new Set(this.teamOf(projectId).map((m) => m.personaId));
+    const want = new Set(words(need));
+    if (!want.size) return [];
+    return this.index.catalog.personas
+      .filter((p) => !on.has(p.id))
+      .map((p) => {
+        const hay = words(`${p.title} ${p.title} ${p.one_liner} ${(p.expertise ?? []).join(' ')} ${[...p.skills.primary, ...p.skills.secondary].join(' ').replace(/-/g, ' ')}`);
+        return { p, score: hay.filter((w) => want.has(w)).length };
+      })
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(({ p }) => ({ personaId: p.id, name: p.name, title: p.title, oneLiner: p.one_liner }));
+  }
+
+  /** The lead brings a specialist onto the team (at most four added, the team at most twelve). */
+  addSpecialist(projectId: string, byId: string, personaId: string, why: string): { ok: true; name: string } | { ok: false; error: string } {
+    const row = this.row(projectId);
+    const persona = this.persona(personaId);
+    if (!row || !persona) return { ok: false, error: 'There is no such coworker in the office.' };
+    const team = JSON.parse(row.team) as TeamMember[];
+    if (team.some((m) => m.personaId === personaId)) return { ok: false, error: `${persona.name} is already on the team.` };
+    if ((row.added_count ?? 0) >= MAX_ADDED_SPECIALISTS) return { ok: false, error: `The team has already brought in ${MAX_ADDED_SPECIALISTS} specialists.` };
+    if (team.length >= MAX_TEAM) return { ok: false, error: `The team is full (${MAX_TEAM}).` };
+    const member: TeamMember = { personaId, name: persona.name, title: persona.title, role: 'specialist', why: why || persona.one_liner };
+    this.sql.exec('UPDATE tprojects SET team = ?, added_count = COALESCE(added_count, 0) + 1, updated_at = ? WHERE project_id = ?', JSON.stringify([...team, member]), iso(), projectId);
+    this.channel.add(projectId, { kind: 'system', fromId: byId, text: `Brought in ${persona.name} (${persona.title})${why ? `: ${why}` : '.'}` });
+    this.emit(projectId);
+    return { ok: true, name: persona.name };
   }
 
   // ── the lifecycle ─────────────────────────────────────────────────────────────────
@@ -731,6 +976,19 @@ export class TeamProjects {
         this.openDecision(projectId, 'budget', { title: `“${row.title}” used its token budget`, body: `The team has used ${(used.input + used.output).toLocaleString('en-US')} tokens (the budget is ${budget.toLocaleString('en-US')}). Raise it by ${tokenBudget(this.p.env).toLocaleString('en-US')} and continue?` });
         return;
       }
+      // A discussion the owner asked for, then the kickoff, come before more steps.
+      const pending = json<PendingDiscussion | null>(row.pending_discussion, null);
+      const setupD = pending || row.kickoff === 'pending' ? await this.setupOf(JSON.parse(row.team) as TeamMember[]) : null;
+      if (pending) {
+        await this.runDiscussion(projectId, fence, setupD!, ac.signal, pending);
+        if (this.live(projectId, fence)) this.sql.exec('UPDATE tprojects SET next_at = ? WHERE project_id = ?', runtime.now(), projectId);
+        return;
+      }
+      if (row.kickoff === 'pending') {
+        await this.runDiscussion(projectId, fence, setupD!, ac.signal, { kind: 'kickoff', rounds: 1, question: `Kickoff: how will we deliver “${row.title}”? Agree the approach, the biggest risk, and who needs what from whom. (The owner's goal: ${clipText(row.goal, 400)})` });
+        if (this.live(projectId, fence)) this.sql.exec('UPDATE tprojects SET next_at = ? WHERE project_id = ?', runtime.now(), projectId);
+        return;
+      }
       const snap = this.snapshot(row);
       // A step whose input failed or was skipped cannot run.
       const bad = new Set(snap.steps.filter((s) => s.status === 'failed' || s.status === 'skipped').map((s) => s.id));
@@ -788,10 +1046,16 @@ export class TeamProjects {
       let draft = s0.draft ?? '';
       let sources: Source[] = json<Source[]>(s0.sources, []);
       let asked: { text: string; detail?: string } | null = null;
+      const collab = this.collabExtras(projectId, setup, signal, lead, 0, stepId);
       const leadWorker = this.worker(lead, setup, deadlineSignal(UNIT_BUDGET_MS, signal), {
         // One question per step: after the owner answers, the lead works with the answer.
-        extraTools: s0.answer ? [] : [askOwnerTool((q) => (asked = q))],
-        extraDescribe: 'If a decision, permission or input only the owner can give is missing, call request_owner_input (one specific question); continue with reasonable, stated assumptions for anything that does not block you.',
+        extraTools: [...(s0.answer ? [] : [askOwnerTool((q) => (asked = q))]), ...(collab.extraTools ?? [])],
+        extraDescribe: [
+          'If a decision, permission or input only the owner can give is missing, call request_owner_input (one specific question); continue with reasonable, stated assumptions for anything that does not block you.',
+          collab.extraDescribe ?? '',
+        ]
+          .filter(Boolean)
+          .join(' '),
       });
 
       if (!draft) {
@@ -803,12 +1067,14 @@ export class TeamProjects {
         this.recordRun(projectId, stepId, 'work', leadWorker, out.run, out.sources);
         const q = asked as { text: string; detail?: string } | null;
         if (q) {
+          this.channel.add(projectId, { kind: 'ask', fromId: lead, toId: 'owner', stepId, text: q.detail ? `${q.text}\n\n${q.detail}` : q.text });
           this.setStep(projectId, fence, stepId, { status: 'asking', question: JSON.stringify(q) });
           this.openDecision(projectId, 'input', { stepId, fromId: lead, title: `${firstOf(nameOf(lead))} asks: ${q.text}`, body: q.detail ? `${q.detail}\n\n(For “${step().title}”.)` : `For “${step().title}”.` });
           return;
         }
         draft = out.markdown;
         sources = mergeSources(sources, out.sources);
+        this.channel.add(projectId, { kind: 'work', fromId: lead, stepId, text: `Handed in “${step().title}”: ${out.summary}` });
         this.setStep(projectId, fence, stepId, { draft, sources: JSON.stringify(sources), status: 'reviewing' });
       }
 
@@ -821,6 +1087,7 @@ export class TeamProjects {
         this.recordRun(projectId, stepId, 'revise', leadWorker, out.run, out.sources);
         draft = out.markdown;
         sources = mergeSources(sources, out.sources);
+        this.channel.add(projectId, { kind: 'work', fromId: lead, stepId, text: `Revised “${step().title}” with the owner’s direction: ${out.summary}` });
         // The owner's direction is this round's revision (biz-bot: a fresh allowance of one).
         this.setStep(projectId, fence, stepId, { draft, sources: JSON.stringify(sources), revised: 1, revisions: MAX_REVISIONS, status: 'reviewing' });
       }
@@ -844,11 +1111,13 @@ export class TeamProjects {
             : { approved: false, notes: `The review did not complete (${res.reason instanceof Error ? res.reason.message : 'error'}), so it counts as changes requested.`, reviewerId: reviewers[i]! },
         );
         for (const res of results) if (res.status === 'fulfilled') sources = mergeSources(sources, res.value.sources);
+        for (const v of verdicts) this.channel.add(projectId, { kind: 'review', fromId: v.reviewerId, toId: lead, stepId, text: `${v.approved ? 'Approved' : 'Changes needed'}: ${v.notes}` });
         const changes = verdicts.filter((v) => !v.approved);
         this.setStep(projectId, fence, stepId, { reviews: JSON.stringify(verdicts), verdict: JSON.stringify(changes[0] ?? verdicts[0]), sources: JSON.stringify(sources) }, false);
         if (!changes.length) break;
         if (revisions >= MAX_REVISIONS) {
           this.setStep(projectId, fence, stepId, { status: 'needs_review', error: 'Reviewers still want changes after the revision.' });
+          this.channel.add(projectId, { kind: 'system', fromId: 'chief', stepId, text: `“${step().title}” still has review issues after the revision; the owner decides.` });
           this.openDecision(projectId, 'review', {
             stepId,
             title: `Accept the remaining review issues for “${step().title}”, or give direction?`,
@@ -863,6 +1132,7 @@ export class TeamProjects {
         this.recordRun(projectId, stepId, 'revise', leadWorker, out.run, out.sources);
         draft = out.markdown;
         sources = mergeSources(sources, out.sources);
+        this.channel.add(projectId, { kind: 'work', fromId: lead, stepId, text: `Revised “${step().title}”: ${out.summary}` });
         this.setStep(projectId, fence, stepId, { draft, revised: 1, sources: JSON.stringify(sources) });
       }
       this.setStep(projectId, fence, stepId, { status: 'done', output: draft, draft: null, finished_at: iso(), error: null, ...(sources.length ? { sources: JSON.stringify(sources) } : {}) });
@@ -874,6 +1144,7 @@ export class TeamProjects {
       const message = err instanceof Error ? clipText(err.message, 300) : 'The step failed.';
       if (next < MAX_STEP_ATTEMPTS) {
         const taker = owners[next % owners.length]!;
+        if (taker !== lead) this.channel.add(projectId, { kind: 'system', fromId: 'chief', stepId, text: `${firstOf(nameOf(lead))} could not finish “${step().title}”; ${firstOf(nameOf(taker))} takes it over.` });
         this.setStep(projectId, fence, stepId, { status: 'waiting', attempts: next, draft: null, by_id: null, error: taker !== lead ? `${firstOf(nameOf(lead))} could not finish (${message}); ${firstOf(nameOf(taker))} takes it over.` : `Retrying after: ${message}` });
       } else {
         this.setStep(projectId, fence, stepId, { status: 'failed', attempts: next, error: message, finished_at: iso() });
@@ -1048,7 +1319,8 @@ export class TeamProjects {
   private briefOf(projectId: string): ProjectBrief {
     const row = this.row(projectId)!;
     const s = this.snapshot(row);
-    return { title: s.title, goal: s.goal, team: s.team, steps: s.steps, chiefName: row.chief_name, notes: (s.notes ?? []).map((n) => ({ text: n.text, ...(n.toId ? { toId: n.toId } : {}) })) };
+    const channel = this.channel.context(projectId, s.team);
+    return { title: s.title, goal: s.goal, team: s.team, steps: s.steps, chiefName: row.chief_name, notes: (s.notes ?? []).map((n) => ({ text: n.text, ...(n.toId ? { toId: n.toId } : {}) })), ...(channel ? { channel } : {}) };
   }
 
   /** Queued notes for this step's owner (theirs and the team's) are picked up now. */
@@ -1067,6 +1339,7 @@ export class TeamProjects {
       at: r.at,
       ...(r.applied_at ? { appliedAt: r.applied_at } : {}),
       ...(r.applied_step ? { appliedStepId: r.applied_step } : {}),
+      ...(r.from_id ? { fromId: r.from_id } : {}),
     };
   }
 
@@ -1165,6 +1438,8 @@ export class TeamProjects {
       ...(r.deliverable_filename ? { deliverableFilename: r.deliverable_filename } : {}),
       ...(r.qa ? { qa: json<NonNullable<TeamProjectSnapshot['qa']>>(r.qa, { approved: true, notes: '', reviewerId: '' }) } : {}),
       usage: { ...u, budgetTokens: r.budget_tokens ?? tokenBudget(this.p.env) },
+      ...(r.kickoff ? { kickoff: r.kickoff as 'pending' | 'done' | 'skipped' } : {}),
+      ...(r.discussion_state ? { discussion: json<NonNullable<TeamProjectSnapshot['discussion']>>(r.discussion_state, { question: '', speakerId: '', round: 1, rounds: 1 }) } : {}),
       ...(notes.length ? { notes } : {}),
       ...(r.deliverable ? { deliverable: r.deliverable } : {}),
       ...(r.summary ? { summary: r.summary } : {}),

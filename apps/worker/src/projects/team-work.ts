@@ -271,7 +271,7 @@ interface TurnSpec {
   surface: 'work' | 'review';
   prompt: string;
   tools: AgentTool<any>[];
-  /** The submit tool: forced at once when the agent has nothing to look up first. */
+  /** The submit tool: forced at once when the agent has nothing to look up first ('' for a plain-text turn). */
   force: string;
   phase: Phase;
   /** Extra sections before the agent's own (the planner's rules). */
@@ -321,7 +321,7 @@ export async function runAgentTurn(w: Worker, spec: TurnSpec): Promise<{ result:
     tools: [...extra, ...spec.tools, ...(kit?.tools ?? []), ...(skill ? [skill] : [])],
     ...(kit?.hosted.length ? { hostedTools: kit.hosted } : {}),
     // Anything to look up or load first: the model decides; otherwise the submit is forced at once.
-    toolChoice: optional.length || looksUp ? 'auto' : { name: spec.force },
+    ...(spec.force ? { toolChoice: optional.length || looksUp ? ('auto' as const) : { name: spec.force } } : {}),
     maxSteps: spec.maxSteps ?? (optional.length || looksUp ? 8 : 2),
     ...budget(w.provider, w.model, spec.phase, w.agent.effort),
   });
@@ -553,4 +553,78 @@ export async function qaDeliverable(w: Worker, brief: ProjectBrief, kind: Delive
   const v = verdict as { approved?: unknown; notes?: unknown } | null;
   if (!v) return { approved: false, notes: 'The check came back empty, so it counts as changes requested.', sources, run };
   return { approved: v.approved !== false, notes: clipText(typeof v.notes === 'string' ? v.notes.trim() : '', 1200) || 'Approved.', sources, run };
+}
+
+// ── talking to each other (biz-bot swarm.js ask_bot, /discuss) ───────────────────────
+
+const projectLine = (brief: ProjectBrief) => `<project>\nTitle: ${brief.title}\nOwner's goal: ${brief.goal}\n</project>`;
+
+export interface Said {
+  text: string;
+  sources: Source[];
+  run: Captured;
+}
+
+/** A teammate answers a colleague's question mid-step (under 150 words; they do not do the colleague's task). */
+export async function consultCoworker(w: Worker, brief: ProjectBrief, fromName: string, question: string): Promise<Said> {
+  const prompt = [
+    `${fromName} asks you this in the middle of their work on the project:`,
+    `<question>\n${clipText(question, 2000)}\n</question>`,
+    'Answer them in under 150 words, from your expertise and anything you look up. Say plainly what you are unsure of and what facts would settle it. Do not do their whole task.',
+    projectLine(brief),
+    channelBlock(brief),
+  ].join('\n');
+  const { result, sources, run } = await runAgentTurn(w, { surface: 'review', prompt, tools: [], force: '', phase: 'review', project: brief, maxSteps: 5 });
+  check(result);
+  const text = result.fullText.trim();
+  if (!text) throw new WorkError('The model returned an empty answer.', true);
+  return { text: clipText(text, 3000), sources, run };
+}
+
+/** A member of the team replies to the owner's post in the channel (in a few sentences, as themselves). */
+export async function replyToOwner(w: Worker, brief: ProjectBrief, ownerText: string): Promise<Said> {
+  const prompt = [
+    'The owner wrote this to you in the team channel:',
+    `<owner>\n${clipText(ownerText, 2000)}\n</owner>`,
+    'Reply to them directly in two to four sentences, as yourself: answer, say what you will do with it in your next piece of work, or ask one question back. Be honest about what is done and what is not.',
+    projectLine(brief),
+    channelBlock(brief),
+  ].join('\n');
+  const { result, sources, run } = await runAgentTurn(w, { surface: 'review', prompt, tools: [], force: '', phase: 'review', project: brief, maxSteps: 4, research: true });
+  check(result);
+  const text = result.fullText.trim();
+  if (!text) throw new WorkError('The model returned an empty reply.', true);
+  return { text: clipText(text, 2000), sources, run };
+}
+
+export type DiscussionPhase = 'framing' | 'opening' | 'debate' | 'synthesis';
+
+/** What each part of a discussion asks for (biz-bot swarm.js discussionDirective, adapted). */
+export const DISCUSSION_DIRECTIVE: Record<DiscussionPhase, string> = {
+  framing:
+    'You chair this discussion. State the question the team actually has to answer, name the constraint that matters most, say what you want from each member by name, and give your own first read. Under 120 words.',
+  opening:
+    'Speak from your discipline only: the assumption you would test, and the one thing most likely to make this fail. Do not simply agree. Under 100 words.',
+  debate:
+    'Name at least one thing said so far that you disagree with and why, answer anything addressed to you, and add only what is new. Do not repeat yourself or agree with everyone. Under 100 words.',
+  synthesis:
+    'You chair. Close the discussion: 1) your recommendation in at most three sentences; 2) who does what next (owners from this team); 3) what the team disagreed on or left open; 4) what you need from the owner, if anything. Credit members by name and do not manufacture agreement. Under 180 words.',
+};
+
+/** One turn of a discussion; everyone hears everything said before (sequential, like a meeting). */
+export async function discussionTurn(w: Worker, brief: ProjectBrief, question: string, phase: DiscussionPhase, soFar: string, round: number, rounds: number): Promise<Said> {
+  const prompt = [
+    `The team is discussing: ${clipText(question, 1500)}`,
+    `Round ${round} of ${rounds}. ${DISCUSSION_DIRECTIVE[phase]}`,
+    'Never hand work off or ask the team to wait; speak now.',
+    projectLine(brief),
+    soFar ? `<said_so_far>\n${clipText(soFar, 8000)}\n</said_so_far>` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+  const { result, run } = await runAgentTurn(w, { surface: 'review', prompt, tools: [], force: '', phase: 'review', project: brief, maxSteps: 2, research: false });
+  check(result);
+  const text = result.fullText.trim();
+  if (!text) throw new WorkError('The model returned an empty turn.', true);
+  return { text: clipText(text, 2500), sources: [], run };
 }

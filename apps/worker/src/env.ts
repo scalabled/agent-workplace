@@ -36,6 +36,8 @@ export interface Env extends ProviderEnv {
   MAX_ACTIVE_PROJECTS?: string;
   /** Tokens a team project may spend before it pauses and asks (default 1,500,000). */
   PROJECT_TOKEN_BUDGET?: string;
+  /** "off": teams skip the kickoff discussion (default on for teams of three or more). */
+  KICKOFF?: string;
   /** Background jobs that may run at once (default 3). */
   MAX_ACTIVE_JOBS?: string;
   /** Comma-separated origins allowed to call the API and open the feed (scripts/dev.mjs passes the dev ports). */

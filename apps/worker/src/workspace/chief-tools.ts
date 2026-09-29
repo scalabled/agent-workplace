@@ -19,6 +19,7 @@ export interface ProjectApi {
   activeProjects(): Promise<TeamProjectSnapshot[]>;
   stopAll(by?: 'owner' | 'chief'): Promise<StopAllResponse>;
   openDecisions(): Promise<Decision[]>;
+  discuss(projectId: string, question: string, rounds?: number): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal>;
   answerDecision(decisionId: string, a: DecisionAnswer): Promise<{ accepted: true; decision: Decision; project: TeamProjectSnapshot } | ProjectRefusal>;
   noteProject(projectId: string, req: { text: string; toId?: string; via: ProjectNote['via']; opId?: string }): Promise<{ accepted: true; project: TeamProjectSnapshot; note: ProjectNote } | ProjectRefusal>;
   pauseProject(projectId: string): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal>;
@@ -464,6 +465,34 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
     },
   };
 
+  const discussable = projects.filter((p) => ['proposed', 'running', 'paused', 'needs_review'].includes(p.status));
+  const teamDiscussion: AgentTool<{ projectId?: unknown; question?: unknown }> = {
+    spec: {
+      name: 'team_discussion',
+      description: 'Have a project team discuss a question the owner raised (the lead chairs; each member speaks; the lead sums up and the summary guides their next steps). It happens in the team channel in the next minute or two.',
+      parameters: {
+        type: 'object',
+        properties: { projectId: { type: 'string' }, question: { type: 'string', description: "The question, in the owner's words" } },
+        required: ['projectId', 'question'],
+        additionalProperties: false,
+      },
+      mock: { triggers: [String.raw`\b(discuss|debate|talk (it|this) (over|through))\b`], args: (text) => ({ projectId: discussable[discussable.length - 1]?.projectId ?? '', question: text }), reply: sayOf },
+    },
+    async execute(args) {
+      const id = str(args.projectId) || (discussable.length === 1 ? discussable[0]!.projectId : '');
+      const p = discussable.find((x) => x.projectId === id);
+      if (!p) return fail(discussable.length ? `Say which project: ${discussable.map((x) => `${x.projectId} “${x.title}”`).join(', ')}.` : 'No team project is under way.');
+      const question = str(args.question);
+      if (!question) return fail('Say what they should discuss.');
+      const r = await project.discuss(p.projectId, question);
+      if (!r.accepted) return fail(r.message);
+      const say = `I've put it to the “${p.title}” team. They'll talk it through in the channel, and the outcome guides their next steps.`;
+      log.note('steer', say);
+      log.aboutProject(p.projectId);
+      return ok({ projectId: p.projectId, say }, `Put a question to “${p.title}”`);
+    },
+  };
+
   const stopAll: AgentTool<Record<string, never>> = {
     spec: {
       name: 'stop_all_work',
@@ -486,6 +515,7 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
   const projectTools: AgentTool<any>[] = [
     ...(questions.length ? [answerHand] : []),
     ...(running ? [stopAll] : []),
+    ...(discussable.length ? [teamDiscussion] : []),
     ...(underWay.length ? [pauseProject, steerProject] : []),
     ...(projects.length ? [cancelProject, projectStatus] : []),
     ...(proposed.length ? [approveProject] : []),

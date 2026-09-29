@@ -34,7 +34,7 @@ import type {
 import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcount/protocol/ext/media';
 import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, RoomCancelResponse, RoomId, RoomSayAccepted, RoomSayRequest } from '@headcount/protocol/ext/rooms';
 import { noteUnauthenticated } from '../auth/session';
-import type { DecisionAnswer, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
+import type { ChannelEntry, ChannelResponse, DecisionAnswer, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
 import type { AgentConfigPatch, AgentView, ModelsResponse, PromptView, RunsResponse, SkillDetail, SkillsResponse } from '@headcount/protocol/ext/agents';
 import { clientId } from '../lib/client-id';
 
@@ -97,6 +97,9 @@ export const api = {
   addStep: (id: string, e: StepEdit) => request<ProjectActionAccepted>(routePath('addStep', { id }), jsonInit('POST', e)),
   removeStep: (id: string, stepId: string) => request<ProjectActionAccepted>(routePath('removeStep', { id, stepId }), { method: 'DELETE' }),
   editPlan: (id: string, e: PlanEdit) => request<ProjectActionAccepted>(routePath('editPlan', { id }), jsonInit('PUT', e)),
+  projectChannel: (id: string) => request<ChannelResponse>(routePath('projectChannel', { id })),
+  postChannel: (id: string, text: string) => request<{ accepted: true; entry: ChannelEntry }>(routePath('postChannel', { id }), jsonInit('POST', { text })),
+  discuss: (id: string, question: string, rounds?: number) => request<ProjectActionAccepted>(routePath('discuss', { id }), jsonInit('POST', { question, ...(rounds ? { rounds } : {}) })),
   projectRuns: (id: string, stepId?: string) => request<RunsResponse>(`${routePath('projectRuns', { id })}${stepId ? `?stepId=${encodeURIComponent(stepId)}` : ''}`),
   // Parity stage 2: how each coworker works, skills, the Chief's prompt, models.
   getAgent: (personaId: string) => request<AgentView>(routePath('getAgent', { personaId })),

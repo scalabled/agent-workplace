@@ -31,7 +31,7 @@ import { rollupEvents, upsertJobs } from '../workspace/rollup';
 import { logError, runtime } from '../workspace/runtime';
 import { clipText, firstSentence, titleFromRequest } from './job-view';
 import { MAX_WORK_STEPS, WorkCancelled, WorkError, planJob, runWorkStep, synthesize, type JobContext, type PlanStep, type StepNote, type WorkDeps } from './work-loop';
-import type { Decision, DecisionAnswer, PlanEdit, ProjectNote, StaffingContext, StepEdit, StopAllResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { ChannelEntry, Decision, DecisionAnswer, PlanEdit, ProjectNote, StaffingContext, StepEdit, StopAllResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { RunTrace } from '@headcount/protocol/ext/agents';
 import { researchKitFactory } from '../tools/kit';
 import { TeamProjects, type ProjectRefusal, type ProposeRequest } from '../projects/team-host';
@@ -177,6 +177,7 @@ export class ProjectDO extends DurableObject<Env> {
       armAlarm: (at) => this.armAlarm(at),
       // The owner's overrides for coworkers live in the WorkspaceDO.
       agents: async (ids) => (await workspaceStub(env).agentSetup(ids)) as unknown as AgentSetup,
+      background: (work) => ctx.waitUntil(work.catch((err) => logError('project.background', err))),
     });
   }
 
@@ -260,6 +261,21 @@ export class ProjectDO extends DurableObject<Env> {
 
   async editPlan(projectId: string, e: PlanEdit) {
     return this.team.editPlan(projectId, e);
+  }
+
+  /** The team channel of a project (oldest first). */
+  async projectChannel(projectId: string): Promise<ChannelEntry[]> {
+    return this.team.channelEntries(projectId);
+  }
+
+  /** The owner writes to the team; those named (or the lead) answer at once. */
+  async postChannel(projectId: string, text: string): Promise<{ accepted: true; entry: ChannelEntry } | ProjectRefusal> {
+    return this.team.postChannel(projectId, text);
+  }
+
+  /** The owner asks the team to discuss something. */
+  async discuss(projectId: string, question: string, rounds?: number) {
+    return this.team.discuss(projectId, question, rounds);
   }
 
   /** Open raised hands (the Chief can relay the owner's answer). */

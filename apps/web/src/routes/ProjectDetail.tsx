@@ -18,6 +18,7 @@ import { DeliverableView } from '../projects/DeliverableView';
 import { PlanGraph } from '../projects/PlanGraph';
 import { RunInspector } from '../projects/RunInspector';
 import { StepEditor } from '../projects/StepEditor';
+import { TeamChannel } from '../projects/TeamChannel';
 import { navigate, paths } from '../router';
 import { decisionList, presenceFor, teamProjects } from '../store';
 import './pages.css';
@@ -122,7 +123,7 @@ function StepCard({ step, project, index, onInspect }: { step: ProjectStep; proj
   );
 }
 
-const VIA_WORDS: Record<ProjectNote['via'], string> = { page: 'here', chief: 'to your Chief of Staff', desk: 'at their desk' };
+const VIA_WORDS: Record<ProjectNote['via'], string> = { page: 'here', chief: 'to your Chief of Staff', desk: 'at their desk', channel: 'in the channel', teammate: 'from a teammate' };
 
 /** "Tell the team": direction that reaches the next step, and what became of each note. */
 function TeamNotes({ project }: { project: TeamProjectSnapshot }) {
@@ -335,6 +336,8 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
           {project.error}
         </p>
       )}
+
+      <TeamChannel project={project} />
 
       <TeamNotes project={project} />
 

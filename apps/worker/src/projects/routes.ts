@@ -1,4 +1,4 @@
-import { PROJECT_NOTE_MAX, type DecisionAnswer, type PlanEdit, type ProjectActionAccepted, type ProjectNoteRequest, type ProjectResponse, type ProjectsResponse, type StepEdit, type StopAllResponse } from '@headcount/protocol/ext/projects';
+import { CHANNEL_POST_MAX, PROJECT_NOTE_MAX, type ChannelEntry, type ChannelPost, type ChannelResponse, type DecisionAnswer, type DiscussRequest, type PlanEdit, type ProjectActionAccepted, type ProjectNoteRequest, type ProjectResponse, type ProjectsResponse, type StepEdit, type StopAllResponse } from '@headcount/protocol/ext/projects';
 import type { RunsResponse } from '@headcount/protocol/ext/agents';
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
 import { projectStub } from '../lib/stubs';
@@ -143,4 +143,31 @@ export const handleProjectRuns: RouteHandler = async (_req, { env, params, url }
   if (stepId !== undefined && !isStepId(stepId)) throw new HttpError('bad_request', 'That is not a step id.');
   const runs = (await projectStub(env).projectRuns(params.id, stepId)) as unknown as RunsResponse['runs'];
   return json<RunsResponse>({ runs });
+};
+
+/** GET /api/projects/:id/channel → the team channel (oldest first). */
+export const handleProjectChannel: RouteHandler = async (_req, { env, params }) => {
+  if (!isProjectId(params.id)) throw new HttpError('not_found', 'That project does not exist.');
+  const entries = (await projectStub(env).projectChannel(params.id)) as unknown as ChannelEntry[];
+  return json<ChannelResponse>({ entries });
+};
+
+/** POST /api/projects/:id/channel → 202: the owner writes to the team (@Name to address someone). */
+export const handlePostChannel: RouteHandler = async (req, { env, params }) => {
+  if (!isProjectId(params.id)) throw new HttpError('not_found', 'That project does not exist.');
+  const body = await readJson<Partial<ChannelPost>>(req);
+  if (!body || typeof body.text !== 'string' || !body.text.trim()) throw new HttpError('bad_request', 'Say something to the team.');
+  if (body.text.length > CHANNEL_POST_MAX) throw new HttpError('payload_too_large', `Keep it under ${CHANNEL_POST_MAX} characters.`);
+  const r = (await projectStub(env).postChannel(params.id, body.text)) as unknown as { accepted: true; entry: ChannelEntry } | Refusal;
+  if (!r.accepted) throw new HttpError(r.code, r.message);
+  return json<{ accepted: true; entry: ChannelEntry }>(r, { status: 202 });
+};
+
+/** POST /api/projects/:id/discuss → 202: the team discusses a question (the chair frames, members speak, the chair sums up). */
+export const handleDiscuss: RouteHandler = async (req, { env, params }) => {
+  if (!isProjectId(params.id)) throw new HttpError('not_found', 'That project does not exist.');
+  const body = await readJson<Partial<DiscussRequest>>(req);
+  if (!body || typeof body.question !== 'string' || !body.question.trim()) throw new HttpError('bad_request', 'Say what the team should discuss.');
+  const rounds = typeof body.rounds === 'number' ? body.rounds : undefined;
+  return accepted((await projectStub(env).discuss(params.id, body.question, rounds)) as unknown as { accepted: true; project: ProjectResponse } | Refusal);
 };

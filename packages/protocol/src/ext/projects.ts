@@ -90,8 +90,11 @@ export interface ProjectNote {
   text: string;
   /** The member it was said to (persona id); absent: the whole team. */
   toId?: string;
-  /** Where the owner said it: the project page, to the Chief of Staff, or at a coworker's desk. */
-  via: 'page' | 'chief' | 'desk';
+  /** Where it came from: the owner on the project page, to the Chief of Staff, at a coworker's desk, in the team
+   * channel, or a teammate's hand-off. */
+  via: 'page' | 'chief' | 'desk' | 'channel' | 'teammate';
+  /** A teammate's hand-off: who sent it (persona id). */
+  fromId?: string;
   status: 'queued' | 'applied';
   at: string;
   appliedAt?: string;
@@ -136,6 +139,10 @@ export interface TeamProjectSnapshot {
   usage?: { input: number; output: number; usd: number | null; calls: number; budgetTokens: number };
   /** The owner's direction since the plan was made, oldest first. */
   notes?: ProjectNote[];
+  /** The kickoff discussion happened (teams of three or more hold one before the first step). */
+  kickoff?: 'pending' | 'done' | 'skipped';
+  /** A discussion under way (the chair and who speaks next). */
+  discussion?: { question: string; speakerId: string; round: number; rounds: number };
   /** Markdown deliverable when done (clipped in frames). */
   deliverable?: string;
   summary?: string;
@@ -211,6 +218,49 @@ export interface ProjectActionAccepted {
   accepted: true;
   project: TeamProjectSnapshot;
 }
+/**
+ * The team channel (biz-bot parity: the shared room transcript): everything the team says to each other and to the
+ * owner — work handed in, reviews, questions between teammates and their answers, hand-offs, discussions, the owner's
+ * posts, decisions. Every agent reads its recent part; the owner reads and writes it.
+ */
+export type ChannelKind = 'owner' | 'work' | 'review' | 'ask' | 'answer' | 'handoff' | 'discussion' | 'decision' | 'system';
+
+export interface ChannelEntry {
+  seq: number;
+  projectId: string;
+  kind: ChannelKind;
+  /** A persona id, 'owner' or 'chief'. */
+  fromId: string;
+  /** Addressed to (persona id, 'owner', or absent for the team). */
+  toId?: string;
+  stepId?: string;
+  text: string;
+  /** The entry this answers. */
+  replyTo?: number;
+  /** Discussions: which round and part (framing, opening, debate, synthesis). */
+  round?: number;
+  phase?: 'framing' | 'opening' | 'debate' | 'synthesis';
+  at: string;
+}
+
+export interface ChannelFrameData {
+  entry: ChannelEntry;
+}
+export interface ChannelResponse {
+  entries: ChannelEntry[];
+}
+export const CHANNEL_POST_MAX = 2000;
+/** POST /api/projects/:id/channel: the owner writes to the team (@Name addresses someone; they answer at once). */
+export interface ChannelPost {
+  text: string;
+  opId?: string;
+}
+/** POST /api/projects/:id/discuss: a structured discussion (the chair frames, members speak, the chair sums up). */
+export interface DiscussRequest {
+  question: string;
+  rounds?: number;
+}
+
 /** POST /api/projects/:id/note: direction for the team (or one member) that reaches the next step. */
 export const PROJECT_NOTE_MAX = 1000;
 export interface ProjectNoteRequest {

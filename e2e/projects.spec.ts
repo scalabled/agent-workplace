@@ -46,7 +46,11 @@ test('staff a team in a sentence, approve the plan, watch it work, read the deli
   await expect(page.locator('.project-status-line')).toContainText('Finished');
   await expect(page.locator('.deliverable-panel')).toBeVisible();
   await expect(page.locator('.step[data-status="done"]')).toHaveCount(project.steps.length);
-  await expect(page.locator('.note[data-status="applied"]')).toContainText('picked up in');
+  await expect(page.locator('.note[data-status="applied"]', { hasText: 'Keep it playful' })).toContainText('picked up in');
+  // The team channel: the kickoff, work handed in and reviews, with who talked to whom.
+  await expect(page.locator('.channel-entry[data-kind="work"]').first()).toBeVisible();
+  await expect(page.locator('.channel-entry[data-kind="discussion"]').first()).toBeVisible();
+  await page.locator('.team-channel').screenshot({ path: process.env.SHOT_DIR ? `${process.env.SHOT_DIR}/channel.png` : undefined });
   const first = page.locator('.step').first();
   await first.getByRole('button', { name: `Show ${project.steps[0]!.title}` }).click();
   await expect(first.locator('.step-body')).not.toBeEmpty();

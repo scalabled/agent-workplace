@@ -47,6 +47,10 @@ export const ROUTES = {
   removeStep: { method: 'DELETE', path: '/api/projects/:id/steps/:stepId', auth: 'owner' },
   editPlan: { method: 'PUT', path: '/api/projects/:id/plan', auth: 'owner', body: 'json', bodyCap: 4 * 1024 },
   projectRuns: { method: 'GET', path: '/api/projects/:id/runs', auth: 'owner' },
+  // Parity stage 4: the team channel and discussions.
+  projectChannel: { method: 'GET', path: '/api/projects/:id/channel', auth: 'owner' },
+  postChannel: { method: 'POST', path: '/api/projects/:id/channel', auth: 'owner', body: 'json', bodyCap: 8 * 1024 },
+  discuss: { method: 'POST', path: '/api/projects/:id/discuss', auth: 'owner', body: 'json', bodyCap: 4 * 1024 },
   // Parity stage 2: agent configuration and transparency (ext/agents.ts).
   getAgent: { method: 'GET', path: '/api/agents/:personaId', auth: 'owner' },
   putAgent: { method: 'PUT', path: '/api/agents/:personaId', auth: 'owner', body: 'json', bodyCap: 24 * 1024 },

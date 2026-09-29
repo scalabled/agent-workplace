@@ -1,0 +1,244 @@
+// The team channel on the project page (biz-bot parity: the room transcript and its graph): everything the team says
+// to each other and to the owner, live — work handed in, reviews, questions between teammates and their answers,
+// hand-offs, discussions — and the owner's own posts (@Name to address someone; they answer at once). The owner can
+// also put a question to the whole team for a structured discussion.
+import type { ChannelEntry, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { api, ApiError } from '../api/client';
+import { MemberFace } from '../components/ProjectCard';
+import { mergeChannel, projectChannels, upsertProject } from '../store';
+
+const KIND: Record<ChannelEntry['kind'], string> = {
+  owner: 'You',
+  work: 'Handed in',
+  review: 'Review',
+  ask: 'Asks',
+  answer: 'Answers',
+  handoff: 'Hand-off',
+  discussion: 'Discussion',
+  decision: 'Decision',
+  system: 'Note',
+};
+
+const PHASE: Record<NonNullable<ChannelEntry['phase']>, string> = { framing: 'frames it', opening: 'opens', debate: 'debates', synthesis: 'sums up' };
+const SHOWN = 30;
+
+export function TeamChannel({ project }: { project: TeamProjectSnapshot }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [all, setAll] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [question, setQuestion] = useState('');
+  const [rounds, setRounds] = useState(2);
+  const id = project.projectId;
+  useEffect(() => {
+    api
+      .projectChannel(id)
+      .then((r) => mergeChannel(id, r.entries))
+      .catch(() => undefined);
+  }, [id]);
+  const entries = projectChannels.value[id] ?? [];
+  const shown = all ? entries : entries.slice(-SHOWN);
+  // Newest last, like a chat: follow new lines unless the owner has scrolled up to read.
+  const list = useRef<HTMLOListElement>(null);
+  const pinned = useRef(true);
+  useEffect(() => {
+    const el = list.current;
+    if (el && pinned.current) el.scrollTop = el.scrollHeight;
+  }, [entries.length]);
+  const member = (who: string) => project.team.find((m) => m.personaId === who);
+  const nameOf = (who?: string) => (!who ? 'the team' : who === 'owner' ? 'you' : who === 'chief' ? 'Chief of Staff' : (member(who)?.name.split(' ')[0] ?? who));
+  const open = project.status !== 'cancelled';
+  const canMeet = ['proposed', 'running', 'paused', 'needs_review'].includes(project.status) && !project.discussion;
+  const post = async (e: Event) => {
+    e.preventDefault();
+    const t = text.trim();
+    if (!t || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.postChannel(id, t);
+      mergeChannel(id, [r.entry]);
+      setText('');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'That did not send. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const discuss = async (e: Event) => {
+    e.preventDefault();
+    const q = question.trim();
+    if (!q || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await api.discuss(id, q, rounds);
+      upsertProject(r.project);
+      setQuestion('');
+      setAsking(false);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'That did not start. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section class="panel team-channel" aria-labelledby="channel-title">
+      <header class="plan-head">
+        <h2 id="channel-title" class="panel-title">
+          Team channel
+        </h2>
+        {canMeet && !asking && (
+          <button type="button" class="button-quiet button-small" onClick={() => setAsking(true)}>
+            Start a discussion
+          </button>
+        )}
+      </header>
+      {project.discussion && (
+        <p class="channel-live" role="status">
+          {project.kickoff === 'pending' ? 'Kickoff' : 'Discussion'} under way: {nameOf(project.discussion.speakerId)} is speaking (round {project.discussion.round} of {project.discussion.rounds}).
+        </p>
+      )}
+      {asking && (
+        <form class="channel-discuss" onSubmit={discuss}>
+          <label class="field">
+            <span class="field-label">What should the team discuss?</span>
+            <input class="field-input" value={question} maxLength={1000} placeholder="Instagram or local press first?" onInput={(e) => setQuestion((e.target as HTMLInputElement).value)} />
+          </label>
+          <label class="field field-inline">
+            <span class="field-label">Rounds</span>
+            <select class="field-input" value={rounds} onChange={(e) => setRounds(Number((e.target as HTMLSelectElement).value))}>
+              <option value={1}>1 (openings)</option>
+              <option value={2}>2 (with a debate)</option>
+              <option value={3}>3</option>
+            </select>
+          </label>
+          <div class="settings-actions">
+            <button type="submit" class="button-primary" disabled={busy || !question.trim()}>
+              Start
+            </button>
+            <button type="button" class="button-quiet" onClick={() => setAsking(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+      {entries.length > SHOWN && !all && (
+        <button type="button" class="link-button channel-more" onClick={() => setAll(true)}>
+          Show all {entries.length}
+        </button>
+      )}
+      {!entries.length && <p class="page-fine">Nothing said yet. The team writes here as they work, and you can too.</p>}
+      <ol
+        class="channel-list"
+        ref={list}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+        }}
+      >
+        {shown.map((e) => {
+          const who = e.fromId === 'owner' || e.fromId === 'chief' ? null : member(e.fromId);
+          return (
+            <li key={e.seq} class="channel-entry" data-kind={e.kind} data-owner={e.fromId === 'owner' || undefined}>
+              <span class="channel-face" aria-hidden="true">
+                {who ? <MemberFace member={who} /> : <span class="face-initials">{e.fromId === 'owner' ? 'You' : 'CoS'}</span>}
+              </span>
+              <div class="channel-main">
+                <p class="channel-head">
+                  <span class="channel-who">{e.fromId === 'owner' ? 'You' : nameOf(e.fromId)}</span>
+                  {e.toId && <span class="channel-to"> → {nameOf(e.toId)}</span>}
+                  {e.kind !== 'owner' && <span class="channel-kind">{e.kind === 'discussion' && e.phase ? `${PHASE[e.phase]} · round ${e.round ?? 1}` : KIND[e.kind]}</span>}
+                </p>
+                <p class="channel-text">{e.text}</p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+      {open && (
+        <form class="note-form channel-form" onSubmit={post}>
+          <label class="visually-hidden" for="channel-text">
+            Write to the team
+          </label>
+          <textarea
+            id="channel-text"
+            class="channel-input"
+            rows={2}
+            maxLength={2000}
+            placeholder={`Write to the team. @${project.team[1]?.name.split(' ')[0] ?? 'Name'} to ask someone; they answer right away.`}
+            value={text}
+            onInput={(e) => setText((e.target as HTMLTextAreaElement).value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) void post(e);
+            }}
+          />
+          <button type="submit" class="button-primary" disabled={!text.trim() || busy}>
+            Post
+          </button>
+        </form>
+      )}
+      {error && (
+        <p class="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <TalkGraph project={project} entries={entries} />
+    </section>
+  );
+}
+
+/** Who talked to whom (biz-bot graph.js Room view, compact): members on a ring, lines weighted by how often. */
+export function TalkGraph({ project, entries }: { project: TeamProjectSnapshot; entries: readonly ChannelEntry[] }) {
+  const people = ['owner', ...project.team.map((m) => m.personaId)];
+  const edges = useMemo(() => {
+    const count = new Map<string, number>();
+    const order = (x: string, y: string) => people.indexOf(x) - people.indexOf(y);
+    for (const e of entries) {
+      if (!e.toId || e.fromId === 'chief' || e.toId === e.fromId) continue;
+      if (!['ask', 'answer', 'handoff', 'review', 'owner'].includes(e.kind)) continue;
+      if (!people.includes(e.fromId) || !people.includes(e.toId)) continue;
+      const key = [e.fromId, e.toId].sort(order).join('|');
+      count.set(key, (count.get(key) ?? 0) + 1);
+    }
+    return [...count.entries()].map(([k, n]) => ({ a: k.split('|')[0]!, b: k.split('|')[1]!, n }));
+  }, [entries, project.team]);
+  if (!edges.length) return null;
+  const R = 88;
+  const C = 110;
+  const at = (id: string) => {
+    const i = people.indexOf(id);
+    const t = (i / people.length) * Math.PI * 2 - Math.PI / 2;
+    return { x: C + R * Math.cos(t), y: C + R * Math.sin(t) };
+  };
+  const label = (id: string) => (id === 'owner' ? 'You' : (project.team.find((m) => m.personaId === id)?.name.split(' ')[0] ?? id));
+  const max = Math.max(...edges.map((e) => e.n));
+  return (
+    <figure class="talk-graph">
+      <figcaption class="field-label">Who talked to whom</figcaption>
+      <svg viewBox="0 0 220 220" width="220" height="220" role="img" aria-label={edges.map((e) => `${label(e.a)} and ${label(e.b)}: ${e.n}`).join('; ')}>
+        {edges.map((e) => {
+          const p = at(e.a);
+          const q = at(e.b);
+          return <line key={`${e.a}-${e.b}`} class="talk-edge" x1={p.x} y1={p.y} x2={q.x} y2={q.y} stroke-width={1 + (3 * e.n) / max} />;
+        })}
+        {people.map((id) => {
+          const p = at(id);
+          return (
+            <g key={id} class="talk-node" data-owner={id === 'owner' || undefined}>
+              <circle cx={p.x} cy={p.y} r={14} />
+              <text class="talk-initial" x={p.x} y={p.y + 4} text-anchor="middle">
+                {label(id).slice(0, 1)}
+              </text>
+              <text x={p.x} y={p.y + 28} text-anchor="middle">
+                {label(id)}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </figure>
+  );
+}

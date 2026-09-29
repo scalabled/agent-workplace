@@ -15,7 +15,7 @@ import type {
 import type { PresenceData } from './presence';
 import type { VoiceClaimOp, VoiceOwnerData } from './ext/voice-owner';
 import type { RoomId, RoomTurnData } from './ext/rooms';
-import type { DecisionFrameData, ProjectFrameData } from './ext/projects';
+import type { ChannelFrameData, DecisionFrameData, ProjectFrameData } from './ext/projects';
 
 /**
  * Event envelope (ARCHITECTURE §3.1, trimmed for Inc 0).
@@ -141,6 +141,8 @@ export interface FrameDataMap {
   'project.updated': ProjectFrameData;
   /** A raised hand was answered (approved or declined). Persisted. */
   'decision.resolved': DecisionFrameData;
+  /** A line in a team project's channel (work, reviews, asks and answers, hand-offs, discussions, the owner). Persisted. */
+  'project.channel': ChannelFrameData;
   /** A raised hand opened mid-project (a lead's question, a review escalation, the deliverable check, the budget). Persisted. */
   'decision.opened': DecisionFrameData;
 
@@ -189,6 +191,7 @@ export const PERSISTED_FRAME_TYPES: ReadonlySet<FrameType> = new Set<FrameType>(
   'project.updated',
   'decision.resolved',
   'decision.opened',
+  'project.channel',
   'workspace.updated',
 ]);
 

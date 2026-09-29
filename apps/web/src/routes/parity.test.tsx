@@ -2,14 +2,14 @@
 // inspector, a coworker's settings and exact prompts, the skills library, and the Chief's prompt.
 import { slimIndex } from '@headcount/catalog/slim';
 import type { AgentView, PromptView, RunTrace, SkillDetail } from '@headcount/protocol/ext/agents';
-import type { Decision, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { ChannelEntry, Decision, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { catalog } from '../catalog';
 import { DecisionCard } from '../components/DecisionCard';
 import { path } from '../router';
-import { openDecisions, settings, teamProjects, upsertProject } from '../store';
+import { applyFrame, openDecisions, presenceFor, projectChannels, settings, teamProjects, upsertProject } from '../store';
 import { createFakeAudio } from '../test/fake-audio';
 import { setAudioEngine } from '../voice/engine';
 import { ChiefPrompt } from './ChiefPrompt';
@@ -76,6 +76,7 @@ beforeEach(() => {
   settings.value = { workspaceId: 'local', leadId: slimIndex.catalog.leads[0]!.id, chiefName: 'Eddie', voiceOn: false, updatedAt: '' };
   teamProjects.value = {};
   openDecisions.value = {};
+  projectChannels.value = {};
 });
 afterEach(() => {
   render(null, host);
@@ -284,5 +285,60 @@ describe('skills and the Chief’s prompt', () => {
     expect(host.querySelector('h1')?.textContent).toBe('How Eddie works');
     expect(host.querySelector('.prompt-section-title')?.textContent).toMatch(/^Platform rules/);
     expect(host.querySelector('.tool-item code')?.textContent).toBe('start_team_project');
+  });
+});
+
+describe('the team channel', () => {
+  const entry = (seq: number, over: Partial<ChannelEntry>): ChannelEntry => ({ seq, projectId: 'prj_abcdefgh', kind: 'work', fromId: a!.id, text: `line ${seq}`, at: '2026-09-29T10:00:00Z', ...over });
+
+  it('shows who said what to whom, live, with a who-talked-to-whom graph; a pending question shows on the face', async () => {
+    const p = proj({ status: 'running' });
+    upsertProject(p);
+    const first = a!.name.split(' ')[0]!;
+    respond = (call) => (call.url === '/api/projects/prj_abcdefgh/channel' ? json({ entries: [entry(1, { text: 'Drafted the audience sizing.' }), entry(2, { kind: 'ask', toId: b!.id, text: 'What price point?' })] }) : call.method === 'GET' ? json(p) : json({}));
+    await mount(<ProjectDetail projectId="prj_abcdefgh" />);
+    await flush();
+    const lines = [...host.querySelectorAll('.channel-entry')];
+    expect(lines).toHaveLength(2);
+    expect(lines[1]!.querySelector('.channel-to')?.textContent).toContain(b!.name.split(' ')[0]);
+    expect(lines[1]!.querySelector('.channel-kind')?.textContent).toBe('Asks');
+    expect(host.querySelector('.talk-graph svg')?.getAttribute('aria-label')).toContain(`${first} and ${b!.name.split(' ')[0]}: 1`);
+    expect(presenceFor(`cw_${b!.id}`).label).toBe(`Answering ${first}`);
+    // the answer arrives as a frame: the line appears and the face stops "answering"
+    await act(() => void applyFrame({ v: 1, seq: 90, type: 'project.channel', at: '2026-09-29T10:01:00Z', data: { entry: entry(3, { kind: 'answer', fromId: b!.id, toId: a!.id, replyTo: 2, text: 'Keep it under twelve.' }) } } as never));
+    expect(host.querySelectorAll('.channel-entry')).toHaveLength(3);
+    expect(presenceFor(`cw_${b!.id}`).label).not.toBe(`Answering ${first}`);
+  });
+
+  it('the owner writes to the team, and starts a discussion', async () => {
+    const p = proj({ status: 'running' });
+    upsertProject(p);
+    const posted = entry(5, { kind: 'owner', fromId: 'owner', toId: b!.id, text: `@${b!.name.split(' ')[0]} keep it short` });
+    respond = (call) =>
+      call.url === '/api/projects/prj_abcdefgh/channel'
+        ? call.method === 'POST'
+          ? json({ accepted: true, entry: posted }, 202)
+          : json({ entries: [] })
+        : call.url === '/api/projects/prj_abcdefgh/discuss'
+          ? json({ accepted: true, project: proj({ status: 'running', updatedAt: '2026-09-29T10:03:00Z', discussion: { question: 'Instagram first?', speakerId: a!.id, round: 1, rounds: 2 } }) }, 202)
+          : call.method === 'GET'
+            ? json(p)
+            : json({});
+    await mount(<ProjectDetail projectId="prj_abcdefgh" />);
+    await flush();
+    expect(host.querySelector('.team-channel .page-fine')?.textContent).toContain('Nothing said yet');
+    await typeInto(host.querySelector('#channel-text'), posted.text);
+    await click(host.querySelector('.channel-form button[type="submit"]'));
+    await flush();
+    expect(calls.find((x) => x.method === 'POST' && x.url.endsWith('/channel'))).toMatchObject({ body: { text: posted.text } });
+    expect(host.querySelector('.channel-entry[data-owner] .channel-who')?.textContent).toBe('You');
+    await click(button('Start a discussion'));
+    await typeInto(host.querySelector('.channel-discuss input'), 'Instagram first?');
+    await click(button('Start'));
+    await flush();
+    expect(calls.find((x) => x.url.endsWith('/discuss'))).toMatchObject({ method: 'POST', body: { question: 'Instagram first?', rounds: 2 } });
+    expect(host.querySelector('.channel-live')?.textContent).toContain('round 1 of 2');
+    expect(button('Start a discussion')).toBeUndefined();
+    expect(presenceFor(`cw_${a!.id}`).label).toBe('In the discussion: Instagram first?');
   });
 });

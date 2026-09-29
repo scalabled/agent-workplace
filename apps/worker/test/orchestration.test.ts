@@ -230,7 +230,7 @@ describe('orchestration (ProjectDO, Mock provider)', () => {
     const done = await s.settle(project.projectId);
     const runs = (await s.api('GET', `/api/projects/${project.projectId}/runs`)).body as RunsResponse;
     const phases = new Set(runs.runs.map((r) => r.phase));
-    expect([...phases].sort()).toEqual(['deliverable', 'plan', 'qa', 'review', 'work']);
+    expect([...phases].sort()).toEqual(['deliverable', 'discussion', 'plan', 'qa', 'review', 'work']);
     const work = runs.runs.find((r) => r.phase === 'work')!;
     const owner = fullIndex.persona(work.personaId)!;
     expect(work.system).toContain(`You are ${owner.name}`);
