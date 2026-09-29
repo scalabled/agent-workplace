@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Headcount Office demo</title>
+    <style>
+      :root { color-scheme: dark; --surface: #111316; --panel: #1a1d22; --ink: #eceae4; --muted: #9ba0a8; --lamp: #f2b450; --hand: #7ea2ff; --blocked: #f08a4b; }
+      :root[data-theme='light'] { color-scheme: light; --surface: #f7f5f0; --panel: #ffffff; --ink: #1c1e21; --muted: #6b6f76; --lamp: #e8a33d; --hand: #3d6fe8; --blocked: #c2410c; }
+      html, body { margin: 0; height: 100%; background: var(--surface); color: var(--ink); font: 13px/1.4 Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+      #office { position: fixed; inset: 0; }
+      .demo { position: fixed; left: 14px; top: 14px; z-index: 1000; width: 232px; padding: 10px; border-radius: 12px; background: rgba(17, 19, 23, 0.82); border: 1px solid rgba(255, 255, 255, 0.09); backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); }
+      .demo[hidden] { display: none; }
+      .demo h1 { margin: 0 0 8px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 650; display: flex; justify-content: space-between; }
+      .demo h1 button { all: unset; cursor: pointer; color: var(--muted); }
+      .demo .row { display: flex; gap: 4px; flex-wrap: wrap; margin: 6px 0; }
+      .demo button.b { appearance: none; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05); color: var(--ink); border-radius: 8px; padding: 5px 8px; font: 600 11.5px/1.2 inherit; cursor: pointer; }
+      .demo button.b:hover { background: rgba(255, 255, 255, 0.1); }
+      .demo button.b[aria-pressed='true'] { background: rgba(242, 180, 80, 0.2); border-color: rgba(242, 180, 80, 0.5); }
+      .demo label { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 12px; margin: 4px 0; }
+      .demo .log { margin-top: 6px; font-size: 11px; color: var(--muted); min-height: 1.4em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .demo-face { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: #1c1f24; }
+      .demo-face img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 28%; display: block; transform: scale(1.18); transform-origin: 50% 32%; }
+      .demo-face[data-tier='hero'] img, .demo-face[data-tier='tile'] img { image-rendering: auto; }
+      .demo-face .ini { display: grid; place-items: center; width: 100%; height: 100%; color: #fff; font-weight: 650; font-size: calc(var(--face-px, 32px) * 0.36); background: radial-gradient(circle at 32% 26%, color-mix(in srgb, var(--acc) 62%, #fff 6%), color-mix(in srgb, var(--acc) 38%, #101114)); }
+    </style>
+  </head>
+  <body>
+    <div id="office"></div>
+    <div class="demo" id="demo" hidden>
+      <h1><span>Office demo</span><button type="button" id="hide" aria-label="Hide the demo panel">Hide</button></h1>
+      <div class="row" id="tod"></div>
+      <div class="row">
+        <button class="b" type="button" id="meet">Meet in the Skyline room (5)</button>
+        <button class="b" type="button" id="garden">Garden room (3)</button>
+        <button class="b" type="button" id="round">Roundtable</button>
+        <button class="b" type="button" id="leave">Leave</button>
+      </div>
+      <div class="row">
+        <button class="b" type="button" id="bubble">A passing-by line</button>
+        <button class="b" type="button" id="handoff">Hand-off</button>
+        <button class="b" type="button" id="shuffle">Shuffle work</button>
+      </div>
+      <label><input type="checkbox" id="hover" checked /> Bubbles on hover</label>
+      <label><input type="checkbox" id="light" /> Light theme</label>
+      <label><input type="checkbox" id="rm" /> Reduced motion</label>
+      <div class="log" id="log"></div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
