@@ -18,6 +18,7 @@ import type { FrameInput, FrameType } from '@headcount/protocol';
 import type { ProjectUsage, RunTrace } from '@headcount/protocol/ext/agents';
 import {
   DECISION_ANSWER_MAX,
+  MEETING_SAY_MAX,
   OUTPUT_FRAME_MAX,
   PROJECT_NOTE_MAX,
   type Decision,
@@ -33,6 +34,10 @@ import {
   type TeamMember,
   type TeamProjectSnapshot,
   type TeamProjectStatus,
+  type ChannelEntry as MeetingLine,
+  type MeetingKind,
+  type MeetingResponse,
+  type MeetingSummary,
 } from '@headcount/protocol/ext/projects';
 import { agentOf, resolveAgentModel } from '../agents/agent';
 import type { AgentSetup } from '../agents/store';
@@ -174,6 +179,10 @@ type DecisionRow = { decision_id: string; kind: string; project_id: string; titl
 type RunRow = { run_id: string; project_id: string; step_id: string | null; phase: string; persona_id: string; at: string; in_tokens: number; out_tokens: number; usd: number | null; data: string };
 
 export const TEAM_SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS tmeetings (
+     meeting_id TEXT PRIMARY KEY, project_id TEXT NOT NULL, kind TEXT NOT NULL, question TEXT NOT NULL, chair_id TEXT NOT NULL,
+     status TEXT NOT NULL, rounds INTEGER NOT NULL, started_at TEXT NOT NULL, finished_at TEXT, summary TEXT)`,
+  `CREATE INDEX IF NOT EXISTS tmeetings_project ON tmeetings (project_id, started_at)`,
   `CREATE TABLE IF NOT EXISTS tprojects (
      project_id TEXT PRIMARY KEY, op_id TEXT, title TEXT NOT NULL, goal TEXT NOT NULL,
      recipe_id TEXT, recipe_name TEXT, staffing_note TEXT NOT NULL, team TEXT NOT NULL,
@@ -235,8 +244,17 @@ const TEAM_MIGRATIONS = [
 interface PendingDiscussion {
   question: string;
   rounds: number;
-  kind: 'kickoff' | 'discussion';
+  kind: MeetingKind;
+  /** Opened when the owner asked (so they can take the floor before it starts); a kickoff opens its own. */
+  meetingId?: string;
 }
+
+type MeetingRow = { meeting_id: string; project_id: string; kind: string; question: string; chair_id: string; status: string; rounds: number; started_at: string; finished_at: string | null; summary: string | null };
+
+/** Out-of-order turns a meeting allows (raised hands), so @mentions cannot run it on for ever. */
+const MAX_RAISED_HANDS = 3;
+/** Answers to the owner a meeting allows. */
+const MAX_OWNER_REPLIES = 6;
 
 /** Projects under way: they count toward the cap, take notes, and show on the Floor. */
 const ACTIVE = `('planning','proposed','running','paused','needs_review')`;
@@ -402,6 +420,8 @@ export class TeamProjects {
     this.sql.exec(`UPDATE tprojects SET status = 'cancelled', error = ?, fence = fence + 1, updated_at = ?, finished_at = ? WHERE project_id = ?`, reason, at, at, projectId);
     this.sql.exec(`UPDATE tsteps SET status = 'waiting' WHERE project_id = ? AND status IN ('working','reviewing','revising')`, projectId);
     for (const d of this.sql.exec<DecisionRow>(`SELECT * FROM tdecisions WHERE project_id = ? AND status = 'open'`, projectId).toArray()) this.resolve(d.decision_id, 'declined', at);
+    this.sql.exec(`UPDATE tmeetings SET status = 'stopped', finished_at = ? WHERE project_id = ? AND status = 'live'`, at, projectId);
+    this.sql.exec('UPDATE tprojects SET pending_discussion = NULL, discussion_state = NULL WHERE project_id = ?', projectId);
     this.inflight.get(projectId)?.abort();
     this.emit(projectId);
     void this.p.flush();
@@ -803,21 +823,95 @@ export class TeamProjects {
     return { accepted: true, entry };
   }
 
-  /** The owner asks the team to discuss something (the chair frames it, members speak, the chair sums up). */
-  async discuss(projectId: string, question: string, rounds = 2): Promise<Ok | ProjectRefusal> {
+  /**
+   * The owner asks the team to meet: a discussion of a question, or a review of the work so far. The meeting opens now
+   * (the owner can take the floor before the first turn); the turns run on the next tick.
+   */
+  async discuss(projectId: string, question: string, rounds = 2, kind: 'discussion' | 'review' = 'discussion'): Promise<(Ok & { meetingId: string }) | ProjectRefusal> {
     const row = this.row(projectId);
     if (!row) return { accepted: false, code: 'not_found', message: 'No such project.' };
     if (!['proposed', 'running', 'paused', 'needs_review'].includes(row.status)) return { accepted: false, code: 'conflict', message: `The team cannot meet while the project is ${row.status}.` };
-    if (row.pending_discussion || row.discussion_state) return { accepted: false, code: 'conflict', message: 'The team is already in a discussion.' };
-    const q = question.replace(/\s+/g, ' ').trim().slice(0, 1000);
+    if (row.pending_discussion || row.discussion_state) return { accepted: false, code: 'conflict', message: 'The team is already in a meeting.' };
+    let q = question.replace(/\s+/g, ' ').trim().slice(0, 1000);
+    if (kind === 'review') q = `Review of the work so far on “${row.title}”${q ? `: ${q}` : ''}. What is done and good, what is weak, and what should change next?`;
     if (!q) return { accepted: false, code: 'bad_request', message: 'Say what the team should discuss.' };
     const r = Math.min(3, Math.max(1, Math.floor(rounds) || 2));
-    this.sql.exec('UPDATE tprojects SET pending_discussion = ?, next_at = ?, updated_at = ? WHERE project_id = ?', JSON.stringify({ question: q, rounds: r, kind: 'discussion' } satisfies PendingDiscussion), runtime.now(), iso(), projectId);
-    this.channel.add(projectId, { kind: 'owner', fromId: 'owner', text: `Let's discuss: ${q}` });
+    const team = JSON.parse(row.team) as TeamMember[];
+    const meetingId = this.openMeeting(projectId, kind, q, (team.find((m) => m.role === 'lead') ?? team[0]!).personaId, r);
+    this.sql.exec('UPDATE tprojects SET pending_discussion = ?, next_at = ?, updated_at = ? WHERE project_id = ?', JSON.stringify({ question: q, rounds: r, kind, meetingId } satisfies PendingDiscussion), runtime.now(), iso(), projectId);
+    const opened = this.channel.add(projectId, { kind: 'owner', fromId: 'owner', meetingId, text: kind === 'review' ? 'Let’s review the work so far.' : `Let's discuss: ${q}` });
+    this.channel.handled(opened.seq);
     this.emit(projectId);
     await this.p.armAlarm(runtime.now() + 10);
     void this.p.flush();
-    return { accepted: true, project: this.snapshot(this.row(projectId)!) };
+    return { accepted: true, project: this.snapshot(this.row(projectId)!), meetingId };
+  }
+
+  /** The owner speaks in a live meeting: to the room (they get the floor next), or a whisper to one coworker. */
+  meetingSay(projectId: string, meetingId: string, text: string, toId?: string, whisper = false): { accepted: true; entry: MeetingLine } | ProjectRefusal {
+    const m = this.meetingRow(meetingId);
+    if (!m || m.project_id !== projectId) return { accepted: false, code: 'not_found', message: 'No such meeting.' };
+    if (m.status !== 'live') return { accepted: false, code: 'conflict', message: 'That meeting has ended; write in the team channel instead.' };
+    const t = text.trim().slice(0, MEETING_SAY_MAX);
+    if (!t) return { accepted: false, code: 'bad_request', message: 'Say something.' };
+    const team = this.teamOf(projectId);
+    if (toId && !team.some((x) => x.personaId === toId)) return { accepted: false, code: 'bad_request', message: 'Speak to someone on the team.' };
+    if (whisper && !toId) return { accepted: false, code: 'bad_request', message: 'Whisper to one coworker.' };
+    const target = toId ?? mentionsIn(t, team).ids[0];
+    const entry = this.channel.add(projectId, { kind: whisper ? 'whisper' : 'owner', fromId: 'owner', meetingId, text: t, ...(target ? { toId: target } : {}) });
+    void this.p.flush();
+    return { accepted: true, entry };
+  }
+
+  meetings(projectId: string): MeetingSummary[] {
+    return this.sql.exec<MeetingRow>('SELECT * FROM tmeetings WHERE project_id = ? ORDER BY started_at DESC', projectId).toArray().map((m) => this.toMeeting(m));
+  }
+
+  getMeeting(projectId: string, meetingId: string): MeetingResponse | null {
+    const m = this.meetingRow(meetingId);
+    if (!m || m.project_id !== projectId) return null;
+    return { meeting: this.toMeeting(m), entries: this.channel.meetingEntries(meetingId), team: this.teamOf(projectId) };
+  }
+
+  private meetingRow(meetingId: string): MeetingRow | undefined {
+    return this.sql.exec<MeetingRow>('SELECT * FROM tmeetings WHERE meeting_id = ?', meetingId).toArray()[0];
+  }
+
+  private toMeeting(m: MeetingRow): MeetingSummary {
+    const lines = Number(this.sql.exec<{ n: number }>(`SELECT COUNT(*) AS n FROM tchannel WHERE meeting_id = ? AND kind != 'whisper'`, m.meeting_id).toArray()[0]?.n ?? 0);
+    return {
+      meetingId: m.meeting_id,
+      projectId: m.project_id,
+      kind: m.kind as MeetingKind,
+      question: m.question,
+      chairId: m.chair_id,
+      status: m.status as MeetingSummary['status'],
+      rounds: Number(m.rounds),
+      startedAt: m.started_at,
+      ...(m.finished_at ? { finishedAt: m.finished_at } : {}),
+      lines,
+      ...(m.summary ? { summary: m.summary } : {}),
+    };
+  }
+
+  private openMeeting(projectId: string, kind: MeetingKind, question: string, chairId: string, rounds: number): string {
+    const meetingId = newId('mtg');
+    this.sql.exec(`INSERT INTO tmeetings (meeting_id, project_id, kind, question, chair_id, status, rounds, started_at) VALUES (?, ?, ?, ?, ?, 'live', ?, ?)`, meetingId, projectId, kind, question, chairId, rounds, iso());
+    return meetingId;
+  }
+
+  private closeMeeting(meetingId: string, status: 'done' | 'stopped', summary?: string): void {
+    this.sql.exec(`UPDATE tmeetings SET status = ?, finished_at = ?, summary = COALESCE(?, summary) WHERE meeting_id = ? AND status = 'live'`, status, iso(), summary ?? null, meetingId);
+  }
+
+  /** The meeting as one member heard it: their own lines as "You", whispers only to them, the owner and the Chief by role. */
+  private transcriptFor(meetingId: string, readerId: string, team: readonly TeamMember[], chiefName: string): string {
+    const name = (id: string) => (id === readerId ? 'You' : id === 'owner' ? 'The owner' : id === 'chief' ? `${chiefName} (Chief of Staff, moderating)` : (team.find((m) => m.personaId === id)?.name.split(' ')[0] ?? id));
+    return this.channel
+      .meetingEntries(meetingId)
+      .filter((e) => (e.kind !== 'whisper' || e.toId === readerId) && e.kind !== 'system')
+      .map((e) => (e.kind === 'whisper' ? `The owner (whispered to you only): ${e.text}` : `${name(e.fromId)}${e.phase && e.phase !== 'moderator' ? ` (${e.phase})` : ''}: ${e.text}`))
+      .join('\n');
   }
 
   /** A discussion for a project that is not running (proposed, paused, waiting on the owner). */
@@ -832,6 +926,7 @@ export class TeamProjects {
     } catch (err) {
       logError(`project.discuss ${projectId}`, err);
       this.sql.exec('UPDATE tprojects SET pending_discussion = NULL, discussion_state = NULL WHERE project_id = ?', projectId);
+      if (pending.meetingId) this.closeMeeting(pending.meetingId, 'stopped');
     } finally {
       this.inflight.delete(projectId);
       void this.p.flush();
@@ -839,7 +934,7 @@ export class TeamProjects {
   }
 
   /** Still this project and not stopped (a discussion may run while proposed or paused). */
-  private meeting(projectId: string, fence: number): boolean {
+  private meetingLive(projectId: string, fence: number): boolean {
     const r = this.sql.exec<{ status: string; fence: number }>('SELECT status, fence FROM tprojects WHERE project_id = ?', projectId).toArray()[0];
     return !!r && ['proposed', 'running', 'paused', 'needs_review'].includes(r.status) && Number(r.fence) === fence;
   }
@@ -849,41 +944,100 @@ export class TeamProjects {
    * rounds each member debates; the chair sums up. Strictly one after another, each hearing everything before. A turn
    * that fails is noted and the discussion goes on. The chair's summary becomes direction for the team's next steps.
    */
+  /**
+   * A meeting (biz-bot swarm.js runDiscussion, made a room): the Chief of Staff opens it, the chair frames the question,
+   * each member opens, later rounds debate, the chair sums up and the Chief closes. The floor arbiter orders the turns:
+   * the owner first (whoever they addressed, else the chair, answers next), then raised hands (a teammate @mentioned in
+   * the last turn), then the speaking order. Each speaker hears the meeting from their own seat: their lines as "You",
+   * whispers only when meant for them. A failed turn is noted and the meeting goes on. The chair's summary becomes
+   * direction for the team's next steps.
+   */
   private async runDiscussion(projectId: string, fence: number, setup: AgentSetup, signal: AbortSignal, d: PendingDiscussion): Promise<void> {
     const row = this.row(projectId)!;
     const team = JSON.parse(row.team) as TeamMember[];
     const chair = team.find((m) => m.role === 'lead') ?? team[0]!;
     const members = team.filter((m) => m.personaId !== chair.personaId);
-    const turns: { id: string; phase: DiscussionPhase; round: number }[] = [{ id: chair.personaId, phase: 'framing', round: 1 }, ...members.map((m) => ({ id: m.personaId, phase: 'opening' as const, round: 1 }))];
-    for (let r = 2; r <= d.rounds; r++) turns.push(...members.map((m) => ({ id: m.personaId, phase: 'debate' as const, round: r })));
-    turns.push({ id: chair.personaId, phase: 'synthesis', round: d.rounds });
+    const first = (id: string) => team.find((m) => m.personaId === id)?.name.split(' ')[0] ?? id;
+    type Turn = { id: string; phase: DiscussionPhase; round: number; addressed?: { by: string; text: string } };
+    const queue: Turn[] = [{ id: chair.personaId, phase: 'framing', round: 1 }, ...members.map((m) => ({ id: m.personaId, phase: 'opening' as const, round: 1 }))];
+    for (let r = 2; r <= d.rounds; r++) queue.push(...members.map((m) => ({ id: m.personaId, phase: 'debate' as const, round: r })));
+    queue.push({ id: chair.personaId, phase: 'synthesis', round: d.rounds });
+    const meetingId = d.meetingId ?? this.openMeeting(projectId, d.kind, d.question, chair.personaId, d.rounds);
     this.sql.exec('UPDATE tprojects SET pending_discussion = NULL WHERE project_id = ?', projectId);
-    if (d.kind === 'discussion' || d.rounds > 1) this.channel.add(projectId, { kind: 'system', fromId: 'chief', text: `${chair.name.split(' ')[0]} chairs: ${turns.length} turns over ${d.rounds} round${d.rounds === 1 ? '' : 's'}.` });
-    let soFar = '';
+    const chiefName = row.chief_name || 'the Chief of Staff';
+    const kindWord = d.kind === 'kickoff' ? 'Kickoff' : d.kind === 'review' ? 'Review' : 'Discussion';
+    // The Chief of Staff moderates: opens, hands the chair the floor, and closes.
+    this.channel.add(projectId, {
+      kind: 'discussion',
+      fromId: 'chief',
+      phase: 'moderator',
+      meetingId,
+      text: `${kindWord} for “${row.title}”. ${first(chair.personaId)} chairs; ${members.map((m) => first(m.personaId)).join(', ')}, you'll each have the floor${d.rounds > 1 ? ` over ${d.rounds} rounds` : ''}. ${first(chair.personaId)}, over to you.`,
+    });
+    void this.p.flush();
     let summary = '';
-    for (const t of turns) {
-      if (!this.meeting(projectId, fence)) return;
+    let hands = 0;
+    let ownerReplies = 0;
+    const ownerTurns = () => {
+      for (const w of this.channel.waiting(meetingId)) {
+        this.channel.handled(w.seq);
+        if (w.kind !== 'owner' || ownerReplies >= MAX_OWNER_REPLIES) continue;
+        ownerReplies++;
+        const to = w.toId && team.some((m) => m.personaId === w.toId) ? w.toId : chair.personaId;
+        queue.unshift({ id: to, phase: 'reply', round: queue[0]?.round ?? d.rounds, addressed: { by: 'The owner', text: w.text } });
+      }
+    };
+    while (true) {
+      if (!this.meetingLive(projectId, fence)) {
+        this.closeMeeting(meetingId, 'stopped');
+        return;
+      }
+      // The floor arbiter: the owner first; whispers wait for their addressee's next turn (they are marked seen here).
+      ownerTurns();
+      const t = queue.shift();
+      if (!t) break;
       const who = team.find((m) => m.personaId === t.id)!;
-      this.sql.exec('UPDATE tprojects SET discussion_state = ? WHERE project_id = ?', JSON.stringify({ question: d.question, speakerId: t.id, round: t.round, rounds: d.rounds }), projectId);
+      this.sql.exec('UPDATE tprojects SET discussion_state = ? WHERE project_id = ?', JSON.stringify({ question: d.question, speakerId: t.id, round: t.round, rounds: d.rounds, meetingId }), projectId);
       this.emit(projectId);
       void this.p.flush();
       try {
         const w = this.worker(t.id, setup, deadlineSignal(120_000, signal));
-        const said = await discussionTurn(w, this.briefOf(projectId), d.question, t.phase, soFar, t.round, d.rounds);
-        if (!this.meeting(projectId, fence)) return;
+        const said = await discussionTurn(w, this.briefOf(projectId), d.question, t.phase, this.transcriptFor(meetingId, t.id, team, chiefName), t.round, d.rounds, t.addressed);
+        if (!this.meetingLive(projectId, fence)) {
+          this.closeMeeting(meetingId, 'stopped');
+          return;
+        }
         this.recordRun(projectId, null, 'discussion', w, said.run, []);
-        this.channel.add(projectId, { kind: 'discussion', fromId: t.id, round: t.round, phase: t.phase, text: said.text });
-        soFar += `\n${who.name.split(' ')[0]} (${t.phase}): ${said.text}`;
+        this.channel.add(projectId, { kind: 'discussion', fromId: t.id, round: t.round, phase: t.phase, meetingId, text: said.text });
         if (t.phase === 'synthesis') summary = said.text;
+        // A raised hand: a teammate this turn @mentioned speaks next (never after the close, and only a few times).
+        else if (t.phase !== 'reply' && hands < MAX_RAISED_HANDS && queue.length) {
+          const next = mentionsIn(said.text, team).ids.find((id) => id !== t.id);
+          if (next) {
+            hands++;
+            queue.unshift({ id: next, phase: 'reply', round: t.round, addressed: { by: who.name.split(' ')[0]!, text: said.text } });
+          }
+        }
       } catch (err) {
-        if (err instanceof MissingProviderError) throw err;
+        if (err instanceof MissingProviderError) {
+          this.closeMeeting(meetingId, 'stopped');
+          throw err;
+        }
         logError(`project.discussion ${projectId}`, err);
-        this.channel.add(projectId, { kind: 'system', fromId: 'chief', text: `${who.name.split(' ')[0]} could not take their turn.` });
+        this.channel.add(projectId, { kind: 'system', fromId: 'chief', meetingId, text: `${who.name.split(' ')[0]} could not take their turn.` });
       }
     }
+    this.channel.add(projectId, {
+      kind: 'discussion',
+      fromId: 'chief',
+      phase: 'moderator',
+      meetingId,
+      text: summary ? `Thank you, everyone. ${first(chair.personaId)}'s summary goes to the team as direction for the next steps.` : 'Thank you, everyone.',
+    });
+    this.closeMeeting(meetingId, 'done', summary ? clipText(summary, 2000) : undefined);
     const kickoff = d.kind === 'kickoff';
     this.sql.exec(`UPDATE tprojects SET discussion_state = NULL${kickoff ? ", kickoff = 'done'" : ''}, updated_at = ? WHERE project_id = ?`, iso(), projectId);
-    if (summary) this.note(projectId, { text: `${kickoff ? 'Kickoff agreement' : 'Discussion outcome'} (${chair.name.split(' ')[0]} chairing): ${clipText(summary, 900)}`, via: 'channel' });
+    if (summary) this.note(projectId, { text: `${kickoff ? 'Kickoff agreement' : d.kind === 'review' ? 'Review outcome' : 'Discussion outcome'} (${chair.name.split(' ')[0]} chairing): ${clipText(summary, 900)}`, via: 'channel' });
     this.emit(projectId);
   }
 

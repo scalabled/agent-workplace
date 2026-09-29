@@ -4,6 +4,7 @@ import { connectFeed, type Feed } from './api/ws';
 import { loadCatalog } from './catalog';
 import { Announcer } from './components/Announcer';
 import { ChiefBubble } from './components/ChiefBubble';
+import { NowPlaying } from './meetings/NowPlaying';
 import { Nav } from './components/Nav';
 import { closePalette, openPalette, Palette, paletteOpen } from './components/Palette';
 import { PttCaption } from './components/PttCaption';
@@ -319,6 +320,7 @@ export function App() {
         <Screen />
       </main>
       {!bare && <ChiefBubble />}
+      {!bare && <NowPlaying />}
       {/* The conference dock shows its own listening line; everything else (Talk, a joined huddle) shows this one. */}
       {!conferencePress(pttPressTarget.value) && <PttCaption />}
       <Announcer />

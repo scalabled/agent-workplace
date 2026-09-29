@@ -99,6 +99,27 @@ describe('POST /api/speech/tts', () => {
     expect(body.alignment?.chars).toEqual(['H', 'i']);
   });
 
+  it('keeps a meeting line for replay: the same words in the same voice come back without a provider call (Inc 2)', async () => {
+    const t = await mediaEnv({ OPENAI_API_KEY: 'test-openai', XAI_API_KEY: 'test-xai', TTS_DAILY_LIMIT: '1' });
+    const calls: Call[] = [];
+    const reg = cloudRegistry(t.env, { openai: fakeSpeech('openai', calls), xai: fakeSpeech('xai', calls) });
+    const line = { text: 'Instagram first, then the press.', voiceRef: { openai: 'echo', xai: 'rex' }, speakerId: 'cw_ann', response: 'json', cache: true };
+    const a = await invoke(t, reg, 'POST', '/api/speech/tts', postJson(line));
+    expect(a.status).toBe(200);
+    expect(a.headers.get('x-tts-cache')).toBe('miss');
+    const first = (await a.json()) as TtsJsonResponse;
+    await new Promise((r) => setTimeout(r, 0)); // the R2 write runs in waitUntil
+    // The daily limit (1) is spent, yet the replay is served from storage.
+    const b = await invoke(t, reg, 'POST', '/api/speech/tts', postJson(line));
+    expect(b.status).toBe(200);
+    expect(b.headers.get('x-tts-cache')).toBe('hit');
+    expect(await b.json()).toEqual(first);
+    expect(calls).toHaveLength(1);
+    // Other words (or another voice) are a new line.
+    const c = await invoke(t, reg, 'POST', '/api/speech/tts', postJson({ ...line, voiceRef: { openai: 'nova', xai: 'ara' } }));
+    expect(c.status).toBe(429);
+  });
+
   it('prefers xAI when both providers are configured and the voice has both ids (catalog lead voice)', async () => {
     const t = await mediaEnv({ OPENAI_API_KEY: 'test-openai', XAI_API_KEY: 'test-xai' });
     const calls: Call[] = [];

@@ -1219,7 +1219,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       activeProjects: () => stub.activeProjects() as unknown as ReturnType<ProjectApi['activeProjects']>,
       stopAll: (by) => stub.stopAll(by) as unknown as ReturnType<ProjectApi['stopAll']>,
       openDecisions: () => stub.openDecisions() as unknown as ReturnType<ProjectApi['openDecisions']>,
-      discuss: (projectId, question, rounds) => stub.discuss(projectId, question, rounds) as unknown as ReturnType<ProjectApi['discuss']>,
+      discuss: (projectId, question, rounds, kind) => stub.discuss(projectId, question, rounds, kind) as unknown as ReturnType<ProjectApi['discuss']>,
       answerDecision: (id, a) => stub.answerDecision(id, a) as unknown as ReturnType<ProjectApi['answerDecision']>,
       noteProject: (projectId, req) => stub.noteProject(projectId, req) as unknown as ReturnType<ProjectApi['noteProject']>,
       pauseProject: (projectId) => stub.pauseProject(projectId) as unknown as ReturnType<ProjectApi['pauseProject']>,

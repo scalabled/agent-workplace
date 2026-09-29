@@ -92,7 +92,7 @@ export default defineConfig({
       name: 'living-voice',
       // one-voice.spec.ts: one voice per workspace (several tabs on the voice stack). office-voice.spec.ts: the Office's
       // room voices, barge-in and listen-in (Office Phase 2); office-screens.spec.ts: its screens (opt-in).
-      testMatch: /(living-voice|one-voice|office-voice|office-screens)\.spec\.ts/,
+      testMatch: /(living-voice|one-voice|office-voice|office-screens|meeting-voice)\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
         viewport: { width: 1280, height: 800 },

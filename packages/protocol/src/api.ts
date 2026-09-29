@@ -236,6 +236,11 @@ export interface TtsRequest {
   speakerId: string;
   format?: 'mp3' | 'wav';
   response?: 'audio' | 'json';
+  /**
+   * Keep the voiced line for replay (meeting lines, Inc 2): the same text in the same voice is served from storage
+   * afterwards, without a provider call or a count against the daily limit. JSON responses only.
+   */
+  cache?: boolean;
 }
 
 export interface TtsJsonResponse {

@@ -12,6 +12,8 @@ export interface VoiceRef {
   speed?: number;
   /** Style instruction for providers that accept one (catalog `tts_instructions`). */
   instructions?: string;
+  /** Speak through this provider first (a team's voices stay distinct only on one: `TeamMember.voice.prefer`). */
+  provider?: 'openai' | 'xai';
 }
 
 /** Character-level timing for a spoken line (xAI `with_timestamps` normalised; mock synthesises it). */

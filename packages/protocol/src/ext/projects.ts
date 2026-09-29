@@ -146,7 +146,7 @@ export interface TeamProjectSnapshot {
   /** The kickoff discussion happened (teams of three or more hold one before the first step). */
   kickoff?: 'pending' | 'done' | 'skipped';
   /** A discussion under way (the chair and who speaks next). */
-  discussion?: { question: string; speakerId: string; round: number; rounds: number };
+  discussion?: { question: string; speakerId: string; round: number; rounds: number; meetingId?: string };
   /** Markdown deliverable when done (clipped in frames). */
   deliverable?: string;
   summary?: string;
@@ -238,13 +238,15 @@ export type ProjectResponse = TeamProjectSnapshot;
 export interface ProjectActionAccepted {
   accepted: true;
   project: TeamProjectSnapshot;
+  /** discuss: the meeting it opened. */
+  meetingId?: string;
 }
 /**
  * The team channel (biz-bot parity: the shared room transcript): everything the team says to each other and to the
  * owner — work handed in, reviews, questions between teammates and their answers, hand-offs, discussions, the owner's
  * posts, decisions. Every agent reads its recent part; the owner reads and writes it.
  */
-export type ChannelKind = 'owner' | 'work' | 'review' | 'ask' | 'answer' | 'handoff' | 'discussion' | 'decision' | 'system';
+export type ChannelKind = 'owner' | 'work' | 'review' | 'ask' | 'answer' | 'handoff' | 'discussion' | 'decision' | 'system' | 'whisper';
 
 export interface ChannelEntry {
   seq: number;
@@ -258,9 +260,11 @@ export interface ChannelEntry {
   text: string;
   /** The entry this answers. */
   replyTo?: number;
-  /** Discussions: which round and part (framing, opening, debate, synthesis). */
+  /** Discussions: which round and part (framing, opening, debate, synthesis; a reply to the owner or a raised hand; the Chief moderating). */
   round?: number;
-  phase?: 'framing' | 'opening' | 'debate' | 'synthesis';
+  phase?: MeetingPhase;
+  /** The meeting this line was said in (Inc 2). */
+  meetingId?: string;
   at: string;
 }
 
@@ -276,10 +280,55 @@ export interface ChannelPost {
   text: string;
   opId?: string;
 }
-/** POST /api/projects/:id/discuss: a structured discussion (the chair frames, members speak, the chair sums up). */
+/** POST /api/projects/:id/discuss: a meeting (the Chief opens, the chair frames, members speak, the chair sums up). */
 export interface DiscussRequest {
-  question: string;
+  /** The question (a review meeting may leave it out: the work so far is the question). */
+  question?: string;
   rounds?: number;
+  kind?: 'discussion' | 'review';
+}
+
+// ── meetings (Inc 2) ───────────────────────────────────────────────────────────────
+// A kickoff, a review or a discussion held as real turns, one coworker after another, with the Chief of Staff
+// moderating. The owner reads or listens in (each line voiced on demand in the speaker's team voice), takes the floor
+// (the addressed coworker answers next), whispers to one coworker (only they hear it), and replays it later.
+
+export type MeetingKind = 'kickoff' | 'review' | 'discussion';
+export type MeetingPhase = 'framing' | 'opening' | 'debate' | 'synthesis' | 'reply' | 'moderator';
+
+export interface MeetingSummary {
+  meetingId: string;
+  projectId: string;
+  kind: MeetingKind;
+  question: string;
+  chairId: string;
+  /** live (under way, or about to start) · done · stopped */
+  status: 'live' | 'done' | 'stopped';
+  rounds: number;
+  startedAt: string;
+  finishedAt?: string;
+  lines: number;
+  /** The chair's closing words. */
+  summary?: string;
+}
+
+export interface MeetingsResponse {
+  meetings: MeetingSummary[];
+}
+
+/** GET /api/projects/:id/meetings/:meetingId: the meeting, its lines in order (whispers included for the owner), the team. */
+export interface MeetingResponse {
+  meeting: MeetingSummary;
+  entries: ChannelEntry[];
+  team: TeamMember[];
+}
+
+export const MEETING_SAY_MAX = 1000;
+/** POST /api/projects/:id/meetings/:meetingId/say: take the floor (the addressed coworker, else the chair, answers next) or whisper to one coworker. */
+export interface MeetingSay {
+  text: string;
+  toId?: string;
+  whisper?: boolean;
 }
 
 /** POST /api/projects/:id/note: direction for the team (or one member) that reaches the next step. */

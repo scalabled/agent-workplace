@@ -18,6 +18,14 @@ export function mockMediaEnabled(env: Env): boolean {
 }
 
 const SPEAKER_ID = /^[A-Za-z0-9_:.-]{1,120}$/;
+export const TTS_CACHE_HEADER = 'x-tts-cache';
+
+/** Where a voiced line is kept: per workspace, content-addressed by the words, the voice and the provider order. */
+async function ttsCacheKey(env: Env, parts: Record<string, unknown>): Promise<string> {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(parts)));
+  const hex = [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, '0')).join('');
+  return `ws/${env.WORKSPACE_ID || 'local'}/tts/${hex.slice(0, 40)}.json`;
+}
 
 /** POST /api/speech/tts {text, voiceRef, speakerId, format?, response?} → audio bytes, or TtsJsonResponse with response:"json". */
 export const handleTts: RouteHandler = async (req, rc) => {
@@ -33,6 +41,12 @@ export const handleTts: RouteHandler = async (req, rc) => {
   const asJson = b.response === 'json';
   const text = b.text.trim();
   const { voice, prefer } = chooseVoice(b.voiceRef, b.speakerId);
+  // Replay cache (meeting lines): the same words in the same voice come from R2, free.
+  const cacheKey = asJson && b.cache === true && rc.env.BLOBS ? await ttsCacheKey(rc.env, { text, voice, prefer, format: format ?? null }) : null;
+  if (cacheKey) {
+    const hit = await rc.env.BLOBS.get(cacheKey).catch(() => null);
+    if (hit) return new Response(hit.body, { headers: { 'content-type': 'application/json', 'cache-control': 'private, max-age=86400', [TTS_CACHE_HEADER]: 'hit' } });
+  }
 
   // TTS_DAILY_LIMIT: counted before the call, given back when no provider answered.
   const refund = await takeDaily(rc.env, 'tts');
@@ -53,7 +67,14 @@ export const handleTts: RouteHandler = async (req, rc) => {
   const provider = out.provider ?? resolved.providerId;
   const voiceLabel = voiceHeader(out.voice);
 
-  if (asJson) return json<TtsJsonResponse>({ mime: out.mime, audioBase64: toBase64(out.audio), alignment: out.alignment ?? null, provider, voice: voiceLabel });
+  if (asJson) {
+    const payload: TtsJsonResponse = { mime: out.mime, audioBase64: toBase64(out.audio), alignment: out.alignment ?? null, provider, voice: voiceLabel };
+    if (cacheKey) {
+      const put = rc.env.BLOBS.put(cacheKey, JSON.stringify(payload), { httpMetadata: { contentType: 'application/json' }, customMetadata: { speakerId: b.speakerId as string } }).catch(() => undefined);
+      rc.ctx.waitUntil(put);
+    }
+    return json<TtsJsonResponse>(payload, cacheKey ? { headers: { [TTS_CACHE_HEADER]: 'miss' } } : undefined);
+  }
   return new Response(out.audio, {
     headers: {
       'content-type': out.mime,

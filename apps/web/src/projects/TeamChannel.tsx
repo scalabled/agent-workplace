@@ -1,12 +1,12 @@
 // The team channel on the project page (biz-bot parity: the room transcript and its graph): everything the team says
 // to each other and to the owner, live — work handed in, reviews, questions between teammates and their answers,
-// hand-offs, discussions — and the owner's own posts (@Name to address someone; they answer at once). The owner can
-// also put a question to the whole team for a structured discussion.
+// hand-offs, meetings — and the owner's own posts (@Name to address someone; they answer at once). Meetings themselves
+// are called, heard and joined from the Meetings panel.
 import type { ChannelEntry, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { api, ApiError } from '../api/client';
 import { MemberFace } from '../components/ProjectCard';
-import { mergeChannel, projectChannels, upsertProject } from '../store';
+import { mergeChannel, projectChannels } from '../store';
 
 const KIND: Record<ChannelEntry['kind'], string> = {
   owner: 'You',
@@ -18,9 +18,10 @@ const KIND: Record<ChannelEntry['kind'], string> = {
   discussion: 'Discussion',
   decision: 'Decision',
   system: 'Note',
+  whisper: 'Whispered',
 };
 
-const PHASE: Record<NonNullable<ChannelEntry['phase']>, string> = { framing: 'frames it', opening: 'opens', debate: 'debates', synthesis: 'sums up' };
+const PHASE: Record<NonNullable<ChannelEntry['phase']>, string> = { framing: 'frames it', opening: 'opens', debate: 'debates', synthesis: 'sums up', reply: 'answers', moderator: 'moderates' };
 const SHOWN = 30;
 
 export function TeamChannel({ project }: { project: TeamProjectSnapshot }) {
@@ -28,9 +29,6 @@ export function TeamChannel({ project }: { project: TeamProjectSnapshot }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [all, setAll] = useState(false);
-  const [asking, setAsking] = useState(false);
-  const [question, setQuestion] = useState('');
-  const [rounds, setRounds] = useState(2);
   const id = project.projectId;
   useEffect(() => {
     api
@@ -50,7 +48,6 @@ export function TeamChannel({ project }: { project: TeamProjectSnapshot }) {
   const member = (who: string) => project.team.find((m) => m.personaId === who);
   const nameOf = (who?: string) => (!who ? 'the team' : who === 'owner' ? 'you' : who === 'chief' ? 'Chief of Staff' : (member(who)?.name.split(' ')[0] ?? who));
   const open = project.status !== 'cancelled';
-  const canMeet = ['proposed', 'running', 'paused', 'needs_review'].includes(project.status) && !project.discussion;
   const post = async (e: Event) => {
     e.preventDefault();
     const t = text.trim();
@@ -67,64 +64,13 @@ export function TeamChannel({ project }: { project: TeamProjectSnapshot }) {
       setBusy(false);
     }
   };
-  const discuss = async (e: Event) => {
-    e.preventDefault();
-    const q = question.trim();
-    if (!q || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const r = await api.discuss(id, q, rounds);
-      upsertProject(r.project);
-      setQuestion('');
-      setAsking(false);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'That did not start. Try again.');
-    } finally {
-      setBusy(false);
-    }
-  };
   return (
     <section class="panel team-channel" aria-labelledby="channel-title">
       <header class="plan-head">
         <h2 id="channel-title" class="panel-title">
           Team channel
         </h2>
-        {canMeet && !asking && (
-          <button type="button" class="button-quiet button-small" onClick={() => setAsking(true)}>
-            Start a discussion
-          </button>
-        )}
       </header>
-      {project.discussion && (
-        <p class="channel-live" role="status">
-          {project.kickoff === 'pending' ? 'Kickoff' : 'Discussion'} under way: {nameOf(project.discussion.speakerId)} is speaking (round {project.discussion.round} of {project.discussion.rounds}).
-        </p>
-      )}
-      {asking && (
-        <form class="channel-discuss" onSubmit={discuss}>
-          <label class="field">
-            <span class="field-label">What should the team discuss?</span>
-            <input class="field-input" value={question} maxLength={1000} placeholder="Instagram or local press first?" onInput={(e) => setQuestion((e.target as HTMLInputElement).value)} />
-          </label>
-          <label class="field field-inline">
-            <span class="field-label">Rounds</span>
-            <select class="field-input" value={rounds} onChange={(e) => setRounds(Number((e.target as HTMLSelectElement).value))}>
-              <option value={1}>1 (openings)</option>
-              <option value={2}>2 (with a debate)</option>
-              <option value={3}>3</option>
-            </select>
-          </label>
-          <div class="settings-actions">
-            <button type="submit" class="button-primary" disabled={busy || !question.trim()}>
-              Start
-            </button>
-            <button type="button" class="button-quiet" onClick={() => setAsking(false)}>
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
       {entries.length > SHOWN && !all && (
         <button type="button" class="link-button channel-more" onClick={() => setAll(true)}>
           Show all {entries.length}
@@ -150,7 +96,7 @@ export function TeamChannel({ project }: { project: TeamProjectSnapshot }) {
                 <p class="channel-head">
                   <span class="channel-who">{e.fromId === 'owner' ? 'You' : nameOf(e.fromId)}</span>
                   {e.toId && <span class="channel-to"> → {nameOf(e.toId)}</span>}
-                  {e.kind !== 'owner' && <span class="channel-kind">{e.kind === 'discussion' && e.phase ? `${PHASE[e.phase]} · round ${e.round ?? 1}` : KIND[e.kind]}</span>}
+                  {e.kind !== 'owner' && <span class="channel-kind">{e.kind === 'discussion' && e.phase ? (e.phase === 'moderator' || e.phase === 'reply' ? PHASE[e.phase] : `${PHASE[e.phase]} · round ${e.round ?? 1}`) : KIND[e.kind]}</span>}
                 </p>
                 <p class="channel-text">{e.text}</p>
               </div>

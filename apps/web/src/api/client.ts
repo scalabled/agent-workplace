@@ -34,7 +34,7 @@ import type {
 import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcount/protocol/ext/media';
 import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, RoomCancelResponse, RoomId, RoomSayAccepted, RoomSayRequest } from '@headcount/protocol/ext/rooms';
 import { noteUnauthenticated } from '../auth/session';
-import type { ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
+import type { ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, MeetingResponse, MeetingSay, MeetingsResponse, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
 import type { AutomationPatch, AutomationResponse, AutomationsResponse } from '@headcount/protocol/ext/automations';
 import type { ConnectorCreate, ConnectorPatch, ConnectorResponse, ConnectorsResponse } from '@headcount/protocol/ext/connectors';
 import type { AgentConfigPatch, AgentView, ModelsResponse, PromptView, RunsResponse, SkillDetail, SkillsResponse } from '@headcount/protocol/ext/agents';
@@ -112,7 +112,10 @@ export const api = {
   editPlan: (id: string, e: PlanEdit) => request<ProjectActionAccepted>(routePath('editPlan', { id }), jsonInit('PUT', e)),
   projectChannel: (id: string) => request<ChannelResponse>(routePath('projectChannel', { id })),
   postChannel: (id: string, text: string) => request<{ accepted: true; entry: ChannelEntry }>(routePath('postChannel', { id }), jsonInit('POST', { text })),
-  discuss: (id: string, question: string, rounds?: number) => request<ProjectActionAccepted>(routePath('discuss', { id }), jsonInit('POST', { question, ...(rounds ? { rounds } : {}) })),
+  discuss: (id: string, question: string, rounds?: number, kind?: 'discussion' | 'review') => request<ProjectActionAccepted>(routePath('discuss', { id }), jsonInit('POST', { question, ...(rounds ? { rounds } : {}), ...(kind ? { kind } : {}) })),
+  projectMeetings: (id: string) => request<MeetingsResponse>(routePath('projectMeetings', { id })),
+  getMeeting: (id: string, meetingId: string) => request<MeetingResponse>(routePath('getMeeting', { id, meetingId })),
+  meetingSay: (id: string, meetingId: string, say: MeetingSay) => request<{ accepted: true; entry: ChannelEntry }>(routePath('meetingSay', { id, meetingId }), jsonInit('POST', say)),
   projectRuns: (id: string, stepId?: string) => request<RunsResponse>(`${routePath('projectRuns', { id })}${stepId ? `?stepId=${encodeURIComponent(stepId)}` : ''}`),
   // Parity stage 2: how each coworker works, skills, the Chief's prompt, models.
   getAgent: (personaId: string) => request<AgentView>(routePath('getAgent', { personaId })),

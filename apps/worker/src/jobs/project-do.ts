@@ -331,8 +331,21 @@ export class ProjectDO extends DurableObject<Env> {
   }
 
   /** The owner asks the team to discuss something. */
-  async discuss(projectId: string, question: string, rounds?: number) {
-    return this.team.discuss(projectId, question, rounds);
+  async discuss(projectId: string, question: string, rounds?: number, kind?: 'discussion' | 'review') {
+    return this.team.discuss(projectId, question, rounds, kind);
+  }
+
+  /** Inc 2: a project's meetings, one meeting with its lines, and the owner taking the floor or whispering. */
+  async projectMeetings(projectId: string) {
+    return this.team.meetings(projectId);
+  }
+
+  async getMeeting(projectId: string, meetingId: string) {
+    return this.team.getMeeting(projectId, meetingId);
+  }
+
+  async meetingSay(projectId: string, meetingId: string, text: string, toId?: string, whisper?: boolean) {
+    return this.team.meetingSay(projectId, meetingId, text, toId, whisper);
   }
 
   /** Open raised hands (the Chief can relay the owner's answer). */

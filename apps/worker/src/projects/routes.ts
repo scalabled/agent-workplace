@@ -1,4 +1,4 @@
-import { CHANNEL_POST_MAX, PROJECT_NOTE_MAX, type ChannelEntry, type DecisionAccepted, type ChannelPost, type ChannelResponse, type DecisionAnswer, type DiscussRequest, type PlanEdit, type ProjectActionAccepted, type ProjectNoteRequest, type ProjectResponse, type ProjectsResponse, type StepEdit, type StopAllResponse } from '@headcount/protocol/ext/projects';
+import { CHANNEL_POST_MAX, MEETING_SAY_MAX, PROJECT_NOTE_MAX, type ChannelEntry, type DecisionAccepted, type MeetingResponse, type MeetingSay, type MeetingSummary, type MeetingsResponse, type ChannelPost, type ChannelResponse, type DecisionAnswer, type DiscussRequest, type PlanEdit, type ProjectActionAccepted, type ProjectNoteRequest, type ProjectResponse, type ProjectsResponse, type StepEdit, type StopAllResponse } from '@headcount/protocol/ext/projects';
 import type { RunsResponse } from '@headcount/protocol/ext/agents';
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
 import { projectStub } from '../lib/stubs';
@@ -169,7 +169,39 @@ export const handlePostChannel: RouteHandler = async (req, { env, params }) => {
 export const handleDiscuss: RouteHandler = async (req, { env, params }) => {
   if (!isProjectId(params.id)) throw new HttpError('not_found', 'That project does not exist.');
   const body = await readJson<Partial<DiscussRequest>>(req);
-  if (!body || typeof body.question !== 'string' || !body.question.trim()) throw new HttpError('bad_request', 'Say what the team should discuss.');
+  const kind = body?.kind === 'review' ? 'review' : 'discussion';
+  if (!body || (body.question !== undefined && typeof body.question !== 'string')) throw new HttpError('bad_request', 'Say what the team should discuss.');
+  if (kind === 'discussion' && !body.question?.trim()) throw new HttpError('bad_request', 'Say what the team should discuss.');
   const rounds = typeof body.rounds === 'number' ? body.rounds : undefined;
-  return accepted((await projectStub(env).discuss(params.id, body.question, rounds)) as unknown as { accepted: true; project: ProjectResponse } | Refusal);
+  const r = (await projectStub(env).discuss(params.id, body.question ?? '', rounds, kind)) as unknown as ({ accepted: true; project: ProjectResponse; meetingId: string }) | Refusal;
+  if (!r.accepted) throw new HttpError(r.code, r.message);
+  return json<ProjectActionAccepted>({ accepted: true, project: r.project, meetingId: r.meetingId }, { status: 202 });
+};
+
+const isMeetingId = (id: string | undefined): id is string => !!id && /^mtg_[a-f0-9]{8,40}$/.test(id);
+
+/** GET /api/projects/:id/meetings → the project's meetings, newest first. */
+export const handleProjectMeetings: RouteHandler = async (_req, { env, params }) => {
+  if (!isProjectId(params.id)) throw new HttpError('not_found', 'That project does not exist.');
+  return json<MeetingsResponse>({ meetings: (await projectStub(env).projectMeetings(params.id)) as unknown as MeetingSummary[] });
+};
+
+/** GET /api/projects/:id/meetings/:meetingId → one meeting with its lines (for reading, listening and replay). */
+export const handleGetMeeting: RouteHandler = async (_req, { env, params }) => {
+  if (!isProjectId(params.id) || !isMeetingId(params.meetingId)) throw new HttpError('not_found', 'No such meeting.');
+  const m = (await projectStub(env).getMeeting(params.id, params.meetingId)) as unknown as MeetingResponse | null;
+  if (!m) throw new HttpError('not_found', 'No such meeting.');
+  return json<MeetingResponse>(m);
+};
+
+/** POST /api/projects/:id/meetings/:meetingId/say → the owner takes the floor, or whispers to one coworker. */
+export const handleMeetingSay: RouteHandler = async (req, { env, params }) => {
+  if (!isProjectId(params.id) || !isMeetingId(params.meetingId)) throw new HttpError('not_found', 'No such meeting.');
+  const body = await readJson<Partial<MeetingSay>>(req);
+  if (!body || typeof body.text !== 'string' || !body.text.trim()) throw new HttpError('bad_request', 'Say something.');
+  if (body.text.length > MEETING_SAY_MAX) throw new HttpError('bad_request', `Keep it under ${MEETING_SAY_MAX} characters.`);
+  if (body.toId !== undefined && typeof body.toId !== 'string') throw new HttpError('bad_request', 'Speak to one coworker.');
+  const r = (await projectStub(env).meetingSay(params.id, params.meetingId, body.text, body.toId, body.whisper === true)) as unknown as { accepted: true; entry: ChannelEntry } | Refusal;
+  if (!r.accepted) throw new HttpError(r.code, r.message);
+  return json({ accepted: true, entry: r.entry }, { status: 202 });
 };

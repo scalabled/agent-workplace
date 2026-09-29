@@ -14,8 +14,8 @@ SSRF checks, unframed MCP results, no prompt viewer), we match the feature and c
 | 3 · Orchestration and planning | done | 3d41cc0 |
 | 4 · Inter-agent communication | done | cb26d94 |
 | 5 · MCP connectors | done | 6b31808 |
-| 3b · Automations | done | (this commit) |
-| Inc 2 · Rooms, voices and listen-in | not started | |
+| 3b · Automations | done | a29b6dc |
+| Inc 2 · Rooms, voices and listen-in | meetings, floor, whispers, listen-in, replay cache, now-playing bar done ([INC2](INC2.md)); realtime Chief voice next | (this commit) |
 
 Stage 5 as built: `apps/worker/src/connectors/` (catalog, Streamable HTTP client, sealed keys, store, agent tools,
 routes) and `/app/connectors` on the web. Grants per coworker live in `AgentConfig.connectors` (or "every coworker");

@@ -51,6 +51,10 @@ export const ROUTES = {
   projectChannel: { method: 'GET', path: '/api/projects/:id/channel', auth: 'owner' },
   postChannel: { method: 'POST', path: '/api/projects/:id/channel', auth: 'owner', body: 'json', bodyCap: 8 * 1024 },
   discuss: { method: 'POST', path: '/api/projects/:id/discuss', auth: 'owner', body: 'json', bodyCap: 4 * 1024 },
+  // Inc 2: meetings (ext/projects.ts).
+  projectMeetings: { method: 'GET', path: '/api/projects/:id/meetings', auth: 'owner' },
+  getMeeting: { method: 'GET', path: '/api/projects/:id/meetings/:meetingId', auth: 'owner' },
+  meetingSay: { method: 'POST', path: '/api/projects/:id/meetings/:meetingId/say', auth: 'owner', body: 'json', bodyCap: 4 * 1024 },
   // Parity stage 5: MCP connectors (ext/connectors.ts).
   listConnectors: { method: 'GET', path: '/api/connectors', auth: 'owner' },
   addConnector: { method: 'POST', path: '/api/connectors', auth: 'owner', body: 'json', bodyCap: 8 * 1024 },

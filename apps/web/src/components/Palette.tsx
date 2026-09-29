@@ -104,10 +104,13 @@ export function ownerNamePrompt(current: string | null): PalettePrompt {
   };
 }
 
-/** Rank by: label starts with the query, a word starts with it, then anywhere (label, hint, keywords). */
+/**
+ * Rank by: label starts with the query, a word starts with it, then anywhere (label, hint, keywords). With no query
+ * the palette is the menu: every place and setting (the list scrolls), coworkers only when searched for.
+ */
 export function filterItems(items: PaletteItem[], query: string, limit = 9): PaletteItem[] {
   const q = query.trim().toLowerCase();
-  if (!q) return items.filter((i) => i.group !== 'Coworkers').slice(0, limit);
+  if (!q) return items.filter((i) => i.group !== 'Coworkers');
   const scored: [number, PaletteItem][] = [];
   for (const item of items) {
     const label = item.label.toLowerCase();

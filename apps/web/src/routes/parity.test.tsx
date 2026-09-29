@@ -18,6 +18,9 @@ import { ProjectDetail } from './ProjectDetail';
 import { SkillPage, Skills } from './Skills';
 import { Connectors } from './Connectors';
 import { Automations } from './Automations';
+import { NowPlaying } from '../meetings/NowPlaying';
+import { stopListening } from '../meetings/listen';
+import type { MeetingSummary } from '@headcount/protocol/ext/projects';
 import type { AutomationView } from '@headcount/protocol/ext/automations';
 import type { ConnectorView, ConnectorsResponse } from '@headcount/protocol/ext/connectors';
 
@@ -340,7 +343,7 @@ describe('the team channel', () => {
     expect(presenceFor(`cw_${b!.id}`).label).not.toBe(`Answering ${first}`);
   });
 
-  it('the owner writes to the team, and starts a discussion', async () => {
+  it('the owner writes to the team', async () => {
     const p = proj({ status: 'running' });
     upsertProject(p);
     const posted = entry(5, { kind: 'owner', fromId: 'owner', toId: b!.id, text: `@${b!.name.split(' ')[0]} keep it short` });
@@ -349,8 +352,8 @@ describe('the team channel', () => {
         ? call.method === 'POST'
           ? json({ accepted: true, entry: posted }, 202)
           : json({ entries: [] })
-        : call.url === '/api/projects/prj_abcdefgh/discuss'
-          ? json({ accepted: true, project: proj({ status: 'running', updatedAt: '2026-09-29T10:03:00Z', discussion: { question: 'Instagram first?', speakerId: a!.id, round: 1, rounds: 2 } }) }, 202)
+        : call.url === '/api/projects/prj_abcdefgh/meetings'
+          ? json({ meetings: [] })
           : call.method === 'GET'
             ? json(p)
             : json({});
@@ -362,14 +365,95 @@ describe('the team channel', () => {
     await flush();
     expect(calls.find((x) => x.method === 'POST' && x.url.endsWith('/channel'))).toMatchObject({ body: { text: posted.text } });
     expect(host.querySelector('.channel-entry[data-owner] .channel-who')?.textContent).toBe('You');
-    await click(button('Start a discussion'));
-    await typeInto(host.querySelector('.channel-discuss input'), 'Instagram first?');
+  });
+});
+
+describe('meetings (Inc 2)', () => {
+  afterEach(() => stopListening());
+  const meeting = (over: Partial<MeetingSummary> = {}): MeetingSummary => ({ meetingId: 'mtg_0000000001', projectId: 'prj_abcdefgh', kind: 'discussion', question: 'Instagram first?', chairId: a!.id, status: 'live', rounds: 2, startedAt: '2026-09-29T10:03:00Z', lines: 1, ...over });
+  const line = (seq: number, over: Partial<ChannelEntry>): ChannelEntry => ({ seq, projectId: 'prj_abcdefgh', kind: 'discussion', fromId: a!.id, text: `line ${seq}`, at: '2026-09-29T10:03:00Z', meetingId: 'mtg_0000000001', ...over });
+
+  it('calls a meeting, then takes the floor and whispers while it is live', async () => {
+    const p = proj({ status: 'running' });
+    upsertProject(p);
+    let live = false;
+    respond = (call) => {
+      if (call.url === '/api/projects/prj_abcdefgh/discuss') {
+        live = true;
+        return json({ accepted: true, meetingId: 'mtg_0000000001', project: proj({ status: 'running', updatedAt: '2026-09-29T10:03:00Z', discussion: { question: 'Instagram first?', speakerId: a!.id, round: 1, rounds: 2, meetingId: 'mtg_0000000001' } }) }, 202);
+      }
+      if (call.url === '/api/projects/prj_abcdefgh/meetings') return json({ meetings: live ? [meeting()] : [] });
+      if (call.url === '/api/projects/prj_abcdefgh/meetings/mtg_0000000001') return json({ meeting: meeting(), entries: [line(1, { fromId: 'chief', phase: 'moderator', text: 'Discussion for the launch.' })], team });
+      if (call.url.endsWith('/say')) return json({ accepted: true, entry: line(2, { kind: 'whisper', fromId: 'owner', toId: b!.id, text: 'Keep it cheap' }) }, 202);
+      if (call.url.endsWith('/channel')) return json({ entries: [] });
+      return call.method === 'GET' ? json(p) : json({});
+    };
+    await mount(<ProjectDetail projectId="prj_abcdefgh" />);
+    await flush();
+    expect(host.querySelector('.meetings .page-fine')?.textContent).toContain('No meetings yet');
+    await click(button('Call a meeting'));
+    await typeInto(host.querySelector('.meetings .channel-discuss input'), 'Instagram first?');
     await click(button('Start'));
     await flush();
-    expect(calls.find((x) => x.url.endsWith('/discuss'))).toMatchObject({ method: 'POST', body: { question: 'Instagram first?', rounds: 2 } });
-    expect(host.querySelector('.channel-live')?.textContent).toContain('round 1 of 2');
-    expect(button('Start a discussion')).toBeUndefined();
+    expect(calls.find((x) => x.url.endsWith('/discuss'))).toMatchObject({ method: 'POST', body: { question: 'Instagram first?', rounds: 2, kind: 'discussion' } });
+    const row = host.querySelector('.meeting[data-status="live"]')!;
+    expect(row.querySelector('.connector-meta')?.textContent).toBe(`Live now · ${a!.name.split(' ')[0]} has the floor`);
+    expect(button('Call a meeting')).toBeUndefined();
     expect(presenceFor(`cw_${a!.id}`).label).toBe('In the discussion: Instagram first?');
+    // Take the floor: to one coworker, as a whisper.
+    await typeInto(row.querySelector('.meeting-floor input.field-input'), 'Keep it cheap');
+    const to = row.querySelector<HTMLSelectElement>('.meeting-to')!;
+    await act(() => {
+      to.value = b!.id;
+      to.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const w = row.querySelector<HTMLInputElement>('.meeting-whisper input')!;
+    await act(() => {
+      w.checked = true;
+      w.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await click(button('Whisper'));
+    await flush();
+    expect(calls.find((x) => x.url.endsWith('/say'))).toMatchObject({ url: '/api/projects/prj_abcdefgh/meetings/mtg_0000000001/say', body: { text: 'Keep it cheap', toId: b!.id, whisper: true } });
+    expect(row.querySelector('.meeting-sent')?.textContent).toBe(`Whispered to ${b!.name.split(' ')[0]}; only they hear it.`);
+  });
+
+  it('listens in: the now-playing bar shows who speaks, moves line by line, and stops', async () => {
+    const p = proj({ status: 'running' });
+    upsertProject(p);
+    const done = meeting({ status: 'done', lines: 3, summary: 'Instagram first.' });
+    respond = (call) => {
+      if (call.url === '/api/projects/prj_abcdefgh/meetings') return json({ meetings: [done] });
+      if (call.url === '/api/projects/prj_abcdefgh/meetings/mtg_0000000001')
+        return json({ meeting: done, team, entries: [line(1, { fromId: 'chief', phase: 'moderator', text: 'Discussion for the launch.' }), line(2, { phase: 'framing', text: 'Instagram or press?' }), line(3, { kind: 'whisper', fromId: 'owner', toId: b!.id, text: 'psst' }), line(4, { fromId: b!.id, phase: 'opening', text: 'Instagram.' })] });
+      if (call.url.endsWith('/channel')) return json({ entries: [] });
+      return call.method === 'GET' ? json(p) : json({});
+    };
+    await mount(
+      <>
+        <ProjectDetail projectId="prj_abcdefgh" />
+        <NowPlaying />
+      </>,
+    );
+    await flush();
+    expect(host.querySelector('.meeting-summary')?.textContent).toBe('Instagram first.');
+    await click(button('Replay'));
+    await flush();
+    const bar = () => host.querySelector('.now-playing');
+    expect(bar()?.querySelector('.np-caption')?.textContent).toBe('Eddie: Discussion for the launch.');
+    // Three lines are played (the whisper is not).
+    expect(bar()?.querySelector('.np-pos')?.textContent).toBe('1 / 3');
+    expect(bar()?.querySelector('.np-status')?.textContent).toBe('Replay');
+    expect(bar()?.querySelector('.np-note')?.textContent).toContain('Reading along');
+    await click(host.querySelector('[aria-label="Next line"]'));
+    expect(bar()?.querySelector('.np-caption')?.textContent).toBe(`${a!.name.split(' ')[0]}: Instagram or press?`);
+    expect(bar()?.querySelector('.np-pos')?.textContent).toBe('2 / 3');
+    await click(host.querySelector('[aria-label="Pause"]'));
+    expect(bar()?.querySelector('.np-status')?.textContent).toBe('Paused');
+    await click(host.querySelector('[aria-label="Resume"]'));
+    expect(bar()?.querySelector('.np-caption')?.textContent).toBe(`${a!.name.split(' ')[0]}: Instagram or press?`);
+    await click(host.querySelector('[aria-label="Stop listening"]'));
+    expect(bar()).toBeNull();
   });
 });
 

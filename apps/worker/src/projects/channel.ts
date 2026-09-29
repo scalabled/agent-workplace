@@ -12,12 +12,15 @@ export const CHANNEL_SCHEMA = [
   `CREATE INDEX IF NOT EXISTS tchannel_project ON tchannel (project_id, seq)`,
 ];
 
+/** Inc 2: lines said in a meeting carry its id; the owner's lines and whispers in a live meeting wait to be handled. */
+const CHANNEL_MIGRATIONS = ['ALTER TABLE tchannel ADD COLUMN meeting_id TEXT', 'ALTER TABLE tchannel ADD COLUMN handled INTEGER', 'CREATE INDEX IF NOT EXISTS tchannel_meeting ON tchannel (meeting_id, seq)'];
+
 const ENTRY_MAX = 6000;
 /** Lines of the channel an agent reads (newest last), and the characters per line. */
 export const CONTEXT_LINES = 24;
 const CONTEXT_LINE_CHARS = 320;
 
-type Row = { seq: number; project_id: string; kind: string; from_id: string; to_id: string | null; step_id: string | null; text: string; reply_to: number | null; round: number | null; phase: string | null; at: string };
+type Row = { seq: number; project_id: string; kind: string; from_id: string; to_id: string | null; step_id: string | null; text: string; reply_to: number | null; round: number | null; phase: string | null; at: string; meeting_id: string | null; handled: number | null };
 
 export type NewEntry = Omit<ChannelEntry, 'seq' | 'projectId' | 'at'>;
 
@@ -28,20 +31,29 @@ export class TeamChannel {
     private readonly now: () => string,
   ) {
     for (const stmt of CHANNEL_SCHEMA) sql.exec(stmt);
+    for (const stmt of CHANNEL_MIGRATIONS) {
+      try {
+        sql.exec(stmt);
+      } catch (err) {
+        if (!/duplicate column/i.test(String(err))) throw err;
+      }
+    }
   }
 
   add(projectId: string, e: NewEntry): ChannelEntry {
     const at = this.now();
     const text = clipText(e.text.trim(), ENTRY_MAX);
+    // The owner's words in a live meeting wait for the floor arbiter (handled = 0).
+    const waits = !!e.meetingId && (e.kind === 'owner' || e.kind === 'whisper');
     const seq = Number(
       this.sql
         .exec<{ seq: number }>(
-          'INSERT INTO tchannel (project_id, kind, from_id, to_id, step_id, text, reply_to, round, phase, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING seq',
-          projectId, e.kind, e.fromId, e.toId ?? null, e.stepId ?? null, text, e.replyTo ?? null, e.round ?? null, e.phase ?? null, at,
+          'INSERT INTO tchannel (project_id, kind, from_id, to_id, step_id, text, reply_to, round, phase, at, meeting_id, handled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING seq',
+          projectId, e.kind, e.fromId, e.toId ?? null, e.stepId ?? null, text, e.replyTo ?? null, e.round ?? null, e.phase ?? null, at, e.meetingId ?? null, waits ? 0 : null,
         )
         .toArray()[0]!.seq,
     );
-    const entry: ChannelEntry = { seq, projectId, kind: e.kind, fromId: e.fromId, text, at, ...(e.toId ? { toId: e.toId } : {}), ...(e.stepId ? { stepId: e.stepId } : {}), ...(e.replyTo ? { replyTo: e.replyTo } : {}), ...(e.round ? { round: e.round } : {}), ...(e.phase ? { phase: e.phase } : {}) };
+    const entry: ChannelEntry = { seq, projectId, kind: e.kind, fromId: e.fromId, text, at, ...(e.toId ? { toId: e.toId } : {}), ...(e.stepId ? { stepId: e.stepId } : {}), ...(e.replyTo ? { replyTo: e.replyTo } : {}), ...(e.round ? { round: e.round } : {}), ...(e.phase ? { phase: e.phase } : {}), ...(e.meetingId ? { meetingId: e.meetingId } : {}) };
     this.append({ type: 'project.channel', data: { entry } });
     return entry;
   }
@@ -53,10 +65,26 @@ export class TeamChannel {
       .map(toEntry);
   }
 
-  /** The recent channel as an agent reads it: "Ann → Sam (asks): …", newest last. */
-  context(projectId: string, team: readonly TeamMember[], lines = CONTEXT_LINES): string {
+  /** A meeting's lines in order (the owner sees whispers too). */
+  meetingEntries(meetingId: string): ChannelEntry[] {
+    return this.sql.exec<Row>('SELECT * FROM tchannel WHERE meeting_id = ? ORDER BY seq ASC', meetingId).toArray().map(toEntry);
+  }
+
+  /** The owner's lines and whispers in a meeting not yet given the floor, oldest first. */
+  waiting(meetingId: string): ChannelEntry[] {
+    return this.sql.exec<Row>('SELECT * FROM tchannel WHERE meeting_id = ? AND handled = 0 ORDER BY seq ASC', meetingId).toArray().map(toEntry);
+  }
+
+  handled(seq: number): void {
+    this.sql.exec('UPDATE tchannel SET handled = 1 WHERE seq = ?', seq);
+  }
+
+  /** The recent channel as an agent reads it: "Ann → Sam (asks): …", newest last. A whisper reaches only its addressee. */
+  context(projectId: string, team: readonly TeamMember[], lines = CONTEXT_LINES, readerId?: string): string {
     const name = (id?: string) => (!id ? 'the team' : id === 'owner' ? 'the owner' : id === 'chief' ? 'the Chief of Staff' : (team.find((m) => m.personaId === id)?.name.split(' ')[0] ?? id));
-    return this.list(projectId, lines)
+    return this.list(projectId, lines + 10)
+      .filter((e) => e.kind !== 'whisper' || (readerId !== undefined && e.toId === readerId))
+      .slice(-lines)
       .map((e) => `- ${name(e.fromId)}${e.toId ? ` → ${name(e.toId)}` : ''} (${VERB[e.kind]}${e.phase ? `, ${e.phase}` : ''}): ${clipText(e.text.replace(/\s+/g, ' '), CONTEXT_LINE_CHARS)}`)
       .join('\n');
   }
@@ -72,6 +100,7 @@ const VERB: Record<ChannelEntry['kind'], string> = {
   discussion: 'in discussion',
   decision: 'decision',
   system: 'note',
+  whisper: 'whispers to you',
 };
 
 function toEntry(r: Row): ChannelEntry {
@@ -87,6 +116,7 @@ function toEntry(r: Row): ChannelEntry {
     ...(r.reply_to ? { replyTo: Number(r.reply_to) } : {}),
     ...(r.round ? { round: Number(r.round) } : {}),
     ...(r.phase ? { phase: r.phase as ChannelEntry['phase'] } : {}),
+    ...(r.meeting_id ? { meetingId: r.meeting_id } : {}),
   };
 }
 

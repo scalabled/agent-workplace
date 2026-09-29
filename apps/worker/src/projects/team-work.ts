@@ -597,7 +597,7 @@ export async function replyToOwner(w: Worker, brief: ProjectBrief, ownerText: st
   return { text: clipText(text, 2000), sources, run };
 }
 
-export type DiscussionPhase = 'framing' | 'opening' | 'debate' | 'synthesis';
+export type DiscussionPhase = 'framing' | 'opening' | 'debate' | 'synthesis' | 'reply';
 
 /** What each part of a discussion asks for (biz-bot swarm.js discussionDirective, adapted). */
 export const DISCUSSION_DIRECTIVE: Record<DiscussionPhase, string> = {
@@ -609,14 +609,20 @@ export const DISCUSSION_DIRECTIVE: Record<DiscussionPhase, string> = {
     'Name at least one thing said so far that you disagree with and why, answer anything addressed to you, and add only what is new. Do not repeat yourself or agree with everyone. Under 100 words.',
   synthesis:
     'You chair. Close the discussion: 1) your recommendation in at most three sentences; 2) who does what next (owners from this team); 3) what the team disagreed on or left open; 4) what you need from the owner, if anything. Credit members by name and do not manufacture agreement. Under 180 words.',
+  reply: 'You have been given the floor because you were addressed. Answer that directly, from your discipline, in under 80 words, then stop.',
 };
 
 /** One turn of a discussion; everyone hears everything said before (sequential, like a meeting). */
-export async function discussionTurn(w: Worker, brief: ProjectBrief, question: string, phase: DiscussionPhase, soFar: string, round: number, rounds: number): Promise<Said> {
+/**
+ * One turn in a meeting. `soFar` is the meeting as this speaker heard it (their own lines as "You", whispers only to
+ * them); `addressed` is what gave them the floor out of order (the owner, or a teammate's @mention).
+ */
+export async function discussionTurn(w: Worker, brief: ProjectBrief, question: string, phase: DiscussionPhase, soFar: string, round: number, rounds: number, addressed?: { by: string; text: string }): Promise<Said> {
   const prompt = [
     `The team is discussing: ${clipText(question, 1500)}`,
     `Round ${round} of ${rounds}. ${DISCUSSION_DIRECTIVE[phase]}`,
-    'Never hand work off or ask the team to wait; speak now.',
+    addressed ? `${addressed.by} said to you: “${clipText(addressed.text, 600)}”` : '',
+    'Never hand work off or ask the team to wait; speak now. To hand the floor to a teammate, @mention them by first name.',
     projectLine(brief),
     soFar ? `<said_so_far>\n${clipText(soFar, 8000)}\n</said_so_far>` : '',
   ]

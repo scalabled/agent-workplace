@@ -1192,3 +1192,183 @@
 .automation-runs li[data-status='refused'] strong {
   color: var(--blocked);
 }
+
+/* ── meetings (Inc 2) ─────────────────────────────────────────────────────────────── */
+.meetings {
+  margin-bottom: var(--space-4);
+  padding: var(--space-5);
+}
+.meeting-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.meeting {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+.meeting[data-status='live'] {
+  border-color: color-mix(in oklab, var(--lamp) 55%, var(--line));
+}
+.meeting-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.meeting-main {
+  min-width: 0;
+}
+.meeting-title {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.meeting-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+}
+.meeting-summary {
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.meeting-transcript {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  line-height: var(--leading);
+  max-height: 28rem;
+  overflow-y: auto;
+}
+.meeting-transcript li[data-kind='whisper'] {
+  font-style: italic;
+  color: var(--muted);
+}
+.meeting-transcript li[data-phase='moderator'] {
+  color: var(--muted);
+}
+.meeting-floor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  margin-top: var(--space-3);
+}
+.meeting-floor > .field-input:first-of-type {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+.meeting-to {
+  width: auto;
+}
+.meeting-sent {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+/* The now-playing bar: bottom centre, clear of the Chief's bubble and the phone tabs. */
+.now-playing {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-5);
+  transform: translateX(-50%);
+  width: min(560px, calc(100vw - 2 * var(--space-4) - var(--bubble-size, 64px) - var(--space-4)));
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 999px;
+  background: var(--panel-raised);
+  box-shadow: 0 0 0 1px var(--line-strong), var(--shadow-float);
+  z-index: var(--z-bubble);
+}
+.np-face {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+.np-face > * {
+  width: 100%;
+  height: 100%;
+}
+.np-main {
+  flex: 1;
+  min-width: 0;
+}
+.np-title {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.np-link {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-xs);
+}
+.np-status {
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  font-weight: var(--weight-semibold);
+}
+.np-status[data-status='live'] {
+  color: var(--lamp);
+}
+.np-pos {
+  margin-left: auto;
+}
+.np-caption {
+  margin: 1px 0 0;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.np-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--faint);
+}
+.np-controls {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+@media (max-width: 767px) {
+  .now-playing {
+    bottom: calc(var(--bottom-tabs-height, 64px) + var(--space-3));
+    left: var(--space-3);
+    right: calc(var(--bubble-size, 64px) + var(--space-4));
+    transform: none;
+    width: auto;
+    border-radius: var(--radius-control);
+  }
+}

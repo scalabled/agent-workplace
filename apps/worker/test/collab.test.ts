@@ -99,8 +99,11 @@ describe('the team channel and meetings (ProjectDO, Mock provider)', () => {
     expect(afterKickoff.kickoff).toBe('done');
     const lines = await s.channel(project.projectId);
     const talk = lines.filter((e) => e.kind === 'discussion');
-    expect(talk.map((e) => e.phase)).toEqual(['framing', ...Array(project.team.length - 1).fill('opening'), 'synthesis']);
-    expect(talk[0]!.fromId).toBe(project.team.find((m) => m.role === 'lead')!.personaId);
+    // The Chief of Staff opens and closes the meeting; the lead chairs.
+    expect(talk.map((e) => e.phase)).toEqual(['moderator', 'framing', ...Array(project.team.length - 1).fill('opening'), 'synthesis', 'moderator']);
+    expect(talk[0]!.fromId).toBe('chief');
+    expect(talk[1]!.fromId).toBe(project.team.find((m) => m.role === 'lead')!.personaId);
+    expect(new Set(talk.map((e) => e.meetingId)).size).toBe(1);
     expect(afterKickoff.notes!.at(-1)).toMatchObject({ via: 'channel', status: 'queued', text: expect.stringMatching(/^Kickoff agreement/) });
     const done = await s.settle(project.projectId);
     expect(done.status).toBe('done');
@@ -158,7 +161,7 @@ describe('the team channel and meetings (ProjectDO, Mock provider)', () => {
     expect(r.status).toBe(202);
     expect((await s.api('POST', `/api/projects/${project.projectId}/discuss`, { question: 'Again?' })).status).toBe(409);
     await s.tick();
-    const turns = (await s.channel(project.projectId)).filter((e: ChannelEntry) => e.kind === 'discussion');
+    const turns = (await s.channel(project.projectId)).filter((e: ChannelEntry) => e.kind === 'discussion' && e.phase !== 'moderator');
     const n = project.team.length;
     expect(turns).toHaveLength(1 + (n - 1) + (n - 1) + 1);
     expect(turns.filter((e) => e.phase === 'debate').every((e) => e.round === 2)).toBe(true);

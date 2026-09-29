@@ -19,7 +19,7 @@ export interface ProjectApi {
   activeProjects(): Promise<TeamProjectSnapshot[]>;
   stopAll(by?: 'owner' | 'chief'): Promise<StopAllResponse>;
   openDecisions(): Promise<Decision[]>;
-  discuss(projectId: string, question: string, rounds?: number): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal>;
+  discuss(projectId: string, question: string, rounds?: number, kind?: 'discussion' | 'review'): Promise<{ accepted: true; project: TeamProjectSnapshot; meetingId?: string } | ProjectRefusal>;
   answerDecision(decisionId: string, a: DecisionAnswer): Promise<{ accepted: true; decision: Decision; project: TeamProjectSnapshot } | ProjectRefusal>;
   noteProject(projectId: string, req: { text: string; toId?: string; via: ProjectNote['via']; opId?: string }): Promise<{ accepted: true; project: TeamProjectSnapshot; note: ProjectNote } | ProjectRefusal>;
   pauseProject(projectId: string): Promise<{ accepted: true; project: TeamProjectSnapshot } | ProjectRefusal>;
@@ -466,14 +466,19 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
   };
 
   const discussable = projects.filter((p) => ['proposed', 'running', 'paused', 'needs_review'].includes(p.status));
-  const teamDiscussion: AgentTool<{ projectId?: unknown; question?: unknown }> = {
+  const teamDiscussion: AgentTool<{ projectId?: unknown; question?: unknown; kind?: unknown }> = {
     spec: {
       name: 'team_discussion',
-      description: 'Have a project team discuss a question the owner raised (the lead chairs; each member speaks; the lead sums up and the summary guides their next steps). It happens in the team channel in the next minute or two.',
+      description:
+        'Call a project team meeting the owner asked for: a discussion of their question, or a review of the work so far (you open it, the lead chairs, each member speaks, the lead sums up and the summary guides their next steps). It starts in a minute or two; the owner can listen in and take the floor from the project page.',
       parameters: {
         type: 'object',
-        properties: { projectId: { type: 'string' }, question: { type: 'string', description: "The question, in the owner's words" } },
-        required: ['projectId', 'question'],
+        properties: {
+          projectId: { type: 'string' },
+          question: { type: 'string', description: "The question, in the owner's words (a review may leave it empty)" },
+          kind: { type: 'string', enum: ['discussion', 'review'], description: 'review: the team reviews the work so far' },
+        },
+        required: ['projectId'],
         additionalProperties: false,
       },
       mock: { triggers: [String.raw`\b(discuss|debate|talk (it|this) (over|through))\b`], args: (text) => ({ projectId: discussable[discussable.length - 1]?.projectId ?? '', question: text }), reply: sayOf },
@@ -483,10 +488,13 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
       const p = discussable.find((x) => x.projectId === id);
       if (!p) return fail(discussable.length ? `Say which project: ${discussable.map((x) => `${x.projectId} “${x.title}”`).join(', ')}.` : 'No team project is under way.');
       const question = str(args.question);
-      if (!question) return fail('Say what they should discuss.');
-      const r = await project.discuss(p.projectId, question);
+      const review = str(args.kind) === 'review';
+      if (!question && !review) return fail('Say what they should discuss.');
+      const r = await project.discuss(p.projectId, question, undefined, review ? 'review' : 'discussion');
       if (!r.accepted) return fail(r.message);
-      const say = `I've put it to the “${p.title}” team. They'll talk it through in the channel, and the outcome guides their next steps.`;
+      const say = review
+        ? `The “${p.title}” team is meeting to review the work so far. You can listen in from the project page.`
+        : `I've put it to the “${p.title}” team. They'll meet on it shortly (you can listen in from the project page), and the outcome guides their next steps.`;
       log.note('steer', say);
       log.aboutProject(p.projectId);
       return ok({ projectId: p.projectId, say }, `Put a question to “${p.title}”`);

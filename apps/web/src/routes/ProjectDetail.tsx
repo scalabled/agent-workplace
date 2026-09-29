@@ -19,6 +19,7 @@ import { PlanGraph } from '../projects/PlanGraph';
 import { RunInspector } from '../projects/RunInspector';
 import { StepEditor } from '../projects/StepEditor';
 import { TeamChannel } from '../projects/TeamChannel';
+import { Meetings } from '../projects/Meetings';
 import { navigate, paths } from '../router';
 import { decisionList, presenceFor, teamProjects } from '../store';
 import './pages.css';
@@ -341,6 +342,8 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
           {project.error}
         </p>
       )}
+
+      <Meetings project={project} />
 
       <TeamChannel project={project} />
 

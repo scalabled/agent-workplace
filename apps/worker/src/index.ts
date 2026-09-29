@@ -17,7 +17,7 @@ import { handleGeneratePortrait, handleGetLandmarks, handleGetPortrait, handleLi
 import { handleStt, handleTts } from './media/speech';
 import { handleOfficePeople } from './rooms/people';
 import { handleRoomCancel, handleRoomSay } from './rooms/routes';
-import { handleAddStep, handleAnswerDecision, handleDiscuss, handlePostChannel, handleProjectChannel, handleApproveProject, handleCancelProject, handleEditPlan, handleEditStep, handleGetProject, handleListProjects, handleNoteProject, handlePauseProject, handleProjectRuns, handleRemoveStep, handleResumeProject, handleStopAll } from './projects/routes';
+import { handleAddStep, handleAnswerDecision, handleDiscuss, handleGetMeeting, handleMeetingSay, handleProjectMeetings, handlePostChannel, handleProjectChannel, handleApproveProject, handleCancelProject, handleEditPlan, handleEditStep, handleGetProject, handleListProjects, handleNoteProject, handlePauseProject, handleProjectRuns, handleRemoveStep, handleResumeProject, handleStopAll } from './projects/routes';
 import { handleAddAutomation, handleListAutomations, handlePutAutomation, handleRemoveAutomation, handleRunAutomation } from './automations/routes';
 import { handleAddConnector, handleListConnectors, handlePatchConnector, handleRemoveConnector, handleRevokeConnectorGrant, handleTestConnector } from './connectors/routes';
 import { handleChiefPrompt, handleGetAgent, handleGetSkill, handleListModels, handleListSkills, handlePutAgent, handlePutSkill, handleResetAgent, handleRollbackSkill } from './agents/routes';
@@ -95,6 +95,9 @@ export const HANDLERS: Record<RouteId, RouteHandler> = {
   putAutomation: handlePutAutomation,
   removeAutomation: handleRemoveAutomation,
   runAutomation: handleRunAutomation,
+  projectMeetings: handleProjectMeetings,
+  getMeeting: handleGetMeeting,
+  meetingSay: handleMeetingSay,
 };
 
 /** Reject bodies over the route's cap before the handler runs (Content-Length, or by counting a streamed body). */
