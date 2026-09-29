@@ -35,6 +35,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
   const usage: TurnResult['usage'] = { input: 0, output: 0, usd: 0 };
   const failures = new Map<string, number>();
   const texts: string[] = [];
+  const citations = new Map<string, { url: string; title?: string }>();
   let steps = 0;
   let toolCalls = 0;
   let text = '';
@@ -61,6 +62,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
     usage,
     steps,
     toolCalls,
+    citations: [...citations.values()],
     ...extra,
   });
 
@@ -80,6 +82,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
         if (wrapUp) req.toolChoice = 'none';
         else if (steps === 1 && opts.toolChoice !== undefined) req.toolChoice = opts.toolChoice;
       }
+      if (opts.hostedTools?.length && !wrapUp) req.hostedTools = opts.hostedTools;
       if (maxTokens !== undefined) req.maxTokens = maxTokens;
       if (opts.temperature !== undefined) req.temperature = opts.temperature;
       if (reasoningEffort !== undefined) req.reasoningEffort = reasoningEffort;
@@ -107,6 +110,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
       emit({ type: 'retry', step: steps, reason: 'empty_length', ...(maxTokens !== undefined ? { maxTokens } : {}), ...(reasoningEffort !== undefined ? { reasoningEffort } : {}) });
     }
     addUsage(collected.usage);
+    for (const c of collected.citations) if (!citations.has(c.url)) citations.set(c.url, c);
     text = collected.text;
     if (collected.text) texts.push(collected.text);
 

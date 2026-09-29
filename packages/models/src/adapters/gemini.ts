@@ -7,7 +7,8 @@ import { parseSSE } from '../lib/sse';
 import { guardStream } from '../lib/stream';
 import { ToolNames, argumentsObject, callId, normalizeArguments } from '../lib/tools';
 import { BASE_URLS, CHAT_CATALOG, EMBEDDING_MODELS } from '../model-catalog';
-import { normalizeTier, type ChatMessage, type ChatProvider, type ChatRequest, type EmbeddingProvider, type FinishReason, type JsonSchema, type ModelEvent, type ModelTier, type ProviderFactory } from '../types';
+import { normalizeTier, type ChatMessage, type ChatProvider, type ChatRequest, type EmbeddingProvider, type FinishReason, type HostedSupport, type JsonSchema, type ModelEvent, type ModelTier, type ProviderFactory } from '../types';
+import { hostedFor } from '../lib/hosted';
 import { HttpClient, NOT_PRICED } from './common';
 
 const LABEL = 'Google Gemini';
@@ -229,6 +230,9 @@ export function geminiThinking(model: string, effort: ChatRequest['reasoningEffo
   return { thinkingBudget: GEMINI_THINKING_BUDGET[effort], includeThoughts: true };
 }
 
+/** Grounding with Google Search; Gemini is not asked to combine it with function calling, so it is `solo`. */
+export const GEMINI_HOSTED: HostedSupport = { web_search: 'solo' };
+
 async function* geminiChat(http: HttpClient, req: ChatRequest, requested: string, tierOf: (model: string) => ModelTier): AsyncGenerator<ModelEvent> {
   const names = ToolNames.forRequest(req.tools, req.messages);
   const body: Record<string, unknown> = { contents: toGeminiContents(req.messages, names) };
@@ -239,6 +243,8 @@ async function* geminiChat(http: HttpClient, req: ChatRequest, requested: string
     return { name: names.wire(t.name), description: t.description || '', ...(hasParams ? { parameters: params } : {}) };
   });
   if (decls.length) body.tools = [{ functionDeclarations: decls }];
+  // Grounding with Google Search, only in a call without function tools (see GEMINI_HOSTED).
+  else if (hostedFor(req, GEMINI_HOSTED, false).length) body.tools = [{ google_search: {} }];
   const tc = decls.length ? toolConfig(req.toolChoice, names) : undefined;
   if (tc) body.toolConfig = tc;
   const gen: Record<string, unknown> = {};
@@ -279,6 +285,7 @@ export const createGeminiProvider: ProviderFactory = (env, { fetch }) => {
   const defaults = CHAT_CATALOG.gemini.defaults;
   const tierOf = (model: string): ModelTier => (model === defaults.reason ? 'reason' : model === defaults.voice ? 'voice' : 'fast');
   const chat: ChatProvider = {
+    hosted: GEMINI_HOSTED,
     ...base,
     defaultModel: (tier) => defaults[normalizeTier(tier)],
     chat: (req) => guardStream('gemini', LABEL, req.signal, () => geminiChat(http, req, req.model || chat.defaultModel(), tierOf), [key]),

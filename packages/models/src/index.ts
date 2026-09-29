@@ -15,6 +15,7 @@ export { parseSSE, parseNDJSON, sseResponse, type SseRecord, type SseProducer } 
 export { parseLenientJson, readJson, tokenizeJson } from './lib/lenient-json';
 export { ToolNames, normalizeArguments, IndexedToolCalls, TOOL_NAME_RE } from './lib/tools';
 export { guardStream } from './lib/stream';
+export { hostedFor } from './lib/hosted';
 export { ThinkSplitter } from './lib/think';
 export { createAnthropicProvider } from './adapters/anthropic';
 export { createOpenAIProvider } from './adapters/openai';

@@ -10,6 +10,7 @@ import {
   type ChatProvider,
   type ChatRequest,
   type EmbeddingProvider,
+  type HostedSupport,
   type ImageProvider,
   type ImageRequest,
   type ModelEvent,
@@ -18,18 +19,28 @@ import {
   type SttRequest,
 } from '../types';
 import { HttpClient, throwIfAborted } from './common';
+import { hostedFor } from '../lib/hosted';
 import { parseResponsesStream, toInputItems, toResponsesToolChoice, toResponsesTools } from './responses';
 
 const LABEL = 'OpenAI';
+/** Hosted web search (Responses API `web_search`, biz-bot openai.js:45). */
+export const OPENAI_HOSTED: HostedSupport = { web_search: 'with_tools' };
 const isReasoningModel = (model: string) => /^(gpt-5|o\d)/.test(model);
 
 async function* openaiChat(http: HttpClient, req: ChatRequest, model: string): AsyncGenerator<ModelEvent> {
   const names = ToolNames.forRequest(req.tools, req.messages);
   const body: Record<string, unknown> = { model, input: toInputItems(req.messages, names), stream: true, store: false };
   if (req.system) body.instructions = req.system;
-  const tools = req.toolChoice === 'none' ? [] : toResponsesTools(req.tools, names);
+  const fns = req.toolChoice === 'none' ? [] : toResponsesTools(req.tools, names);
+  const hosted = hostedFor(req, OPENAI_HOSTED, fns.length > 0).map((t) => ({
+    type: 'web_search',
+    search_context_size: 'medium',
+    ...(t.allowedDomains?.length ? { filters: { allowed_domains: t.allowedDomains.slice(0, 20) } } : {}),
+  }));
+  const tools = [...fns, ...hosted];
   if (tools.length) body.tools = tools;
-  const tc = tools.length ? toResponsesToolChoice(req.toolChoice, names) : undefined;
+  if (hosted.length) body.include = ['web_search_call.action.sources'];
+  const tc = fns.length ? toResponsesToolChoice(req.toolChoice, names) : undefined;
   if (tc) body.tool_choice = tc;
   if (req.maxTokens) body.max_output_tokens = req.maxTokens;
   if (isReasoningModel(model)) {
@@ -69,6 +80,7 @@ export const createOpenAIProvider: ProviderFactory = (env, { fetch }) => {
 
   const chat: ChatProvider = {
     ...base,
+    hosted: OPENAI_HOSTED,
     defaultModel: (tier) => CHAT_CATALOG.openai.defaults[normalizeTier(tier)],
     chat: (req) => guardStream('openai', LABEL, req.signal, () => openaiChat(http, req, req.model || chat.defaultModel()), [key]),
   };

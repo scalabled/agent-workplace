@@ -36,6 +36,7 @@ import {
   type RoomSayAccepted,
   type RoomSayRequest,
 } from '@headcount/protocol/ext/rooms';
+import { webToolsOn } from '../tools/kit';
 import { closeDeskTurn, isDirection, newDeskTurnState, noteTargetOf, runDeskTurn, type DeskHost, type DeskTurnState } from '../desk/desk';
 import type { StaffingContext } from '@headcount/protocol/ext/projects';
 import type { Env } from '../env';
@@ -948,6 +949,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       // The current turn, or one that finished writing after a newer turn that is already over (it may clear Thinking).
       isCurrent: (turnId: TurnId) => this.turn?.turnId === turnId || !this.turn || this.turn.settled,
       now: () => runtime.now(),
+      webTools: webToolsOn(this.env),
       reflexes: {
         started: (turnId: TurnId, via: 'voice' | 'text', cues?: AffectCues) => this.expr.turnStarted(turnId, via, CHIEF_ID, cues),
         spoke: (turnId: TurnId) => this.expr.spokeFor(turnId),

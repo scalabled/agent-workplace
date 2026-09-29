@@ -1,4 +1,4 @@
-import type { BudgetHint, ChatMessage, ChatProvider, ChatRequest, FinishReason, ModelEvent, ReasoningEffort, ToolSpec } from '@headcount/models';
+import type { BudgetHint, ChatMessage, ChatProvider, ChatRequest, FinishReason, HostedTool, ModelEvent, ReasoningEffort, ToolSpec } from '@headcount/models';
 
 /** Outcome of one tool execution, returned to the model as a `tool` message. */
 export type ToolOutcome =
@@ -66,6 +66,8 @@ export interface RunTurnOptions {
   /** Transcript so far, ending with the new user message. Not mutated. */
   messages: ChatMessage[];
   tools?: AgentTool<any>[];
+  /** Provider-hosted tools (web search) on every call but the wrap-up; ignored by providers that cannot run them. */
+  hostedTools?: HostedTool[];
   onEvent?: (event: LoopEvent) => void;
   /** Carries cancel, deadline and budget (ARCHITECTURE §4.1). */
   signal?: AbortSignal;
@@ -105,5 +107,7 @@ export interface TurnResult {
   toolCalls: number;
   /** Name of the tool whose outcome ended the turn (`endTurn`), if any. */
   endedBy?: string;
+  /** Sources the provider's hosted search (or a tool) cited during the turn, first-seen order, one per URL. */
+  citations: { url: string; title?: string }[];
   error?: { message: string; code?: string; retryable?: boolean };
 }

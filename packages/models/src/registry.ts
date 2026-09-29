@@ -225,6 +225,7 @@ export function createRegistry(env: ProviderEnv, opts: RegistryOptions = {}): Re
       id: first.id,
       kind: first.kind,
       family: first.family,
+      ...(first.hosted ? { hosted: first.hosted } : {}),
       defaultModel: (tier) => first.defaultModel(tier),
       async *chat(req) {
         let lastReason = 'No provider is available for chat.';

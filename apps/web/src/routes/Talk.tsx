@@ -9,6 +9,7 @@ import { catalog, loadCatalog } from '../catalog';
 import { Face, leadSubject } from '../components/Face';
 import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
+import { Sources } from '../components/Sources';
 import { Deliverable, JobRow } from '../components/JobRow';
 import { Markdown } from '../components/Markdown';
 import { useHoldToTalk } from '../components/useHoldToTalk';
@@ -299,6 +300,7 @@ function Message({ item, name, grouped }: { item: ThreadItem; name: string; grou
       {item.text ? <Markdown text={item.text} class="msg-body" /> : <p class="msg-body msg-thinking">Thinking…</p>}
       {item.interrupted && <span class="msg-note">Interrupted</span>}
       {item.kind === 'announcement' && job?.status === 'done' && <Deliverable job={job} />}
+      {item.sources && !item.streaming && <Sources sources={item.sources} />}
       {item.projectId && !item.streaming && <ProjectLink projectId={item.projectId} />}
     </li>
   );

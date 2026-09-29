@@ -94,6 +94,8 @@ export interface FrameDataMap {
     jobId?: JobId;
     /** Team project this message is about, if any (Inc 1). */
     projectId?: string;
+    /** Sources the Chief's web search cited for this reply. */
+    sources?: { url: string; title?: string }[];
     surface?: TalkSurface;
     /** `kind: 'reflex'` only: the intent and catalog line that produced the text. */
     intent?: ExprIntentId;

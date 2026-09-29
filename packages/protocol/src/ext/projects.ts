@@ -54,6 +54,8 @@ export interface ProjectStep {
   output?: string;
   verdict?: StepVerdict;
   revised?: boolean;
+  /** Pages the owner's team searched or read for this step (their evidence). */
+  sources?: { url: string; title?: string }[];
   startedAt?: string;
   finishedAt?: string;
   error?: string;

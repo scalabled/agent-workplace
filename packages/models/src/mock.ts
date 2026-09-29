@@ -331,12 +331,26 @@ function firstSentence(s: string): string {
   return (m ? m[1]! : text.trim().slice(0, 200)) || 'Done.';
 }
 
+/** Requests Mock treats as lookups when web search is on (team and job steps, "search…", "latest…"). */
+const MOCK_SEARCH_CUE = /\b(search|look (it |that )?up|research|latest|current|news|today'?s|price|step)\b/i;
+function lastUserText(req: ChatRequest): string {
+  for (let i = req.messages.length - 1; i >= 0; i--) {
+    const m = req.messages[i]!;
+    if (m.role === 'user') return m.content;
+  }
+  return '';
+}
+
+/** The one source Mock "finds" when asked to search the web. */
+export const MOCK_SOURCE = { url: 'https://example.com/mock-source', title: 'Mock source (no real search was done)' } as const;
+
 function createMockChat(opts: MockOptions): ChatProvider {
   let callCounter = 0;
   return {
     id: 'mock',
     kind: 'mock',
     family: 'mock',
+    hosted: { web_search: 'with_tools' },
     defaultModel: () => MOCK_MODEL,
     async *chat(req: ChatRequest): AsyncGenerator<ModelEvent> {
       const input = estimateTokens((req.system ?? '') + req.messages.map((m) => m.content).join('\n'));
@@ -348,6 +362,11 @@ function createMockChat(opts: MockOptions): ChatProvider {
         await sleep(Math.min(Number(slow[1]), 20_000), req.signal);
       }
       const plan = planMockTurn(req);
+      // Hosted web search: one canned source (no real search) when the request reads like a lookup, so keyless runs
+      // exercise the Sources path without a source on every reply.
+      if (req.toolChoice !== 'none' && req.hostedTools?.some((t) => t.type === 'web_search') && MOCK_SEARCH_CUE.test(lastUserText(req))) {
+        yield { type: 'citation', url: MOCK_SOURCE.url, title: MOCK_SOURCE.title };
+      }
       if (plan.kind === 'tool') {
         await sleep(opts.delayMs ?? 0, req.signal);
         if (req.signal?.aborted) return yield { type: 'done', finish: 'cancelled' };

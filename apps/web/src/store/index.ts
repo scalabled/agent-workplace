@@ -38,6 +38,8 @@ export interface ThreadItem {
   jobId?: JobId;
   /** The team project a Chief message is about (Inc 1): Talk links to its page. */
   projectId?: string;
+  /** Sources the Chief's web search cited. */
+  sources?: { url: string; title?: string }[];
   via?: 'text' | 'voice';
   opId?: OpId;
   /** Owner messages only: pending until accepted, failed when the send failed (text is never lost). */
@@ -474,6 +476,7 @@ function reduce(frame: Frame, live: boolean): void {
         kind: frame.data.kind,
         ...(frame.data.jobId ? { jobId: frame.data.jobId } : {}),
         ...(frame.data.projectId ? { projectId: frame.data.projectId } : {}),
+        ...(frame.data.sources?.length ? { sources: frame.data.sources } : {}),
         ...(frame.data.kind === 'note' && frame.data.roomId ? { roomId: frame.data.roomId } : {}),
         ts: frame.ts,
       });

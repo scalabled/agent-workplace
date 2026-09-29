@@ -17,6 +17,8 @@ import { WorkCancelled, WorkError } from '../jobs/work-loop';
 import { DailyCounter, dailyLimit, limitMessage } from '../lib/limits';
 import { logError, runtime } from '../workspace/runtime';
 import { forecastOf, forecastSentence, readySteps, recipesOf, shortlist, staffingNote, stepsFrom, teamFrom, titleFromGoal, type Recipe } from './staffing';
+import { researchKitFactory } from '../tools/kit';
+import { mergeSources } from '../tools/web-search';
 import { chooseRecipe, doStepWork, reviewStep, reviseStep, writeDeliverable, type ProjectBrief, type TeamDeps } from './team-work';
 
 export const MAX_PARALLEL = 2;
@@ -85,6 +87,7 @@ type StepRow = {
   started_at: string | null;
   finished_at: string | null;
   error: string | null;
+  sources: string | null;
 };
 type NoteRow = { note_id: string; project_id: string; op_id: string | null; to_id: string | null; via: string; text: string; status: string; at: string; applied_at: string | null; applied_step: string | null };
 type DecisionRow = { decision_id: string; kind: string; project_id: string; title: string; body: string; status: string; created_at: string; resolved_at: string | null };
@@ -111,6 +114,9 @@ export const TEAM_SCHEMA = [
   `CREATE UNIQUE INDEX IF NOT EXISTS tnotes_op ON tnotes (op_id) WHERE op_id IS NOT NULL`,
 ];
 
+/** Columns added after a table first shipped (each runs once; "duplicate column" means it already ran). */
+const TEAM_MIGRATIONS = ['ALTER TABLE tsteps ADD COLUMN sources TEXT'];
+
 /** Projects that are under way (they count toward the cap and take notes). */
 const ACTIVE = `('proposed','running','paused')`;
 
@@ -128,6 +134,13 @@ export class TeamProjects {
 
   constructor(private readonly p: TeamHostPorts) {
     for (const stmt of TEAM_SCHEMA) p.storage.sql.exec(stmt);
+    for (const stmt of TEAM_MIGRATIONS) {
+      try {
+        p.storage.sql.exec(stmt);
+      } catch (err) {
+        if (!/duplicate column/i.test(String(err))) throw err;
+      }
+    }
   }
 
   private get sql() {
@@ -342,7 +355,7 @@ export class TeamProjects {
       let deps: TeamDeps;
       try {
         const resolved = runtime.registry(this.p.env).resolve('chat', { tier: 'reason', needs: ['tools'] });
-        deps = { provider: resolved.provider, model: resolved.model, signal: deadlineSignal(UNIT_BUDGET_MS, ac.signal) };
+        deps = { provider: resolved.provider, model: resolved.model, signal: deadlineSignal(UNIT_BUDGET_MS, ac.signal), research: researchKitFactory(this.p.env, this.p.usage, resolved.provider) };
       } catch (err) {
         if (err instanceof MissingProviderError) return this.fail(projectId, fence, err.message);
         throw err;
@@ -384,11 +397,13 @@ export class TeamProjects {
     const work = await doStepWork(deps, owner, brief(), step());
     if (!this.live(projectId, fence)) throw new WorkCancelled();
     let output = work.markdown;
+    let sources = work.sources;
     const reviewer = this.persona(step().reviewerIds[0] ?? '');
     if (reviewer) {
       this.setStep(projectId, fence, stepId, { status: 'reviewing', output });
       const v = await reviewStep(deps, reviewer, brief(), step(), output);
       if (!this.live(projectId, fence)) throw new WorkCancelled();
+      sources = mergeSources(sources, v.sources);
       const verdict = { approved: v.approved, notes: v.notes, reviewerId: reviewer.id };
       if (!v.approved) {
         this.applyNotes(projectId, fence, stepId, owner.id);
@@ -396,10 +411,11 @@ export class TeamProjects {
         const revised = await reviseStep(deps, owner, brief(), step(), output, v.notes);
         if (!this.live(projectId, fence)) throw new WorkCancelled();
         output = revised.markdown;
+        sources = mergeSources(sources, revised.sources);
         this.setStep(projectId, fence, stepId, { revised: 1 });
       } else this.setStep(projectId, fence, stepId, { verdict: JSON.stringify(verdict) }, false);
     }
-    this.setStep(projectId, fence, stepId, { status: 'done', output, finished_at: iso() });
+    this.setStep(projectId, fence, stepId, { status: 'done', output, finished_at: iso(), ...(sources.length ? { sources: JSON.stringify(sources) } : {}) });
   }
 
   private async finish(projectId: string, fence: number, deps: TeamDeps): Promise<void> {
@@ -517,6 +533,7 @@ export class TeamProjects {
         ...(s.started_at ? { startedAt: s.started_at } : {}),
         ...(s.finished_at ? { finishedAt: s.finished_at } : {}),
         ...(s.error ? { error: s.error } : {}),
+        ...(s.sources ? { sources: JSON.parse(s.sources) as NonNullable<ProjectStep['sources']> } : {}),
       }),
     );
     const notes = this.sql.exec<NoteRow>('SELECT * FROM tnotes WHERE project_id = ? ORDER BY at ASC, note_id ASC', r.project_id).toArray().map((n) => this.toNote(n));

@@ -5,6 +5,7 @@ import { MissingProviderError, type ChatMessage, type ReasoningEffort, type Regi
 import { CHIEF_ID, ids, ownerFirstNameOf, type AgentId, type Frame, type JobId, type JobSnapshot, type MessageId, type OpId, type TalkFinish, type TurnId, type UsageSummary, type WorkspaceSettings } from '@headcount/protocol';
 import type { ExprIntentId, ReactHint, TalkSurface } from '@headcount/protocol/ext/expressions';
 import { buildChiefSystemPrompt, honestyPolicyText } from './chief-prompt';
+import { hostsSearch } from '../tools/web-search';
 import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
 import type { TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { Feed } from './feed';
@@ -46,6 +47,8 @@ export interface TalkHost {
   now(): number;
   /** Reflex hooks (optional: tests and older hosts run without them). */
   reflexes?: TurnReflexHooks;
+  /** False when the owner turned web tools off (WEB_TOOLS=off). */
+  webTools?: boolean;
 }
 
 export interface TurnSpec {
@@ -202,6 +205,8 @@ export interface TurnState {
   log: TurnLog;
   /** Set once message/done are persisted; later output of this turn is dropped. */
   closed: boolean;
+  /** Sources the Chief's web search cited this turn. */
+  sources?: { url: string; title?: string }[];
 }
 
 export function newTurnState(turnId: TurnId, opId: OpId): TurnState {
@@ -220,7 +225,7 @@ export function closeTurn(feed: Feed, state: TurnState, finish: TalkFinish, usag
   if (said) {
     feed.append({
       type: 'talk.message',
-      data: { turnId, messageId: replyId, agentId: CHIEF_ID, text: said, kind: route === 'status' ? 'status' : 'reply', ...(jobId ? { jobId } : {}), ...(projectId ? { projectId } : {}) },
+      data: { turnId, messageId: replyId, agentId: CHIEF_ID, text: said, kind: route === 'status' ? 'status' : 'reply', ...(jobId ? { jobId } : {}), ...(projectId ? { projectId } : {}), ...(state.sources?.length ? { sources: state.sources } : {}) },
       actor: CHIEF_ID,
       opId,
     });
@@ -363,7 +368,9 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     // Floor quick-chats and office rooms share the ledger: read more rows so the Chief still sees its own recent turns.
     const messages = historyFromFrames(host.ledger.recent(['talk.owner', 'talk.message'], HISTORY_MESSAGES * 6).filter(isChiefConversation).slice(-HISTORY_MESSAGES));
     const turnNote = turnNoteFor(spec.cues, messages.filter((m) => m.role === 'assistant').map((m) => (typeof m.content === 'string' ? m.content : '')));
-    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings) });
+    // Quick lookups: the Chief searches natively when its provider hosts web search (research goes to jobs/teams).
+    const webSearch = host.webTools !== false && hostsSearch(resolved.provider);
+    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch });
     const tools = createChiefTools({
       project: host.project(),
       turnId,
@@ -381,6 +388,7 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
       system,
       messages,
       tools,
+      ...(webSearch ? { hostedTools: [{ type: 'web_search' as const }] } : {}),
       signal,
       maxSteps: TALK_MAX_STEPS,
       ...callBudget(resolved.provider, resolved.model, TALK_MAX_TOKENS, TALK_EFFORT),
@@ -398,6 +406,7 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
       }
     }
     usage = { provider: resolved.providerId, input: result.usage.input, output: result.usage.output, usd: result.usage.usd };
+    state.sources = result.citations.slice(0, 12);
     finish = talkFinish(result, state.text);
     // A model that acted but said nothing still owes the owner a sentence: use what the tools reported.
     if (!state.text.trim() && finish === 'stop' && log.says.length) state.text = log.says.join(' ');

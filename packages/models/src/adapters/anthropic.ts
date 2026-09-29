@@ -7,7 +7,8 @@ import { parseSSE } from '../lib/sse';
 import { guardStream } from '../lib/stream';
 import { ToolNames, argumentsObject, callId, normalizeArguments, objectSchema } from '../lib/tools';
 import { ANTHROPIC_VERSION, BASE_URLS, CHAT_CATALOG } from '../model-catalog';
-import { normalizeTier, type ChatMessage, type ChatProvider, type ChatRequest, type FinishReason, type ModelEvent, type ProviderFactory } from '../types';
+import { normalizeTier, type ChatMessage, type ChatProvider, type ChatRequest, type FinishReason, type HostedSupport, type ModelEvent, type ProviderFactory } from '../types';
+import { hostedFor } from '../lib/hosted';
 import { HttpClient, NOT_PRICED } from './common';
 
 const LABEL = 'Anthropic';
@@ -84,6 +85,11 @@ function toToolChoice(choice: ChatRequest['toolChoice'], names: ToolNames): Bloc
   return { type: 'tool', name: names.wire(choice.name) };
 }
 
+/** Hosted web search (Messages API server tool; biz-bot anthropic.js:88). The stable version is the fallback. */
+export const ANTHROPIC_HOSTED: HostedSupport = { web_search: 'with_tools' };
+export const WEB_SEARCH_TOOL = 'web_search_20260209';
+export const WEB_SEARCH_TOOL_STABLE = 'web_search_20250305';
+
 interface AnthropicStreamEvent {
   type?: string;
   index?: number;
@@ -102,9 +108,13 @@ async function* anthropicChat(http: HttpClient, req: ChatRequest, model: string)
   const thinking = wantsThinking && (!conv.continuation || conv.continuationWithThinking);
   const body: Record<string, unknown> = { model, max_tokens: req.maxTokens || 16_000, messages: conv.messages, stream: true };
   if (req.system) body.system = [{ type: 'text', text: req.system, cache_control: { type: 'ephemeral' } }];
-  const tools = req.toolChoice === 'none' ? [] : (req.tools ?? []).map((t) => ({ name: names.wire(t.name), description: t.description || '', input_schema: objectSchema(t.parameters) }));
+  const fns = req.toolChoice === 'none' ? [] : (req.tools ?? []).map((t) => ({ name: names.wire(t.name), description: t.description || '', input_schema: objectSchema(t.parameters) }));
+  const hosted = hostedFor(req, ANTHROPIC_HOSTED, fns.length > 0);
+  const searchTool = (version: string) =>
+    hosted.map((t) => ({ type: version, name: 'web_search', max_uses: Math.min(10, Math.max(1, t.maxUses ?? 5)), ...(t.allowedDomains?.length ? { allowed_domains: t.allowedDomains.slice(0, 20) } : {}) }));
+  const tools: unknown[] = [...fns, ...searchTool(WEB_SEARCH_TOOL)];
   if (tools.length) body.tools = tools;
-  const tc = tools.length ? toToolChoice(req.toolChoice, names) : undefined;
+  const tc = fns.length ? toToolChoice(req.toolChoice, names) : undefined;
   if (tc) body.tool_choice = tc;
   if (thinking) body.thinking = supportsThinkingDisplay(model) ? { type: 'adaptive', display: 'summarized' } : { type: 'adaptive' };
   else if (req.reasoningEffort === 'none' && thinksUnlessDisabled(model)) body.thinking = { type: 'disabled' };
@@ -121,7 +131,15 @@ async function* anthropicChat(http: HttpClient, req: ChatRequest, model: string)
   }
   // No `temperature`: claude-opus-5 rejects it (oncloudnine providers/anthropic.ts), and thinking requires 1.
 
-  const res = await http.request('/messages', { json: body, headers, signal: req.signal, stream: true });
+  let res: Response;
+  try {
+    res = await http.request('/messages', { json: body, headers, signal: req.signal, stream: true });
+  } catch (err) {
+    // An account or model without the newest web search tool: the stable version, once.
+    if (!hosted.length || !(err instanceof ProviderError) || err.status !== 400 || !/web_search/i.test(err.message)) throw err;
+    body.tools = [...fns, ...searchTool(WEB_SEARCH_TOOL_STABLE)];
+    res = await http.request('/messages', { json: body, headers, signal: req.signal, stream: true });
+  }
 
   const blocks = new Map<number, { type?: string; id?: string; name?: string; json: string; thinking: string; signature: string; data?: string }>();
   const thinkingBlocks: Block[] = [];
@@ -218,6 +236,7 @@ export const createAnthropicProvider: ProviderFactory = (env, { fetch }) => {
     id: 'anthropic',
     kind: 'cloud',
     family: 'claude',
+    hosted: ANTHROPIC_HOSTED,
     defaultModel: (tier) => CHAT_CATALOG.anthropic.defaults[normalizeTier(tier)],
     chat: (req) => guardStream('anthropic', LABEL, req.signal, () => anthropicChat(http, req, req.model || chat.defaultModel()), [key]),
   };

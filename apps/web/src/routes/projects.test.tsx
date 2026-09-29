@@ -271,3 +271,27 @@ describe('Talk: the Chief’s project replies', () => {
     thread.value = [];
   });
 });
+
+describe('Sources (web research)', () => {
+  it('shows the Chief’s sources under the reply, and a step’s sources with its work', async () => {
+    settings.value = { workspaceId: 'local', leadId: slimIndex.catalog.leads[0]!.id, chiefName: 'Eddie', voiceOn: false, updatedAt: 'x' };
+    const src = (n: number) => ({ url: `https://news${n}.example.org/a`, title: `Story ${n}` });
+    thread.value = [{ messageId: 'msg_s', turnId: null, from: CHIEF_ID, text: 'Rates rose last week.', streaming: false, kind: 'reply', sources: [src(1), src(2), src(3), src(4)], ts: '2026-09-29T10:00:00Z' }];
+    navigate(paths.talk);
+    await mount(<Talk />);
+    const links = () => [...host.querySelectorAll<HTMLAnchorElement>('.sources a')];
+    expect(links().map((a) => a.textContent)).toEqual(['Story 1', 'Story 2', 'Story 3']);
+    expect(links()[0]!.getAttribute('rel')).toBe('noopener noreferrer');
+    await click(host.querySelector('.sources-more'));
+    expect(links()).toHaveLength(4);
+    thread.value = [];
+    render(null, host);
+
+    upsertProject(proj({ status: 'done', updatedAt: '2026-09-29T11:00:00Z', steps: [step('s1', { title: 'Size the audience', status: 'done', output: 'About 2,000.', sources: [src(1)] })] }));
+    respond = () => json({});
+    await mount(<ProjectDetail projectId="prj_abcdefgh" />);
+    expect(host.querySelector('.step-sources')?.textContent).toBe('1 source');
+    await click(host.querySelector('[aria-label="Show Size the audience"]'));
+    expect(host.querySelector('.step-body .sources a')?.getAttribute('href')).toBe('https://news1.example.org/a');
+  });
+});

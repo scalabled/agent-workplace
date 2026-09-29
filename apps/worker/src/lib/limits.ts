@@ -22,6 +22,10 @@ export const LIMITS = {
    * project's halfway point). Past it, the update is a quiet line in Talk. Answers to the owner never count.
    */
   ping: { env: 'INTERRUPTION_BUDGET', fallback: 6, what: 'Unprompted updates' },
+  /** Web searches through the worker's search fallback per day (native searches ride on model calls). */
+  search: { env: 'SEARCH_DAILY_LIMIT', fallback: 300, what: 'Web searches' },
+  /** Web pages read (fetch_page) per day. */
+  fetch: { env: 'FETCH_DAILY_LIMIT', fallback: 600, what: 'Web pages read' },
 } as const;
 
 export type LimitKind = keyof typeof LIMITS;

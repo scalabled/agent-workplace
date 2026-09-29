@@ -31,6 +31,7 @@ import { logError, runtime } from '../workspace/runtime';
 import { clipText, firstSentence, titleFromRequest } from './job-view';
 import { MAX_WORK_STEPS, WorkCancelled, WorkError, planJob, runWorkStep, synthesize, type JobContext, type PlanStep, type StepNote, type WorkDeps } from './work-loop';
 import type { Decision, ProjectNote, StaffingContext, StopAllResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import { researchKitFactory } from '../tools/kit';
 import { TeamProjects, type ProjectRefusal, type ProposeRequest } from '../projects/team-host';
 
 /** What the Chief of Staff hands to the Everyday project when the owner delegates. */
@@ -365,7 +366,7 @@ export class ProjectDO extends DurableObject<Env> {
       try {
         const resolved = runtime.registry(this.env).resolve('chat', { tier: 'reason', needs: ['tools'] });
         // Each checkpoint gets its own time budget (a local 32B model can take minutes on a work step).
-        deps = { provider: resolved.provider, model: resolved.model, signal: deadlineSignal(CHECKPOINT_BUDGET_MS, ac.signal) };
+        deps = { provider: resolved.provider, model: resolved.model, signal: deadlineSignal(CHECKPOINT_BUDGET_MS, ac.signal), research: researchKitFactory(this.env, this.usage, resolved.provider) };
         if (resolved.providerId === 'mock' && Number(this.env.MOCK_DELAY_MS ?? 0) > 0) pace = MOCK_CHECKPOINT_MS;
       } catch (err) {
         if (err instanceof MissingProviderError) return this.fail(row, 'not_configured', err.message, false);
@@ -424,7 +425,7 @@ export class ProjectDO extends DurableObject<Env> {
     if (!this.isLive(row.job_id, row.fence)) throw new WorkCancelled();
     const fresh = this.row(row.job_id)!;
     const plan = JSON.parse(fresh.plan) as PlanStep[];
-    const notes = [...(JSON.parse(fresh.notes) as StepNote[]), { label: step.label, text: out.text }];
+    const notes = [...(JSON.parse(fresh.notes) as StepNote[]), { label: step.label, text: out.text, ...(out.sources.length ? { sources: out.sources } : {}) }];
     const next = index + 1;
     const total = plan.length + 2;
     const done = next >= plan.length;

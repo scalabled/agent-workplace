@@ -8,6 +8,7 @@ import { chiefName } from '../chief';
 import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
 import { Markdown } from '../components/Markdown';
+import { Sources } from '../components/Sources';
 import { MemberFace, PROJECT_STATUS_WORDS, STEP_STATUS_WORDS, progressOf, projectGlyph, stepGlyph } from '../components/ProjectCard';
 import { approveProject, cancelProject, loadProject, noteProject, pauseProject, projectBusy, projectError, resumeProject } from '../projects/actions';
 import { navigate, paths } from '../router';
@@ -51,6 +52,7 @@ function StepCard({ step, project, index }: { step: ProjectStep; project: TeamPr
             {reviewer && <span class="step-reviewer">reviewed by {reviewer.name.split(' ')[0]}</span>}
             {after.length > 0 && step.status === 'waiting' && <span class="step-after">after {after.join(', ')}</span>}
             {step.status === 'done' && took(step) && <span class="step-took tabular">{took(step)}</span>}
+            {step.sources?.length ? <span class="step-sources tabular">{step.sources.length === 1 ? '1 source' : `${step.sources.length} sources`}</span> : null}
           </p>
         </div>
         <span class="step-status">{STEP_STATUS_WORDS[step.status]}</span>
@@ -63,6 +65,7 @@ function StepCard({ step, project, index }: { step: ProjectStep; project: TeamPr
       {open && step.output && (
         <div class="step-body">
           <Markdown text={step.output} />
+          <Sources sources={step.sources} max={5} />
           {step.verdict && (
             <p class="step-verdict" data-approved={step.verdict.approved || undefined}>
               <strong>{project.team.find((m) => m.personaId === step.verdict!.reviewerId)?.name.split(' ')[0] ?? 'Reviewer'}:</strong> {step.verdict.notes}

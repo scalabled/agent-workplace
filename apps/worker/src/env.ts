@@ -28,6 +28,11 @@ export interface Env extends ProviderEnv {
   PROJECT_DAILY_LIMIT?: string;
   /** Unprompted spoken updates a day (the interruption budget; default 6, 0 = never). */
   INTERRUPTION_BUDGET?: string;
+  /** Daily caps on the search fallback and page reads (defaults 300 and 600). */
+  SEARCH_DAILY_LIMIT?: string;
+  FETCH_DAILY_LIMIT?: string;
+  /** "off": agents get no web search or page reading (default on). */
+  WEB_TOOLS?: string;
   MAX_ACTIVE_PROJECTS?: string;
   /** Background jobs that may run at once (default 3). */
   MAX_ACTIVE_JOBS?: string;

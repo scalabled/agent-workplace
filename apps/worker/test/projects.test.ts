@@ -9,6 +9,7 @@ import { sentenceHit } from '../src/rooms/guard';
 import type { WorkspaceDO } from '../src/workspace/workspace-do';
 import type { Env } from '../src/env';
 import { fullIndex } from '@headcount/catalog/full';
+import { MOCK_SOURCE } from '@headcount/models';
 import { createTestEnv } from './fake-cloud';
 
 async function setup(overrides: Partial<Env> = {}) {
@@ -363,5 +364,55 @@ describe('steering a team project (notes, pause, desk chats)', () => {
     expect(sentenceHit("I'll send it to the printer tonight.", new Set(), { work: 'staffed' })).toBe('work');
     expect(sentenceHit('I emailed the supplier.', new Set(), { work: 'staffed' })).toBe('work');
     expect(sentenceHit("I'm drafting the audience sizing now.", new Set())).toBe('work');
+  });
+});
+
+describe('web research (biz-bot parity: search, read, cite)', () => {
+  it('team steps keep their sources, and the deliverable ends with them', async () => {
+    const s = await setup();
+    await s.talk('Put together a team to launch our spring menu with a small campaign');
+    const { project } = (await s.ofType('project.proposed'))[0]!.data;
+    await s.api('POST', `/api/projects/${project.projectId}/approve`);
+    await s.runProjects();
+    const done = (await s.project.getProject(project.projectId))!;
+    expect(done.steps.every((st) => st.sources?.[0]?.url === MOCK_SOURCE.url)).toBe(true);
+    expect(done.deliverable).toContain('## Sources');
+    expect(done.deliverable).toContain(MOCK_SOURCE.url);
+  });
+
+  it('a background job cites what it searched', async () => {
+    const s = await setup();
+    await s.talk('Look into coffee suppliers in Portland for me');
+    for (let i = 0; i < 20; i++) {
+      await s.project.alarm();
+      await s.t.ctx.drain();
+      if (!(await s.project.listJobs()).some((j) => j.status === 'running')) break;
+    }
+    const job = (await s.project.listJobs())[0]!;
+    expect(job.status).toBe('done');
+    expect(job.result).toContain('## Sources');
+    expect(job.result).toContain(MOCK_SOURCE.url);
+  });
+
+  it('the Chief looks up a quick fact and shows the source under the reply', async () => {
+    const s = await setup();
+    await s.talk('Search the latest news on heat pumps');
+    const reply = (await s.ofType('talk.message')).at(-1)!;
+    expect(reply.data.sources).toEqual([MOCK_SOURCE]);
+    await s.talk('Thanks, that helps a lot with my thinking here');
+    expect((await s.ofType('talk.message')).at(-1)!.data.sources).toBeUndefined();
+  });
+
+  it('WEB_TOOLS=off: nobody searches or reads pages', async () => {
+    const s = await setup({ WEB_TOOLS: 'off' });
+    await s.talk('Put together a team to launch our spring menu with a small campaign');
+    const { project } = (await s.ofType('project.proposed'))[0]!.data;
+    await s.api('POST', `/api/projects/${project.projectId}/approve`);
+    await s.runProjects();
+    const done = (await s.project.getProject(project.projectId))!;
+    expect(done.steps.every((st) => !st.sources)).toBe(true);
+    expect(done.deliverable).not.toContain('## Sources');
+    await s.talk('Search the latest news on heat pumps');
+    expect((await s.ofType('talk.message')).at(-1)!.data.sources).toBeUndefined();
   });
 });

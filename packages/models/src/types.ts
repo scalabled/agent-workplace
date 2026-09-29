@@ -55,6 +55,24 @@ export interface ToolSpec {
   mock?: MockToolHints;
 }
 
+/**
+ * Provider-hosted tools the provider runs itself (no executor on our side): web search and X search. Results come
+ * back as `citation` events (and the model's text). Adapters for providers without them ignore the request.
+ */
+export type HostedToolKind = 'web_search' | 'x_search';
+export interface HostedTool {
+  type: HostedToolKind;
+  /** Restrict web search to these domains (providers that support it). */
+  allowedDomains?: string[];
+  /** Anthropic: searches per request (default 5). */
+  maxUses?: number;
+}
+/**
+ * How a provider hosts a tool: `with_tools` next to function tools, `solo` only in a call without function tools
+ * (Gemini grounding). Absent: not hosted (the worker's `web_search` function tool stands in).
+ */
+export type HostedSupport = Partial<Record<HostedToolKind, 'with_tools' | 'solo'>>;
+
 export type FinishReason = 'stop' | 'tool_calls' | 'length' | 'refusal' | 'incomplete' | 'cancelled';
 
 export type ReasoningEffort = 'none' | 'low' | 'medium' | 'high';
@@ -72,6 +90,8 @@ export interface ChatRequest {
   messages: ChatMessage[];
   tools?: ToolSpec[];
   toolChoice?: 'auto' | 'none' | 'required' | { name: string };
+  /** Provider-hosted tools (web search). Sent only where `ChatProvider.hosted` supports them. */
+  hostedTools?: HostedTool[];
   maxTokens?: number;
   temperature?: number;
   reasoningEffort?: ReasoningEffort;
@@ -140,6 +160,8 @@ export interface ProviderBase {
 export interface ChatProvider extends ProviderBase {
   /** Default model per tier (no tier → `reason`, the provider's flagship). */
   defaultModel(tier?: TierLike): string;
+  /** Hosted tools this provider runs natively (web search). */
+  hosted?: HostedSupport;
   chat(req: ChatRequest): AsyncIterable<ModelEvent>;
 }
 

@@ -6,11 +6,14 @@ import { audioExtension, audioMime, base64ToArrayBuffer, dataUrl, sniffImageMime
 import { guardStream } from '../lib/stream';
 import { ToolNames } from '../lib/tools';
 import { BASE_URLS, CHAT_CATALOG, IMAGE_MODELS, XAI_SPEECH } from '../model-catalog';
-import { normalizeTier, type Alignment, type ChatProvider, type ChatRequest, type ImageProvider, type ModelEvent, type ProviderFactory, type SpeechProvider } from '../types';
+import { normalizeTier, type Alignment, type ChatProvider, type ChatRequest, type HostedSupport, type ImageProvider, type ModelEvent, type ProviderFactory, type SpeechProvider } from '../types';
 import { HttpClient, throwIfAborted } from './common';
+import { hostedFor } from '../lib/hosted';
 import { parseResponsesStream, toInputItems, toResponsesToolChoice, toResponsesTools } from './responses';
 
 const LABEL = 'xAI';
+/** Hosted web and X search (Responses API, biz-bot xai.js:46-47). */
+export const XAI_HOSTED: HostedSupport = { web_search: 'with_tools', x_search: 'with_tools' };
 const isReasoningModel = (model: string) => !/non-reasoning/.test(model);
 const supportsEffort = (model: string) => !/non-reasoning|4\.20-0309-reasoning|4\.20-reasoning|build/.test(model);
 
@@ -18,9 +21,15 @@ async function* xaiChat(http: HttpClient, req: ChatRequest, model: string): Asyn
   const names = ToolNames.forRequest(req.tools, req.messages);
   const body: Record<string, unknown> = { model, input: toInputItems(req.messages, names), stream: true, store: false };
   if (req.system) body.instructions = req.system;
-  const tools = req.toolChoice === 'none' ? [] : toResponsesTools(req.tools, names);
+  const fns = req.toolChoice === 'none' ? [] : toResponsesTools(req.tools, names);
+  const hosted = hostedFor(req, XAI_HOSTED, fns.length > 0).map((t) =>
+    t.type === 'x_search' ? { type: 'x_search' } : { type: 'web_search', ...(t.allowedDomains?.length ? { filters: { allowed_domains: t.allowedDomains.slice(0, 5) } } : {}) },
+  );
+  const tools = [...fns, ...hosted];
   if (tools.length) body.tools = tools;
-  const tc = tools.length ? toResponsesToolChoice(req.toolChoice, names) : undefined;
+  // Sources as structured items; inline `[[N]](url)` markers would leak into the text (biz-bot xai.js:75-77).
+  if (hosted.length) body.include = ['web_search_call.action.sources', 'no_inline_citations'];
+  const tc = fns.length ? toResponsesToolChoice(req.toolChoice, names) : undefined;
   if (tc) body.tool_choice = tc;
   if (req.maxTokens) body.max_output_tokens = req.maxTokens;
   if (req.reasoningEffort && req.reasoningEffort !== 'none' && supportsEffort(model)) body.reasoning = { effort: req.reasoningEffort };
@@ -80,6 +89,7 @@ export const createXaiProvider: ProviderFactory = (env, { fetch }) => {
   const base = { id: 'xai', kind: 'cloud', family: 'grok' } as const;
 
   const chat: ChatProvider = {
+    hosted: XAI_HOSTED,
     ...base,
     defaultModel: (tier) => CHAT_CATALOG.xai.defaults[normalizeTier(tier)],
     chat: (req) => guardStream('xai', LABEL, req.signal, () => xaiChat(http, req, req.model || chat.defaultModel()), [key]),
