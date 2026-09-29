@@ -3,7 +3,7 @@
 // redirect to their "/app" equivalents, so old links and bookmarks keep working.
 import { computed, signal } from '@preact/signals';
 
-export type RouteName = 'landing' | 'home' | 'onboarding' | 'talk' | 'floor' | 'coworker' | 'projects' | 'project' | 'inbox' | 'skills' | 'skill' | 'chief' | 'connectors' | 'automations' | 'canvas' | 'canvasItem' | 'memory' | 'handbook' | 'admin' | 'notFound';
+export type RouteName = 'landing' | 'home' | 'onboarding' | 'talk' | 'floor' | 'coworker' | 'projects' | 'project' | 'inbox' | 'skills' | 'skill' | 'chief' | 'connectors' | 'automations' | 'canvas' | 'canvasItem' | 'memory' | 'handbook' | 'admin' | 'team' | 'notFound';
 
 export interface CurrentRoute {
   name: RouteName;
@@ -33,6 +33,7 @@ const PATTERNS: [RouteName, RegExp, string[]][] = [
   ['memory', /^\/app\/memory\/?$/, []],
   ['handbook', /^\/app\/handbook\/?$/, []],
   ['admin', /^\/app\/admin(?:\/([a-z]+))?\/?$/, ['section']],
+  ['team', /^\/app\/team\/?$/, []],
 ];
 
 const LEGACY = [/^\/(welcome|talk|floor|projects|inbox)\/?$/, /^\/desk\/[^/]+\/profile\/?$/];
@@ -147,6 +148,7 @@ export const paths = {
   canvasItem: (canvasId: string) => `${APP_BASE}/canvas/${encodeURIComponent(canvasId)}`,
   memory: `${APP_BASE}/memory`,
   handbook: `${APP_BASE}/handbook`,
+  team: `${APP_BASE}/team`,
   admin: (section?: string) => `${APP_BASE}/admin${section ? `/${section}` : ''}`,
 } as const;
 

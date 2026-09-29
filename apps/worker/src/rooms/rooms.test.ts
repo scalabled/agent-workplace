@@ -26,7 +26,7 @@ const TABLE = [KEMAR, NINA, IMOGEN, BRUNO];
 
 const isRoom = (req: ChatRequest) => typeof req.system === 'string' && req.system.includes('- You are in ');
 const isQuickChat = (req: ChatRequest) => typeof req.system === 'string' && req.system.includes('quick chat in passing');
-/** The responder's name from its system prompt ("You are Kemar Grant (he/him)…", "You are Ben, the owner's Chief…"). */
+/** The responder's name from its system prompt ("You are Andre Campbell (he/him)…", "You are Ben, the owner's Chief…"). */
 const who = (req: ChatRequest) => /## Who you are\nYou are (.+?) \(/.exec(String(req.system))?.[1] ?? /You are ([A-Z][\w]+), the owner's Chief of Staff/.exec(String(req.system))?.[1] ?? '?';
 const lastUser = (req: ChatRequest) => String(req.messages.at(-1)?.content ?? '');
 
@@ -85,7 +85,7 @@ describe('POST /api/rooms/:roomId/say', () => {
     expect(owner.data.agentId).toBeUndefined();
     const msgs = await roomMessages(s);
     expect(msgs.map((m) => m.data.agentId)).toEqual([KEMAR, NINA, IMOGEN]);
-    expect(msgs.map((m) => m.data.text)).toEqual(['Kemar Grant here. I would start small.', 'Nina Petrović here. I would start small.', 'Imogen Ashby here. I would start small.']);
+    expect(msgs.map((m) => m.data.text)).toEqual(['Andre Campbell here. I would start small.', 'Nina Petrović here. I would start small.', 'Jane Ashby here. I would start small.']);
     expect(new Set(msgs.map((m) => m.data.messageId)).size).toBe(3);
     for (const m of msgs) expect(m.data).toMatchObject({ turnId: r.body.turnId, kind: 'reply', surface: 'room', roomId: 'skyline', meetingId });
     const done = (await s.ofType('talk.done')).filter((f) => f.data.surface === 'room');
@@ -112,10 +112,10 @@ describe('POST /api/rooms/:roomId/say', () => {
     const reqs = rooms();
     expect(reqs).toHaveLength(3);
     expect(reqs.every((q) => !(q.tools ?? []).length)).toBe(true);
-    expect(reqs[0]!.system).toContain('You are in the Skyline room with the owner and Nina Petrović (Tech lead & software architect)');
+    expect(reqs[0]!.system).toContain('You are in the Skyline room with the owner and Nina Petrović (Tech lead)');
     expect(reqs[0]!.system).toContain('Never state a figure');
     expect(lastUser(reqs[0]!)).toBe('What do you all think?');
-    expect(lastUser(reqs[2]!)).toBe('What do you all think?\n\n[Kemar (Senior copywriter)]: Kemar Grant here. I would start small.\n\n[Nina (Tech lead & software architect)]: Nina Petrović here. I would start small.');
+    expect(lastUser(reqs[2]!)).toBe('What do you all think?\n\n[Andre (Copywriter)]: Andre Campbell here. I would start small.\n\n[Nina (Tech lead)]: Nina Petrović here. I would start small.');
     // The sending tab took the voice.
     expect(s.ws.voice.owner()).toBe('tab_room_owner');
   });
@@ -124,9 +124,9 @@ describe('POST /api/rooms/:roomId/say', () => {
     useRoomChat((req) => (isRoom(req) ? text('Fine.') : null));
     const s = await exprSetup();
     const meetingId = newMeetingId();
-    const a = await say(s, { text: 'Kemar, thoughts?', opId: 'op_same', meetingId, participants: TABLE });
+    const a = await say(s, { text: 'Andre, thoughts?', opId: 'op_same', meetingId, participants: TABLE });
     await s.drain();
-    const b = await say(s, { text: 'Kemar, thoughts?', opId: 'op_same', meetingId, participants: TABLE });
+    const b = await say(s, { text: 'Andre, thoughts?', opId: 'op_same', meetingId, participants: TABLE });
     expect(b.status).toBe(202);
     expect(b.body).toMatchObject({ turnId: a.body.turnId, messageId: a.body.messageId, duplicate: true });
     await s.drain();
@@ -175,7 +175,7 @@ describe('POST /api/rooms/:roomId/say', () => {
     const meetingId = newMeetingId();
     const a = await say(s, { text: 'first question, everyone?', opId: 'op_c1', meetingId, participants: TABLE });
     for (let i = 0; i < 500 && !s.liveOf('talk.delta').length; i++) await new Promise((r) => setTimeout(r, 0));
-    const b = await say(s, { text: 'Actually, Imogen: is the contract fine?', opId: 'op_c2', meetingId, participants: TABLE });
+    const b = await say(s, { text: 'Actually, Jane: is the contract fine?', opId: 'op_c2', meetingId, participants: TABLE });
     held.open();
     await s.drain();
 
@@ -186,10 +186,10 @@ describe('POST /api/rooms/:roomId/say', () => {
     const cut = (await roomMessages(s)).find((m) => m.data.turnId === a.body.turnId)!;
     expect(cut.data).toMatchObject({ agentId: KEMAR, text: 'First part.' });
     expect((await s.ofType('talk.done')).find((d) => d.data.turnId === a.body.turnId)!.data).toMatchObject({ agentId: KEMAR, finish: 'cancelled', messageId: cut.data.messageId });
-    // The queued responders of the first turn never ran; the new question went to Imogen.
+    // The queued responders of the first turn never ran; the new question went to Jane.
     expect(b.body).toMatchObject({ order: [IMOGEN], mode: 'mention' });
     expect(b.body.gen).toBeGreaterThan(a.body.gen);
-    expect(rooms().map(who)).toEqual(['Kemar Grant', 'Imogen Ashby']);
+    expect(rooms().map(who)).toEqual(['Andre Campbell', 'Jane Ashby']);
     expect((await roomMessages(s)).filter((m) => m.data.turnId === b.body.turnId).map((m) => m.data.text)).toEqual(['Second answer.']);
     expect(s.liveOf('talk.delta').map((d) => d.data.delta).join('')).not.toContain('Never heard');
   });
@@ -213,7 +213,7 @@ describe('POST /api/rooms/:roomId/say', () => {
   it('rewrites an invented metric (the office demo line can never reach the room)', async () => {
     useRoomChat((req) => (isRoom(req) ? text('Then lead with the reorder rate: ', 'it went up nine points after the relaunch. ', 'Sell-through beats brand love.') : null));
     const s = await exprSetup();
-    await say(s, { text: 'Kemar, sell-through or brand love?', opId: 'op_h1', meetingId: newMeetingId(), participants: TABLE });
+    await say(s, { text: 'Andre, sell-through or brand love?', opId: 'op_h1', meetingId: newMeetingId(), participants: TABLE });
     await s.drain();
     const msg = (await roomMessages(s)).at(-1)!;
     expect(msg.data.text).toBe('Sell-through beats brand love.');
@@ -222,9 +222,9 @@ describe('POST /api/rooms/:roomId/say', () => {
 
   it('a reply cut by the token cap ends at its last whole sentence; a cut with no whole sentence is skipped', async () => {
     const cut = (...deltas: string[]): Step[] => [...deltas.map((d) => ({ type: 'text', delta: d }) as ModelEvent), { type: 'done', finish: 'length' } as ModelEvent];
-    useRoomChat((req) => (isRoom(req) ? (who(req).startsWith('Kemar') ? cut('Start with the buyer. ', 'I would start with the') : cut('I would lead with the')) : null));
+    useRoomChat((req) => (isRoom(req) ? (who(req).startsWith('Andre') ? cut('Start with the buyer. ', 'I would start with the') : cut('I would lead with the')) : null));
     const s = await exprSetup();
-    await say(s, { text: 'Kemar and Nina, where would you start?', opId: 'op_cut', meetingId: newMeetingId(), participants: TABLE });
+    await say(s, { text: 'Andre and Nina, where would you start?', opId: 'op_cut', meetingId: newMeetingId(), participants: TABLE });
     await s.drain();
     const msgs = await roomMessages(s);
     expect(msgs.map((m) => String(m.data.text))).toEqual(['Start with the buyer.']);
@@ -237,7 +237,7 @@ describe('POST /api/rooms/:roomId/say', () => {
     );
     const s = await exprSetup();
     const meetingId = newMeetingId();
-    await say(s, { text: 'Kemar, our reorder rate went up nine points after the relaunch. Should we lead with it?', opId: 'op_h2', meetingId, participants: TABLE });
+    await say(s, { text: 'Andre, our reorder rate went up nine points after the relaunch. Should we lead with it?', opId: 'op_h2', meetingId, participants: TABLE });
     await s.drain();
     expect((await roomMessages(s)).at(-1)!.data.text).toBe('Since the reorder rate went up nine points, lead with it. We could start with a small pilot.');
     await say(s, { text: 'What do you all think, is it higher now?', opId: 'op_h3', meetingId: newMeetingId(), participants: TABLE.slice(0, 2) });
@@ -256,7 +256,7 @@ describe('POST /api/rooms/:roomId/say', () => {
     const s = await exprSetup();
     const meetingId = newMeetingId();
     for (let i = 0; i < ROOM_TURNS_PER_MIN - 1; i++) {
-      expect((await say(s, { text: `Kemar, point ${i}?`, opId: `op_l${i}`, meetingId, participants: TABLE })).status).toBe(202);
+      expect((await say(s, { text: `Andre, point ${i}?`, opId: `op_l${i}`, meetingId, participants: TABLE })).status).toBe(202);
       await s.drain();
     }
     // One reply left this minute: a group question gets one answer, then stops at the limit.
@@ -266,11 +266,11 @@ describe('POST /api/rooms/:roomId/say', () => {
     expect((await roomMessages(s)).filter((m) => m.data.turnId === group.body.turnId)).toHaveLength(1);
     expect(s.liveOf('room.turn').at(-1)!.data).toMatchObject({ state: 'done', reason: 'limit', order: [] });
     expect(s.liveOf('error').at(-1)!.data).toMatchObject({ code: 'rate_limited', message: ROOM_RATE_MESSAGE, turnId: group.body.turnId });
-    const refused = await say(s, { text: 'Kemar, one more?', opId: 'op_lx', meetingId, participants: TABLE });
+    const refused = await say(s, { text: 'Andre, one more?', opId: 'op_lx', meetingId, participants: TABLE });
     expect(refused).toMatchObject({ status: 429, body: { error: { code: 'rate_limited', message: ROOM_RATE_MESSAGE } } });
     // A new minute.
     runtime.now = () => t0 + 60_000;
-    expect((await say(s, { text: 'Kemar, and now?', opId: 'op_ly', meetingId, participants: TABLE })).status).toBe(202);
+    expect((await say(s, { text: 'Andre, and now?', opId: 'op_ly', meetingId, participants: TABLE })).status).toBe(202);
     await s.drain();
 
     const daily = await exprSetup({ CHAT_DAILY_LIMIT: '2' } as Partial<Env>);
@@ -279,7 +279,7 @@ describe('POST /api/rooms/:roomId/say', () => {
     await daily.drain();
     expect((await roomMessages(daily)).filter((m) => m.data.turnId === first.body.turnId)).toHaveLength(2);
     expect(daily.liveOf('error').at(-1)!.data.message).toContain('CHAT_DAILY_LIMIT');
-    expect((await say(daily, { text: 'Kemar?', opId: 'op_d2', meetingId: m2, participants: TABLE })).status).toBe(429);
+    expect((await say(daily, { text: 'Andre?', opId: 'op_d2', meetingId: m2, participants: TABLE })).status).toBe(429);
     // A phatic message costs no model call, so it still gets its catalog replies.
     expect((await say(daily, { text: 'thanks everyone', opId: 'op_d3', meetingId: m2, participants: TABLE })).status).toBe(202);
     await daily.drain();
@@ -350,7 +350,7 @@ describe('POST /api/rooms/:roomId/cancel', () => {
     expect(left.body.noteId).toMatch(/^msg_/);
     const notes = () => s.ofType('talk.message').then((m) => m.filter((f) => f.data.kind === 'note'));
     expect((await notes()).map((n) => n.data)).toEqual([
-      { turnId: null, messageId: left.body.noteId, agentId: CHIEF_ID, text: 'Skyline room with Kemar, Nina and 2 others · 1 min', kind: 'note', roomId: 'skyline', meetingId },
+      { turnId: null, messageId: left.body.noteId, agentId: CHIEF_ID, text: 'Skyline room with Andre, Nina and 2 others · 1 min', kind: 'note', roomId: 'skyline', meetingId },
     ]);
     // Again (another tab, a retry): still one note.
     expect((await cancel(s, { opId: 'op_n3', meetingId, leave: true })).body.noteId).toBe(left.body.noteId);
@@ -362,10 +362,10 @@ describe('POST /api/rooms/:roomId/cancel', () => {
     expect((await cancel(s, { opId: 'op_n4', meetingId: quiet, leave: true, label: 'water cooler' }, 'huddle:k2p9')).body).toEqual({ cancelled: false, noteId: null });
     // A huddle with a place: "Water cooler with …".
     const huddle = newMeetingId();
-    await say(s, { text: 'Kemar, what are you two on about?', opId: 'op_n5', meetingId: huddle, participants: [KEMAR, NINA], label: 'water cooler' }, 'huddle:k2p9');
+    await say(s, { text: 'Andre, what are you two on about?', opId: 'op_n5', meetingId: huddle, participants: [KEMAR, NINA], label: 'water cooler' }, 'huddle:k2p9');
     await s.drain();
     await cancel(s, { opId: 'op_n6', meetingId: huddle, leave: true, participants: [KEMAR, NINA], label: 'water cooler' }, 'huddle:k2p9');
-    expect((await notes()).map((n) => n.data.text)).toEqual(['Skyline room with Kemar, Nina and 2 others · 1 min', 'Water cooler with Kemar and Nina · 1 min']);
+    expect((await notes()).map((n) => n.data.text)).toEqual(['Skyline room with Andre, Nina and 2 others · 1 min', 'Water cooler with Andre and Nina · 1 min']);
   });
 });
 
@@ -423,7 +423,7 @@ describe('the owner’s name', () => {
     expect(put).toMatchObject({ status: 200, body: { ownerName: 'Greg van Dyke' } });
     expect((await s.api('GET', '/api/workspace')).body.ownerName).toBe('Greg van Dyke');
     expect((await s.ofType('workspace.updated')).at(-1)!.data.settings.ownerName).toBe('Greg van Dyke');
-    await say(s, { text: 'Kemar, thoughts?', opId: 'op_o1', meetingId: newMeetingId(), participants: TABLE });
+    await say(s, { text: 'Andre, thoughts?', opId: 'op_o1', meetingId: newMeetingId(), participants: TABLE });
     await s.drain();
     expect(rooms().at(-1)!.system).toContain('You are in the Skyline room with the owner, Greg, and Nina Petrović');
     expect(rooms().at(-1)!.system).toContain("The owner's name is Greg. Use it rarely.");

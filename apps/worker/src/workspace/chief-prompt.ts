@@ -31,6 +31,8 @@ export interface ChiefPromptInput {
   handbook?: string;
   recalled?: readonly Recalled[];
   interview?: readonly { id: string; title: string; ask: string }[] | null;
+  /** The owner's team (the coworkers they have met): who to ask or hand things to first. */
+  team?: readonly { personaId: string; name: string; title: string }[];
   now: Date;
   /** Per-turn notes (what the office already said aloud, repeated openers and offers); placed last, after the date. */
   turnNote?: string;
@@ -195,6 +197,16 @@ function knowledgeBlocks(input: ChiefPromptInput): string {
   return parts.join('\n\n');
 }
 
+/** The owner's team: who they have met, to ask (ask_coworker), hand to (hand_to_coworker) or link. */
+function teamRosterBlock(team: readonly { personaId: string; name: string; title: string }[]): string {
+  if (!team.length) return '';
+  return [
+    "## THE OWNER'S TEAM (the coworkers they have met; anyone else in the directory can be brought into a project)",
+    ...team.map((m) => `- ${m.name}, ${m.title} (/app/desk/${m.personaId}/profile)`),
+    'When something is one of their jobs, ask them or hand it to them, and say who has it.',
+  ].join('\n');
+}
+
 export function buildChiefSystemPrompt(input: ChiefPromptInput): string {
   const name = chiefDisplayName(input.lead, input.chiefName);
   return [
@@ -203,6 +215,7 @@ export function buildChiefSystemPrompt(input: ChiefPromptInput): string {
     roleDirective(input.voiceOn),
     input.ownerFirst ? `The owner's name is ${input.ownerFirst}. Use it rarely.` : '',
     knowledgeBlocks(input),
+    teamRosterBlock(input.team ?? []),
     workStateBlock(input.jobs),
     teamStateBlock(input.projects ?? null),
     questionsBlock(input.decisions ?? []),

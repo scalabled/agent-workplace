@@ -8,6 +8,7 @@ import { chiefName } from '../chief';
 import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
 import { ContextFiles } from '../memory/ContextFiles';
+import { SecondBrain } from '../memory/SecondBrain';
 import { scopeLabel } from '../memory/upload';
 import { linkTarget, paths } from '../router';
 import { PageTitle } from '../links/CopyLink';
@@ -63,6 +64,7 @@ export function Memory() {
           <Link href={paths.handbook}>Handbook</Link>.
         </p>
       </header>
+      <SecondBrain memoryText={(id) => list?.find((m) => m.memoryId === id)?.text ?? null} onForget={drop} />
       <div class="memory-tools">
         <label class="visually-hidden" for="memory-search">
           Search the memory

@@ -49,6 +49,7 @@ import { memoryTools, type MemoryToolHost } from '../memory/chief-tools';
 import { isSection } from '../memory/handbook';
 import { answerThread, Threads, type DocContext } from '../threads/threads';
 import type { DocRef, DocThread, ThreadStart } from '@headcount/protocol/ext/threads';
+import { SECOND_BRAIN_STEWARD, STARTER_TEAM, TEAM_MAX, TIDY_EVERY_DAYS, type SecondBrainReport, type TeamMemberView, type TeamResponse, type TeamStartResponse } from '@headcount/protocol/ext/team';
 import type { CanvasSnapshot } from '@headcount/protocol/ext/canvas';
 import type { ContextCard, HandbookResponse, HandbookSectionId, MemoryItem, MemoryKind, Recalled } from '@headcount/protocol/ext/memory';
 import { realtimeAck, voiceFrontOf, type AckRequest, type FrontPart } from './voice-front';
@@ -787,7 +788,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       /* no provider */
     }
     const conn = connectorTools(this.connectors.kitsFor('chief'), this.connectors, { subject: 'chief', mode: () => ({ kind: 'note' }) });
-    const text = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(runtime.now()), ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: conn.describe, automations: true, handbook: this.knowledge.handbook.compact(), interview: this.knowledge.handbook.interviewing ? this.knowledge.handbook.missing() : null });
+    const text = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(runtime.now()), ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: conn.describe, automations: true, handbook: this.knowledge.handbook.compact(), interview: this.knowledge.handbook.interviewing ? this.knowledge.handbook.missing() : null, team: await this.teamHost().roster() });
     const tools = createChiefTools({ project: this.project(), turnId: 'turn_view' as TurnId, jobs: jobs ?? [], projects: projects ?? [], decisions, log: new TurnLog(), leadId: settings.leadId, chiefName: settings.chiefName });
     return {
       surface: 'chief',
@@ -836,6 +837,8 @@ export class WorkspaceDO extends DurableObject<Env> {
     // A new lead has its own baseline mood.
     if (next.leadId !== current.leadId) this.expr.resetMood(CHIEF_ID);
     await this.ctx.storage.put('settings', next);
+    // Once there is a Chief of Staff there is a team, and its second brain gets its weekly tidy.
+    if (next.leadId && !current.leadId) await this.ensureTidyAlarm();
     this.feed.append({ type: 'workspace.updated', data: { settings: next }, actor: OWNER_ACTOR });
     this.scheduleRollup(next);
     return next;
@@ -1565,6 +1568,135 @@ export class WorkspaceDO extends DurableObject<Env> {
     };
   }
 
+  // ── your team (ext/team.ts): who is on it, their first jobs, the weekly tidy ─────────
+
+  private async teamIds(): Promise<string[]> {
+    return (await this.ctx.storage.get<string[]>('team')) ?? STARTER_TEAM.map((m) => m.personaId);
+  }
+
+  private async secondBrain(): Promise<{ on: boolean; last?: SecondBrainReport }> {
+    return (await this.ctx.storage.get<{ on: boolean; last?: SecondBrainReport }>('second_brain')) ?? { on: true };
+  }
+
+  /** The weekly tidy's alarm (set once there is a team; kept while the tidy is on). */
+  private async ensureTidyAlarm(): Promise<void> {
+    if (!(await this.secondBrain()).on) return;
+    if ((await this.ctx.storage.getAlarm()) === null) await this.ctx.storage.setAlarm(runtime.now() + TIDY_EVERY_DAYS * 86_400_000);
+  }
+
+  override async alarm(): Promise<void> {
+    const sb = await this.secondBrain();
+    if (!sb.on) return;
+    const due = !sb.last || runtime.now() - Date.parse(sb.last.at) >= (TIDY_EVERY_DAYS - 0.5) * 86_400_000;
+    if (due && this.knowledge.memory.list({ limit: 1 }).length) await this.runTidy().catch((err) => logError('second-brain', err));
+    await this.ctx.storage.setAlarm(runtime.now() + TIDY_EVERY_DAYS * 86_400_000);
+  }
+
+  private memberView(personaId: string, started: Record<string, { at: string; jobId?: string; projectId?: string }>): TeamMemberView | null {
+    const p = fullIndex.persona(personaId);
+    if (!p) return null;
+    const starter = STARTER_TEAM.find((m) => m.personaId === personaId);
+    const first = p.name.split(' ')[0];
+    return {
+      personaId,
+      why: starter?.why ?? p.one_liner,
+      firstTask: starter?.firstTask ?? {
+        kind: 'research',
+        title: `${first}'s first week`,
+        brief: `As the ${p.title.toLowerCase()}, suggest the three most useful things you could do for this business in your first week, with why each matters, and do the first one. Use what the Handbook and shared files say about the business.`,
+      },
+      ...(started[personaId] ? { started: started[personaId] } : {}),
+    };
+  }
+
+  async teamView(): Promise<TeamResponse> {
+    await this.ensureTidyAlarm();
+    const started = (await this.ctx.storage.get<Record<string, { at: string; jobId?: string; projectId?: string }>>('team_started')) ?? {};
+    const sb = await this.secondBrain();
+    const alarm = await this.ctx.storage.getAlarm();
+    return {
+      members: (await this.teamIds()).map((id) => this.memberView(id, started)).filter((m): m is TeamMemberView => !!m),
+      secondBrain: { on: sb.on, steward: SECOND_BRAIN_STEWARD, ...(sb.on && alarm ? { nextAt: new Date(alarm).toISOString() } : {}), ...(sb.last ? { last: sb.last } : {}) },
+    };
+  }
+
+  async teamPut(ids: string[]): Promise<TeamResponse | { error: string }> {
+    const clean = [...new Set(ids)].filter((id) => !!fullIndex.persona(id));
+    if (clean.length !== new Set(ids).size) return { error: 'Some of those are not in the directory.' };
+    if (clean.length > TEAM_MAX) return { error: `A team has at most ${TEAM_MAX} people; bring others into projects as needed.` };
+    await this.ctx.storage.put('team', clean);
+    return this.teamView();
+  }
+
+  /** Start a team member's first job: research, a proposed project, or (the steward) the tidy. */
+  async teamStart(personaId: string): Promise<TeamStartResponse | { error: string; code: 'not_found' | 'rate_limited' | 'conflict' }> {
+    if (!(await this.teamIds()).includes(personaId)) return { error: 'They are not on your team.', code: 'not_found' };
+    const m = this.memberView(personaId, {})!;
+    const p = fullIndex.persona(personaId)!;
+    const first = p.name.split(' ')[0];
+    const settings = await this.getSettings();
+    const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
+    const chief = chiefDisplayName(lead, settings.chiefName);
+    const record = async (x: { jobId?: string; projectId?: string }) => {
+      const started = (await this.ctx.storage.get<Record<string, { at: string; jobId?: string; projectId?: string }>>('team_started')) ?? {};
+      started[personaId] = { at: new Date(runtime.now()).toISOString(), ...x };
+      await this.ctx.storage.put('team_started', started);
+    };
+    if (m.firstTask.kind === 'second-brain') {
+      const report = await this.runTidy();
+      await record({});
+      return { personaId, kind: 'second-brain', report, say: `${first} tidied the second brain. ${report.summary}` };
+    }
+    if (m.firstTask.kind === 'project') {
+      const r = (await projectStub(this.env).proposeProject({ goal: m.firstTask.brief, title: m.firstTask.title, opId: ids.op(), chiefName: chief, leadId: settings.leadId })) as unknown as { project: TeamProjectSnapshot } | { accepted: false; code: string; message: string };
+      if (!('project' in r)) return { error: r.message, code: r.code === 'rate_limited' ? 'rate_limited' : 'conflict' };
+      await record({ projectId: r.project.projectId });
+      return { personaId, kind: 'project', projectId: r.project.projectId, say: `${first}'s project “${r.project.title}” is proposed; the plan is in your Inbox for your OK.` };
+    }
+    const r = (await projectStub(this.env).startJob({ title: m.firstTask.title, brief: `${m.firstTask.brief}\n\n(Asked of ${p.name}, ${p.title}.)`, opId: ids.op(), leadId: settings.leadId, chiefName: settings.chiefName })) as unknown as JobSnapshot | { accepted: false; code: string; message: string };
+    if (!('jobId' in r)) return { error: r.message, code: r.code === 'rate_limited' ? 'rate_limited' : 'conflict' };
+    await record({ jobId: r.jobId });
+    return { personaId, kind: 'research', jobId: r.jobId, say: `${first} has started “${r.title}”; ${chief} will tell you when it is ready.` };
+  }
+
+  async secondBrainSet(on: boolean): Promise<TeamResponse> {
+    const sb = await this.secondBrain();
+    await this.ctx.storage.put('second_brain', { ...sb, on });
+    if (on) await this.ensureTidyAlarm();
+    return this.teamView();
+  }
+
+  /** Add a suggestion from the last tidy to the Handbook (and take it off the list). */
+  async secondBrainApply(section: HandbookSectionId, suggestion: string): Promise<TeamResponse> {
+    this.knowledge.handbook.append(section, suggestion, 'chief');
+    const sb = await this.secondBrain();
+    if (sb.last) await this.ctx.storage.put('second_brain', { ...sb, last: { ...sb.last, handbook: sb.last.handbook.filter((h) => !(h.section === section && h.suggestion === suggestion)) } });
+    return this.teamView();
+  }
+
+  /** The tidy: merge, review, report, and one quiet line in Talk. */
+  private async runTidy(): Promise<SecondBrainReport> {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 90_000);
+    try {
+      const r = await this.knowledge.tidy(ac.signal);
+      const report: SecondBrainReport = { at: new Date(runtime.now()).toISOString(), by: SECOND_BRAIN_STEWARD, ...r };
+      const sb = await this.secondBrain();
+      await this.ctx.storage.put('second_brain', { ...sb, last: report });
+      const first = fullIndex.persona(SECOND_BRAIN_STEWARD)?.name.split(' ')[0] ?? 'The knowledge manager';
+      const toCheck = report.conflicts.length + report.outdated.length;
+      const bits = [report.merged ? `merged ${report.merged} duplicate${report.merged === 1 ? '' : 's'}` : '', toCheck ? `${toCheck} thing${toCheck === 1 ? '' : 's'} to check` : '', report.handbook.length ? `${report.handbook.length} idea${report.handbook.length === 1 ? '' : 's'} for the Handbook` : ''].filter(Boolean);
+      this.feed.append({
+        type: 'talk.message',
+        data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text: `${first} tidied the company's second brain${bits.length ? `: ${bits.join(', ')}` : ': all in order'}. [See it in Memory](/app/memory?at=second-brain)`, kind: 'note' },
+        actor: CHIEF_ID,
+      });
+      return report;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   // ── the team working together (desk tools, the Chief's ask/hand tools) ─────────────
 
   /** What a coworker can do from their desk. */
@@ -1632,6 +1764,11 @@ export class WorkspaceDO extends DurableObject<Env> {
   /** The Chief's side of the team: consult a coworker, or hand the owner's request to their desk. */
   private teamHost(): TeamToolHost {
     return {
+      roster: async () =>
+        (await this.teamIds()).flatMap((id) => {
+          const p = fullIndex.persona(id);
+          return p ? [{ personaId: id, name: p.name, title: p.title }] : [];
+        }),
       consult: async (who, question, signal) => {
         const settings = await this.getSettings();
         const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;

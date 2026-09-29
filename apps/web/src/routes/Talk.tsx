@@ -286,6 +286,16 @@ function Thread({ greeting, name, stick }: { greeting: string; name: string; sti
         )}
       </ol>
       {items.every((m) => m.kind === 'note') && (
+        <Link href={paths.team} class="panel talk-meet-team">
+          <Icon name="floor" size={18} />
+          <span>
+            <strong>Meet your team</strong>
+            <span class="page-fine"> Eight people ready to help, each with a first job you can start in one click.</span>
+          </span>
+          <Icon name="chevronRight" size={16} />
+        </Link>
+      )}
+      {items.every((m) => m.kind === 'note') && (
         <div class="starters" aria-label="Try">
           {starters.map((t) => (
             <button key={t} type="button" class="starter" onClick={() => prefillComposer(t)}>
@@ -448,7 +458,7 @@ function NoteLine({ item }: { item: ThreadItem }) {
         )}
       </svg>
       <span class="visually-hidden">In the office: </span>
-      <p class="msg-body">{item.text}</p>
+      <Markdown text={item.text} class="msg-body" />
       {item.projectId && <ProjectLink projectId={item.projectId} />}
     </li>
   );

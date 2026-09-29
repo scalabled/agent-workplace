@@ -24,6 +24,7 @@ import { Automations } from './routes/Automations';
 import { Canvas, CanvasItem } from './routes/Canvas';
 import { Handbook } from './routes/Handbook';
 import { Admin } from './routes/Admin';
+import { Team } from './routes/Team';
 import { actualRole, role, viewAs } from './auth/session';
 import { revealLinked } from './links/links';
 import { Toast } from './links/Toast';
@@ -305,6 +306,8 @@ function Screen() {
       return <Handbook />;
     case 'admin':
       return <Admin section={r.params.section} />;
+    case 'team':
+      return <Team />;
     case 'skill':
       return <SkillPage skillId={r.params.skillId!} />;
     case 'chief':

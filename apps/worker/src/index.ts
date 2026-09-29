@@ -12,6 +12,7 @@ import { HttpError, errorResponse, type RouteContext, type RouteHandler } from '
 import { guardHost, guardRequest, originPolicy, type OriginPolicy } from './lib/origin';
 import { authorize, handleAuthRoute, isLoopback } from './auth/auth';
 import { handleAdminConfig, handleAdminUsage, handleListMembers, handlePutAdminConfig, handlePutMember, handlePutPrices, handleRemoveMember } from './admin/routes';
+import { handleApplyHandbookSuggestion, handleGetTeam, handlePutSecondBrain, handlePutTeam, handleStartTeamTask } from './team/routes';
 import { handleListThreads, handleReplyThread, handleResolveThread, handleStartThread } from './threads/routes';
 import { metered } from './usage/meter';
 import { d1Sink } from './usage/store';
@@ -129,6 +130,11 @@ export const HANDLERS: Record<RouteId, RouteHandler> = {
   addCard: handleAddCard,
   getCard: handleGetCard,
   removeCard: handleRemoveCard,
+  getTeam: handleGetTeam,
+  putTeam: handlePutTeam,
+  startTeamTask: handleStartTeamTask,
+  putSecondBrain: handlePutSecondBrain,
+  applyHandbookSuggestion: handleApplyHandbookSuggestion,
   listThreads: handleListThreads,
   startThread: handleStartThread,
   replyThread: handleReplyThread,

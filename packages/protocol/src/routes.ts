@@ -131,6 +131,12 @@ export const ROUTES = {
   roomCancel: { method: 'POST', path: '/api/rooms/:roomId/cancel', auth: 'contributor', body: 'json', bodyCap: 4 * 1024 },
   officePeople: { method: 'GET', path: '/api/office/people', auth: 'reader' },
   exprHuddleRender: { method: 'POST', path: '/api/expr/huddle/render', auth: 'reader', body: 'json', bodyCap: 8 * 1024 },
+  // Your team (ext/team.ts): meet them, start their first jobs, the weekly second-brain tidy.
+  getTeam: { method: 'GET', path: '/api/team', auth: 'reader' },
+  putTeam: { method: 'PUT', path: '/api/team', auth: 'owner', body: 'json', bodyCap: 4 * 1024 },
+  startTeamTask: { method: 'POST', path: '/api/team/:personaId/start', auth: 'contributor', bodyCap: 1024 },
+  putSecondBrain: { method: 'PUT', path: '/api/team/second-brain', auth: 'owner', body: 'json', bodyCap: 1024 },
+  applyHandbookSuggestion: { method: 'POST', path: '/api/team/second-brain/handbook', auth: 'contributor', body: 'json', bodyCap: 8 * 1024 },
   // Side chats in documents (ext/threads.ts): ask about a passage, pinned to that spot.
   listThreads: { method: 'GET', path: '/api/threads', auth: 'reader' },
   startThread: { method: 'POST', path: '/api/threads', auth: 'contributor', body: 'json', bodyCap: 8 * 1024 },

@@ -138,6 +138,7 @@ function useItems(): PaletteItem[] {
     const go = (href: string) => () => navigate(href);
     const items: PaletteItem[] = [
       { id: 'place:talk', label: 'Talk', hint: `with ${name}`, group: 'Places', icon: 'talk', run: go(paths.talk) },
+      { id: 'place:team', label: 'Your team', hint: 'Meet them; start their first jobs', group: 'Places', icon: 'floor', keywords: 'team employees staff people meet coworkers agents first job', run: go(paths.team) },
       { id: 'place:floor', label: 'Floor', hint: 'Directory of coworkers', group: 'Places', icon: 'floor', keywords: 'directory staff people', run: go(paths.floor) },
       { id: 'place:projects', label: 'Projects', hint: 'Everyday and more', group: 'Places', icon: 'projects', keywords: 'jobs everyday', run: go(paths.projects) },
       { id: 'place:inbox', label: 'Inbox', hint: 'Raised hands', group: 'Places', icon: 'inbox', keywords: 'decisions', run: go(paths.inbox) },

@@ -80,13 +80,13 @@ Also update `avatar.appearance` (hair, eyewear, accessories and attire, plus `pr
 
 ### Worked examples
 
-**Kate Kim** (lead-straight-shooter):
+**Sarah Kim** (lead-straight-shooter):
 > A single adult, front-facing portrait, unobstructed face, relaxed closed lips, head and shoulders, natural facial proportions, no text. A Korean-American woman in her late thirties with a direct, warm presence. Light skin with warm undertones, a clear natural complexion. A razor-sharp black bob ending just below the jaw, the jawline and chin fully clear. Thin black rectangular frames with clear, glare-free lenses; one fine silver chain. A crisp white oversized poplin shirt worn open at the collar. Calm, attentive, quietly confident expression, lips closed and relaxed, eyes to camera, head level, shoulders square. Editorial staff portrait on a deep charcoal seamless studio backdrop fading to near-black, plain and uncluttered, with a soft crimson (#C92C49) rim light tracing the hair and shoulders, never falling on the face. Large soft key light that lights the whole face evenly, gentle fill, no hard shadows across the mouth or jaw; eye-level camera, 85mm portrait look, 3:4 vertical frame, sharp focus on the eyes and mouth, natural skin texture, cinematic but true-to-life color.
 
-**Liban Warsame** (head-of-analytics; head covering and beard):
+**Omar Hassan** (head-of-analytics; head covering and beard):
 > A single adult, … no text. A Somali man in his early forties with a calm, exacting presence. Deep brown skin with cool undertones, a smooth even complexion. Close-cropped black hair under a white knitted kufi that sits above the brow line, clear of the face contour. A trimmed black beard shaped close and kept fully clear of the lips. No eyewear. A black oversized blazer over a stone mock-neck knit. Calm, attentive, … with a soft deep sky-blue (#307486) rim light … true-to-life color.
 
-**Nayra Choque** (home-services-operator; wheelchair user):
+**Carmen Mamani** (home-services-operator; wheelchair user):
 > A single adult, … no text. An Aymara Bolivian woman in her early forties with a practical, upbeat presence. Warm medium-brown skin with golden undertones, faint laugh lines. Shoulder-length straight black hair with grey streaks, tucked behind her ears. No eyewear; small silver studs. Seated upright in her wheelchair, the top of its black backrest just visible behind her shoulders; a navy technical polo under a cropped rust puffer vest. Calm, attentive, … with a soft sky-blue (#2E86AB) rim light … true-to-life color.
 
 ## 7. Do and don't
@@ -127,7 +127,7 @@ Also update `avatar.appearance` (hair, eyewear, accessories and attire, plus `pr
 5. **Portraits.** R2 keys are `portraits/<personaId>`, so the old faces persist. Regenerate with `pnpm portraits:generate --all --force` after step 2. Landmarks are re-detected per portrait version. Review each face against §7 and the checklist below before it is approved.
 6. **Validate.** Run `node catalog/scripts/validate.mjs`, the catalog tests and a check that every first name is unique, is not a voice id and is not one of the docs' story names.
 
-**Second lead rename (after 2.0.0).** The owner found the 12 Chief of Staff names too hard to remember, so the leads alone were renamed again: Eddie Ramos, Joy Lema, Kate Kim, Ben Addo, Victor Rios, Sasha Sarkis, Zack Vang, Hope Girma, Owen Price, Irma Vega, Frankie Flores and Anna Kask. Faces, voices, looks, ages, pronouns and personalities did not change. `renames.json` keeps the 2.0.0 name of each lead as `interim_name` and says why each new name was chosen in `name_note`.
+**Second lead rename (after 2.0.0).** The owner found the 12 Chief of Staff names too hard to remember, so the leads alone were renamed again: Mike Santos, Michelle Juma, Sarah Kim, James Owusu, Daniel Rivera, Alex Petrosyan, Kevin Vang, Hannah Tesfaye, Tom Evans, Linda Gomez, Jordan Morales and Emma Tamm. Faces, voices, looks, ages, pronouns and personalities did not change. `renames.json` keeps the 2.0.0 name of each lead as `interim_name` and says why each new name was chosen in `name_note`.
 
 ### Approving a portrait
 
@@ -139,13 +139,13 @@ Image models drop details that come late in a prompt and age people who have gre
 - [ ] **The set.** Charcoal seamless, the rim light in the person's accent (never on the face), even key light (§3).
 - [ ] **Presence.** Relaxed and open, with warmth in the eyes: a colleague about to say something useful, not an ID photo (§5).
 
-Re-checked on 28 September 2026 after the Inc 0.6 review: Eddie Ramos (vitiligo, grey temples), Nayra Choque (wheelchair), Amara Okafor, Esi Mensah and Jonas Brandt (apparent age) were regenerated with the detail moved up front.
+Re-checked on 28 September 2026 after the Inc 0.6 review: Mike Santos (vitiligo, grey temples), Carmen Mamani (wheelchair), Stella Okafor, Diana Mensah and Stefan Braun (apparent age) were regenerated with the detail moved up front.
 
 ### Casting rules `renames.json` satisfies
 
 - 176 entries: 12 leads and 164 coworkers. Pronouns are unchanged (80 she/her, 77 he/him, 19 they/them) and all 144 heritages are kept.
-- Every first name is unique, compared with accents stripped. None reuses a current first name, equals a voice id (all 51 in `taxonomy.voices`), or is Dana, Luis, Priya or Morgan. None is a PRODUCT.md story name (Juno, Marcus, Lena, Walt, Pax, Rosa, Kit, Bea, Sol, Otto, Wren, Hale). Look-alike first names were removed, so @mentions and speech recognition stay unambiguous. The second lead rename keeps the uniqueness, voice-id and story-name rules; it deliberately brings back Owen and Sasha (those two leads' own pre-2.0.0 first names) and Frankie (a pre-2.0.0 coworker name, now Sam Treviño).
-- Each handle is the ASCII-folded, lowercased first name (`Joëlle` → `joelle`, `Óskar` → `oskar`), and all handles are unique.
+- Every first name is unique, compared with accents stripped. None reuses a current first name, equals a voice id (all 51 in `taxonomy.voices`), or is Dana, Luis, Priya or Morgan. None is a PRODUCT.md story name (Juno, Marcus, Lena, Walt, Pax, Rosa, Kit, Bea, Sol, Otto, Wren, Hale). Look-alike first names were removed, so @mentions and speech recognition stay unambiguous. The second lead rename keeps the uniqueness, voice-id and story-name rules; it deliberately brings back Tom and Alex (those two leads' own pre-2.0.0 first names) and Jordan (a pre-2.0.0 coworker name, now Casey Hernandez).
+- Each handle is the ASCII-folded, lowercased first name (`Nadia` → `joelle`, `Gunnar` → `oskar`), and all handles are unique.
 - Ages: 32 in 24–29, 46 in 30–34, 42 in 35–39, 30 in 40–44 and 26 in 45–54 (14.8%). Under-30 and 45-plus shares are balanced across the pronoun groups.
 - Look features are spread across pronoun groups. Glasses appear on about a third of each group. Dyed hair, piercings and tattoos are not concentrated on they/them people.
 - Accents are unique within each department and reach at least 3:1 against the dark `--panel` (`#1A1D22`).

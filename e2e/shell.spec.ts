@@ -78,6 +78,7 @@ test.describe('phone width (375 px)', () => {
       ['/app/skills', 'Skills'],
       ['/app/memory', 'Memory'],
       ['/app/handbook', 'Handbook'],
+      ['/app/team', 'Your team'],
       ['/app/admin', 'Admin'],
       ['/app/admin/usage', 'Admin'],
       ['/app/admin/limits', 'Admin'],

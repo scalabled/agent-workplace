@@ -59,7 +59,7 @@ It then scores **complexity** (`complexity.signals`):
 0 to 2 points is **lean**, 3 to 5 is **balanced**, 6 or more is **thorough**. Then two adjustments:
 
 - **The owner's words.** "Quick", "small" or "just" caps the team at lean (a regulated domain still gets its specialist); "thorough" or "bulletproof" makes it thorough.
-- **The lead's style.** Each lead has a default size (`lead_style_overrides`, mirrored from the lead files). When the complexity band is within one band of it, the lead's default wins. So Eddie (lean) turns a balanced job lean, but a thorough job stays thorough.
+- **The lead's style.** Each lead has a default size (`lead_style_overrides`, mirrored from the lead files). When the complexity band is within one band of it, the lead's default wins. So Mike (lean) turns a balanced job lean, but a thorough job stays thorough.
 
 ### 2. Match a recipe
 
@@ -314,7 +314,7 @@ The three examples below run the algorithm on real catalog data. Team members, v
 
 ### Example 1: "Launch a spring promo for my bakery"
 
-**Owner and lead.** A neighborhood bakery (industry `hospitality-restaurants`) with an email list and an Instagram account. The owner chose **Frankie Flores**, the playful creative (default size balanced; always includes a facilitator and a sceptic; voices `ash` and `ara`).
+**Owner and lead.** A neighborhood bakery (industry `hospitality-restaurants`) with an email list and an Instagram account. The owner chose **Jordan Morales**, the playful creative (default size balanced; always includes a facilitator and a sceptic; voices `ash` and `ara`).
 
 **1. Frame and size.** Outcome: a spring menu and offer live on a date the owner picks, with posts, emails and a run sheet. Deliverables: launch plan, costed spring items, announcement emails, social posts, run sheet. Owner decisions: which items and at what price, and the go-live date.
 
@@ -326,7 +326,7 @@ The three examples below run the algorithm on real catalog data. Team members, v
 | Regulated, irreversible, long or data-poor | 0 |
 | **Total** | **5: balanced** |
 
-Frankie's default is balanced too, so the size stays **balanced**.
+Jordan's default is balanced too, so the size stays **balanced**.
 
 **2. Match a recipe.**
 
@@ -337,37 +337,37 @@ Frankie's default is balanced too, so the size stays **balanced**.
 | `ecommerce-growth-sprint` | 0.45 | 0.2 | 1 | 0 | 0 | 0.35 |
 | `restaurant-profit-tuneup` | 0.30 | 0.2 | 1 | 0 | 0 | 0.29 |
 
-`launch-new-offer` clears 0.6. Its hospitality variant fits a new menu exactly: "Ziad costs the new items to the plate, and the run sheet covers a staff tasting, training and a soft-opening night."
+`launch-new-offer` clears 0.6. Its hospitality variant fits a new menu exactly: "George costs the new items to the plate, and the run sheet covers a staff tasting, training and a soft-opening night."
 
-**Adapt.** Balanced means the six-person composition. The hospitality variant swaps in `hospitality-operator` (Ziad) and swaps nobody out, and its extra skill `menu-engineering` becomes one new task, *Cost the spring items to the plate*, owned by Ziad. The lead makes it feed the tier-and-price decision and has Britt review it, because a promo that sells out at a loss is the costliest way to be wrong here. Seven people is above the balanced band (size fit 0.5) but well under the cap of 8, and no swap improves the team score by 0.05, so the team stands. The full variant's motion designer and QA verifier are left out.
+**Adapt.** Balanced means the six-person composition. The hospitality variant swaps in `hospitality-operator` (George) and swaps nobody out, and its extra skill `menu-engineering` becomes one new task, *Cost the spring items to the plate*, owned by George. The lead makes it feed the tier-and-price decision and has Susan review it, because a promo that sells out at a loss is the costliest way to be wrong here. Seven people is above the balanced band (size fit 0.5) but well under the cap of 8, and no swap improves the team score by 0.05, so the team stands. The full variant's motion designer and QA verifier are left out.
 
-**Checks.** Coordinator: Femi (the recipe's). Sceptic: Britt. The go/no-go meeting is a decision, and Nisha has the facilitator role, which also satisfies Frankie's always-included facilitator. Marketing has exactly 3 members, the limit. Leads and principals: Kavya, Nisha, Britt and Ziad; principals are 2 of 7. First-choice providers: OpenAI, Anthropic and xAI, so 3 distinct; nobody moves because no one has an unused provider left in their list.
+**Checks.** Coordinator: Samuel (the recipe's). Sceptic: Susan. The go/no-go meeting is a decision, and Anita has the facilitator role, which also satisfies Jordan's always-included facilitator. Marketing has exactly 3 members, the limit. Leads and principals: Meera, Anita, Susan and George; principals are 2 of 7. First-choice providers: OpenAI, Anthropic and xAI, so 3 distinct; nobody moves because no one has an unused provider left in their list.
 
 **Final team**
 
 | Member | Title | Role | Provider, tier | OpenAI voice | xAI voice |
 |---|---|---|---|---|---|
-| Femi Adebayo | Product marketing manager | coordinator | OpenAI, balanced | `echo` | `rigel` |
-| Kavya Sundar | Brand strategist | co-owner | Anthropic, deep | `marin` | `ursa` |
-| Kemar Grant | Senior copywriter | specialist | xAI, balanced | `verse` | `zagan` |
+| Samuel Adebayo | Product marketing manager | coordinator | OpenAI, balanced | `echo` | `rigel` |
+| Meera Sundar | Brand strategist | co-owner | Anthropic, deep | `marin` | `ursa` |
+| Andre Campbell | Senior copywriter | specialist | xAI, balanced | `verse` | `zagan` |
 | Leilani Akana | Social media manager | specialist | xAI, balanced | `nova` | `carina` |
-| Nisha Tamang | Project manager | co-owner, facilitator | Anthropic, balanced | `coral` (pinned) | `eve` (pinned) |
-| Britt Vandenberg | Sceptic & red-team lead | sceptic | xAI, deep | `sage` | `luna` |
-| Ziad Aoun | Restaurant & hospitality operator | specialist | Anthropic, balanced | `cedar` | `orion` |
+| Anita Gurung | Project manager | co-owner, facilitator | Anthropic, balanced | `coral` (pinned) | `eve` (pinned) |
+| Susan de Jong | Sceptic & red-team lead | sceptic | xAI, deep | `sage` | `luna` |
+| George Khalil | Restaurant & hospitality operator | specialist | Anthropic, balanced | `cedar` | `orion` |
 
-**Voices.** Frankie's `ash` and `ara` are reserved. The recipe pins Nisha to `coral` and `eve` so she doesn't collide with Kavya. Ziad's own first choice, `echo`, is already Femi's, so he takes his alternate `cedar`. Four she/her members fit OpenAI's five feminine voices. On xAI only two characterized feminine voices exist and Frankie holds one of them, so until the audition passes this team plays through OpenAI.
+**Voices.** Jordan's `ash` and `ara` are reserved. The recipe pins Anita to `coral` and `eve` so she doesn't collide with Meera. George's own first choice, `echo`, is already Samuel's, so he takes his alternate `cedar`. Four she/her members fit OpenAI's five feminine voices. On xAI only two characterized feminine voices exist and Jordan holds one of them, so until the audition passes this team plays through OpenAI.
 
-**Plan (7 tasks).** Cost the spring items (Ziad, reviewed by Britt) and sharpen the positioning (Kavya, reviewed by Britt) run first. Then tier the launch and set the price and date (Femi, reviewed by Nisha; owner decision, deep tier). Then the launch emails (Kemar, reviewed by Kavya), posts and short videos (Leilani, reviewed by Kemar), the run sheet with the staff tasting and soft opening (Nisha, reviewed by Femi) and the pre-mortem (Britt, reviewed by Femi). Britt holds 3 tasks, the limit. The owner can listen to the kickoff, the "does the promise survive a sceptic?" critique and the go/no-go.
+**Plan (7 tasks).** Cost the spring items (George, reviewed by Susan) and sharpen the positioning (Meera, reviewed by Susan) run first. Then tier the launch and set the price and date (Samuel, reviewed by Anita; owner decision, deep tier). Then the launch emails (Andre, reviewed by Meera), posts and short videos (Leilani, reviewed by Andre), the run sheet with the staff tasting and soft opening (Anita, reviewed by Samuel) and the pre-mortem (Susan, reviewed by Samuel). Susan holds 3 tasks, the limit. The owner can listen to the kickoff, the "does the promise survive a sceptic?" critique and the go/no-go.
 
-**Budget and approval.** Medium cost against a high cap (Frankie's autonomy is 3), and no regulated domain, so Frankie starts and reports; the first owner decision arrives at the tier-and-price task. Copy never tells a customer a pastry is free of an allergen (`workplace_safety` never-list). If the owner wants an allergen card, that adds the workplace-safety domain: Ziad prepares it and the site's competent person reviews it.
+**Budget and approval.** Medium cost against a high cap (Jordan's autonomy is 3), and no regulated domain, so Jordan starts and reports; the first owner decision arrives at the tier-and-price task. Copy never tells a customer a pastry is free of an allergen (`workplace_safety` never-list). If the owner wants an allergen card, that adds the workplace-safety domain: George prepares it and the site's competent person reviews it.
 
-**What the owner hears (Frankie):**
+**What the owner hears (Jordan):**
 
-> I've put Femi in charge of your spring promo, with Ziad costing the new pastries to the plate, Kavya on the one-line promise, Kemar on the emails, Leilani on the posts and Nisha on the run sheet, and Britt as our sceptic on the promise and the plate costs, because a promo that sells out at a loss is the expensive mistake here; I've skipped video and a separate QA pass to keep it tight.
+> I've put Samuel in charge of your spring promo, with George costing the new pastries to the plate, Meera on the one-line promise, Andre on the emails, Leilani on the posts and Anita on the run sheet, and Susan as our sceptic on the promise and the plate costs, because a promo that sells out at a loss is the expensive mistake here; I've skipped video and a separate QA pass to keep it tight.
 
 ### Example 2: "Close the books for Q3"
 
-**Owner and lead.** A six-person design studio (`professional-services`) with its accounting system connected; its fiscal year is the calendar year, so Q3 is July to September. The owner chose **Eddie Ramos**, the calm, steady operator (default size lean; always includes a reviewer and a sceptic; voices `echo` and `leo`).
+**Owner and lead.** A six-person design studio (`professional-services`) with its accounting system connected; its fiscal year is the calendar year, so Q3 is July to September. The owner chose **Mike Santos**, the calm, steady operator (default size lean; always includes a reviewer and a sceptic; voices `echo` and `leo`).
 
 **1. Frame and size.** Outcome: Q3 closed, reconciled and summarised on one page. Deliverables: close checklist, reconciliations with exceptions, a one-page quarter pack. The close carries `tax_accounting` (from the `month-end-close` skill).
 
@@ -378,7 +378,7 @@ Frankie's default is balanced too, so the size stays **balanced**.
 | Internal only, one owner decision, three days, data available | 0 |
 | **Total** | **3: balanced** |
 
-Eddie's default, lean, is one band away, so the size becomes **lean**.
+Mike's default, lean, is one band away, so the size becomes **lean**.
 
 **2. Match a recipe.**
 
@@ -390,32 +390,32 @@ Eddie's default, lean, is one band away, so the size becomes **lean**.
 
 Both required inputs are known: the period comes from the request and the accounting system is connected. There is no professional-services variant, and the base recipe is industry-neutral. The lead runs the recipe's checklist for each month of the quarter and makes the pack cover the quarter.
 
-**Adapt.** The lean variant is Jonas (controller) and Trisha (bookkeeper). Eddie always adds a reviewer and a sceptic, and a third member fits the lean band, so the recipe's sceptic Madina (controls specialist) joins. At three people a sceptic is required anyway. Andrés (analytics storyteller) is not on the lean team, so his work is re-homed through `gap_filling`. Nobody on the team lists `data-story` or `executive-summary`, and a department generalist or core crew would make four, over the lean cap. So Jonas owns the one-page pack (it summarises his own variance review) and Andrés reviews it through a single bounded `ask_coworker` call, which also restores a reviewer from outside finance. The variance review, which Andrés would have reviewed, goes to Madina.
+**Adapt.** The lean variant is Stefan (controller) and Trisha (bookkeeper). Mike always adds a reviewer and a sceptic, and a third member fits the lean band, so the recipe's sceptic Dina (controls specialist) joins. At three people a sceptic is required anyway. Carlos (analytics storyteller) is not on the lean team, so his work is re-homed through `gap_filling`. Nobody on the team lists `data-story` or `executive-summary`, and a department generalist or core crew would make four, over the lean cap. So Stefan owns the one-page pack (it summarises his own variance review) and Carlos reviews it through a single bounded `ask_coworker` call, which also restores a reviewer from outside finance. The variance review, which Carlos would have reviewed, goes to Dina.
 
-**Checks.** Coordinator: Jonas. Sceptic: Madina, senior; the finance discipline map lists `controls-specialist`. All three are from finance, which is the limit of 3. The validator warns that Madina reviewing Jonas's close checklist keeps the review in one discipline. The recipe accepts that on purpose, because she speaks for a future auditor or lender. Principal: Jonas. Providers: Jonas and Madina both prefer Anthropic, and Madina (senior, below Jonas's principal) has xAI unused later in her list, so she moves there. The team runs on three providers, with Madina on the deep tier as the sceptic.
+**Checks.** Coordinator: Stefan. Sceptic: Dina, senior; the finance discipline map lists `controls-specialist`. All three are from finance, which is the limit of 3. The validator warns that Dina reviewing Stefan's close checklist keeps the review in one discipline. The recipe accepts that on purpose, because she speaks for a future auditor or lender. Principal: Stefan. Providers: Stefan and Dina both prefer Anthropic, and Dina (senior, below Stefan's principal) has xAI unused later in her list, so she moves there. The team runs on three providers, with Dina on the deep tier as the sceptic.
 
 **Final team**
 
 | Member | Title | Role | Provider, tier | OpenAI voice | xAI voice (before the audition) |
 |---|---|---|---|---|---|
-| Jonas Brandt | Controller | coordinator | Anthropic, deep | `cedar` | `kepler` (`rex`) |
+| Stefan Braun | Controller | coordinator | Anthropic, deep | `cedar` | `kepler` (`rex`) |
 | Trisha Mendoza | Bookkeeper | co-owner | OpenAI, balanced | `marin` | `ara` (`eve`) |
-| Madina Sarsenova | Internal controls & audit-readiness specialist | sceptic | xAI (moved from Anthropic), deep | `sage` | `ursa` (`ara`) |
-| *Andrés Salas* | *Analytics storyteller* | *consulted through `ask_coworker`, not on the team* | | | |
+| Dina Akhmetova | Internal controls & audit-readiness specialist | sceptic | xAI (moved from Anthropic), deep | `sage` | `ursa` (`ara`) |
+| *Carlos Salas* | *Analytics storyteller* | *consulted through `ask_coworker`, not on the team* | | | |
 
-**Voices.** Eddie's `echo` and `leo` are reserved, so Jonas takes his alternate `cedar` on OpenAI. Before the audition, xAI uses characterized voices only: Madina's only characterized option is `ara`, so the backtracking match moves Trisha to her next one, `eve`, and Jonas takes `rex`. This small team is unique on both providers even before the audition.
+**Voices.** Mike's `echo` and `leo` are reserved, so Stefan takes his alternate `cedar` on OpenAI. Before the audition, xAI uses characterized voices only: Dina's only characterized option is `ara`, so the backtracking match moves Trisha to her next one, `eve`, and Stefan takes `rex`. This small team is unique on both providers even before the audition.
 
-**Plan (7 tasks).** Categorize the quarter's transactions (Trisha, reviewed by Jonas), then reconcile bank, card and payout accounts (Trisha, reviewed by Madina), then the close checklist and proposed adjustments (Jonas, reviewed by Madina). Three tasks then run in parallel, the concurrency limit: the controls spot-check (Madina), the variance review (Jonas, reviewed by Madina) and the **licensed review of adjusting and tax-sensitive entries** (a human task: Jonas prepares it and the owner arranges it with their accountant). Last comes the one-page quarter pack (Jonas, reviewed by Andrés). The owner can listen to the kickoff, the exceptions critique and a two-minute briefing on the quarter.
+**Plan (7 tasks).** Categorize the quarter's transactions (Trisha, reviewed by Stefan), then reconcile bank, card and payout accounts (Trisha, reviewed by Dina), then the close checklist and proposed adjustments (Stefan, reviewed by Dina). Three tasks then run in parallel, the concurrency limit: the controls spot-check (Dina), the variance review (Stefan, reviewed by Dina) and the **licensed review of adjusting and tax-sensitive entries** (a human task: Stefan prepares it and the owner arranges it with their accountant). Last comes the one-page quarter pack (Stefan, reviewed by Carlos). The owner can listen to the kickoff, the exceptions critique and a two-minute briefing on the quarter.
 
-**Budget and approval.** Medium cost is within the cap for Eddie's autonomy of 3, but the plan touches a regulated domain, so Eddie asks before starting. If the owner has no accountant, an internal close is on the informed-owner-decision list: after a one-paragraph risk summary the owner may record "proceed without professional review", and the pack keeps its DRAFT label. If the Q3 figures feed a quarterly sales-tax or VAT return or an estimated tax payment, review is mandatory.
+**Budget and approval.** Medium cost is within the cap for Mike's autonomy of 3, but the plan touches a regulated domain, so Mike asks before starting. If the owner has no accountant, an internal close is on the informed-owner-decision list: after a one-paragraph risk summary the owner may record "proceed without professional review", and the pack keeps its DRAFT label. If the Q3 figures feed a quarterly sales-tax or VAT return or an estimated tax payment, review is mandatory.
 
-**What the owner hears (Eddie):**
+**What the owner hears (Mike):**
 
-> It's a quarter-end close, so I'm keeping it lean: Jonas runs the close, Trisha categorizes and reconciles every account, and Madina is our sceptic on the reconciliations and adjusting entries, because a number that doesn't tie is exactly what your accountant or a lender would catch; Andrés checks the one-page summary without joining, and your accountant reviews the adjusting entries before anything is filed.
+> It's a quarter-end close, so I'm keeping it lean: Stefan runs the close, Trisha categorizes and reconciles every account, and Dina is our sceptic on the reconciliations and adjusting entries, because a number that doesn't tie is exactly what your accountant or a lender would catch; Carlos checks the one-page summary without joining, and your accountant reviews the adjusting entries before anything is filed.
 
 ### Example 3: "Prepare for a Series A"
 
-**Owner and lead.** A B2B SaaS startup (`saas-startup`) with billing and accounting connected. The owner chose **Anna Kask**, the data-driven analyst (default size thorough; always includes a reviewer and a sceptic; voices `shimmer` for realtime, `marin` for gpt-live-1 and playback, and `ara`).
+**Owner and lead.** A B2B SaaS startup (`saas-startup`) with billing and accounting connected. The owner chose **Emma Tamm**, the data-driven analyst (default size thorough; always includes a reviewer and a sceptic; voices `shimmer` for realtime, `marin` for gpt-live-1 and playback, and `ara`).
 
 **1. Frame and size.** Outcome: an investor-ready pack for the raise. Deliverables: pitch deck, three-statement model, SaaS metrics, data-room index. Owner decisions: the raise amount and use of funds, and when to hand the pack to advisers. Regulated: `investment_financial_advice` and `legal` (securities material).
 
@@ -428,7 +428,7 @@ Both required inputs are known: the period comes from the request and the accoun
 | About ten calendar days | 1 |
 | **Total** | **10: thorough** |
 
-Anna's default is thorough as well.
+Emma's default is thorough as well.
 
 **2. Match a recipe.**
 
@@ -440,32 +440,32 @@ Anna's default is thorough as well.
 
 Financials and traction are known from the connectors; the raise goal is not.
 
-**Adapt.** Thorough means the full variant: the seven-person composition plus Aino (fact-checker). The SaaS variant swaps in Dev (SaaS & startup operator), which makes nine, over the cap of 8. Full-variant extras go first, so Aino drops. Anna still wants every figure verified, so Aino checks the deck's numbers through `ask_coworker` before the licensed review. The variant's extra skill, `saas-metrics-pack`, would add a ninth task to an eight-task plan, over `limits.max_plan_tasks`. The lead folds it into the model task instead, with Dev as co-owner, which is what the variant describes: "Dev makes the SaaS metrics consistent with the model." (`formation.json` does not yet say how to resolve this; see the open issues below.)
+**Adapt.** Thorough means the full variant: the seven-person composition plus Laura (fact-checker). The SaaS variant swaps in Neil (SaaS & startup operator), which makes nine, over the cap of 8. Full-variant extras go first, so Laura drops. Emma still wants every figure verified, so Laura checks the deck's numbers through `ask_coworker` before the licensed review. The variant's extra skill, `saas-metrics-pack`, would add a ninth task to an eight-task plan, over `limits.max_plan_tasks`. The lead folds it into the model task instead, with Neil as co-owner, which is what the variant describes: "Neil makes the SaaS metrics consistent with the model." (`formation.json` does not yet say how to resolve this; see the open issues below.)
 
-**Checks.** Coordinator: Esi (fractional CFO). Sceptic: Britt, principal, placed on the investment narrative. Regulated coverage: Esi, Théo, Gethin and Dev all satisfy `investment_financial_advice`, and Imogen satisfies `legal`. The recipe's meetings include a workshop and a decision, but no member other than the sceptic has the facilitator role. On the recipe path the curated team stands, the coordinator chairs, and the team is at 8 in any case (see the open issues). Chemistry: two productive-tension pairs, the maximum, both with Gethin: Théo, whose data room Gethin reviews, and Esteban, whose market size feeds Gethin's narrative. Principals are 3 of 8. First-choice providers: Anthropic ×5, OpenAI ×2 and xAI ×1, so 3 distinct; no moves.
+**Checks.** Coordinator: Diana (fractional CFO). Sceptic: Susan, principal, placed on the investment narrative. Regulated coverage: Diana, Hugo, Rhys and Neil all satisfy `investment_financial_advice`, and Jane satisfies `legal`. The recipe's meetings include a workshop and a decision, but no member other than the sceptic has the facilitator role. On the recipe path the curated team stands, the coordinator chairs, and the team is at 8 in any case (see the open issues). Chemistry: two productive-tension pairs, the maximum, both with Rhys: Hugo, whose data room Rhys reviews, and Mateo, whose market size feeds Rhys's narrative. Principals are 3 of 8. First-choice providers: Anthropic ×5, OpenAI ×2 and xAI ×1, so 3 distinct; no moves.
 
 **Final team**
 
 | Member | Title | Role | Provider, tier | OpenAI voice | xAI voice |
 |---|---|---|---|---|---|
-| Esi Mensah | Fractional CFO | coordinator | Anthropic, deep | `sage` | `celeste` |
-| Gethin Powell | Board & investor communications advisor | co-owner | Anthropic, balanced | `ballad` | `perseus` |
-| Théo Garnier | Startup finance & cap table analyst | co-owner | Anthropic, balanced | `verse` | `rigel` |
-| Filip Babić | Presentation designer | specialist | Anthropic, balanced | `echo` | `leo` (pinned) |
-| Esteban Cevallos | Market research analyst | specialist | OpenAI, balanced | `cedar` (pinned) | `castor` (pinned) |
-| Britt Vandenberg | Sceptic & red-team lead | sceptic | xAI, deep | `coral` (fallback) | `luna` |
-| Imogen Ashby | Contracts analyst | reviewer, licensed-review prep | Anthropic, deep | `nova` (fallback) | `carina` |
-| Dev Shah | SaaS & startup operator | co-owner (added by the SaaS variant) | OpenAI, balanced | `ash` | `rex` |
+| Diana Mensah | Fractional CFO | coordinator | Anthropic, deep | `sage` | `celeste` |
+| Rhys Powell | Board & investor communications advisor | co-owner | Anthropic, balanced | `ballad` | `perseus` |
+| Hugo Martin | Startup finance & cap table analyst | co-owner | Anthropic, balanced | `verse` | `rigel` |
+| Ivan Horvat | Presentation designer | specialist | Anthropic, balanced | `echo` | `leo` (pinned) |
+| Mateo Cevallos | Market research analyst | specialist | OpenAI, balanced | `cedar` (pinned) | `castor` (pinned) |
+| Susan de Jong | Sceptic & red-team lead | sceptic | xAI, deep | `coral` (fallback) | `luna` |
+| Jane Ashby | Contracts analyst | reviewer, licensed-review prep | Anthropic, deep | `nova` (fallback) | `carina` |
+| Neil Patel | SaaS & startup operator | co-owner (added by the SaaS variant) | OpenAI, balanced | `ash` | `rex` |
 
-**Voices: the interesting case.** Anna holds two OpenAI voices, `shimmer` and `marin`. Esi, Britt and Imogen each list only `shimmer`, `sage` and `marin`, and the recipe pins Imogen to `marin`, which is Anna's own voice. The lead's reservation wins over the pin, because the lead is the one voice the owner must always recognise. That leaves only `sage` for three people, so no match exists. The fallback stage adds cross-surface fallbacks (`marin` to `coral`) and then the free feminine voices: Esi keeps `sage`, Britt gets `coral` and Imogen gets `nova`. OpenAI has five feminine voices, and with Anna holding two, exactly three remain for three she/her members. On xAI, with only `eve` left among the characterized feminine voices, the team plays through OpenAI until the audition passes.
+**Voices: the interesting case.** Emma holds two OpenAI voices, `shimmer` and `marin`. Diana, Susan and Jane each list only `shimmer`, `sage` and `marin`, and the recipe pins Jane to `marin`, which is Emma's own voice. The lead's reservation wins over the pin, because the lead is the one voice the owner must always recognise. That leaves only `sage` for three people, so no match exists. The fallback stage adds cross-surface fallbacks (`marin` to `coral`) and then the free feminine voices: Diana keeps `sage`, Susan gets `coral` and Jane gets `nova`. OpenAI has five feminine voices, and with Emma holding two, exactly three remain for three she/her members. On xAI, with only `eve` left among the characterized feminine voices, the team plays through OpenAI until the audition passes.
 
-**Plan (8 tasks).** In parallel: the three-statement model with the SaaS metrics pack (Esi, co-owned by Dev, reviewed by Théo), sizing the market (Esteban, reviewed by Esi) and ownership scenarios (Théo, reviewed by Esi). Then the investment narrative (Gethin, reviewed by Britt) and the pitch deck (Filip, reviewed by Gethin), with the data-room index alongside (Théo, reviewed by Gethin and Imogen). Then the diligence drill, a mock investor meeting (Britt, reviewed by Esi). Last, the **licensed review before any investor sees it** (a human task that Imogen prepares; owner decision, deep tier). The owner hears the kickoff interview, the mock investor meeting and the "ready for your advisers" decision.
+**Plan (8 tasks).** In parallel: the three-statement model with the SaaS metrics pack (Diana, co-owned by Neil, reviewed by Hugo), sizing the market (Mateo, reviewed by Diana) and ownership scenarios (Hugo, reviewed by Diana). Then the investment narrative (Rhys, reviewed by Susan) and the pitch deck (Ivan, reviewed by Rhys), with the data-room index alongside (Hugo, reviewed by Rhys and Jane). Then the diligence drill, a mock investor meeting (Susan, reviewed by Diana). Last, the **licensed review before any investor sees it** (a human task that Jane prepares; owner decision, deep tier). The owner hears the kickoff interview, the mock investor meeting and the "ready for your advisers" decision.
 
-**Budget and approval.** High cost is within the cap for Anna's autonomy of 3, but the plan is regulated, so Anna asks before starting. Informed owner decision is not available: investor and securities material always needs a securities lawyer and a licensed adviser. The team models the owner's own scenarios and never recommends a valuation, instrument or deal term.
+**Budget and approval.** High cost is within the cap for Emma's autonomy of 3, but the plan is regulated, so Emma asks before starting. Informed owner decision is not available: investor and securities material always needs a securities lawyer and a licensed adviser. The team models the owner's own scenarios and never recommends a valuation, instrument or deal term.
 
-**What the owner hears (Anna):**
+**What the owner hears (Emma):**
 
-> Because this is investor material, Esi leads, with Dev making your SaaS metrics match the model, Gethin on the story, Théo on the cap table and data room, Esteban on market size, Filip on the deck and Imogen keeping the wording clear of anything that reads as a securities promise, and Britt is our sceptic, playing the toughest investor in the room on the narrative, because an unsupported number is what sinks diligence; Aino checks every figure from outside the team to keep it at eight, and nothing reaches an investor until your securities lawyer and a licensed adviser have reviewed it.
+> Because this is investor material, Diana leads, with Neil making your SaaS metrics match the model, Rhys on the story, Hugo on the cap table and data room, Mateo on market size, Ivan on the deck and Jane keeping the wording clear of anything that reads as a securities promise, and Susan is our sceptic, playing the toughest investor in the room on the narrative, because an unsupported number is what sinks diligence; Laura checks every figure from outside the team to keep it at eight, and nothing reaches an investor until your securities lawyer and a licensed adviser have reviewed it.
 
 ---
 
@@ -476,7 +476,7 @@ These are gaps between the rules and the data. None of them fails validation tod
 1. **Recipes without a facilitator.** 16 of the 34 recipes whose meetings include a debate, decision or workshop have no non-sceptic member with the facilitator role: `positioning-sprint`, `seo-growth-sprint`, `paid-ads-launch`, `email-lifecycle-program`, `website-conversion-overhaul`, `social-kickstart`, `outbound-pipeline`, `win-a-deal`, `partner-program`, `pricing-refresh`, `investor-pitch-pack`, `market-entry-study`, `ecommerce-growth-sprint`, `product-roadmap-reset`, `ai-adoption-plan` and `margin-rescue`. On the recipe path step 5 is skipped, so the coordinator chairs. Either `formation.json` should say so explicitly, or these recipes should gain a facilitator-capable member (or a validator check).
 2. **Adaptation can exceed the task limit.** An extra skill becomes a new task, which can push a plan past `limits.max_plan_tasks` (Example 3). Proposed rule: fold the extra skill into the closest existing task, with the swapped-in specialist as co-owner.
 3. **The lead's voice against a recipe pin.** `reserve_lead_voice` and `voice_override` don't state which wins. The examples treat the lead's reservation as stronger (Example 3). Proposed: say so in `voice_assignment`.
-4. **Variant prose that disagrees with its swap lists.** Nine industry variants say a member "steps out" while `swap_out` is empty, so the runtime (which reads the lists) keeps that member: `content-engine`/saas-startup (Leilani), `sales-playbook`/manufacturing and /real-estate (Leonor), `win-a-deal`/construction-trades and /real-estate (Leonor, who is not in that recipe), `investor-pitch-pack`/hospitality-restaurants (Esteban), `fundraising-campaign`/general (Ishaan), `pr-push`/healthcare-practice (Ishaan) and `ecommerce-growth-sprint`/ecommerce-retail (Finlay). Each needs either `swap_out` plus a `reassign` for the member's tasks, or corrected prose.
+4. **Variant prose that disagrees with its swap lists.** Nine industry variants say a member "steps out" while `swap_out` is empty, so the runtime (which reads the lists) keeps that member: `content-engine`/saas-startup (Leilani), `sales-playbook`/manufacturing and /real-estate (Rita), `win-a-deal`/construction-trades and /real-estate (Rita, who is not in that recipe), `investor-pitch-pack`/hospitality-restaurants (Mateo), `fundraising-campaign`/general (Rahul), `pr-push`/healthcare-practice (Rahul) and `ecommerce-growth-sprint`/ecommerce-retail (Callum). Each needs either `swap_out` plus a `reassign` for the member's tasks, or corrected prose.
 5. **Lean variants and orphaned tasks.** A lean variant usually drops members who own tasks in `plan_skeleton` (Example 2). `rehome` through `gap_filling` handles it, but `formation.json` doesn't spell this out.
 6. **xAI capacity before the audition.** With only two characterized feminine voices on xAI, any team with three or more she/her members, or two plus a lead holding `ara` or `eve`, must play through OpenAI until `voices.audition_gate` passes. An owner with only xAI enabled gets split meetings.
 7. **Duplicated lead style.** `lead_style_overrides` copies each lead file's `staffing_style`. The validator flags drift, but formation should read the lead files directly.

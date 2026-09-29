@@ -50,7 +50,8 @@ export function playSample(opts: { speakerId: string; text: string; voiceRef: Vo
   current?.();
   let cancel: () => void;
   let chunks: AsyncIterable<SpeechChunk>;
-  if (opts.sample?.chunks.length) {
+  // A pre-voiced sample plays only if it says exactly this text (a renamed cast makes old recordings wrong).
+  if (opts.sample?.chunks.length && opts.sample.text === opts.text) {
     const ac = new AbortController();
     chunks = staticChunks(opts.sample, ac.signal);
     cancel = () => ac.abort();

@@ -85,3 +85,63 @@ describe('the Chief of Staff works with the team', () => {
     expect(reply?.text).toMatch(/No one on the team matches “Zebulon”|Zebulon/);
   });
 });
+
+describe('your team', () => {
+  it('starts with everyday roles, each with a first job; the Chief knows who is on it', async () => {
+    const s = await setup();
+    const team = (await s.api('GET', '/api/team')).body as import('@headcount/protocol/ext/team').TeamResponse;
+    expect(team.members.map((m) => m.personaId)).toEqual(['knowledge-librarian', 'bookkeeper', 'social-media-manager', 'senior-copywriter', 'head-of-support', 'operations-director', 'account-executive', 'market-research-analyst']);
+    expect(team.members[0]!.firstTask.kind).toBe('second-brain');
+    expect(team.secondBrain).toMatchObject({ on: true, steward: 'knowledge-librarian' });
+    expect(team.secondBrain.nextAt).toBeTruthy(); // the weekly tidy is scheduled
+    const prompt = (await s.api('GET', '/api/chief/prompt')).body as { text: string };
+    expect(prompt.text).toContain("## THE OWNER'S TEAM");
+    expect(prompt.text).toContain(`${fullIndex.persona('bookkeeper')!.name}, Bookkeeper (/app/desk/bookkeeper/profile)`);
+  });
+
+  it('first jobs start as research or a proposed project, and are remembered as started', async () => {
+    const s = await setup();
+    const job = await s.api('POST', '/api/team/bookkeeper/start');
+    expect(job.status).toBe(202);
+    expect(job.body).toMatchObject({ personaId: 'bookkeeper', kind: 'research' });
+    expect(job.body.jobId).toMatch(/^job_/);
+    const proj = await s.api('POST', '/api/team/social-media-manager/start');
+    expect(proj.body).toMatchObject({ kind: 'project' });
+    expect(proj.body.say).toContain('in your Inbox for your OK');
+    const team = (await s.api('GET', '/api/team')).body;
+    expect(team.members.find((m: { personaId: string }) => m.personaId === 'bookkeeper').started.jobId).toBe(job.body.jobId);
+    expect((await s.api('POST', '/api/team/tech-lead/start')).status).toBe(404); // not on the team
+  });
+
+  it('the second brain: duplicates merged, a report, one quiet line in Talk; weekly by alarm; can be turned off', async () => {
+    const s = await setup();
+    await s.api('POST', '/api/memory', { text: 'We close early on Sundays at 2pm.', kind: 'rule' });
+    // A duplicate that slipped in (an older version kept both).
+    s.t.namespaces.WORKSPACE.state('ws:local').storage.sql.exec(
+      "INSERT INTO memories (memory_id, text, kind, scope, source, pinned, created_at, updated_at) VALUES ('mem_00000000000000aa', 'we close early on sundays at 2pm', 'rule', 'workspace', 'talk', 0, '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')",
+    );
+    const r = await s.api('POST', '/api/team/knowledge-librarian/start');
+    expect(r.body.kind).toBe('second-brain');
+    expect(r.body.report).toMatchObject({ by: 'knowledge-librarian', merged: 1, checked: 1 });
+    const kept = ((await s.api('GET', '/api/memory')).body.memories as { text: string; source: string }[]).filter((m) => /sundays/i.test(m.text));
+    expect(kept).toEqual([expect.objectContaining({ text: 'We close early on Sundays at 2pm.', source: 'owner' })]);
+    const note = (await s.frames()).filter((f) => f.type === 'talk.message' && f.data.kind === 'note').at(-1)!;
+    expect((note.data as { text: string }).text).toMatch(/tidied the company's second brain: merged 1 duplicate\. \[See it in Memory\]\(\/app\/memory\?at=second-brain\)$/);
+    // Applying a Handbook suggestion adds it to the section.
+    await s.api('POST', '/api/team/second-brain/handbook', { section: 'rules', suggestion: '- We close at 2pm on Sundays.' });
+    expect(((await s.api('GET', '/api/handbook')).body.sections as { id: string; content: string }[]).find((x) => x.id === 'rules')!.content).toContain('We close at 2pm on Sundays.');
+    // Off: the alarm does nothing.
+    expect(((await s.api('PUT', '/api/team/second-brain', { on: false })).body as { secondBrain: { on: boolean } }).secondBrain.on).toBe(false);
+    const before = (await s.frames()).length;
+    await s.ws.alarm();
+    expect((await s.frames()).length).toBe(before);
+  });
+
+  it('the owner chooses who is on the team', async () => {
+    const s = await setup();
+    const r = (await s.api('PUT', '/api/team', { members: ['bookkeeper', 'tech-lead'] })).body;
+    expect(r.members.map((m: { personaId: string }) => m.personaId)).toEqual(['bookkeeper', 'tech-lead']);
+    expect(r.members[1].firstTask.title).toBe(`${fullIndex.persona('tech-lead')!.name.split(' ')[0]}'s first week`);
+    expect((await s.api('PUT', '/api/team', { members: ['nobody-at-all'] })).status).toBe(400);
+  });
+});

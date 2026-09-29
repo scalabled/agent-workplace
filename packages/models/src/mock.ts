@@ -268,7 +268,8 @@ export function planMockTurn(req: ChatRequest): { kind: 'text'; text: string } |
 
   const tools = req.toolChoice === 'none' ? [] : (req.tools ?? []);
   const last = req.messages[req.messages.length - 1];
-  if (last?.role === 'user' && !tools.length && /!invent\b/.test(userText)) return { kind: 'text', text: MOCK_INVENTED_REPLY };
+  // `!invent` (tests): a reply that states a figure nobody gave, with or without tools on offer (never with `!tool`).
+  if (last?.role === 'user' && /!invent\b/.test(userText) && !/!tool\b/.test(userText)) return { kind: 'text', text: MOCK_INVENTED_REPLY };
   if (last?.role === 'tool') {
     // After tool results: speak about them.
     const calls = new Map(since.flatMap((m) => (m.role === 'assistant' ? (m.toolCalls ?? []).map((c) => [c.id, c] as const) : [])));

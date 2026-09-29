@@ -38,6 +38,8 @@ import type { ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, M
 import type { CanvasCreate, CanvasListResponse, CanvasResponse } from '@headcount/protocol/ext/canvas';
 import type { ConfigResponse, MemberPut, MembersResponse, ModelPrice, UsageResponse } from '@headcount/protocol/ext/admin';
 import type { DocRef, ThreadResponse, ThreadStart, ThreadsResponse } from '@headcount/protocol/ext/threads';
+import type { TeamResponse, TeamStartResponse } from '@headcount/protocol/ext/team';
+import type { HandbookSectionId as SectionId } from '@headcount/protocol/ext/memory';
 import type { CardResponse, CardsResponse, HandbookResponse, HandbookSectionId, MemoryCreate, MemoryItem, MemoryKind, MemoryListResponse, MemoryPatch } from '@headcount/protocol/ext/memory';
 import type { AutomationPatch, AutomationResponse, AutomationsResponse } from '@headcount/protocol/ext/automations';
 import type { ConnectorCreate, ConnectorPatch, ConnectorResponse, ConnectorsResponse } from '@headcount/protocol/ext/connectors';
@@ -111,6 +113,12 @@ export const api = {
     if (!res.ok) throw new ApiError(res.status, 'not_found', 'The source could not be read.', []);
     return res.text();
   },
+  // Your team.
+  getTeam: () => request<TeamResponse>(routePath('getTeam')),
+  putTeam: (members: string[]) => request<TeamResponse>(routePath('putTeam'), jsonInit('PUT', { members })),
+  startTeamTask: (personaId: string) => request<TeamStartResponse>(routePath('startTeamTask', { personaId }), { method: 'POST' }),
+  putSecondBrain: (on: boolean) => request<TeamResponse>(routePath('putSecondBrain'), jsonInit('PUT', { on })),
+  applyHandbookSuggestion: (section: SectionId, suggestion: string) => request<TeamResponse>(routePath('applyHandbookSuggestion'), jsonInit('POST', { section, suggestion })),
   // Side chats in documents.
   listThreads: (doc: DocRef) => request<ThreadsResponse>(`${routePath('listThreads')}?doc=${encodeURIComponent(doc)}`),
   startThread: (t: ThreadStart) => request<ThreadResponse>(routePath('startThread'), jsonInit('POST', t)),

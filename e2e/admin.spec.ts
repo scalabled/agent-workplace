@@ -14,7 +14,7 @@ test('settings: a daily limit changed on the admin page, then reset', async ({ p
   await expect(page).toHaveURL(/\/app\/admin\/limits$/);
   const row = page.locator('#setting-JOB_DAILY_LIMIT');
   await expect(row.locator('.admin-option-source')).toHaveText('Default');
-  await row.getByLabel('New background jobs').fill('75');
+  await row.getByLabel('New background jobs', { exact: true }).fill('75');
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(row.locator('.admin-option-source')).toContainText('Changed here');
   // The link to a section opens it directly.

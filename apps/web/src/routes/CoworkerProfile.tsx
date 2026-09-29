@@ -13,10 +13,11 @@ import { Face, personaSubject } from '../components/Face';
 import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
 import { SideThread } from '../components/SideThread';
+import { isOwner } from '../auth/session';
 import { ContextFiles } from '../memory/ContextFiles';
 import { PageTitle } from '../links/CopyLink';
 import { useSampleSpeaker, VoiceSample } from '../components/VoiceSample';
-import { navigate, paths, linkTarget, queryParam, setQuery } from '../router';
+import { navigate, paths, linkTarget, queryParam, setQuery, linkTo } from '../router';
 import { localPresence, onboarded } from '../store';
 import { prefillComposer } from '../talk/draft';
 import './floor.css';
@@ -97,6 +98,7 @@ function Profile({ persona: p }: { persona: PersonaSlim }) {
               </button>
             )}
             <VoiceSample speaker={speaker} text={p.intro_line} name={first} />
+            {onboarded.value && <TeamToggle personaId={p.id} first={first} />}
           </div>
         </div>
       </header>
@@ -118,6 +120,33 @@ function Profile({ persona: p }: { persona: PersonaSlim }) {
       {tab !== 'about' && <AgentPanel personaId={p.id} tab={tab} first={first} />}
       {tab === 'about' && <About persona={p} primary={primary} secondary={secondary} first={first} />}
     </article>
+  );
+}
+
+/** On your team or not: owners add the coworkers they work with most (they stay in the directory either way). */
+function TeamToggle({ personaId, first }: { personaId: string; first: string }) {
+  const [members, setMembers] = useState<string[] | null>(null);
+  useEffect(() => {
+    api
+      .getTeam()
+      .then((t) => setMembers(t.members.map((m) => m.personaId)))
+      .catch(() => undefined);
+  }, [personaId]);
+  if (!members) return null;
+  const on = members.includes(personaId);
+  if (!isOwner.value) return on ? <Link href={linkTo(paths.team, personaId)} class="connector-tag">On your team</Link> : null;
+  return (
+    <button
+      type="button"
+      class="button-quiet"
+      aria-pressed={on}
+      onClick={async () => {
+        const t = await api.putTeam(on ? members.filter((id) => id !== personaId) : [...members, personaId]);
+        setMembers(t.members.map((m) => m.personaId));
+      }}
+    >
+      <Icon name={on ? 'check' : 'plus'} size={16} /> {on ? `${first} is on your team` : 'Add to your team'}
+    </button>
   );
 }
 

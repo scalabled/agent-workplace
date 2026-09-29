@@ -117,6 +117,9 @@ export function Floor() {
       />
       <VoiceElsewhere />
       <AmbienceControl office={view === 'office'} />
+      <Link href={paths.team} class="button-quiet button-small floor-team-link">
+        <Icon name="floor" size={14} /> Your team
+      </Link>
     </div>
   );
 

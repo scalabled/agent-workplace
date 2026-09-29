@@ -10,6 +10,7 @@ import { FileReadError, readFile } from './files';
 import { Handbook } from './handbook';
 import { chunk } from './recall';
 import { MemoryStore } from './store';
+import { tidySecondBrain } from './tidy';
 import { logError, models } from '../workspace/runtime';
 
 export interface KnowledgePorts {
@@ -103,6 +104,12 @@ export class Knowledge {
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  /** The weekly tidy of the second brain (the model part only within the daily cap). */
+  tidy(signal: AbortSignal): ReturnType<typeof tidySecondBrain> {
+    const m = this.fast();
+    return tidySecondBrain(this.memory, this.handbook, m && this.p.take() ? m : null, signal);
   }
 
   remember(text: string, kind: MemoryKind, source: MemorySource, sourceLabel?: string): MemoryItem {

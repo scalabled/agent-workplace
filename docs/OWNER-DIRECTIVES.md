@@ -88,3 +88,20 @@ Agents should feel like real people who multitask, not request/response bots. Pr
 ## D4. Deliver an MVP early and iterate
 
 - Build a runnable MVP quickly and show it early. Then integrate the remaining features in small, demoable increments, each one runnable and reviewed with the owner.
+
+## D6. Link-first, helpful, governed and plain (added 2026-09-29)
+
+- **Link-first.** Everything is linkable: every screen, chat message, agent, project item, setting and document
+  location. People expect to copy a link from anywhere, to share it with other people or with agents. Inside
+  documents, you can work at a specific spot and open a side chat with the agent about it.
+  (docs/dev/LINKS.md)
+- **Helpful first.** Agents avoid rejections and prefer to correct themselves. They have tools to talk to each other
+  and to transfer a request to the right place. (docs/dev/TEAMWORK.md)
+- **Token usage metrics** are always on, so performance can be monitored and improved. (docs/dev/ADMIN.md)
+- **An admin interface** holds every configuration option.
+- **Three roles:** owner, contributor and reader. (docs/dev/ADMIN.md)
+- **Common, easy people.** The default names and personalities were too complex for normal users. Every Chief of
+  Staff and coworker now has a common name and a plain title, with detailed prompts for truly productive work. The
+  portraits are kept. (docs/dev/TEAM.md)
+- **Meet your team.** There is a way to meet the team. Each agent starts with a first job, or with keeping the
+  company's second brain tidy. Overall the product should be easy to use and friendly, in plain, human-level language.

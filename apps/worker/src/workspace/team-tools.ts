@@ -7,6 +7,8 @@ import type { Done } from '../desk/desk-tools';
 export interface TeamToolHost {
   consult(who: string, question: string, signal: AbortSignal): Promise<Done<{ name: string; personaId: string; answer: string }>>;
   handTo(who: string, message: string): Promise<Done<{ name: string; personaId: string }>>;
+  /** The owner's team, for the Chief's prompt. */
+  roster(): Promise<{ personaId: string; name: string; title: string }[]>;
 }
 
 const ok = (payload: Record<string, unknown>, summary: string): ToolOutcome => ({ ok: true, content: JSON.stringify(payload), summary });

@@ -39,7 +39,7 @@ catalog/
 | Records: department, skill category, persona, skill, lead, team group, recipe | kebab-case `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`, ≤48 chars, **globally unique across all record kinds** | `brand-strategist`, `five-forces-analysis`, `positioning-sprint` |
 | Lead ids | `lead-` + archetype slug | `lead-steady-operator` |
 | Persona ids | Name the **role**, never the person, so a rename never breaks a reference | `fractional-cfo`, not `esi-mensah` |
-| Handles | Lowercase ASCII-folded first name, unique across coworkers and leads, never equal to a voice id. First names are unique (accent-folded) and never a voice id or a `taxonomy.reserved_first_names` story name. Owners write `@FirstName`. | `joelle` (Joëlle), `oskar` (Óskar), `andres` (Andrés) |
+| Handles | Lowercase ASCII-folded first name, unique across coworkers and leads, never equal to a voice id. First names are unique (accent-folded) and never a voice id or a `taxonomy.reserved_first_names` story name. Owners write `@FirstName`. | `joelle` (Nadia), `oskar` (Gunnar), `andres` (Carlos) |
 | Vocabulary: tools, activity types, artifact types, modalities, model needs | snake_case `^[a-z][a-z0-9_]*$`, matching biz-bot tool and activity ids | `web_search`, `request_owner_decision`, `audio_briefing` |
 | Connectors | kebab-case, matching biz-bot's connector catalog | `cloudflare-docs`, `google-workspace` |
 | Voices | Exact lowercase provider ids, per product surface | `marin`, `ara` |
@@ -110,11 +110,11 @@ A coworker is an AI specialist with a face, a voice, skills, tools and a persona
 | `intro_after_work` | *optional* `{template (with {slots}), slots{slot: receipt field}}` | A results-flavoured intro used only after the persona has task receipts in this project; every slot is filled from a receipt, never invented. |
 | `welcome` | 15–240 | biz-bot `welcome`: the first line of a direct chat, always in the owner's language. |
 | `greeting_flourish` | *optional*, 2–120 | A greeting in a language from the persona's lore ("Sawubona!"), used only after rapport exists or when the owner uses that language. |
-| `instructions` | 200–2400 | biz-bot `instructions`: the specialty system prompt. |
+| `instructions` | 200–6000 | The specialty system prompt: how they work, what they hand over, their quality bar and when they flag or hand on (biz-bot `instructions`). |
 | `instanceOf` | `"lead"` (required by the validator for every coworker) | The persona inherits the owner's preferences and standing rules from the lead layer ("never discount above 10%", "no posts on Sundays"), and keeps its own voice. Exports as biz-bot `"principal"`. |
 | `team_roles[]` | 1–6 of `lead`, `co_owner`, `reviewer`, `sceptic`, `facilitator`, `specialist` | Roles they can credibly play. |
 | `pairs_well_with[]` | 2–6 persona ids | Never themselves. |
-| `productive_tension_with[]` | 1–3 `{persona_id, why}` | The *useful* friction, e.g. "Enzo wants to test now; Amara wants to choose first". |
+| `productive_tension_with[]` | 1–3 `{persona_id, why}` | The *useful* friction, e.g. "Pedro wants to test now; Stella wants to choose first". |
 | `skills` | `{primary[2–6], secondary[0–8]}` skill ids | Primary skills are ones they own; secondary skills are ones they can run or review. |
 | `tools[]` | 2–16 non-lead tool ids | **Differentiating tools only**: `baseline_tools` are implicit and not listed. Together with the baseline they **must include every tool listed by their primary skills** (checked by the index builder). A persona with `image` in `modalities.inputs` needs `vision_describe`. |
 | `connectors[]` | 0–10 connector ids | Used when the owner has enabled them. |

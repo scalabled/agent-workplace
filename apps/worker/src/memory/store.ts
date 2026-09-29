@@ -145,6 +145,23 @@ export class MemoryStore {
     return this.sql.exec('DELETE FROM memories WHERE memory_id = ? RETURNING memory_id', memoryId).toArray().length > 0;
   }
 
+  /**
+   * Merge near-duplicates within each scope (the weekly tidy): the one to keep is pinned, then the owner's own words,
+   * then the newest; the others are forgotten. Returns how many were merged away. Excerpts are left to their files.
+   */
+  dedupe(): number {
+    const rows = this.sql.exec<Row>(`SELECT * FROM memories WHERE kind != 'excerpt' ORDER BY pinned DESC, (source = 'owner') DESC, updated_at DESC`).toArray();
+    const kept = new Map<string, Row[]>();
+    const gone: string[] = [];
+    for (const r of rows) {
+      const same = kept.get(r.scope) ?? [];
+      if (same.some((k) => similar(k.text, r.text))) gone.push(r.memory_id);
+      else kept.set(r.scope, [...same, r]);
+    }
+    for (const id of gone) this.sql.exec('DELETE FROM memories WHERE memory_id = ?', id);
+    return gone.length;
+  }
+
   /** Forget everything that came from one source (a deleted file's excerpts). */
   removeByRef(sourceRef: string): number {
     return this.sql.exec('DELETE FROM memories WHERE source_ref = ? RETURNING memory_id', sourceRef).toArray().length;

@@ -460,7 +460,8 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     if (known?.chips.length) state.recalled = known.chips;
     const conn = host.connectors;
     const connectors = conn ? connectorTools(conn.kits(), conn, { subject: 'chief', mode: () => ({ kind: 'wait', wait: (ask) => conn.wait(ask, signal) }) }) : { tools: [], describe: '' };
-    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: connectors.describe, automations: !!host.automations, ...(host.memory ? { handbook: known?.handbook ?? '', recalled: known?.recalled ?? [], interview: host.memory.interviewing() ? host.memory.missing() : null } : {}) });
+    const roster = host.team ? await host.team.roster().catch(() => []) : [];
+    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: connectors.describe, automations: !!host.automations, ...(host.memory ? { handbook: known?.handbook ?? '', recalled: known?.recalled ?? [], interview: host.memory.interviewing() ? host.memory.missing() : null } : {}), ...(roster.length ? { team: roster } : {}) });
     const tools = createChiefTools({
       project: host.project(),
       turnId,
