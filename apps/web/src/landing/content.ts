@@ -20,7 +20,7 @@ export const STEPS: Step[] = [
   { n: '01', title: 'Delegate', icon: 'talk', status: 'now', body: 'Say what you need in one sentence: typed, spoken or held on the mic. Your Chief of Staff takes it and starts it in the background.' },
   { n: '02', title: 'Staff it', icon: 'team', status: 'planned', body: 'Your Chief of Staff brings in coworkers who already know your business, and a specialist only when a skill is missing.' },
   { n: '03', title: 'Ask and steer', icon: 'eye', status: 'now', body: 'Ask how it is going at any moment: the answer comes from the live job, and the work never pauses. Add a note and it lands at the next checkpoint.' },
-  { n: '04', title: 'Approve', icon: 'check', status: 'planned', body: 'Anything that spends money or leaves the building will wait for your yes, with its evidence attached.' },
+  { n: '04', title: 'Approve', icon: 'check', status: 'now', body: 'Anything that leaves the building waits for your yes: an email shows on a card, word for word, and goes out once, with a receipt.' },
 ];
 
 export interface Feature {
@@ -77,16 +77,16 @@ export const PROVIDERS: Provider[] = [
 export const MODALITIES: (Feature & { icon: 'voice' | 'image' | 'eye' | 'video' | 'doc'; status: Status })[] = [
   { icon: 'voice', title: 'Voice', status: 'now', body: 'Talk and listen in your Chief of Staff’s own voice, with a face that lip-syncs to what is actually playing.' },
   { icon: 'image', title: 'Images', status: 'now', body: 'A portrait for every coworker today. Designs and mock-ups are next.' },
-  { icon: 'eye', title: 'Vision', status: 'planned', body: 'Show a receipt, a shelf or a screen and ask about it.' },
+  { icon: 'eye', title: 'Vision', status: 'now', body: 'Show a receipt, a shelf or your screen, or take a photo, and ask about it.' },
   { icon: 'video', title: 'Video', status: 'planned', body: 'Launch cuts and social clips, made as background jobs.' },
   { icon: 'doc', title: 'Documents', status: 'planned', body: 'Drop in PDFs, spreadsheets and decks. Get Word, Excel and PowerPoint back.' },
 ];
 
 export const TRUST: (Feature & { icon: 'hand' | 'receipt' | 'stop' | 'badge'; status: Status })[] = [
   { icon: 'badge', title: 'Honest AI', status: 'now', body: 'Every coworker is labeled as AI and says so when sincerely asked. Backstories are character lore, never claimed as real events.' },
-  { icon: 'hand', title: 'Approvals', status: 'planned', body: 'Money and messages will never leave without your yes: once, for this task, or as a standing rule you set and can take back.' },
-  { icon: 'receipt', title: 'Receipts', status: 'planned', body: 'Nothing will count as sent without a receipt. Claims carry a citation or an “unverified” badge.' },
-  { icon: 'stop', title: 'Everyone stop', status: 'planned', body: 'One control will pause every coworker at once. Today you can stop any single job from Talk.' },
+  { icon: 'hand', title: 'Approvals', status: 'now', body: 'Emails never leave without your yes: once, for the rest of a task or project, or for a day, and you can take it back. No coworker can spend money.' },
+  { icon: 'receipt', title: 'Receipts', status: 'now', body: 'Nothing counts as sent without a receipt, and everything the team does is in an audit log, with Undo where it can be undone.' },
+  { icon: 'stop', title: 'Everyone stop', status: 'now', body: 'One control halts every job and project at once, and holds any email that has not gone out until you resume.' },
 ];
 
 export interface Pack {

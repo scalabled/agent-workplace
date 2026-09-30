@@ -39,6 +39,7 @@ import type { CanvasCreate, CanvasListResponse, CanvasResponse } from '@headcoun
 import type { ConfigResponse, MemberPut, MembersResponse, ModelPrice, UsageResponse } from '@headcount/protocol/ext/admin';
 import type { DocRef, ThreadResponse, ThreadStart, ThreadsResponse } from '@headcount/protocol/ext/threads';
 import type { TeamResponse, TeamStartResponse } from '@headcount/protocol/ext/team';
+import type { AuditKind, AuditResponse, AutonomyPolicy, PutAutonomyRequest, TestMailbox, TrustResponse } from '@headcount/protocol/ext/trust';
 import type { HandbookSectionId as SectionId } from '@headcount/protocol/ext/memory';
 import type { CardResponse, CardsResponse, HandbookResponse, HandbookSectionId, MemoryCreate, MemoryItem, MemoryKind, MemoryListResponse, MemoryPatch } from '@headcount/protocol/ext/memory';
 import type { AutomationPatch, AutomationResponse, AutomationsResponse } from '@headcount/protocol/ext/automations';
@@ -135,6 +136,18 @@ export const api = {
   removeMember: (email: string) => request<MembersResponse>(routePath('removeMember', { email }), { method: 'DELETE' }),
   adminUsage: (days = 7) => request<UsageResponse>(`${routePath('adminUsage')}?days=${days}`),
   putPrices: (prices: ModelPrice[]) => request<{ prices: ModelPrice[] }>(routePath('putPrices'), jsonInit('PUT', { prices })),
+  // Inc 6 trust.
+  getTrust: () => request<TrustResponse>(routePath('getTrust')),
+  putAutonomy: (body: PutAutonomyRequest) => request<{ policy: AutonomyPolicy }>(routePath('putAutonomy'), jsonInit('PUT', body)),
+  revokeGrant: (id: string) => request<{ revoked: true }>(routePath('revokeGrant', { id }), { method: 'DELETE' }),
+  listAudit: (opts: { before?: string; kind?: AuditKind } = {}) => {
+    const q = new URLSearchParams({ ...(opts.before ? { before: opts.before } : {}), ...(opts.kind ? { kind: opts.kind } : {}) }).toString();
+    return request<AuditResponse>(`${routePath('listAudit')}${q ? `?${q}` : ''}`);
+  },
+  undoAudit: (id: string) => request<{ undone: true }>(routePath('undoAudit', { id }), { method: 'POST' }),
+  resumeAll: () => request<{ resumed: boolean }>(routePath('resumeAll'), { method: 'POST' }),
+  testMailbox: () => request<TestMailbox>(routePath('testMailbox')),
+  testEmail: (to?: string) => request<{ result: { status: string; receipt?: { receiptId: string } } }>(routePath('testEmail'), jsonInit('POST', to ? { to } : {})),
   // Inc 4: context and memory.
   listMemory: (o: { q?: string; scope?: string; kind?: MemoryKind } = {}) => {
     const q = new URLSearchParams(Object.entries(o).filter((e): e is [string, string] => !!e[1])).toString();

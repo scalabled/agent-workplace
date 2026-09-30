@@ -21,6 +21,7 @@ import type { DeskSayAccepted } from '@headcount/protocol/ext/expressions';
 import type { ChannelEntry, Decision, ProjectsResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { CanvasSnapshot } from '@headcount/protocol/ext/canvas';
 import type { Recalled } from '@headcount/protocol/ext/memory';
+import type { EffectView, StopState } from '@headcount/protocol/ext/trust';
 import type { FeedStatus } from '../api/ws';
 import { applyServerVoice } from '../voice/owner';
 
@@ -47,6 +48,8 @@ export interface ThreadItem {
   sources?: { url: string; title?: string }[];
   /** What the Chief recalled for this reply (Inc 4): shown as chips under it. */
   recalled?: Recalled[];
+  /** A note about an email that went out (Inc 6): its receipt, linked in the audit log. */
+  receiptId?: string;
   /** Owner messages: the files and pictures shown with it (Inc 4 vision). */
   attachments?: TalkAttachment[];
   via?: 'text' | 'voice';
@@ -121,6 +124,25 @@ export function mergeChannel(projectId: string, entries: readonly ChannelEntry[]
   projectChannels.value = { ...projectChannels.value, [projectId]: [...bySeq.values()].sort((a, b) => a.seq - b.seq).slice(-400) };
 }
 export const projectList = computed(() => Object.values(teamProjects.value).sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0)));
+/** Inc 6: Everyone stop is on (emails are held until an owner resumes). */
+export const trustStop = signal<StopState | null>(null);
+
+/** An email went out (or was declined, or could not be sent): one quiet line in the conversation it came from. */
+function effectNote(e: EffectView, ts: string): void {
+  if (e.projectId || !['done', 'declined', 'failed'].includes(e.status)) return;
+  const who = e.email.to.join(', ');
+  const text =
+    e.status === 'done'
+      ? `Sent “${e.email.subject}” to ${who}${e.receipt?.provider === 'sink' ? ' (test mailbox: nothing left Headcount)' : ''}`
+      : e.status === 'declined'
+        ? `Not sent: “${e.email.subject}” to ${who} (you said no)`
+        : `Not sent: “${e.email.subject}” to ${who}. ${e.note ?? ''}`.trim();
+  const item: ThreadItem = { messageId: `effect:${e.key}:${e.status}`, turnId: null, from: e.agentId as AgentId, text, streaming: false, kind: 'note', ...(e.receipt ? { receiptId: e.receipt.receiptId } : {}), ts };
+  if (e.agentId === CHIEF_ID || e.agentId.startsWith('owner:')) {
+    if (!e.agentId.startsWith('owner:')) upsertThread(item);
+  } else upsertSide(e.agentId, item);
+}
+
 export const decisionList = computed(() => Object.values(openDecisions.value).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)));
 /** The Inbox counts raised hands only, so it can reach zero (X1). */
 export const raisedHands = computed(() => Object.keys(openDecisions.value).length);
@@ -580,6 +602,12 @@ function reduce(frame: Frame, live: boolean): void {
       openDecisions.value = rest;
       break;
     }
+    case 'effect.updated':
+      effectNote(frame.data.effect, frame.ts);
+      break;
+    case 'trust.updated':
+      trustStop.value = frame.data.stopped;
+      break;
     case 'job.progress':
       patchJob(frame.data.jobId, { status: 'running', label: frame.data.label, step: frame.data.step, of: frame.data.of, ...(frame.data.partial ? { partial: frame.data.partial } : {}) }, frame.ts);
       break;

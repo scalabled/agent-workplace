@@ -9,7 +9,8 @@ export interface MemoryToolHost {
   interviewing(): boolean;
   missing(): readonly { id: HandbookSectionId; title: string; ask: string }[];
   remember(text: string, kind: MemoryKind): MemoryItem;
-  updateHandbook(section: HandbookSectionId, content: string, mode: 'replace' | 'append'): HandbookSection;
+  /** The section as written, or a proposal waiting for the owner's OK (Inc 6: their setting for changes is "Propose"). */
+  updateHandbook(section: HandbookSectionId, content: string, mode: 'replace' | 'append'): HandbookSection | { proposed: string; title: string } | Promise<HandbookSection | { proposed: string; title: string }>;
   setInterview(on: boolean): void;
 }
 
@@ -75,7 +76,9 @@ export function memoryTools(host: MemoryToolHost): AgentTool<any>[] {
       const content = str(args.content);
       if (!isSection(section)) return fail(`Use one of the sections: ${HANDBOOK_SECTIONS.map((s) => s.id).join(', ')}.`);
       if (!content) return fail('Write what the section should say.');
-      const s = host.updateHandbook(section, content, str(args.mode) === 'append' ? 'append' : 'replace');
+      const written = await host.updateHandbook(section, content, str(args.mode) === 'append' ? 'append' : 'replace');
+      if ('proposed' in written) return ok({ proposed: written.proposed, say: `I've proposed an update to “${written.title}” in your Handbook; it's waiting for your OK in the Inbox.` }, `Proposed a change to “${written.title}”`);
+      const s = written;
       const n = host.interviewing() ? next() : undefined;
       const say = host.interviewing() ? (n ? `Got it — that's “${s.title}” written. Next, ${n.ask}?` : `That's everything: your Handbook is written. The team works from it from now on.`) : `Added to “${s.title}” in your Handbook.`;
       if (host.interviewing() && !n) host.setInterview(false);

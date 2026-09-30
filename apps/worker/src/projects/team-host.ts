@@ -59,6 +59,9 @@ import type { AutomationSpec } from '@headcount/protocol/ext/automations';
 import { describeSpec } from '../automations/host';
 import type { ConnectorCallRequest, ConnectorCallResult, ConnectorGrantRequest } from '../connectors/store';
 import { connectorTools, type ApprovalMode } from '../connectors/tools';
+import type { ChangeAsk, EffectAsk, EmailMessage } from '@headcount/protocol/ext/trust';
+import type { EffectRequest, EffectResult, RaiseEffect } from '../trust/effects';
+import { sendEmailTool } from '../trust/email-tool';
 
 export const MAX_PARALLEL = 3;
 export const MAX_ACTIVE_PROJECTS_DEFAULT = 2;
@@ -112,8 +115,22 @@ export interface TeamHostPorts {
   distillMeeting?(input: { text: string; scope: string; sourceLabel: string; sourceRef: string }): Promise<void>;
   /** Set up an automation the Chief proposed, once the owner allows it (stage 3b). */
   automations?: {
-    create(spec: AutomationSpec): { ok: true; name: string } | { ok: false; message: string };
+    create(spec: AutomationSpec): { ok: true; name: string; automationId?: string } | { ok: false; message: string };
   };
+  /** Inc 6: emails that go out exactly once (src/trust/effects.ts), and whether email can work at all. */
+  effects?: {
+    ready(): { ready: boolean; test: boolean };
+    request(req: EffectRequest): Promise<EffectResult>;
+    answer(d: Decision, a: DecisionAnswer, by: string): Promise<{ ok: true; summary: string } | { ok: false; message: string }>;
+    /** A decision closed without an answer (its project stopped): its emails are declined. */
+    dropped(decisionId: string): void;
+  };
+  /** Inc 6: apply a change inside Headcount the owner approved (a coworker's instructions, a Handbook section). */
+  changes?: {
+    apply(ask: ChangeAsk, by: string): Promise<{ ok: true; summary: string } | { ok: false; message: string }>;
+  };
+  /** Inc 6: record an approved automation in the audit trail (with Undo). */
+  audited?(entry: { actor: string; summary: string; automationId: string }): void;
 }
 
 type ProjectRow = {
@@ -489,11 +506,13 @@ export class TeamProjects {
   }
 
   /** The owner answers a raised hand: approve, decline, or words (an answer, or direction). */
-  async answer(decisionId: string, a: DecisionAnswer): Promise<{ accepted: true; decision: Decision; project?: TeamProjectSnapshot } | ProjectRefusal> {
+  async answer(decisionId: string, a: DecisionAnswer, by = 'owner'): Promise<{ accepted: true; decision: Decision; project?: TeamProjectSnapshot } | ProjectRefusal> {
     const d = this.sql.exec<DecisionRow>('SELECT * FROM tdecisions WHERE decision_id = ?', decisionId).toArray()[0];
     if (!d) return { accepted: false, code: 'not_found', message: 'No such decision.' };
     if (d.status !== 'open') return { accepted: false, code: 'conflict', message: 'That was already decided.' };
     const kind0 = d.kind as DecisionKind;
+    if (kind0 === 'effect') return this.answerEffect(d, a, by);
+    if (kind0 === 'change') return this.answerChange(d, a, by);
     if (kind0 === 'connector' && !d.project_id) return this.answerChief(d, a);
     if (kind0 === 'automation') return this.answerAutomation(d, a);
     if (!this.row(d.project_id)) return { accepted: false, code: 'not_found', message: 'No such project.' };
@@ -596,6 +615,7 @@ export class TeamProjects {
       delete spec.describe;
       const r = this.p.automations?.create(spec) ?? { ok: false as const, message: 'Automations are not available here.' };
       if (!r.ok) return { accepted: false, code: 'conflict', message: r.message };
+      if (r.automationId) this.p.audited?.({ actor: d.from_id ?? 'chief', summary: `Set up the automation “${r.name}” (you approved it)`, automationId: r.automationId });
     }
     const text = (a.text ?? '').trim().slice(0, DECISION_ANSWER_MAX);
     this.sql.exec(
@@ -1316,13 +1336,24 @@ export class TeamProjects {
       let working = true;
       const collab = this.collabExtras(projectId, setup, signal, lead, 0, stepId);
       const conn = this.connectorExtras(projectId, setup, lead, stepId, () => (working ? { kind: 'pause', onAsk: (ask) => (approval ??= ask) } : { kind: 'note' }));
+      // Inc 6: the lead may email; emails waiting for the owner's OK pause the step (one hand lists them all).
+      let emailsWaiting = false;
+      const mail = this.p.effects?.ready();
+      const emailTool =
+        mail?.ready && this.p.effects
+          ? sendEmailTool(
+              { request: (email) => this.p.effects!.request({ agentId: coworkerAgentId(lead), agentName: nameOf(lead), projectId, stepId, taskId: `${projectId}:${stepId}`, scope: projectId, email }) },
+              { test: mail.test, endTurnWhenWaiting: true, onResult: (r) => void (r.status === 'awaiting' && (emailsWaiting = true)) },
+            )
+          : null;
       const leadWorker = this.worker(lead, setup, deadlineSignal(UNIT_BUDGET_MS, signal), {
         // One question per step: after the owner answers, the lead works with the answer.
-        extraTools: [...(s0.answer ? [] : [askOwnerTool((q) => (asked = q))]), ...(collab.extraTools ?? []), ...conn.tools],
+        extraTools: [...(s0.answer ? [] : [askOwnerTool((q) => (asked = q))]), ...(collab.extraTools ?? []), ...conn.tools, ...(emailTool ? [emailTool] : [])],
         extraDescribe: [
           'If a decision, permission or input only the owner can give is missing, call request_owner_input (one specific question); continue with reasonable, stated assumptions for anything that does not block you.',
           collab.extraDescribe ?? '',
           conn.describe,
+          emailTool ? 'If the step is to email people (customers, suppliers), use send_email for each email, all in one go; the owner approves them together. Put the emails you sent (with receipt ids) or that wait for the OK in your hand-in.' : '',
         ]
           .filter(Boolean)
           .join(' '),
@@ -1333,9 +1364,16 @@ export class TeamProjects {
         this.setStep(projectId, fence, stepId, { status: 'working', by_id: lead, started_at: iso(), error: null });
         const previous = s0.output ?? undefined;
         const known = this.p.knowledge ? await this.p.knowledge(`${step().title}. ${step().brief}`, [`project:${projectId}`, `coworker:${lead}`]).catch(() => '') : '';
-        const out = await doStepWork({ ...leadWorker, paused: () => !!asked || !!approval }, brief(), step(), { ...(s0.answer ? { answer: s0.answer } : {}), ...(previous ? { previous } : {}), ...(known ? { known } : {}) });
+        const out = await doStepWork({ ...leadWorker, paused: () => !!asked || !!approval || emailsWaiting }, brief(), step(), { ...(s0.answer ? { answer: s0.answer } : {}), ...(previous ? { previous } : {}), ...(known ? { known } : {}) });
         if (!this.live(projectId, fence)) throw new WorkCancelled();
         this.recordRun(projectId, stepId, 'work', leadWorker, out.run, out.sources);
+        if (emailsWaiting) {
+          // The effects ledger already raised the hand (with every email in it); the step waits for the answer.
+          const q = { text: 'May I send these emails?', detail: 'They are in your Inbox, ready to send.' };
+          this.channel.add(projectId, { kind: 'ask', fromId: lead, toId: 'owner', stepId, text: `${q.text} ${q.detail}` });
+          this.setStep(projectId, fence, stepId, { status: 'asking', question: JSON.stringify(q) });
+          return;
+        }
         const ok = approval as ConnectorAsk | null;
         if (ok) {
           const q = { text: `May I use ${ok.name} → ${ok.tool}?`, detail: `With these details:\n${ok.args}` };
@@ -1535,7 +1573,100 @@ export class TeamProjects {
   private resolve(decisionId: string, status: 'approved' | 'declined', at: string): void {
     this.sql.exec(`UPDATE tdecisions SET status = ?, resolved_at = ? WHERE decision_id = ? AND status = 'open'`, status, at, decisionId);
     const d = this.decision(decisionId);
+    if (d?.kind === 'effect' && status === 'declined') this.p.effects?.dropped(decisionId);
     if (d) this.p.append({ type: 'decision.resolved', data: { decision: d } });
+  }
+
+  /**
+   * Emails waiting for the owner (Inc 6): one decision per piece of work, so a lead who writes to 23 clients raises one
+   * hand listing them all. A later email in the same task joins the open decision.
+   */
+  raiseEffect(r: RaiseEffect): Decision {
+    const at = iso();
+    const open = this.sql.exec<DecisionRow>(`SELECT * FROM tdecisions WHERE kind = 'effect' AND status = 'open' AND project_id = ?`, r.projectId).toArray().find((d) => (JSON.parse(d.meta ?? '{}') as { taskId?: string }).taskId === r.taskId);
+    const who = firstOf(r.fromName);
+    if (open) {
+      const meta = JSON.parse(open.meta ?? '{}') as EffectAsk & { taskId: string };
+      const emails = [...meta.emails.filter((e) => !r.emails.some((x) => x.key === e.key)), ...r.emails];
+      const next: EffectAsk & { taskId: string } = { ...meta, keys: emails.map((e) => e.key), emails };
+      this.sql.exec(`UPDATE tdecisions SET title = ?, body = ?, meta = ? WHERE decision_id = ?`, clipText(effectTitle(who, emails), 300), clipText(effectBody(emails), 4000), JSON.stringify(next), open.decision_id);
+      const d = this.decision(open.decision_id)!;
+      this.p.append({ type: 'decision.opened', data: { decision: d } });
+      return d;
+    }
+    const decisionId = newId('dec');
+    const meta: EffectAsk & { taskId: string } = { keys: r.emails.map((e) => e.key), emails: r.emails, allowedGrants: r.allowedGrants, ...(r.unknown ? { unknown: true } : {}), taskId: r.taskId };
+    this.sql.exec(
+      `INSERT INTO tdecisions (decision_id, kind, project_id, title, body, status, created_at, step_id, from_id, meta) VALUES (?, 'effect', ?, ?, ?, 'open', ?, ?, ?, ?)`,
+      decisionId, r.projectId, clipText(r.unknown ? `Send again? ${who}'s email may not have gone out` : effectTitle(who, r.emails), 300), clipText(r.unknown ? `It is not certain whether this went out (the email provider can no longer tell).\n\n${effectBody(r.emails)}` : effectBody(r.emails), 4000), at, r.stepId ?? null, r.fromId, JSON.stringify(meta),
+    );
+    if (r.projectId) this.sql.exec('UPDATE tprojects SET updated_at = ? WHERE project_id = ?', at, r.projectId);
+    const d = this.decision(decisionId)!;
+    this.p.append({ type: 'decision.opened', data: { decision: d } });
+    if (r.projectId && this.row(r.projectId)) this.emit(r.projectId);
+    return d;
+  }
+
+  /** A change inside Headcount waiting for the owner's OK (Inc 6): a coworker's own instructions, or a Handbook section. Once only. */
+  openChange(ask: ChangeAsk, fromId: string, title: string): Decision {
+    const at = iso();
+    // A newer proposal for the same thing replaces the open one.
+    for (const d of this.sql.exec<DecisionRow>(`SELECT * FROM tdecisions WHERE kind = 'change' AND status = 'open'`).toArray()) {
+      const m = JSON.parse(d.meta ?? '{}') as Partial<ChangeAsk>;
+      if (m.change === ask.change && m.target === ask.target) this.resolve(d.decision_id, 'declined', at);
+    }
+    const decisionId = newId('dec');
+    this.sql.exec(
+      `INSERT INTO tdecisions (decision_id, kind, project_id, title, body, status, created_at, from_id, meta) VALUES (?, 'change', '', ?, ?, 'open', ?, ?, ?)`,
+      decisionId, clipText(title, 300), clipText(ask.why || 'A change for your OK.', 4000), at, fromId, JSON.stringify(ask),
+    );
+    const d = this.decision(decisionId)!;
+    this.p.append({ type: 'decision.opened', data: { decision: d } });
+    void this.p.flush();
+    return d;
+  }
+
+  private async answerEffect(d: DecisionRow, a: DecisionAnswer, by: string): Promise<{ accepted: true; decision: Decision; project?: TeamProjectSnapshot } | ProjectRefusal> {
+    if (!['approve', 'decline'].includes(a.action)) return { accepted: false, code: 'bad_request', message: 'Send or don’t send.' };
+    if (!this.p.effects) return { accepted: false, code: 'not_configured', message: 'Email is not available here.' };
+    const before = this.decision(d.decision_id)!;
+    const r = await this.p.effects.answer(before, a, by);
+    if (!r.ok) return { accepted: false, code: 'bad_request', message: r.message };
+    const at = iso();
+    this.sql.exec(`UPDATE tdecisions SET status = ?, resolved_at = ?, scope = ? WHERE decision_id = ? AND status = 'open'`, a.action === 'approve' ? 'approved' : 'declined', at, a.action === 'approve' ? (a.grant ?? 'once') : null, d.decision_id);
+    const resolved = this.decision(d.decision_id)!;
+    this.p.append({ type: 'decision.resolved', data: { decision: resolved } });
+    const project = d.project_id ? this.row(d.project_id) : undefined;
+    if (project && d.step_id) {
+      const step = this.stepRow(d.project_id, d.step_id);
+      if (step?.status === 'asking') {
+        const answer = a.action === 'approve' ? `${r.summary} Do not send those emails again (asking again returns the same receipts); carry on with the step.` : `${r.summary} Carry on without sending them, and say in your hand-in what was not sent.`;
+        this.sql.exec(`UPDATE tsteps SET status = 'waiting', answer = ?, question = NULL, draft = NULL WHERE project_id = ? AND step_id = ?`, answer, d.project_id, d.step_id);
+      }
+      this.channel.add(d.project_id, { kind: 'decision', fromId: 'owner', ...(d.from_id ? { toId: d.from_id } : {}), stepId: d.step_id, text: `${d.title} — ${r.summary}` });
+      this.sql.exec('UPDATE tprojects SET updated_at = ? WHERE project_id = ?', at, d.project_id);
+      if (project.status === 'running') {
+        this.sql.exec('UPDATE tprojects SET next_at = ? WHERE project_id = ?', runtime.now(), d.project_id);
+        await this.p.armAlarm(runtime.now() + 10);
+      }
+      this.emit(d.project_id);
+    }
+    void this.p.flush();
+    return { accepted: true, decision: resolved, ...(project ? { project: this.snapshot(this.row(d.project_id)!) } : {}) };
+  }
+
+  private async answerChange(d: DecisionRow, a: DecisionAnswer, by: string): Promise<{ accepted: true; decision: Decision } | ProjectRefusal> {
+    if (!['approve', 'decline'].includes(a.action)) return { accepted: false, code: 'bad_request', message: 'Approve or decline the change.' };
+    if (a.action === 'approve') {
+      if (!this.p.changes) return { accepted: false, code: 'not_configured', message: 'Changes cannot be applied here.' };
+      const r = await this.p.changes.apply(JSON.parse(d.meta ?? '{}') as ChangeAsk, by);
+      if (!r.ok) return { accepted: false, code: 'conflict', message: r.message };
+    }
+    this.sql.exec(`UPDATE tdecisions SET status = ?, resolved_at = ? WHERE decision_id = ? AND status = 'open'`, a.action === 'approve' ? 'approved' : 'declined', iso(), d.decision_id);
+    const resolved = this.decision(d.decision_id)!;
+    this.p.append({ type: 'decision.resolved', data: { decision: resolved } });
+    void this.p.flush();
+    return { accepted: true, decision: resolved };
   }
 
   // ── rows, snapshots, frames, runs ─────────────────────────────────────────────────
@@ -1694,7 +1825,10 @@ export class TeamProjects {
       ...(r.answer ? { answer: r.answer } : {}),
       ...(r.meta && r.kind === 'connector' ? { connector: JSON.parse(r.meta) as ConnectorAsk } : {}),
       ...(r.meta && r.kind === 'automation' ? { automation: JSON.parse(r.meta) as AutomationSpec & { describe: string } } : {}),
-      ...(r.scope ? { scope: r.scope as ConnectorScope } : {}),
+      ...(r.meta && r.kind === 'effect' ? { effect: JSON.parse(r.meta) as EffectAsk } : {}),
+      ...(r.meta && r.kind === 'change' ? { change: JSON.parse(r.meta) as ChangeAsk } : {}),
+      ...(r.scope && r.kind === 'effect' ? { grant: r.scope as NonNullable<Decision['grant']> } : {}),
+      ...(r.scope && r.kind === 'connector' ? { scope: r.scope as ConnectorScope } : {}),
       createdAt: r.created_at,
       ...(r.resolved_at ? { resolvedAt: r.resolved_at } : {}),
     };
@@ -1772,3 +1906,15 @@ export function pickQaReviewer(p: Pick<TeamProjectSnapshot, 'steps' | 'team'>, f
   const best = [...count.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   return best ?? p.team.find((m) => m.personaId !== finisherId)?.personaId ?? null;
 }
+
+/** "Dana wants to send 3 emails" / "Dana wants to email jo@example.com". */
+function effectTitle(who: string, emails: EffectAsk['emails']): string {
+  if (emails.length === 1) return `${who} wants to email ${emails[0]!.to.join(', ')}: “${emails[0]!.subject}”`;
+  return `${who} wants to send ${emails.length} emails`;
+}
+
+function effectBody(emails: EffectAsk['emails']): string {
+  return emails.map((e) => `To ${e.to.join(', ')}${e.cc?.length ? ` (cc ${e.cc.join(', ')})` : ''}: “${e.subject}”`).join('\n');
+}
+
+export type { EmailMessage };

@@ -3,7 +3,9 @@
 //   team is configured (coworkers, skills, connectors, automations, the Handbook, memory).
 // - People: who can sign in, as an owner, a contributor or a reader.
 // - Usage: what the models did and cost — by day, surface, coworker and model; the latest calls; today's limits; prices.
-// - Settings: every option the worker reads (limits, how work runs, voice, models, provider keys, the deployment).
+// - Autonomy (Inc 6): what the team may do on its own per kind of action, permissions in force, Everyone stop.
+// - Audit log (Inc 6): everything that happened, with receipts and Undo.
+// - Settings: every option the worker reads (limits, how work runs, email, voice, models, provider keys, the deployment).
 import { AMBIENCES, ambienceOf, type Ambience } from '@headcount/protocol/ext/expressions';
 import {
   CONFIG_GROUPS,
@@ -32,15 +34,18 @@ import { paths } from '../router';
 import { settings } from '../store';
 import { setAmbience, setOwnerName, setVoiceOn, updateSettings } from '../talk/actions';
 import { CopyLink, PageTitle } from '../links/CopyLink';
+import { AuditSection, AutonomySection, EmailExtras } from '../admin/Trust';
 import './pages.css';
 import './admin.css';
 
-type Section = 'general' | 'people' | 'usage' | ConfigGroup;
+type Section = 'general' | 'people' | 'autonomy' | 'audit' | 'usage' | ConfigGroup;
 const SECTIONS: readonly { id: Section; title: string; icon: IconName }[] = [
   { id: 'general', title: 'General', icon: 'sun' },
   { id: 'people', title: 'People and roles', icon: 'user' },
+  { id: 'autonomy', title: 'Autonomy', icon: 'check' },
+  { id: 'audit', title: 'Audit log', icon: 'book' },
   { id: 'usage', title: 'Usage and costs', icon: 'expand' },
-  ...CONFIG_GROUPS.map((g) => ({ id: g.id as Section, title: g.title, icon: (g.id === 'keys' ? 'code' : g.id === 'voice' ? 'voiceOn' : g.id === 'deployment' ? 'book' : 'edit') as IconName })),
+  ...CONFIG_GROUPS.map((g) => ({ id: g.id as Section, title: g.title, icon: (g.id === 'keys' ? 'code' : g.id === 'voice' ? 'voiceOn' : g.id === 'deployment' ? 'book' : g.id === 'email' ? 'send' : 'edit') as IconName })),
 ];
 const isSection = (s: string | undefined): s is Section => !!s && SECTIONS.some((x) => x.id === s);
 
@@ -82,7 +87,10 @@ export function Admin({ section }: { section?: string }) {
           {current === 'general' && <General />}
           {current === 'people' && <People />}
           {current === 'usage' && <Usage />}
-          {current !== 'general' && current !== 'people' && current !== 'usage' && <ConfigSection group={current} />}
+          {current === 'autonomy' && <AutonomySection />}
+          {current === 'audit' && <AuditSection />}
+          {current !== 'general' && current !== 'people' && current !== 'usage' && current !== 'autonomy' && current !== 'audit' && <ConfigSection group={current} />}
+          {current === 'email' && <EmailExtras />}
         </div>
       </div>
     </section>

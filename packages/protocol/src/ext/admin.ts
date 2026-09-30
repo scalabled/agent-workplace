@@ -59,11 +59,12 @@ export interface Me {
 
 // ── settings ─────────────────────────────────────────────────────────────────────────
 
-export type ConfigGroup = 'limits' | 'work' | 'voice' | 'models' | 'keys' | 'deployment';
+export type ConfigGroup = 'limits' | 'work' | 'email' | 'voice' | 'models' | 'keys' | 'deployment';
 
 export const CONFIG_GROUPS: readonly { id: ConfigGroup; title: string; about: string }[] = [
   { id: 'limits', title: 'Daily limits', about: 'How much can happen in a day before the team waits for tomorrow. They keep a runaway loop from spending without bound.' },
   { id: 'work', title: 'How work runs', about: 'How many things run at once, how much a project may spend, and which extras are on.' },
+  { id: 'email', title: 'Email', about: 'How coworkers send email. Every email waits for your OK unless you allowed more, goes out exactly once, and leaves a receipt.' },
   { id: 'voice', title: 'Voice', about: 'Spoken replies, voice input and the realtime voice.' },
   { id: 'models', title: 'Models', about: 'Which AI providers answer, and local or self-hosted models.' },
   { id: 'keys', title: 'Provider keys', about: 'Keys for the AI providers. Stored encrypted; never shown again once saved.' },
@@ -101,6 +102,7 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
   limit('SEARCH_DAILY_LIMIT', 'Web searches', 300, 'Web searches per day.'),
   limit('FETCH_DAILY_LIMIT', 'Web pages read', 600, 'Web pages read per day.'),
   limit('CONNECTOR_DAILY_LIMIT', 'Connector calls', 500, 'Calls to connected services per day.'),
+  limit('EMAIL_DAILY_LIMIT', 'Emails sent', 50, 'Emails the team sends per day (each also needs your OK, unless you allowed more).'),
   limit('TTS_DAILY_LIMIT', 'Spoken replies', 3000, 'Sentences spoken aloud per day.'),
   limit('STT_DAILY_LIMIT', 'Voice input', 600, 'Recordings transcribed per day.'),
   limit('VOICE_FRONT_DAILY_LIMIT', 'Spoken acknowledgements', 600, 'Realtime spoken acknowledgements per day.'),
@@ -113,6 +115,22 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
   { key: 'WEB_TOOLS', group: 'work', label: 'Web search and reading', help: 'Let the team search the web and read pages.', kind: 'switch', fallback: '', on: '', off: 'off' },
   { key: 'KICKOFF', group: 'work', label: 'Kickoff meetings', help: 'The team talks a project over before it starts.', kind: 'switch', fallback: '', on: '', off: 'off' },
   { key: 'ENABLE_MEDIA_TOOLS', group: 'work', label: 'Image generation tool', help: 'Allow generating images outside this computer (marketing art).', kind: 'switch', fallback: '', on: 'true', off: '' },
+  {
+    key: 'MAIL_PROVIDER',
+    group: 'email',
+    label: 'Email',
+    help: 'Off: coworkers cannot send email. Test mailbox: emails stay inside Headcount, to try it safely. Resend: real email (needs a Resend key and a verified sender).',
+    kind: 'choice',
+    fallback: '',
+    choices: [
+      { value: '', label: 'Off' },
+      { value: 'sink', label: 'Test mailbox (nothing leaves)' },
+      { value: 'resend', label: 'Resend (real email)' },
+    ],
+  },
+  { key: 'MAIL_FROM', group: 'email', label: 'Send as', help: 'The sender, e.g. "Rosa at Harbor Café <office@harborcafe.com>". Its domain must be verified with Resend.', kind: 'text', fallback: '' },
+  { key: 'MAIL_REPLY_TO', group: 'email', label: 'Replies go to', help: 'Where replies go, e.g. your own address. Empty: to the sender.', kind: 'text', fallback: '' },
+  { key: 'RESEND_API_KEY', group: 'email', label: 'Resend key', help: 'From resend.com → API keys. Stored encrypted; never shown again once saved.', kind: 'secret', fallback: '' },
   {
     key: 'VOICE_FRONT',
     group: 'voice',

@@ -17,6 +17,8 @@ export interface ConnectorCatalogEntry {
   docs?: string;
   /** Served inside the worker for keyless demos and tests (never on the network). */
   demo?: boolean;
+  /** Only its read-only tools are offered (Inc 6: HubSpot reads the CRM; nothing writes to it). */
+  readOnly?: boolean;
 }
 
 /**

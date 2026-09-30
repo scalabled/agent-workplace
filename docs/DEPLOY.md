@@ -38,6 +38,12 @@ again. Invite contributors and readers on Admin → People; `OWNER_EMAILS` stay 
   cross-site `POST /api/talk` returns 403, and Google sign-in sends a 302.
 - `Permissions-Policy` allows `camera`, `display-capture` and the microphone for the app itself.
 
+**Before the next deploy (Inc 6, not deployed yet):**
+- Apply migration `0005_trust.sql` (autonomy, grants, the audit log) first:
+  `npx wrangler d1 migrations apply headcount --remote -c wrangler.deploy.jsonc`.
+- Email stays off until an owner turns it on in Admin → Email. To try it without sending, choose the test mailbox.
+  For real email, verify a domain with Resend, set "Send as", and save the Resend key. See `docs/dev/TRUST.md`.
+
 **Owner steps left (historical; done as of this deploy except the plan upgrade):**
 1. Set these secrets: `wrangler secret put GOOGLE_CLIENT_SECRET --name headcount` and `wrangler secret put OWNER_EMAILS --name headcount`.
 2. Make sure the Google OAuth client's redirect URIs include `https://headcount.greg-371.workers.dev/api/auth/callback` and `http://localhost:5173/api/auth/callback`.

@@ -1,8 +1,11 @@
 // What a coworker can do from their desk (a quick chat), so a request is never just turned away: start research (a
 // background job the Chief of Staff tracks), propose a team project (the owner approves the plan), ask a colleague who
-// knows, and remember what the owner tells them. Outside actions (send, book, pay, publish) stay the owner's.
+// knows, remember what the owner tells them, send an email (Inc 6: exactly once, with the owner's OK), and propose a
+// change to how they work (their own instructions; the owner approves it). Booking, paying and publishing stay the owner's.
 import type { AgentTool, ToolOutcome } from '@headcount/agent-loop';
 import type { MemoryKind } from '@headcount/protocol/ext/memory';
+import type { EmailMessage } from '@headcount/protocol/ext/trust';
+import type { EffectResult } from '../trust/effects';
 
 export type Done<T> = ({ ok: true } & T) | { ok: false; message: string };
 
@@ -12,6 +15,33 @@ export interface DeskActions {
   /** A colleague by name or role ("Maya", "the bookkeeper"): their answer, or who could not be found. */
   askColleague(who: string, question: string, signal: AbortSignal): Promise<Done<{ name: string; personaId: string; answer: string }>>;
   remember(text: string, kind: MemoryKind): { memoryId: string };
+  /** Inc 6: email, when it is set up. */
+  email?: { test: boolean; request(email: EmailMessage, turnId: string): Promise<EffectResult> };
+  /** Inc 6 self-extension: add to their own instructions; it waits for the owner's OK (never granted ahead). */
+  proposeInstructions?(change: string, why: string): Promise<Done<{ decisionId: string }>>;
+}
+
+/** Bounded self-extension (BB `system`, tier 1): a coworker proposes a change to how they work; the owner approves it. */
+export function instructionsTool(a: DeskActions, me: { name: string }, onWork: () => void): AgentTool<{ change?: unknown; why?: unknown }> | null {
+  const propose = a.proposeInstructions;
+  if (!propose) return null;
+  return {
+    spec: {
+      name: 'change_how_i_work',
+      description: `When the owner tells you to work differently from now on (a standing preference about how you do your job: tone, format, what to always or never do), propose adding it to your own instructions. It waits for their OK on a card, and is undoable. Write it as an instruction to yourself, one or two sentences. Not for one-off requests.`,
+      parameters: { type: 'object', properties: { change: { type: 'string', description: 'The instruction to add, e.g. "Always give prices with VAT included."' }, why: { type: 'string', description: 'What the owner said, briefly.' } }, required: ['change'], additionalProperties: false },
+      mock: { triggers: [String.raw`\b(from now on|always|never|in future|going forward)\b.{0,80}\b(you|your)\b`], args: (text: string) => ({ change: text.trim(), why: 'The owner asked for it.' }), reply: sayOf },
+    },
+    async execute(args) {
+      const change = str(args.change);
+      if (change.length < 8) return fail('Say the change as an instruction to yourself.', 'One or two sentences, e.g. "Always include VAT in prices."');
+      if (change.length > 1000) return fail('Keep it under 1,000 characters.', 'Say it in one or two sentences.');
+      const r = await propose(change, str(args.why) || 'The owner asked for it.');
+      if (!r.ok) return fail(r.message, 'Tell the owner plainly.');
+      onWork();
+      return ok({ decisionId: r.decisionId, say: `I've proposed that change to how I work; it takes effect once you OK it (it's in your Inbox).` }, 'Proposed a change to how I work');
+    },
+  };
 }
 
 const ok = (payload: Record<string, unknown>, summary: string): ToolOutcome => ({ ok: true, content: JSON.stringify(payload), summary });

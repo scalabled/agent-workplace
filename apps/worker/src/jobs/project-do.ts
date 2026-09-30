@@ -44,6 +44,10 @@ import { judgeRun } from '../automations/judge';
 import type { AutomationSpec, AutomationView } from '@headcount/protocol/ext/automations';
 import { fetchPage, FetchPageError } from '../tools/fetch-page';
 import { TeamProjects, type ProjectRefusal, type ProposeRequest } from '../projects/team-host';
+import type { ChangeAsk, EffectView, StopState, TestMailbox } from '@headcount/protocol/ext/trust';
+import { EffectError, Effects, type EffectRequest, type EffectResult } from '../trust/effects';
+import { mailSender, mailStatus, sinkMessages } from '../trust/mail';
+import { audit, wsOf } from '../trust/store';
 
 /** What the Chief of Staff hands to the Everyday project when the owner delegates. */
 export interface StartJobRequest {
@@ -148,6 +152,7 @@ const SCHEMA = [
    )`,
   `CREATE INDEX IF NOT EXISTS steers_job ON steers (job_id, status, at)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS steers_op ON steers (op_id) WHERE op_id IS NOT NULL`,
+  `CREATE TABLE IF NOT EXISTS trust_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
 ];
 
 const JOB_COLUMNS = new Set(['status', 'phase', 'label', 'step', 'total', 'cursor', 'plan', 'notes', 'partial', 'result', 'summary', 'error_code', 'error_message', 'attempts', 'next_at', 'finished_at']);
@@ -175,6 +180,8 @@ export class ProjectDO extends DurableObject<Env> {
   private readonly canvases: Canvases;
   /** Signals waiting for the next mirror batch (sent even when no frame is pending). */
   private readonly signals: WorkSignal[] = [];
+  /** Inc 6: real actions (emails) that go out exactly once, with receipts (src/trust/effects.ts). */
+  private readonly effects: Effects;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, configured(env));
@@ -202,13 +209,30 @@ export class ProjectDO extends DurableObject<Env> {
       // What the workspace knows (the Handbook, memories) lives in the WorkspaceDO.
       knowledge: async (query, scopes) => String(await workspaceStub(env).knowledgeFor(query, scopes)),
       distillMeeting: async (input) => void (await workspaceStub(env).distillMeeting(input)),
+      // Inc 6: emails (exactly once, with receipts) and changes the owner approved.
+      effects: {
+        ready: () => {
+          const s = mailStatus(this.env);
+          return { ready: s.ready, test: s.provider === 'sink' };
+        },
+        request: (req) => this.effects.request(req),
+        answer: (d, a, by) => this.effects.answer(d, a, by),
+        dropped: (decisionId) => {
+          for (const e of this.effects.forDecision(decisionId)) if (e.status === 'awaiting' || e.status === 'unknown') this.ctx.storage.sql.exec(`UPDATE effects SET status = 'declined', updated_at = ? WHERE key = ?`, new Date(runtime.now()).toISOString(), e.key);
+        },
+      },
+      changes: {
+        apply: async (ask, by) => (await workspaceStub(env).applyChange(ask, by)) as unknown as { ok: true; summary: string } | { ok: false; message: string },
+      },
+      audited: (e) =>
+        ctx.waitUntil(audit(env.DB, wsOf(env), { actor: e.actor, kind: 'change', action: 'automation.created', summary: e.summary, link: '/app/automations', undo: { type: 'automation.remove', automationId: e.automationId, label: 'Remove the automation' } })),
       // The owner allowed an automation the Chief proposed.
       automations: {
         create: (spec) => {
           try {
             const a = this.automations.create(spec, 'chief');
             void this.armAlarm(Math.max(this.automations.nextDue() ?? runtime.now(), runtime.now() + 10));
-            return { ok: true, name: a.name };
+            return { ok: true, name: a.name, automationId: a.automationId };
           } catch (err) {
             if (err instanceof AutomationError) return { ok: false, message: err.message };
             throw err;
@@ -241,6 +265,20 @@ export class ProjectDO extends DurableObject<Env> {
       },
       judge: (name, result) => judgeRun(env, name, result),
       background: (work) => ctx.waitUntil(work.catch((err) => logError('automation', err))),
+    });
+    this.effects = new Effects({
+      sql: ctx.storage.sql,
+      env,
+      now: () => runtime.now(),
+      append: (input) => this.ledger.append(input),
+      flush: () => this.flush(),
+      armAlarm: (at) => this.armAlarm(at),
+      stopped: () => this.stopState(),
+      takeEmail: () => this.usage.take('email', dailyLimit(env, 'email'), runtime.now()).allowed,
+      limitMessage: () => limitMessage('email', dailyLimit(env, 'email')),
+      sender: () => mailSender(env, ctx.storage.sql, () => runtime.now()),
+      ownerName: async () => ((await workspaceStub(env).getSettings()) as unknown as { ownerName?: string | null }).ownerName ?? null,
+      raise: (input) => this.team.raiseEffect(input),
     });
     this.canvases = new Canvases({
       sql: ctx.storage.sql,
@@ -325,8 +363,66 @@ export class ProjectDO extends DurableObject<Env> {
   }
 
   /** The owner answers a raised hand (a plan, a lead's question, a review escalation, the deliverable, the budget). */
-  answerDecision(decisionId: string, a: DecisionAnswer): Promise<{ accepted: true; decision: Decision; project?: TeamProjectSnapshot } | ProjectRefusal> {
-    return this.team.answer(decisionId, a);
+  answerDecision(decisionId: string, a: DecisionAnswer, by = 'owner'): Promise<{ accepted: true; decision: Decision; project?: TeamProjectSnapshot } | ProjectRefusal> {
+    return this.team.answer(decisionId, a, by);
+  }
+
+  // ── Inc 6 trust: emails exactly once, changes for the owner's OK, Everyone stop ─────────────
+
+  /** An agent asks to send an email (the Chief of Staff, or a coworker at their desk). */
+  async requestEffect(req: EffectRequest): Promise<EffectResult | { status: 'invalid'; message: string }> {
+    try {
+      return await this.effects.request(req);
+    } catch (err) {
+      if (err instanceof EffectError) return { status: 'invalid', message: err.message };
+      throw err;
+    }
+  }
+
+  /** A change inside Headcount for the owner's OK (a coworker's own instructions, a Handbook section). */
+  async openChange(ask: ChangeAsk, fromId: string, title: string): Promise<Decision> {
+    return this.team.openChange(ask, fromId, title);
+  }
+
+  async trustState(): Promise<{ effects: EffectView[]; stopped: StopState | null }> {
+    return { effects: this.effects.open(), stopped: this.stopState() };
+  }
+
+  /** What an agent recently asked to send, and what became of it (its context for "did it go out?"). */
+  async recentEffects(agentId: string, limit = 5): Promise<EffectView[]> {
+    return this.effects.recent(agentId, limit);
+  }
+
+  async testMailbox(): Promise<TestMailbox> {
+    return { messages: sinkMessages(this.ctx.storage.sql).map((m) => ({ key: m.key, at: m.at, from: m.mail.from, to: m.mail.to, ...(m.mail.cc ? { cc: m.mail.cc } : {}), subject: m.mail.subject, text: m.mail.text })) };
+  }
+
+  /** The owner's test email to themself (Admin → Email). */
+  async sendTestEmail(to: string, by: string): Promise<EffectResult | { status: 'invalid'; message: string }> {
+    try {
+      const r = await this.effects.ownerTest(to, by);
+      await this.flush();
+      return r;
+    } catch (err) {
+      if (err instanceof EffectError) return { status: 'invalid', message: err.message };
+      throw err;
+    }
+  }
+
+  private stopState(): StopState | null {
+    const r = this.ctx.storage.sql.exec<{ value: string }>(`SELECT value FROM trust_state WHERE key = 'stop'`).toArray()[0];
+    return r ? (JSON.parse(r.value) as StopState) : null;
+  }
+
+  /** Everyone stop ends (an owner's on-screen OK): held emails that had an OK go out; the rest ask again. */
+  async resumeAll(by: string): Promise<{ resumed: boolean }> {
+    if (!this.stopState()) return { resumed: false };
+    this.ctx.storage.sql.exec(`DELETE FROM trust_state WHERE key = 'stop'`);
+    this.append({ type: 'trust.updated', data: { stopped: null } });
+    await audit(this.env.DB, wsOf(this.env), { actor: `owner:${by}`, kind: 'stop', action: 'stop.resumed', summary: 'Resumed after Everyone stop', link: '/app/admin/autonomy' });
+    await this.effects.resume();
+    await this.flush();
+    return { resumed: true };
   }
 
   /** The Chief of Staff asks the owner's OK for a connector call (a raised hand with no project). */
@@ -430,7 +526,14 @@ export class ProjectDO extends DurableObject<Env> {
   }
 
   /** "Everyone stop": halt every running job and team project at once. Plans waiting for the owner's OK stay. */
-  async stopAll(by: 'owner' | 'chief' = 'owner'): Promise<StopAllResponse> {
+  async stopAll(by: 'owner' | 'chief' = 'owner', who?: string): Promise<StopAllResponse> {
+    // Inc 6: the stop stays on until an owner resumes; until then emails are held, not sent.
+    if (!this.stopState()) {
+      const stop: StopState = { at: new Date(runtime.now()).toISOString(), by: who ?? by };
+      this.ctx.storage.sql.exec(`INSERT OR REPLACE INTO trust_state (key, value) VALUES ('stop', ?)`, JSON.stringify(stop));
+      this.append({ type: 'trust.updated', data: { stopped: stop } });
+      this.ctx.waitUntil(audit(this.env.DB, wsOf(this.env), { actor: who ? `owner:${who}` : by, kind: 'stop', action: 'stop.on', summary: 'Everyone stop: all work halted; emails are held until an owner resumes', link: '/app/admin/autonomy' }));
+    }
     const jobs = this.ctx.storage.sql.exec<{ job_id: string }>(`SELECT job_id FROM jobs WHERE status IN ('running','queued')`).toArray();
     let stoppedJobs = 0;
     for (const j of jobs) if ((await this.cancelJob(j.job_id, 'Everyone stop.', by)).accepted) stoppedJobs++;
@@ -503,7 +606,7 @@ export class ProjectDO extends DurableObject<Env> {
       .filter((r) => !this.inflight.has(r.job_id));
     // Canvas builds run on their own (minutes of writing); the alarm only starts them and keeps its heartbeat.
     for (const build of this.canvases.tick()) this.ctx.waitUntil(build.catch((err) => logError('canvas.build', err)));
-    await Promise.all([...due.map((r) => this.advance(r.job_id)), this.team.tick(now), this.automations.tick(now)]);
+    await Promise.all([...due.map((r) => this.advance(r.job_id)), this.team.tick(now), this.automations.tick(now), this.effects.recover().catch((err) => logError('effects.recover', err))]);
     await this.flush();
     await this.reschedule();
   }
@@ -897,7 +1000,8 @@ export class ProjectDO extends DurableObject<Env> {
     const teamNext = this.team.nextDue();
     const autoNext = this.automations.nextDue();
     const canvasNext = this.canvases.nextDue();
-    const candidates = [jobsNext, teamNext, autoNext, canvasNext].filter((x): x is number => x !== null && x !== undefined).map(Number);
+    const effectsNext = this.effects.nextDue();
+    const candidates = [jobsNext, teamNext, autoNext, canvasNext, effectsNext].filter((x): x is number => x !== null && x !== undefined).map(Number);
     const next = candidates.length ? Math.min(...candidates) : null;
     if (next !== null) await this.ctx.storage.setAlarm(Math.max(next, now + 10));
     else if (this.ledger.unforwarded(1).length) await this.ctx.storage.setAlarm(now + 5000);

@@ -1,6 +1,7 @@
 // Inc 1 "Hire a team in a sentence": team projects staffed from catalog recipes, a reviewed plan the owner approves
 // in the Inbox (a raised hand), parallel steps with review and one revision, and a written deliverable.
 import type { AutomationSpec } from './automations';
+import type { ChangeAsk, EffectAsk, GrantKind } from './trust';
 import type { ConnectorAsk } from './connectors';
 
 /**
@@ -161,7 +162,7 @@ export interface TeamProjectSnapshot {
  * reviewers still want changes (accept, or give direction) · deliverable: the check left issues (accept, or give
  * direction) · budget: the token budget is spent (raise it and continue?).
  */
-export type DecisionKind = 'plan_approval' | 'input' | 'review' | 'deliverable' | 'budget' | 'connector' | 'automation';
+export type DecisionKind = 'plan_approval' | 'input' | 'review' | 'deliverable' | 'budget' | 'connector' | 'automation' | 'effect' | 'change';
 
 export interface Decision {
   decisionId: string;
@@ -183,6 +184,12 @@ export interface Decision {
   scope?: ConnectorScope;
   /** An automation the Chief of Staff proposes (kind 'automation'): approving sets it up. */
   automation?: AutomationSpec & { describe: string };
+  /** Inc 6: emails waiting for the owner's OK (kind 'effect'). */
+  effect?: EffectAsk;
+  /** Inc 6: a change inside Headcount waiting for the owner's OK (kind 'change'). */
+  change?: ChangeAsk;
+  /** How far an approved effect's OK reached. */
+  grant?: GrantKind;
   createdAt: string;
   resolvedAt?: string;
 }
@@ -196,6 +203,8 @@ export interface DecisionAnswer {
   text?: string;
   /** Connector approvals: how far the OK reaches (default once). */
   scope?: ConnectorScope;
+  /** Effect approvals (emails): how far the OK reaches (default once; only the kinds the decision allows). */
+  grant?: GrantKind;
 }
 export const DECISION_ANSWER_MAX = 4000;
 /** POST /api/decisions/:id answered: the decision, and its project when it has one (a Chief's connector ask has none). */

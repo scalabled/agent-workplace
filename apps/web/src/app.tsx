@@ -33,7 +33,7 @@ import { Memory } from './routes/Memory';
 import { ChiefPrompt } from './routes/ChiefPrompt';
 import { Talk } from './routes/Talk';
 import * as store from './store';
-import { acceptSettings, applyFrame, capabilities, clearServerPresence, connection, lastSeq, mergeJobs, mergeProjects, onboarded, settings } from './store';
+import { acceptSettings, applyFrame, capabilities, clearServerPresence, connection, lastSeq, mergeJobs, mergeProjects, onboarded, settings, trustStop } from './store';
 import { draft } from './talk/draft';
 import { startUnread } from './ui/unread';
 import { bargeIn, chiefIsSpeaking, chiefSpeaker, startChiefVoice } from './voice/chief-voice';
@@ -64,6 +64,11 @@ function refreshJobs() {
   void api
     .listProjects()
     .then((r) => mergeProjects(r))
+    .catch(() => undefined);
+  // Everyone stop (Inc 6): whether it is on, however long ago it was turned on.
+  void api
+    .getTrust()
+    .then((t) => (trustStop.value = t.stopped))
     .catch(() => undefined);
 }
 

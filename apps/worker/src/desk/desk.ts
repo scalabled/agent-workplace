@@ -3,7 +3,8 @@
 // sentence that claims or promises work they are not doing (H2) or states a figure, metric, experience or study the
 // owner did not give (the reply guard, rooms/guard.ts, Office Phase 2 §4.2.6). Inc 1: a coworker staffed on a team
 // project knows their live steps and may talk about that work truthfully; outside actions stay off limits.
-import { deskTools, type DeskActions } from './desk-tools';
+import { deskTools, instructionsTool, type DeskActions } from './desk-tools';
+import { ReceiptGuard, sendEmailTool } from '../trust/email-tool';
 import { callBudget, runTurn, type TurnResult } from '@headcount/agent-loop';
 import { chiefDisplayName, firstName, type Persona } from '@headcount/catalog';
 import { catalogFull, fullIndex } from '@headcount/catalog/full';
@@ -311,8 +312,17 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
       maxSentences: 3,
       where: 'desk.guard',
     });
-    const tools = host.actions ? deskTools(host.actions(spec.persona), spec.persona, chief, () => guard.allowWork()) : [];
-    const say = (text: string) => {
+    const actions = host.actions?.(spec.persona);
+    const tools = actions ? deskTools(actions, spec.persona, chief, () => guard.allowWork()) : [];
+    // Inc 6: email, exactly once with the owner's OK; "sent" only with a receipt this turn.
+    let receipts = 0;
+    const mail = actions?.email;
+    if (mail) tools.push(sendEmailTool({ request: (e) => mail.request(e, turnId) }, { owner: ownerFirstNameOf(settings) ?? 'the owner', test: mail.test, onResult: (r) => { if (r.status === 'done') receipts++; if (r.status !== 'failed') guard.allowWork(); } }));
+    const selfTool = actions ? instructionsTool(actions, spec.persona, () => guard.allowWork()) : null;
+    if (selfTool) tools.push(selfTool);
+    const receiptGuard = mail ? new ReceiptGuard(() => receipts) : null;
+    const say = (raw: string) => {
+      const text = receiptGuard && raw ? receiptGuard.push(raw) : raw;
       if (!text || state.closed) return;
       state.text += text;
       feed.emit({ type: 'talk.delta', data: { turnId, messageId: state.replyId, agentId, delta: text, surface: 'floor' } });
@@ -332,6 +342,13 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
     });
     // A reply cut by the token cap ends at its last whole sentence: the fragment is never said.
     say(result.finish === 'length' || result.finish === 'incomplete' ? guard.discard() : guard.flush());
+    if (receiptGuard) {
+      const rest = receiptGuard.flush();
+      if (rest && !state.closed) {
+        state.text += rest;
+        feed.emit({ type: 'talk.delta', data: { turnId, messageId: state.replyId, agentId, delta: rest, surface: 'floor' } });
+      }
+    }
     usage = { provider: resolved.providerId, input: result.usage.input, output: result.usage.output, usd: result.usage.usd };
     finish = finishOf(result, state.text);
     if (result.finish === 'error' && !state.closed) {

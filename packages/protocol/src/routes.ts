@@ -151,6 +151,15 @@ export const ROUTES = {
   removeMember: { method: 'DELETE', path: '/api/admin/members/:email', auth: 'owner' },
   adminUsage: { method: 'GET', path: '/api/admin/usage', auth: 'owner' },
   putPrices: { method: 'PUT', path: '/api/admin/prices', auth: 'owner', body: 'json', bodyCap: 32 * 1024 },
+  // Inc 6 trust (ext/trust.ts): the autonomy dial, grants, the audit trail with Undo, email, resuming after Everyone stop.
+  getTrust: { method: 'GET', path: '/api/trust', auth: 'reader' },
+  putAutonomy: { method: 'PUT', path: '/api/trust/autonomy', auth: 'owner', body: 'json', bodyCap: 1024 },
+  revokeGrant: { method: 'DELETE', path: '/api/trust/grants/:id', auth: 'owner' },
+  listAudit: { method: 'GET', path: '/api/audit', auth: 'owner' },
+  undoAudit: { method: 'POST', path: '/api/audit/:id/undo', auth: 'owner', bodyCap: 1024 },
+  resumeAll: { method: 'POST', path: '/api/resume-all', auth: 'owner', bodyCap: 1024 },
+  testMailbox: { method: 'GET', path: '/api/email/test-mailbox', auth: 'owner' },
+  testEmail: { method: 'POST', path: '/api/email/test', auth: 'owner', body: 'json', bodyCap: 2 * 1024 },
 } as const satisfies Record<string, RouteDef>;
 
 export type RouteId = keyof typeof ROUTES;

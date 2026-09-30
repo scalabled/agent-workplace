@@ -1,7 +1,9 @@
 // A raised hand (Inbox and the project page): a plan to approve, a teammate's question, reviewers' remaining issues,
-// the deliverable's check, the token budget, or a connector call that waits for the owner's OK (once, for the project,
-// or always). Each kind offers its own answers; words reach the team at once.
+// the deliverable's check, the token budget, a connector call that waits for the owner's OK (once, for the project,
+// or always), emails waiting to be sent (Inc 6: once, or a grant that reaches further, only the kinds allowed), or a
+// change inside Headcount (a coworker's own instructions, a Handbook section). Each kind offers its own answers.
 import type { ConnectorScope, Decision } from '@headcount/protocol/ext/projects';
+import { GRANT_WORDS, type GrantKind } from '@headcount/protocol/ext/trust';
 import { useState } from 'preact/hooks';
 import { catalog } from '../catalog';
 import { chiefName } from '../chief';
@@ -19,17 +21,21 @@ const KIND_LABEL: Record<Decision['kind'], string> = {
   budget: 'Budget',
   connector: 'Permission',
   automation: 'Automation',
+  effect: 'Send email?',
+  change: 'A change for your OK',
 };
 
 import { CopyLink } from '../links/CopyLink';
 export function DecisionCard({ decision: d, showProject = true }: { decision: Decision; showProject?: boolean }) {
   const [text, setText] = useState('');
+  const [grant, setGrant] = useState<GrantKind>('once');
   const project = teamProjects.value[d.projectId];
   const busy = !!decisionBusy.value[d.decisionId];
   const error = decisionError.value[d.decisionId];
   const asker = d.fromId ? catalog.value?.persona(d.fromId) : undefined;
   const answer = (action: 'approve' | 'decline' | 'answer', scope?: ConnectorScope) =>
-    void answerDecision(d.decisionId, action === 'answer' ? { action, text: text.trim() } : { action, ...(scope ? { scope } : {}) }).then((ok) => ok && setText(''));
+    void answerDecision(d.decisionId, action === 'answer' ? { action, text: text.trim() } : { action, ...(scope ? { scope } : {}), ...(d.kind === 'effect' && action === 'approve' ? { grant } : {}) }).then((ok) => ok && setText(''));
+  const emails = d.effect?.emails ?? [];
   const words = d.kind === 'input' || d.kind === 'review' || d.kind === 'deliverable';
   const placeholder = d.kind === 'input' ? 'Your answer…' : 'Or give direction: what should change…';
   return (
@@ -55,7 +61,34 @@ export function DecisionCard({ decision: d, showProject = true }: { decision: De
           </h2>
           <CopyLink page={paths.inbox} at={d.decisionId} label="Copy link to this" what="Link to it" />
         </div>
-        {d.automation ? (
+        {d.effect ? (
+          <>
+            {d.effect.unknown && <p class="decision-text">It is not certain whether this went out: the email provider can no longer tell. Sending it again may send it twice.</p>}
+            <ul class="decision-emails" aria-label={emails.length === 1 ? 'The email' : `The ${emails.length} emails`}>
+              {emails.map((e, i) => (
+                <li key={e.key}>
+                  <details open={emails.length === 1 || undefined}>
+                    <summary>
+                      <span class="decision-email-to">To {e.to.join(', ')}</span>
+                      {e.cc?.length ? <span class="decision-email-to"> · cc {e.cc.join(', ')}</span> : null} · <strong>{e.subject}</strong>
+                    </summary>
+                    <pre class="decision-email-text" aria-label={`Email ${i + 1}`}>
+                      {e.text}
+                    </pre>
+                  </details>
+                </li>
+              ))}
+            </ul>
+            <p class="page-fine">Nothing goes out until you say so. A line saying an AI coworker wrote it is added.</p>
+          </>
+        ) : d.change ? (
+          <>
+            <p class="decision-text">{d.change.why}</p>
+            <p class="decision-kind">{d.change.change === 'instructions' ? `Added to how ${d.change.targetLabel.split(' ')[0]} works` : `The new “${d.change.targetLabel}”`}</p>
+            <pre class="decision-args">{d.change.after.startsWith(d.change.before) && d.change.before ? d.change.after.slice(d.change.before.length).trim() : d.change.after}</pre>
+            <p class="page-fine">You can undo it later from Admin → Audit log.</p>
+          </>
+        ) : d.automation ? (
           <>
             <p class="decision-text">{d.automation.describe}</p>
             <p class="decision-text automation-goal">{d.automation.action.goal}</p>
@@ -156,6 +189,38 @@ export function DecisionCard({ decision: d, showProject = true }: { decision: De
             </button>
             <button type="button" class="button-quiet" disabled={busy} onClick={() => answer('decline')}>
               Don’t allow
+            </button>
+          </>
+        )}
+        {d.kind === 'effect' && d.effect && (
+          <>
+            <button type="button" class="button-primary" disabled={busy} onClick={() => answer('approve')}>
+              {busy ? 'Sending…' : d.effect.unknown ? 'Send again' : emails.length === 1 ? 'Send it' : `Send all ${emails.length}`}
+            </button>
+            {d.effect.allowedGrants.length > 1 && (
+              <label class="decision-grant">
+                <span>Allow</span>
+                <select class="field-input field-compact" value={grant} onChange={(e) => setGrant((e.target as HTMLSelectElement).value as GrantKind)}>
+                  {d.effect.allowedGrants.map((g) => (
+                    <option key={g} value={g}>
+                      {g === 'once' ? 'just these' : GRANT_WORDS[g].toLowerCase()}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <button type="button" class="button-quiet" disabled={busy} onClick={() => answer('decline')}>
+              Don’t send
+            </button>
+          </>
+        )}
+        {d.kind === 'change' && (
+          <>
+            <button type="button" class="button-primary" disabled={busy} onClick={() => answer('approve')}>
+              Approve the change
+            </button>
+            <button type="button" class="button-quiet" disabled={busy} onClick={() => answer('decline')}>
+              Not now
             </button>
           </>
         )}

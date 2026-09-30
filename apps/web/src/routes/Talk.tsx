@@ -19,11 +19,11 @@ import { VoiceElsewhere } from '../components/VoiceElsewhere';
 import { ago, now } from '../lib/time';
 import { bubbles, liveCaptions } from '../living/captions';
 import { linkTarget, linkTo, navigate, paths } from '../router';
-import { activeJobs, can, canvases, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, onboarded, settings, teamProjects, thread, type ThreadItem } from '../store';
+import { activeJobs, can, canvases, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, onboarded, settings, teamProjects, thread, trustStop, type ThreadItem } from '../store';
 import { retryOwnerMessage, sendOwnerMessage, setVoiceOn } from '../talk/actions';
 import { draft, focusComposer, greetedThisSession, greetOnArrival, prefillComposer } from '../talk/draft';
 import { notice, showNotice } from '../ui/notice';
-import { mayContribute } from '../auth/session';
+import { isOwner, mayContribute } from '../auth/session';
 import { FILE_ACCEPT } from '../memory/upload';
 import { api } from '../api/client';
 import { canSnapScreen, canUseCamera, snapScreen } from '../lib/capture';
@@ -141,10 +141,17 @@ export function Talk() {
 
 /** The Chief's own asks waiting for the owner's OK: connector calls and automations (the turn waits on the card; the Inbox has it too). */
 function ChiefAsks() {
-  const asks = decisionList.value.filter((d) => (d.kind === 'connector' || d.kind === 'automation') && !d.projectId);
-  if (!asks.length) return null;
+  // The Chief's own asks, and a coworker's email or change from their desk (Inc 6): none belongs to a project.
+  const asks = decisionList.value.filter((d) => (d.kind === 'connector' || d.kind === 'automation' || d.kind === 'effect' || d.kind === 'change') && !d.projectId);
+  const stop = trustStop.value;
+  if (!asks.length && !stop) return null;
   return (
     <div class="talk-asks" aria-label="Waiting for your OK">
+      {stop && (
+        <p class="everyone-stop-on" role="status">
+          Everyone stop is on: emails are held until an owner resumes. {isOwner.value && <Link href={paths.admin('autonomy')}>Resume</Link>}
+        </p>
+      )}
       {asks.map((d) => (
         <DecisionCard key={d.decisionId} decision={d} showProject={false} />
       ))}
@@ -460,10 +467,16 @@ function ProjectLink({ projectId }: { projectId: string }) {
  */
 function NoteLine({ item }: { item: ThreadItem }) {
   const huddle = item.roomId?.startsWith('huddle:') ?? false;
+  const email = item.messageId.startsWith('effect:');
   return (
-    <li class="msg msg-note" data-kind="note">
+    <li class="msg msg-note" data-kind="note" data-email={email || undefined}>
       <svg class="msg-note-glyph" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        {huddle ? (
+        {email ? (
+          <>
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <path d="m3 7 9 6 9-6" />
+          </>
+        ) : huddle ? (
           <>
             <circle cx="8" cy="8" r="3" />
             <circle cx="16" cy="8" r="3" />
@@ -478,9 +491,14 @@ function NoteLine({ item }: { item: ThreadItem }) {
           </>
         )}
       </svg>
-      <span class="visually-hidden">In the office: </span>
+      <span class="visually-hidden">{email ? 'Email: ' : 'In the office: '}</span>
       <Markdown text={item.text} class="msg-body" />
       {item.projectId && <ProjectLink projectId={item.projectId} />}
+      {item.receiptId && (
+        <Link href={linkTo(paths.admin('audit'), item.receiptId)} class="msg-note-link" title="The receipt, in the audit log">
+          Receipt {item.receiptId}
+        </Link>
+      )}
     </li>
   );
 }

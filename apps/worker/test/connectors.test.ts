@@ -326,10 +326,16 @@ describe('connectors in the workspace', () => {
     await s.t.ctx.drain();
     expect(s.notes()).toEqual(['Welcome']);
 
+    // "Never ask" on the connector, but the autonomy dial for changes in connected apps is still Propose (Inc 6): the
+    // stricter wins, so the write still waits. Once the owner lets them act, it runs at once, and is in the audit log.
     await s.api('PUT', `/api/connectors/${demo.connectorId}`, { approval: 'never' });
+    expect((await s.api('GET', '/api/trust')).body.policy.app_write).toBe('propose');
+    expect((await s.api('PUT', '/api/trust/autonomy', { actionClass: 'app_write', level: 'act_report' })).status).toBe(200);
     await s.api('POST', '/api/talk', { text: 'Add a note (use demo_notebook__add_note)', opId: ids.op() });
     await s.t.ctx.drain();
     expect(s.notes().sort()).toEqual(['Mock note', 'Welcome']);
+    const log = (await s.api('GET', '/api/audit?kind=app')).body.entries as { summary: string; undo?: { can: boolean; label: string } }[];
+    expect(log[0]).toMatchObject({ summary: expect.stringContaining('Demo notebook'), undo: { can: false, label: 'Undo it in Demo notebook itself' } });
     expect(await s.ws.connectorCall({ connectorId: demo.connectorId, tool: 'list_notes', args: {}, subject: 'chief' })).toMatchObject({ status: 'error', message: expect.stringContaining('daily limit') });
   });
 });

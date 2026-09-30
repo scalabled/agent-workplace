@@ -30,6 +30,7 @@ import { handleAddAutomation, handleListAutomations, handlePutAutomation, handle
 import { handleAddConnector, handleListConnectors, handlePatchConnector, handleRemoveConnector, handleRevokeConnectorGrant, handleTestConnector } from './connectors/routes';
 import { handleChiefPrompt, handleGetAgent, handleGetSkill, handleListModels, handleListSkills, handlePutAgent, handlePutSkill, handleResetAgent, handleRollbackSkill } from './agents/routes';
 import { handleGetWorkspace, handlePutWorkspace, handleTalk, handleWs } from './workspace/routes';
+import { handleGetTrust, handleListAudit, handlePutAutonomy, handleResumeAll, handleRevokeGrant, handleTestEmail, handleTestMailbox, handleUndoAudit } from './trust/routes';
 
 export { ProjectDO } from './jobs/project-do';
 export { RoomDO } from './rooms/room-do';
@@ -147,6 +148,14 @@ export const HANDLERS: Record<RouteId, RouteHandler> = {
   removeMember: handleRemoveMember,
   adminUsage: handleAdminUsage,
   putPrices: handlePutPrices,
+  getTrust: handleGetTrust,
+  putAutonomy: handlePutAutonomy,
+  revokeGrant: handleRevokeGrant,
+  listAudit: handleListAudit,
+  undoAudit: handleUndoAudit,
+  resumeAll: handleResumeAll,
+  testMailbox: handleTestMailbox,
+  testEmail: handleTestEmail,
 };
 
 /** Reject bodies over the route's cap before the handler runs (Content-Length, or by counting a streamed body). */

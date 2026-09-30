@@ -1,4 +1,5 @@
 import type { Recalled } from '@headcount/protocol/ext/memory';
+import type { EffectView } from '@headcount/protocol/ext/trust';
 import { EXTERNAL_RULE } from '../tools/external';
 // Prompt layering ported from biz-bot/public/js/agent.js (buildSystemPrompt) and
 // biz-bot/public/js/bizbot.js (routingBrief), rebuilt for the catalog lead (ARCHITECTURE §4.3, §5.1).
@@ -38,6 +39,10 @@ export interface ChiefPromptInput {
   turnNote?: string;
   /** The owner's first name (`ownerFirstNameOf(settings)`), when they set one. */
   ownerFirst?: string | null;
+  /** Inc 6: email is set up (send_email is offered): the owner's setting for it, and what became of recent emails. */
+  email?: { test: boolean; level: 'ask' | 'propose'; recent: readonly EffectView[] };
+  /** Inc 6: the owner's setting for changes inside Headcount (propose: Handbook updates wait for their OK). */
+  workspaceLevel?: string;
 }
 
 const list = (items: readonly (string | null | undefined)[] | undefined, bullet = '- '): string =>
@@ -49,13 +54,18 @@ const list = (items: readonly (string | null | undefined)[] | undefined, bullet 
 const section = (title: string, body: string): string => (body.trim() ? `## ${title}\n${body.trim()}` : '');
 
 /** Layer 0: platform rules (PG domain rules, BB EXTERNAL_RULE/UNCERTAINTY_RULE), fixed. */
-function platformRules(honestyPolicy?: string, webSearch = false, connectors = '', automations = false): string {
+function platformRules(honestyPolicy?: string, webSearch = false, connectors = '', automations = false, email?: ChiefPromptInput['email']): string {
   return [
     '## Platform rules (these override everything below)',
     '- You are an AI. Your backstory is character lore that gives you warmth and history; it is not a record of real events. If the owner sincerely asks whether you are an AI or whether your story is real, answer plainly.',
     webSearch
-      ? '- Never claim a real-world action you did not take through a tool (sent, booked, paid, published, called). You have no email or payment tools. You can search the web for a quick current fact (name the source); anything that needs real research is a background job or a team project.'
-      : '- Never claim a real-world action you did not take through a tool (sent, booked, paid, published, called, visited a site). In this workspace you have no email, web or payment tools yet.',
+      ? `- Never claim a real-world action you did not take through a tool (sent, booked, paid, published, called). ${email ? 'You have no payment tools.' : 'You have no email or payment tools.'} You can search the web for a quick current fact (name the source); anything that needs real research is a background job or a team project.`
+      : `- Never claim a real-world action you did not take through a tool (sent, booked, paid, published, called, visited a site). In this workspace you have no ${email ? '' : 'email, '}web or payment tools yet.`,
+    ...(email
+      ? [
+          `- Email goes out only through send_email, exactly once, and only with the owner's OK unless they allowed more. The owner's setting for sending email: ${email.level === 'ask' ? '"Ask first": before you write an email they did not ask for, check with them in a sentence' : '"Propose": write the email and send_email it; it waits for their OK'}. Say "sent" only with the receipt id send_email returned (e.g. "sent, receipt rcp_…"); otherwise say it is waiting for their OK.${email.test ? ' Email is in test mode: it goes to a test mailbox inside Headcount and nothing leaves; say so when it matters.' : ''}`,
+        ]
+      : []),
     '- Apps and documents the owner wants to use or keep (a calculator, tracker, planner, a plan, proposal or one-pager) go on their canvas through create_canvas; research goes to a background job, multi-discipline outcomes to a team.',
     ...(automations
       ? ['- Work that should start by itself ("every Monday…", "tell me when this page changes") goes through set_up_automation, only when the owner asks for it; it exists only once they confirm on the card. Times are UTC.']
@@ -207,10 +217,20 @@ function teamRosterBlock(team: readonly { personaId: string; name: string; title
   ].join('\n');
 }
 
+/** What became of the emails the Chief asked to send lately (the only source for "did it go out?"). */
+function emailsBlock(email: ChiefPromptInput['email']): string {
+  if (!email?.recent.length) return '';
+  const words: Record<string, string> = { done: 'sent', awaiting: 'waiting for the owner’s OK', pending: 'going out now', held: 'held (Everyone stop)', declined: 'declined by the owner', failed: 'not sent', unknown: 'uncertain; the owner was asked' };
+  return [
+    '## EMAILS YOU ASKED TO SEND (latest first; the only source for whether one went out)',
+    ...email.recent.map((e) => `- “${e.email.subject}” to ${e.email.to.join(', ')}: ${words[e.status] ?? e.status}${e.receipt ? ` (receipt ${e.receipt.receiptId})` : ''}${e.note ? ` — ${e.note}` : ''}`),
+  ].join('\n');
+}
+
 export function buildChiefSystemPrompt(input: ChiefPromptInput): string {
   const name = chiefDisplayName(input.lead, input.chiefName);
   return [
-    platformRules(input.honestyPolicy, input.webSearch, input.connectors, input.automations),
+    platformRules(input.honestyPolicy, input.webSearch, input.connectors, input.automations, input.email),
     input.lead ? personaLayer(input.lead, name) : neutralPersona(name),
     roleDirective(input.voiceOn),
     input.ownerFirst ? `The owner's name is ${input.ownerFirst}. Use it rarely.` : '',
@@ -219,6 +239,8 @@ export function buildChiefSystemPrompt(input: ChiefPromptInput): string {
     workStateBlock(input.jobs),
     teamStateBlock(input.projects ?? null),
     questionsBlock(input.decisions ?? []),
+    emailsBlock(input.email),
+    input.workspaceLevel === 'propose' ? 'The owner wants to OK changes to the Handbook first: update_handbook proposes the change and it waits for them (say so).' : '',
     `Today is ${input.now.toUTCString().slice(0, 16)}.`,
     input.turnNote ?? '',
   ]

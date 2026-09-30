@@ -76,7 +76,7 @@ describe('casting helpers', () => {
 
 describe('honest copy (INC0 §4: present tense only for what works today)', () => {
   // What Inc 0 verifies. Anything else on the page must say "In the works" or "Planned".
-  const BUILT = new Set(['Delegate', 'Ask and steer', 'Always reachable', 'Steer mid-flight', 'Text, push-to-talk or voice', 'Voice', 'Images', 'Honest AI', 'Conversation', 'Work']);
+  const BUILT = new Set(['Delegate', 'Ask and steer', 'Always reachable', 'Steer mid-flight', 'Text, push-to-talk or voice', 'Voice', 'Images', 'Honest AI', 'Conversation', 'Work', 'Vision', 'Approve', 'Approvals', 'Receipts', 'Everyone stop']);
   const all = [...STEPS.map((s) => ({ title: s.title, status: s.status })), ...LIVING, ...SPEEDS.map((s) => ({ title: s.name, status: s.status })), ...TALK_POINTS, ...MODALITIES, ...TRUST];
 
   it('gives every capability a status, and "Works today" only to built ones', () => {
@@ -84,8 +84,9 @@ describe('honest copy (INC0 §4: present tense only for what works today)', () =
       expect(f.status, f.title).toBeDefined();
       if (f.status === 'now') expect(BUILT.has(f.title), `${f.title} is marked Works today`).toBe(true);
     }
-    // The living workforce, approvals, receipts and Everyone stop are not built in Inc 0.
-    for (const f of [...LIVING, ...TRUST.filter((t) => t.title !== 'Honest AI')]) expect(f.status).not.toBe('now');
+    // The living workforce is not marked built here; approvals, receipts and Everyone stop are (Inc 6).
+    for (const f of LIVING) expect(f.status).not.toBe('now');
+    for (const f of TRUST) expect(f.status, f.title).toBe('now');
   });
 
   it('never promises pause (jobs can be steered or stopped, not paused) or a voice for every coworker', () => {

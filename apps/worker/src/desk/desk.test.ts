@@ -33,8 +33,9 @@ describe('POST /api/desk/:personaId/say', () => {
     expect(s.liveOf('presence').filter((p) => p.data.agentId === 'cw_tech-lead').map((p) => p.data.state)).toEqual(['thinking', 'idle']);
     const desk = requests.filter(isDesk);
     expect(desk).toHaveLength(1);
-    // Their desk tools: remember, ask a colleague, propose a project, start research (never a bare refusal).
-    expect((desk[0]!.tools ?? []).map((t) => t.name)).toEqual(['remember_this', 'ask_colleague', 'propose_project', 'start_research']);
+    // Their desk tools: remember, ask a colleague, propose a project, start research (never a bare refusal), and propose a
+    // change to how they work (Inc 6; the owner approves it). No email: it is off here.
+    expect((desk[0]!.tools ?? []).map((t) => t.name)).toEqual(['remember_this', 'ask_colleague', 'propose_project', 'start_research', 'change_how_i_work']);
     expect(desk[0]!.system).toContain('You are not on a team project right now');
     expect(desk[0]!.system).toContain('Helpful first: never answer with only a refusal');
     expect(desk[0]!.system).toContain(fullIndex.persona('tech-lead')!.name);

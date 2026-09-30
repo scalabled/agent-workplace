@@ -100,6 +100,10 @@ export interface ConnectorStoreDeps {
   grantedTo(connectorId: string): string[];
   /** The daily cap on calls: false when spent. */
   take(): boolean;
+  /** Inc 6: the owner's autonomy level for changes in connected apps (a write waits for the OK at ask or propose). */
+  writeLevel?(): Promise<'ask' | 'propose' | 'act_report' | 'act_quiet'>;
+  /** Inc 6: record a write in the audit trail. */
+  audit?(e: { actor: string; summary: string; target: string }): void;
   fetchImpl?: typeof fetch;
   resolve?: Resolver | null;
 }
@@ -114,8 +118,9 @@ const json = <T>(s: string | null, fallback: T): T => {
   }
 };
 
-export function needsApproval(approval: ConnectorApproval, tool: Pick<McpTool, 'readOnly'>): boolean {
-  return approval === 'ask' || (approval === 'writes' && !tool.readOnly);
+export function needsApproval(approval: ConnectorApproval, tool: Pick<McpTool, 'readOnly'>, writeLevel?: string): boolean {
+  // The connector's own setting, or the autonomy dial for writes (Admin → Autonomy): the stricter wins.
+  return approval === 'ask' || (!tool.readOnly && (approval === 'writes' || writeLevel === 'ask' || writeLevel === 'propose'));
 }
 
 export class ConnectorStore {
@@ -251,10 +256,17 @@ export class ConnectorStore {
           connectorId: r.connector_id,
           name: r.name,
           slug: r.slug,
-          tools: json<McpTool[]>(r.tools, []).map((t) => ({ name: t.name, ...(t.title ? { title: t.title } : {}), description: t.description, inputSchema: t.inputSchema, needsApproval: needsApproval(approval, t) })),
+          tools: this.toolsOf(r).map((t) => ({ name: t.name, ...(t.title ? { title: t.title } : {}), description: t.description, inputSchema: t.inputSchema, needsApproval: needsApproval(approval, t) })),
         };
       })
       .filter((k) => k.tools.length > 0);
+  }
+
+  /** A connector's tools, only the read-only ones when its catalog entry is read-only (HubSpot). */
+  private toolsOf(r: Row): McpTool[] {
+    const tools = json<McpTool[]>(r.tools, []);
+    const entry = r.catalog_id ? this.catalog().find((c) => c.id === r.catalog_id) : undefined;
+    return entry?.readOnly ? tools.filter((t) => t.readOnly) : tools;
   }
 
   /** Run one tool call: access, the owner's OK (or a grant that covers it), the daily cap, then the server. */
@@ -263,10 +275,11 @@ export class ConnectorStore {
     if (!r) return { status: 'error', message: 'That connector is no longer connected.' };
     if (!this.allowed(r, req.subject, granted)) return { status: 'error', message: `You may not use ${r.name}.` };
     if (r.status === 'needs_key') return { status: 'error', message: `${r.name} needs its key before it can be used.` };
-    const tool = json<McpTool[]>(r.tools, []).find((t) => t.name === req.tool);
-    if (!tool) return { status: 'error', message: `${r.name} has no tool called ${req.tool}.` };
+    const tool = this.toolsOf(r).find((t) => t.name === req.tool);
+    if (!tool) return { status: 'error', message: json<McpTool[]>(r.tools, []).some((t) => t.name === req.tool) ? `${r.name} is read-only here: ${req.tool} changes things.` : `${r.name} has no tool called ${req.tool}.` };
     const args = req.args && typeof req.args === 'object' && !Array.isArray(req.args) ? req.args : {};
-    if (needsApproval(r.approval as ConnectorApproval, tool)) {
+    const writeLevel = tool.readOnly ? undefined : await this.d.writeLevel?.().catch(() => 'propose' as const);
+    if (needsApproval(r.approval as ConnectorApproval, tool, writeLevel)) {
       const grant = this.grantFor(r.connector_id, tool.name, req.subject, req.projectId);
       if (!grant) return { status: 'needs_approval', ask: { connectorId: r.connector_id, name: r.name, tool: tool.name, args: clipText(JSON.stringify(args, null, 2), 3000), subject: req.subject } };
       if (grant.scope === 'once') this.d.sql.exec('DELETE FROM connector_grants WHERE grant_id = ?', grant.grant_id);
@@ -278,6 +291,7 @@ export class ConnectorStore {
       const out = await (await this.client(r)).callTool(tool.name, args);
       const raw = out.text || (out.structured !== undefined ? JSON.stringify(out.structured, null, 2) : '(no content)');
       const text = raw.length > RESULT_MAX_CHARS ? `${raw.slice(0, RESULT_MAX_CHARS)}\n[… cut: ${raw.length - RESULT_MAX_CHARS} more characters]` : raw;
+      if (!tool.readOnly && !out.isError) this.d.audit?.({ actor: req.subject, summary: `Used ${r.name} → ${tool.title ?? tool.name} (a change in ${r.name}; undo it there if needed)`, target: r.name });
       return { status: 'ok', content: wrapExternal(`connector ${r.name} → ${tool.name}`, text), isError: out.isError, summary: `${out.isError ? 'Tried' : 'Used'} ${r.name} → ${tool.title ?? tool.name}` };
     } catch (err) {
       const message = err instanceof McpError ? err.message : 'The connector could not be reached.';

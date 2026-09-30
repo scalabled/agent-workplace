@@ -1,4 +1,5 @@
 import { CHANNEL_POST_MAX, MEETING_SAY_MAX, PROJECT_NOTE_MAX, type ChannelEntry, type DecisionAccepted, type MeetingResponse, type MeetingSay, type MeetingSummary, type MeetingsResponse, type ChannelPost, type ChannelResponse, type DecisionAnswer, type DiscussRequest, type PlanEdit, type ProjectActionAccepted, type ProjectNoteRequest, type ProjectResponse, type ProjectsResponse, type StepEdit, type StopAllResponse } from '@headcount/protocol/ext/projects';
+import { whoOf } from '../trust/routes';
 import type { RunsResponse } from '@headcount/protocol/ext/agents';
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
 import { projectStub } from '../lib/stubs';
@@ -40,7 +41,7 @@ export const handleCancelProject: RouteHandler = async (_req, { env, params }) =
 };
 
 /** POST /api/stop-all → "Everyone stop": every running job and team project halts at once. */
-export const handleStopAll: RouteHandler = async (_req, { env }) => json<StopAllResponse>(await projectStub(env).stopAll('owner'));
+export const handleStopAll: RouteHandler = async (_req, rc) => json<StopAllResponse>(await projectStub(rc.env).stopAll('owner', whoOf(rc)));
 
 /** POST /api/projects/:id/note → 202: direction for the team (or `toId`), picked up by the next step that starts. */
 export const handleNoteProject: RouteHandler = async (req, { env, params }) => {
@@ -98,13 +99,15 @@ function stepEditOf(body: Record<string, unknown> | null): StepEdit {
 }
 
 /** POST /api/decisions/:id → the owner answers a raised hand (approve, decline, or words). */
-export const handleAnswerDecision: RouteHandler = async (req, { env, params }) => {
+export const handleAnswerDecision: RouteHandler = async (req, rc) => {
+  const { env, params } = rc;
   if (!isDecisionId(params.id)) throw new HttpError('not_found', 'No such decision.');
   const body = await readJson<Partial<DecisionAnswer>>(req);
   if (!body || !['approve', 'decline', 'answer'].includes(String(body.action))) throw new HttpError('bad_request', 'Approve, decline or answer.');
   if (body.text !== undefined && typeof body.text !== 'string') throw new HttpError('bad_request', 'The answer must be text.');
   if (body.scope !== undefined && !['once', 'project', 'always'].includes(String(body.scope))) throw new HttpError('bad_request', 'Allow once, for this project, or always.');
-  const r = (await projectStub(env).answerDecision(params.id, { action: body.action as DecisionAnswer['action'], ...(body.text ? { text: body.text } : {}), ...(body.scope ? { scope: body.scope } : {}) })) as unknown as DecisionAccepted | Refusal;
+  if (body.grant !== undefined && !['once', 'task', 'project', 'day'].includes(String(body.grant))) throw new HttpError('bad_request', 'Once, for this task, for this project, or for 24 hours.');
+  const r = (await projectStub(env).answerDecision(params.id, { action: body.action as DecisionAnswer['action'], ...(body.text ? { text: body.text } : {}), ...(body.scope ? { scope: body.scope } : {}), ...(body.grant ? { grant: body.grant } : {}) }, whoOf(rc))) as unknown as DecisionAccepted | Refusal;
   if (!r.accepted) throw new HttpError(r.code, r.message);
   return json<DecisionAccepted>({ accepted: true, decision: r.decision, ...(r.project ? { project: r.project } : {}) }, { status: 202 });
 };

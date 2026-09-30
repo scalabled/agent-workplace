@@ -18,6 +18,7 @@ import type { RoomId, RoomTurnData } from './ext/rooms';
 import type { ChannelFrameData, DecisionFrameData, ProjectFrameData } from './ext/projects';
 import type { AutomationFiredData, AutomationResultData } from './ext/automations';
 import type { CanvasFrameData } from './ext/canvas';
+import type { EffectFrameData, TrustFrameData } from './ext/trust';
 import type { Recalled } from './ext/memory';
 
 /**
@@ -164,6 +165,10 @@ export interface FrameDataMap {
   'canvas.updated': CanvasFrameData;
   /** A raised hand opened mid-project (a lead's question, a review escalation, the deliverable check, the budget). Persisted. */
   'decision.opened': DecisionFrameData;
+  /** Inc 6: a real action (an email) was asked for, approved, sent with a receipt, declined, failed or held. Persisted. */
+  'effect.updated': EffectFrameData;
+  /** Inc 6: Everyone stop turned on or off. Persisted. */
+  'trust.updated': TrustFrameData;
 
   /** A face state claim. Ephemeral; recomputable from the ledger. */
   presence: PresenceData;
@@ -214,6 +219,8 @@ export const PERSISTED_FRAME_TYPES: ReadonlySet<FrameType> = new Set<FrameType>(
   'automation.fired',
   'automation.result',
   'canvas.updated',
+  'effect.updated',
+  'trust.updated',
   'workspace.updated',
 ]);
 

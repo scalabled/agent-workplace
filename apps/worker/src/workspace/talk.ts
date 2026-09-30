@@ -1,4 +1,7 @@
 import { callBudget, runTurn, type TurnResult } from '@headcount/agent-loop';
+import type { AutonomyPolicy, EffectView, EmailMessage, EmailStatus } from '@headcount/protocol/ext/trust';
+import type { EffectResult } from '../trust/effects';
+import { ReceiptGuard, sendEmailTool } from '../trust/email-tool';
 import { chiefDisplayName } from '@headcount/catalog';
 import { fullIndex, catalogFull } from '@headcount/catalog/full';
 import { REACT_HINT_MAX_CHARS, humourOnly, maybeReactHintPrefix, parseReactHint, type AffectCues } from '@headcount/expressions';
@@ -69,6 +72,13 @@ export interface TalkHost {
   front?: { ack(req: Omit<AckRequest, 'signal'>, signal: AbortSignal): AsyncIterable<FrontPart> };
   /** The Chief sets up automations the owner asks for; each waits on a card for the owner's OK (stage 3b). */
   automations?: { propose(spec: Partial<AutomationSpec>, signal: AbortSignal): Promise<ProposeOutcome> };
+  /** Inc 6: email (exactly once, with the owner's OK), what became of recent emails, and the owner's autonomy setting. */
+  email?: {
+    status(): EmailStatus;
+    request(email: EmailMessage, turnId: TurnId): Promise<EffectResult>;
+    recent(): Promise<EffectView[]>;
+    policy(): Promise<AutonomyPolicy>;
+  };
   /** The connectors the Chief may use, their calls, and the wait for the owner's OK (Stage 5). */
   connectors?: {
     kits(): ConnectorKit[];
@@ -420,7 +430,14 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
   let hintHeld: ReactHint | null = null;
   let firstDelta = true;
   let front: { brainSpoke(): void } | null = null;
-  const stream = (raw: string) => emit(heads.push(raw));
+  // Inc 6: with email offered, a sentence claiming something was sent without a receipt this turn is replaced.
+  let receipts = 0;
+  const mail = host.email?.status();
+  const receiptGuard = mail?.ready ? new ReceiptGuard(() => receipts) : null;
+  const stream = (raw: string) => {
+    const text = receiptGuard ? receiptGuard.push(raw) : raw;
+    if (text) emit(heads.push(text));
+  };
   const emit = ({ text: raw, hint }: { text: string; hint: ReactHint | null }) => {
     hintHeld ??= hint;
     const text = state.text || !firstDelta ? raw : openers.push(raw);
@@ -497,7 +514,11 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     const conn = host.connectors;
     const connectors = conn ? connectorTools(conn.kits(), conn, { subject: 'chief', mode: () => ({ kind: 'wait', wait: (ask) => conn.wait(ask, signal) }) }) : { tools: [], describe: '' };
     const roster = host.team ? await host.team.roster().catch(() => []) : [];
-    const system = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: connectors.describe, automations: !!host.automations, ...(host.memory ? { handbook: known?.handbook ?? '', recalled: known?.recalled ?? [], interview: host.memory.interviewing() ? host.memory.missing() : null } : {}), ...(roster.length ? { team: roster } : {}) });
+    const policy = host.email ? await host.email.policy().catch(() => null) : null;
+    const emailInput = mail?.ready && host.email ? { test: mail.provider === 'sink', level: (policy?.external_send === 'propose' ? 'propose' : 'ask') as 'ask' | 'propose', recent: await host.email.recent().catch(() => []) } : undefined;
+    const system = buildChiefSystemPrompt({
+      ...(emailInput ? { email: emailInput } : {}),
+      ...(policy ? { workspaceLevel: policy.workspace } : {}), lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: connectors.describe, automations: !!host.automations, ...(host.memory ? { handbook: known?.handbook ?? '', recalled: known?.recalled ?? [], interview: host.memory.interviewing() ? host.memory.missing() : null } : {}), ...(roster.length ? { team: roster } : {}) });
     const tools = createChiefTools({
       project: host.project(),
       turnId,
@@ -510,6 +531,8 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
       onDelegated: (jobId) => host.reflexes?.delegated(turnId, jobId),
     });
     tools.push(...connectors.tools);
+    const email = host.email;
+    if (emailInput && email) tools.push(sendEmailTool({ request: (e) => email.request(e, turnId) }, { owner: ownerFirstNameOf(settings) ?? 'the owner', test: emailInput.test, onResult: (r) => void (r.status === 'done' && receipts++) }));
     if (host.memory) tools.unshift(...memoryTools(host.memory));
     if (host.team) tools.unshift(...teamTools(host.team));
     const auto = host.automations;
@@ -532,6 +555,8 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
       },
     });
     if (!state.closed) {
+      const held = receiptGuard?.flush();
+      if (held) emit(heads.push(held));
       emit(heads.flush());
       if (firstDelta) {
         const rest = openers.flush();

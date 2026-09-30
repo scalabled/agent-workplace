@@ -50,6 +50,16 @@ export interface Env extends ProviderEnv {
   CANVAS_DAILY_LIMIT?: string;
   /** Connector (MCP) tool calls per day (default 500). */
   CONNECTOR_DAILY_LIMIT?: string;
+  /** Inc 6 email (src/trust/mail.ts): "" off · "sink" a test mailbox inside Headcount · "resend" real email. */
+  MAIL_PROVIDER?: string;
+  /** The sender, "Name <address>" (its domain verified with Resend). */
+  MAIL_FROM?: string;
+  /** Where replies go (default the sender). */
+  MAIL_REPLY_TO?: string;
+  /** Resend API key (a secret, or saved sealed on the admin page). */
+  RESEND_API_KEY?: string;
+  /** Emails sent per day (default 50). */
+  EMAIL_DAILY_LIMIT?: string;
   /** "off": teams skip the kickoff discussion (default on for teams of three or more). */
   KICKOFF?: string;
   /** Background jobs that may run at once (default 3). */

@@ -77,6 +77,11 @@ import { ExprHost, type ExprAgentState, type ManifestRow } from '../expr/host';
 import { parseRecentOp, parseViewerOp } from '../expr/viewer';
 import { DailyCounter, dailyLimit, limitMessage } from '../lib/limits';
 import type { MirrorBatch } from '../jobs/project-do';
+import { clipText } from '../jobs/job-view';
+import type { ChangeAsk, EffectView, EmailMessage } from '@headcount/protocol/ext/trust';
+import type { EffectResult } from '../trust/effects';
+import { mailStatus } from '../trust/mail';
+import { audit, loadPolicy, wsOf, type UndoSpec } from '../trust/store';
 import { projectStub } from '../lib/stubs';
 import { mockMediaEnabled } from '../media/speech';
 import { composeAnnouncement, templateAnnouncement, type AnnouncementFacts } from './announce';
@@ -246,6 +251,9 @@ export class WorkspaceDO extends DurableObject<Env> {
       now: () => runtime.now(),
       grantedTo: (connectorId) => this.agents.grantedTo(connectorId),
       take: () => this.usage.take('connector', dailyLimit(env, 'connector'), runtime.now()).allowed,
+      // Inc 6: the autonomy dial for writes, and writes in the audit trail.
+      writeLevel: async () => (await loadPolicy(env.DB, wsOf(env))).app_write,
+      audit: (e) => this.audited({ actor: e.actor === 'chief' ? CHIEF_ID : e.actor.startsWith('cw_') ? e.actor : e.actor.includes(':') ? e.actor : `cw_${e.actor}`, kind: 'app', action: 'app.write', summary: e.summary, target: e.target, undo: { type: 'none', label: `Undo it in ${e.target} itself` } }),
     });
     this.voice = new VoiceOwnership({
       sql: ctx.storage.sql,
@@ -553,7 +561,16 @@ export class WorkspaceDO extends DurableObject<Env> {
         text: s.content,
         section: s.title,
         agent: chief,
-        change: { tool: 'update_handbook', section: s.title, update: (content) => (this.knowledge.handbook.put(section, content, 'chief'), { kind: 'handbook', section }) },
+        change: {
+          tool: 'update_handbook',
+          section: s.title,
+          update: (content) => {
+            const before = this.knowledge.handbook.sections().find((x) => x.id === section)?.content ?? '';
+            this.knowledge.handbook.put(section, content, 'chief');
+            this.audited({ actor: CHIEF_ID, kind: 'change', action: 'handbook.updated', summary: `Updated “${s.title}” in the Handbook (from a side chat)`, link: `/app/handbook?at=hb-${section}`, undo: { type: 'handbook.restore', section, before, label: 'Restore the previous text' } });
+            return { kind: 'handbook', section };
+          },
+        },
       };
     }
     return null;
@@ -834,8 +851,24 @@ export class WorkspaceDO extends DurableObject<Env> {
       },
       interviewing: () => this.knowledge.handbook.interviewing,
       missing: () => this.knowledge.handbook.missing(),
-      remember: (text: string, kind: MemoryKind) => this.knowledge.remember(text, kind, 'owner', 'Told to remember'),
-      updateHandbook: (section: HandbookSectionId, content: string, mode: 'replace' | 'append') => (mode === 'append' ? this.knowledge.handbook.append(section, content, 'chief') : this.knowledge.handbook.put(section, content, 'chief')),
+      remember: (text: string, kind: MemoryKind) => {
+        const m = this.knowledge.remember(text, kind, 'owner', 'Told to remember');
+        this.audited({ actor: CHIEF_ID, kind: 'change', action: 'memory.saved', summary: `Remembered: “${clipText(text, 160)}”`, link: `/app/memory?at=${m.memoryId}`, undo: { type: 'memory.forget', memoryId: m.memoryId, label: 'Forget it' } });
+        return m;
+      },
+      updateHandbook: async (section: HandbookSectionId, content: string, mode: 'replace' | 'append') => {
+        const before = this.knowledge.handbook.sections().find((s) => s.id === section)!;
+        const after = mode === 'append' && before.content ? `${before.content}\n${content.trim()}` : content;
+        // Outside the interview (where the owner is dictating), "Propose" for changes inside Headcount means the owner OKs it first.
+        if (!this.knowledge.handbook.interviewing && (await loadPolicy(this.env.DB, wsOf(this.env))).workspace === 'propose') {
+          const ask: ChangeAsk = { change: 'handbook', target: section, targetLabel: before.title, before: before.content, after: after.trim(), why: `An update to “${before.title}” in your Handbook.` };
+          const d = (await projectStub(this.env).openChange(ask, CHIEF_ID, `Update “${before.title}” in your Handbook?`)) as unknown as Decision;
+          return { proposed: d.decisionId, title: before.title };
+        }
+        const s = this.knowledge.handbook.put(section, after, 'chief');
+        this.audited({ actor: CHIEF_ID, kind: 'change', action: 'handbook.updated', summary: `Updated “${s.title}” in the Handbook`, link: `/app/handbook?at=hb-${section}`, undo: { type: 'handbook.restore', section, before: before.content, label: 'Restore the previous text' } });
+        return s;
+      },
       setInterview: (on: boolean) => this.knowledge.handbook.setInterviewing(on),
     };
   }
@@ -1387,8 +1420,10 @@ export class WorkspaceDO extends DurableObject<Env> {
    */
   private handFrame(frame: Extract<Frame, { type: 'decision.opened' }>): FrameInput<'talk.message'> | null {
     const d = frame.data.decision;
-    // The Chief's own connector ask shows as a card in Talk while the turn waits.
-    if (d.kind === 'plan_approval' || ((d.kind === 'connector' || d.kind === 'automation') && !d.projectId)) return null;
+    // The Chief's own connector ask shows as a card in Talk while the turn waits; so do emails and changes asked outside a
+    // project (Inc 6). A project's email card is told once, when its first email arrives (later ones join the same card).
+    if (d.kind === 'plan_approval' || ((d.kind === 'connector' || d.kind === 'automation' || d.kind === 'effect' || d.kind === 'change') && !d.projectId)) return null;
+    if (d.kind === 'effect' && (d.effect?.keys.length ?? 0) > 1) return null;
     const text = d.kind === 'input' ? `${d.title} It's in your Inbox, or just tell me the answer.` : `${d.title} It's in your Inbox.`;
     const spoken = this.usage.take('ping', dailyLimit(this.env, 'ping'), runtime.now()).allowed;
     return {
@@ -1556,6 +1591,16 @@ export class WorkspaceDO extends DurableObject<Env> {
       memory: this.memoryHost(),
       team: this.teamHost(),
       shown: (ids: readonly string[]) => this.shown(ids),
+      email: {
+        status: () => mailStatus(this.env),
+        request: async (email: EmailMessage, turnId: TurnId) => {
+          const s = await this.getSettings();
+          const agentName = chiefDisplayName(s.leadId ? fullIndex.lead(s.leadId) : undefined, s.chiefName);
+          return this.requestEmail({ agentId: CHIEF_ID, agentName, taskId: `turn:${turnId}`, scope: `talk:${turnId}`, email });
+        },
+        recent: async () => (await projectStub(this.env).recentEffects(CHIEF_ID, 5).catch(() => [])) as unknown as EffectView[],
+        policy: () => loadPolicy(this.env.DB, wsOf(this.env)),
+      },
       ...(voiceFrontOf(this.env) ? { front: { ack: (req: Omit<AckRequest, 'signal'>, signal: AbortSignal) => this.frontAck(req, signal) } } : {}),
       connectors: {
         kits: () => this.connectors.kitsFor('chief'),
@@ -1740,8 +1785,89 @@ export class WorkspaceDO extends DurableObject<Env> {
         return 'project' in r ? { ok: true, projectId: r.project.projectId, title: r.project.title } : { ok: false, message: r.message };
       },
       askColleague: (who, question, signal) => this.consult(who, question, { name: persona.name, title: persona.title }, signal, persona.id),
-      remember: (text, kind) => ({ memoryId: this.knowledge.memory.add({ text, kind, source: 'desk', sourceLabel: `Told ${persona.name.split(' ')[0]}` }).item.memoryId }),
+      remember: (text, kind) => {
+        const memoryId = this.knowledge.memory.add({ text, kind, source: 'desk', sourceLabel: `Told ${persona.name.split(' ')[0]}` }).item.memoryId;
+        this.audited({ actor: coworkerAgentId(persona.id), kind: 'change', action: 'memory.saved', summary: `${persona.name.split(' ')[0]} remembered: “${clipText(text, 160)}”`, link: `/app/memory?at=${memoryId}`, undo: { type: 'memory.forget', memoryId, label: 'Forget it' } });
+        return { memoryId };
+      },
+      ...(mailStatus(this.env).ready
+        ? {
+            email: {
+              test: mailStatus(this.env).provider === 'sink',
+              request: (email: EmailMessage, turnId: string) =>
+                this.requestEmail({ agentId: coworkerAgentId(persona.id), agentName: persona.name, taskId: `turn:${turnId}`, scope: `desk:${persona.id}:${turnId}`, email }),
+            },
+          }
+        : {}),
+      proposeInstructions: async (change, why) => {
+        const cur = this.agents.config(persona.id)?.instructions ?? persona.instructions ?? '';
+        const after = `${cur.trim()}\n\n${change.trim()}`.trim();
+        const ask: ChangeAsk = { change: 'instructions', target: persona.id, targetLabel: persona.name, before: cur, after, why };
+        const d = (await projectStub(this.env).openChange(ask, coworkerAgentId(persona.id), `${persona.name.split(' ')[0]} wants to change how they work`)) as unknown as Decision;
+        return { ok: true, decisionId: d.decisionId };
+      },
     };
+  }
+
+  // ── Inc 6 trust: email through the Everyday project, changes the owner approved, the audit trail ─────────
+
+  /** Record in the audit trail without holding up the work. */
+  private audited(e: Parameters<typeof audit>[2]): void {
+    this.ctx.waitUntil(audit(this.env.DB, wsOf(this.env), e));
+  }
+
+  /** Ask the Everyday project to send an email; a message it cannot send comes back as a thrown EffectError for the tool. */
+  private async requestEmail(req: { agentId: string; agentName: string; taskId: string; scope: string; email: EmailMessage }): Promise<EffectResult> {
+    const r = (await projectStub(this.env).requestEffect(req)) as unknown as EffectResult | { status: 'invalid'; message: string };
+    if (r.status === 'invalid') {
+      const { EffectError } = await import('../trust/effects');
+      throw new EffectError(r.message);
+    }
+    return r;
+  }
+
+  /** Apply a change the owner approved (ProjectDO, on the decision): a coworker's instructions, or a Handbook section. */
+  async applyChange(ask: ChangeAsk, by: string): Promise<{ ok: true; summary: string } | { ok: false; message: string }> {
+    const at = new Date(runtime.now()).toISOString();
+    if (ask.change === 'instructions') {
+      const persona = fullIndex.persona(ask.target);
+      if (!persona) return { ok: false, message: 'That coworker is not here any more.' };
+      const before = this.agents.config(ask.target)?.instructions ?? null;
+      try {
+        this.agents.patch(ask.target, { instructions: ask.after, note: 'A change they proposed, approved by the owner' }, at);
+      } catch (err) {
+        if (err instanceof AgentConfigError) return { ok: false, message: err.message };
+        throw err;
+      }
+      await audit(this.env.DB, wsOf(this.env), { actor: coworkerAgentId(ask.target), kind: 'change', action: 'instructions.changed', summary: `${persona.name.split(' ')[0]}'s instructions changed (approved by ${by}): ${clipText(ask.why, 200)}`, link: `/app/floor/${ask.target}?tab=prompt`, undo: { type: 'instructions.restore', personaId: ask.target, before, label: 'Restore their previous instructions' } });
+      return { ok: true, summary: `Updated how ${persona.name.split(' ')[0]} works.` };
+    }
+    if (!isSection(ask.target)) return { ok: false, message: 'There is no such Handbook section.' };
+    const before = this.knowledge.handbook.sections().find((s) => s.id === ask.target)!;
+    const s = this.knowledge.handbook.put(ask.target, ask.after, 'chief');
+    await audit(this.env.DB, wsOf(this.env), { actor: CHIEF_ID, kind: 'change', action: 'handbook.updated', summary: `Updated “${s.title}” in the Handbook (approved by ${by})`, link: `/app/handbook?at=hb-${ask.target}`, undo: { type: 'handbook.restore', section: ask.target, before: before.content, label: 'Restore the previous text' } });
+    return { ok: true, summary: `Updated “${s.title}”.` };
+  }
+
+  /** Undo a change from the audit trail (src/trust/routes.ts). */
+  async undoChange(u: UndoSpec): Promise<{ ok: true } | { ok: false; message: string }> {
+    const at = new Date(runtime.now()).toISOString();
+    if (u.type === 'handbook.restore') {
+      if (!isSection(u.section)) return { ok: false, message: 'There is no such Handbook section.' };
+      this.knowledge.handbook.put(u.section, u.before, 'owner');
+      return { ok: true };
+    }
+    if (u.type === 'memory.forget') return this.knowledge.memory.remove(u.memoryId) ? { ok: true } : { ok: false, message: 'That memory is already gone.' };
+    if (u.type === 'instructions.restore') {
+      try {
+        this.agents.patch(u.personaId, { instructions: u.before, note: 'Undone from the audit log' }, at);
+        return { ok: true };
+      } catch (err) {
+        if (err instanceof AgentConfigError) return { ok: false, message: err.message };
+        throw err;
+      }
+    }
+    return { ok: false, message: 'That cannot be undone here.' };
   }
 
   /** The coworker someone means, by name or role ("Maya", "the bookkeeper", "a lawyer"); never `except`. */

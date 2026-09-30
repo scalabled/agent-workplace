@@ -1,5 +1,7 @@
 // Projects: team projects (Inc 1: staffed from the catalog, a reviewed plan, a deliverable) and the Everyday project's jobs.
 import { chiefName } from '../chief';
+import { Link } from '../components/Link';
+import { isOwner } from '../auth/session';
 import { Icon } from '../components/Icon';
 import { JobRow } from '../components/JobRow';
 import { ProjectCard } from '../components/ProjectCard';
@@ -7,7 +9,7 @@ import { loadCatalog } from '../catalog';
 import { navigate, paths } from '../router';
 import { useEffect, useState } from 'preact/hooks';
 import { stopAllBusy, stopAllResult, stopAllWork } from '../projects/actions';
-import { activeJobs, jobList, projectList } from '../store';
+import { activeJobs, jobList, projectList, trustStop } from '../store';
 import { prefillComposer } from '../talk/draft';
 import { PageTitle } from '../links/CopyLink';
 import './pages.css';
@@ -124,6 +126,14 @@ export function Projects() {
 /** "Everyone stop" (MVP-PLAN Inc 1): halts every running job and team project, after one confirming tap. */
 function EveryoneStop({ working }: { working: number }) {
   const [asking, setAsking] = useState(false);
+  // Inc 6: the stop stays on (emails held) until an owner resumes it in Admin → Autonomy.
+  if (trustStop.value)
+    return (
+      <p class="everyone-stop-on" role="status">
+        <Icon name="close" size={16} /> Everyone stop is on: emails are held.{' '}
+        {isOwner.value ? <Link href={paths.admin('autonomy')}>Resume</Link> : 'An owner can resume it.'}
+      </p>
+    );
   if (!working && !stopAllBusy.value) return null;
   if (!asking)
     return (

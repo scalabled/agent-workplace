@@ -85,9 +85,9 @@ test('the landing page: kinetic hero, the real cast, honest pricing, and no app 
   for (const section of ['How it works', 'Meet your Chief of Staff', 'The living workforce', 'Talk while they work', 'Multimodal', 'Trust by design', 'Industry packs', 'Pricing', 'FAQ']) {
     await expect(page.locator('.lp-eyebrow', { hasText: section }).first()).toBeAttached();
   }
-  // What is not built says so: the living workforce, approvals, receipts, Everyone stop and the packs.
+  // What is not built says so (the living workforce, the packs); approvals, receipts and Everyone stop work today (Inc 6).
   await expect(page.locator('.lp-band .lp-status').first()).toBeAttached();
-  for (const title of ['Approvals', 'Receipts', 'Everyone stop']) await expect(page.locator('.lp-trust li', { hasText: title }).locator('.lp-status')).toHaveText('Planned');
+  for (const title of ['Approvals', 'Receipts', 'Everyone stop']) await expect(page.locator('.lp-trust li', { hasText: title }).locator('.lp-status')).toHaveText('Works today');
   await expect(page.locator('.lp-packs-section .lp-eyebrow .lp-status')).toHaveText('Planned');
 
   // The app has not loaded: no store, no feed socket.

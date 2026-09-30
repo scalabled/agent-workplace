@@ -4,7 +4,7 @@
 //
 // Flags:
 //   --mock               keyless run: Mock chat (DEFAULT_CHAT=mock) and every provider key blanked, even if
-//                        apps/worker/.dev.vars has keys (--var beats .dev.vars) — used by e2e
+//                        apps/worker/.dev.vars has keys (--var beats .dev.vars); email goes to the test mailbox — used by e2e
 //   --local              local-only run: every cloud key blanked, Ollama kept (DEFAULT_CHAT=auto → Ollama when it
 //                        answers, else Mock). Nothing leaves the machine.
 //   --mock-media         Mock TTS/STT answer and count as available (silent audio with timing, a fixed
@@ -162,6 +162,8 @@ workerArgs.push('--var', `ALLOWED_ORIGINS:${allowedOrigins.join(',')}`);
 const CLOUD_KEYS = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'XAI_API_KEY', 'GEMINI_API_KEY', 'OPENAI_COMPATIBLE_BASE_URL', 'OPENAI_COMPATIBLE_API_KEY'];
 if (flag('--mock')) {
   workerArgs.push('--var', 'DEFAULT_CHAT:mock', '--var', 'ENABLE_MOCK:true');
+  // Keyless runs never send real email: the test mailbox inside Headcount (Inc 6).
+  workerArgs.push('--var', 'MAIL_PROVIDER:sink', '--var', 'RESEND_API_KEY:');
   for (const key of [...CLOUD_KEYS, 'OLLAMA_BASE_URL']) workerArgs.push('--var', `${key}:`);
 } else if (flag('--local')) {
   workerArgs.push('--var', 'DEFAULT_CHAT:auto', '--var', 'ENABLE_MOCK:true');
