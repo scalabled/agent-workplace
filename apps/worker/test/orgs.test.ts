@@ -188,3 +188,57 @@ describe('settings in a new organization', () => {
     expect(home.values.find((v) => v.key === 'MAIL_PROVIDER')).toMatchObject({ source: 'default' });
   });
 });
+
+describe('hiring in a new organization', () => {
+  it('starts with the Chief alone; the Chief suggests people for the business; hiring welcomes each one; Undo lets them go', async () => {
+    const t = await createTestEnv(deployed);
+    const dana = await signIn(t, 'dana@cafe.example', 'Dana');
+    const orgId = (await dana.api('POST', '/api/orgs', { name: 'Harbor Café' })).body.org.orgId as string;
+    await dana.api('PUT', '/api/workspace', { leadId: 'lead-steady-operator', chiefName: 'Eddie' });
+    expect((await dana.api('GET', '/api/team')).body.members).toEqual([]);
+    // Suggestions for a café: everyday roles, four recommended from different departments, with what they would do.
+    const s = (await dana.api('GET', `/api/team/suggest?about=${encodeURIComponent('A small café and bakery in Leeds: sourdough, coffee and catering')}`)).body;
+    expect(s.candidates.length).toBeGreaterThanOrEqual(8);
+    const rec = s.candidates.filter((c: { recommended: boolean }) => c.recommended);
+    expect(rec).toHaveLength(4);
+    expect(new Set(rec.map((c: { personaId: string }) => c.personaId)).size).toBe(4);
+    expect(rec[0]).toMatchObject({ why: expect.stringContaining('hospitality'), does: expect.arrayContaining([expect.any(String)]), firstTask: { title: expect.any(String) } });
+    // Hire two: a welcome note each in Talk, the team updated, and the audit log says how to undo it.
+    const hired = await dana.api('POST', '/api/team/hire', { personaIds: ['bookkeeper', 'social-media-manager'] });
+    expect(hired.status).toBe(201);
+    expect(hired.body.team.members.map((m: { personaId: string }) => m.personaId)).toEqual(['bookkeeper', 'social-media-manager']);
+    expect(hired.body.team.members[0]).toMatchObject({ hiredAt: expect.any(String), does: expect.arrayContaining([expect.any(String)]) });
+    const frames = await (t.namespaces.WORKSPACE.getByName(`ws:${orgId}`) as unknown as { frames(a: number, b: number): Promise<{ type: string; data: any }[]> }).frames(0, 5000);
+    const welcomes = frames.filter((f) => f.type === 'talk.message' && /^Welcome /.test(f.data.text)).map((f) => f.data.text as string);
+    expect(welcomes).toHaveLength(2);
+    expect(welcomes[0]).toMatch(/your new bookkeeper.*First job, when you’re ready/);
+    expect(frames.some((f) => f.type === 'team.updated')).toBe(true);
+    // Suggestions now leave out the team.
+    const again = (await dana.api('GET', '/api/team/suggest')).body.candidates.map((c: { personaId: string }) => c.personaId);
+    expect(again).not.toContain('bookkeeper');
+    const entry = ((await dana.api('GET', '/api/audit?kind=change')).body.entries as { action: string; auditId: string; undo: { can: boolean; label: string } }[]).find((e) => e.action === 'team.hired')!;
+    expect(entry.undo).toMatchObject({ can: true, label: expect.stringMatching(/^Let \w+ go$/) });
+    expect((await dana.api('POST', `/api/audit/${entry.auditId}/undo`)).status).toBe(200);
+    expect((await dana.api('GET', '/api/team')).body.members.length).toBe(1);
+    // Only owners hire; not someone off the directory.
+    expect((await dana.api('POST', '/api/team/hire', { personaIds: ['nobody-at-all'] })).status).toBe(400);
+  });
+
+  it('the Chief hires on request, and hands work only to people on the team', async () => {
+    const t = await createTestEnv(deployed);
+    const dana = await signIn(t, 'dana@cafe.example', 'Dana');
+    const orgId = (await dana.api('POST', '/api/orgs', { name: 'Harbor Café' })).body.org.orgId as string;
+    await dana.api('PUT', '/api/workspace', { leadId: 'lead-steady-operator', chiefName: 'Eddie' });
+    const last = async () => {
+      const frames = await (t.namespaces.WORKSPACE.getByName(`ws:${orgId}`) as unknown as { frames(a: number, b: number): Promise<{ type: string; data: any }[]> }).frames(0, 5000);
+      return frames.filter((f) => f.type === 'talk.message' && f.data.agentId === 'cw_chief' && f.data.kind !== 'note').at(-1)?.data.text as string;
+    };
+    await dana.api('POST', '/api/talk', { text: 'Pass this on to the bookkeeper: what did we spend on flour?', opId: ids.op() });
+    await t.ctx.drain();
+    expect(await last()).toMatch(/not on the team yet/);
+    await dana.api('POST', '/api/talk', { text: 'Please hire a bookkeeper', opId: ids.op() });
+    await t.ctx.drain();
+    expect(await last()).toMatch(/has joined as your bookkeeper/);
+    expect((await dana.api('GET', '/api/team')).body.members.map((m: { personaId: string }) => m.personaId)).toEqual(['bookkeeper']);
+  });
+});

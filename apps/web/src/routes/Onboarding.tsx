@@ -2,6 +2,7 @@
 // looking at (face, voice sample, backstory teaser, "best for owners who…", name them, Choose), a
 // gallery of all twelve, and an optional match quiz that marks your top three.
 import { signal } from '@preact/signals';
+import { api } from '../api/client';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { firstName, leadVoiceRef, type Lead, type MatchQuiz, type QuizAnswers } from '@headcount/catalog';
 import { catalog, loadCatalog } from '../catalog';
@@ -179,11 +180,13 @@ function Stage({ lead, match, previewLine }: { lead: Lead; match: Match | undefi
       chiefName: trimmed && trimmed !== first ? trimmed : null,
       ...(owner && owner !== (settings.value?.ownerName ?? '') ? { ownerName: owner } : {}),
     });
+    if (!ok) return setBusy(false);
+    // A new office hires its first coworkers next (an office that already has a team goes straight to Talk).
+    const team = await api.getTeam().catch(() => null);
     setBusy(false);
-    if (ok) {
-      greetOnArrival.value = true;
-      navigate(paths.talk);
-    }
+    if (team?.members?.length === 0) return navigate(`${paths.hire}?first=1`);
+    greetOnArrival.value = true;
+    navigate(paths.talk);
   };
 
   return (

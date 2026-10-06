@@ -23,7 +23,9 @@ import { officePeople } from '../office/fetch';
 import { floorView, resolveFloorView, setFloorView, type FloorView } from '../office/view';
 import type { OfficeViewProps } from '../office/OfficeView';
 import { navigate, paths } from '../router';
-import { activeJobs, chiefPresence, onboarded, settings } from '../store';
+import { activeJobs, chiefPresence, onboarded, settings, teamIds } from '../store';
+import { isOwner } from '../auth/session';
+import { api } from '../api/client';
 import { chiefSpeaker } from '../voice/chief-voice';
 import { audio } from '../voice/engine';
 import { PageTitle } from '../links/CopyLink';
@@ -120,7 +122,26 @@ export function Floor() {
       <Link href={paths.team} class="button-quiet button-small floor-team-link">
         <Icon name="floor" size={14} /> Your team
       </Link>
+      {isOwner.value && (
+        <Link href={paths.hire} class="button-quiet button-small">
+          <Icon name="plus" size={14} /> Hire
+        </Link>
+      )}
     </div>
+  );
+  // A new office: the Chief alone until the owner hires.
+  const empty = onboarded.value && teamIds.value !== null && teamIds.value.length === 0;
+  const emptyNote = empty && (
+    <p class="panel floor-empty" role="status">
+      It’s you and {chiefName.value} for now. Hire your first coworkers and they get desks here.{' '}
+      {isOwner.value ? (
+        <Link href={`${paths.hire}?first=1`} class="button-primary button-small">
+          Hire your team
+        </Link>
+      ) : (
+        'An owner can hire them.'
+      )}
+    </p>
   );
 
   if (view === 'office')
@@ -134,6 +155,7 @@ export function Floor() {
           </div>
           {controls}
         </header>
+        {emptyNote}
         <div class="floor-office">
           <OfficeBoundary onError={() => toDirectory({ remember: false })}>
             <LazyOffice catalog={c} onRequestDirectory={() => toDirectory({ remember: true })} onFail={() => toDirectory({ remember: false })} />
@@ -159,7 +181,7 @@ export function Floor() {
             Floor
           </h1>
           <p class="page-lede">
-            {c.catalog.personas.length} coworkers across {c.catalog.departments.length} departments. Browse the staff and meet anyone.
+            {c.catalog.personas.length} coworkers across {c.catalog.departments.length} departments. Meet anyone; hire the ones you want, or bring them into a project for a while.
           </p>
         </div>
         {controls}
@@ -172,6 +194,25 @@ export function Floor() {
       )}
 
       <ChiefCard />
+      {emptyNote}
+      {!filtered && (teamIds.value?.length ?? 0) > 0 && (
+        <nav class="floor-team" aria-label="Your team">
+          <span class="floor-team-label">Your team</span>
+          <ul>
+            {teamIds.value!.map((id) => {
+              const p = c.persona(id);
+              return p ? (
+                <li key={id}>
+                  <Link href={paths.coworker(p.id)} class="floor-team-chip" style={{ '--accent': accentFor(p.avatar.accent_color) }}>
+                    <Face subject={personaSubject(p)} tier="token" agentId={coworkerAgentId(p.id)} decorative lazy />
+                    <span>{firstName(p.name)}</span>
+                  </Link>
+                </li>
+              ) : null;
+            })}
+          </ul>
+        </nav>
+      )}
 
       <div class="floor-tools" role="search">
         <label class="field-search">
@@ -282,6 +323,7 @@ function CoworkerSlot({ persona: p }: { persona: PersonaSlim }) {
           <Said agentId={agentId} />
         </span>
       </Link>
+      <HireButton personaId={p.id} first={firstName(p.name)} />
       <FloorBubble agentId={agentId} first={firstName(p.name)} hovered={desk.hovered} onOpenDesk={() => navigate(paths.coworker(p.id))} />
     </li>
   );
@@ -370,3 +412,32 @@ class OfficeBoundary extends Component<{ onError(): void; children?: ComponentCh
     return this.state.failed ? null : this.props.children;
   }
 }
+
+/** On the team, or (owners) hire them in one click. */
+function HireButton({ personaId, first }: { personaId: string; first: string }) {
+  const [busy, setBusy] = useState(false);
+  const team = teamIds.value;
+  if (!team) return null;
+  if (team.includes(personaId)) return <span class="connector-tag cw-hired">On your team</span>;
+  if (!isOwner.value || !onboarded.value) return null;
+  return (
+    <button
+      type="button"
+      class="button-quiet button-small cw-hire"
+      disabled={busy}
+      aria-label={`Hire ${first}`}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          const r = await api.hire([personaId]);
+          teamIds.value = r.team.members.map((m) => m.personaId);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <Icon name="plus" size={14} /> Hire
+    </button>
+  );
+}
+

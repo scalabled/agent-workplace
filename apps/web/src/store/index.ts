@@ -124,6 +124,9 @@ export function mergeChannel(projectId: string, entries: readonly ChannelEntry[]
   projectChannels.value = { ...projectChannels.value, [projectId]: [...bySeq.values()].sort((a, b) => a.seq - b.seq).slice(-400) };
 }
 export const projectList = computed(() => Object.values(teamProjects.value).sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0)));
+/** Who is on the team (persona ids; null until loaded). The office shows them, with the Chief of Staff. */
+export const teamIds = signal<string[] | null>(null);
+
 /** Inc 6: Everyone stop is on (emails are held until an owner resumes). */
 export const trustStop = signal<StopState | null>(null);
 
@@ -607,6 +610,9 @@ function reduce(frame: Frame, live: boolean): void {
       break;
     case 'trust.updated':
       trustStop.value = frame.data.stopped;
+      break;
+    case 'team.updated':
+      teamIds.value = frame.data.members;
       break;
     case 'job.progress':
       patchJob(frame.data.jobId, { status: 'running', label: frame.data.label, step: frame.data.step, of: frame.data.of, ...(frame.data.partial ? { partial: frame.data.partial } : {}) }, frame.ts);

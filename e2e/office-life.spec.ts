@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { daytimeZone, frames, onboarded, recordFrames, setWorkspace, waitForFrame } from './helpers';
+import { daytimeZone, frames, onboarded, recordFrames, setWorkspace, waitForFrame, OFFICE_SEATS, staffOffice } from './helpers';
 import { deskLight, frameHuddle, openOffice, OWNER, restOn, seatedInView, skipOfficeHint } from './office-helpers';
 
 // The office runs itself (OWNER-DIRECTIVES D3, D5; OFFICE-PHASE2 §7.4 office-life): a fixed office clock (`?at=10:35`,
@@ -10,6 +10,7 @@ import { deskLight, frameHuddle, openOffice, OWNER, restOn, seatedInView, skipOf
 test.use({ viewport: { width: 1440, height: 900 }, timezoneId: daytimeZone() });
 
 test.beforeEach(async ({ request, page }) => {
+  await staffOffice(request);
   await onboarded(request);
   await setWorkspace(request, { ambience: 'lively', ownerName: OWNER });
   await skipOfficeHint(page);
@@ -43,13 +44,30 @@ async function walkerInView(page: Page): Promise<{ id: string; x: number; y: num
   });
 }
 
-async function findWalker(page: Page): Promise<{ id: string; x: number; y: number }> {
+/** `release`: let go of a walk we started at once (they walk on their own day, never held); else they keep walking to the cooler. */
+async function findWalker(page: Page, release = false): Promise<{ id: string; x: number; y: number }> {
   let w: { id: string; x: number; y: number } | null = null;
   await expect
     .poll(
       async () => {
         w = await walkerInView(page);
-        if (!w) await page.evaluate(() => (window as unknown as { __headcount: { office: { scene: { zoomTo(z: number, at: { x: number; y: number }): void } } } }).__headcount.office.scene.zoomTo(2.6, { x: 120 + Math.random() * 180, y: 60 + Math.random() * 90 }));
+        // None in view: follow the camera to someone walking (a small team walks in fewer places), else look around.
+        if (!w)
+          await page.evaluate((release) => {
+            const o = (window as unknown as { __headcount: { office: { life: unknown; scene: { zoomTo(z: number, at: { x: number; y: number }): void; placeOf(id: string): { x: number; y: number; walking: boolean } } } } }).__headcount.office;
+            let walking = document.querySelector<HTMLElement>('.hc-o-seat[data-walking]:not([data-chief])');
+            if (!walking) {
+              // A small team rarely strolls: send one coworker to another's desk (a real visit), then follow them.
+              const seated = [...document.querySelectorAll<HTMLElement>('.hc-o-seat:not([data-chief]):not([data-away]):not([data-room])')].map((b) => b.dataset.pid!);
+              const life = o.life as unknown as { pin(id: string, where: { kind: 'spot'; spotId: string; slot: number }, reason: 'host'): () => void } | null;
+              // A short pin starts the walk; letting go at once leaves them walking on their own day (never held).
+              const un = seated.length ? life?.pin(seated[0]!, { kind: 'spot', spotId: 'cooler:cafe', slot: 2 }, 'host') : undefined;
+              if (un && release) setTimeout(un, 300);
+              walking = document.querySelector<HTMLElement>('.hc-o-seat[data-walking]:not([data-chief])');
+            }
+            const at = walking ? o.scene.placeOf(walking.dataset.pid!) : null;
+            o.scene.zoomTo(2.6, at ? { x: at.x, y: at.y } : { x: 120 + Math.random() * 180, y: 60 + Math.random() * 90 });
+          }, release);
         return !!w;
       },
       { timeout: 45_000, intervals: [700] },
@@ -151,7 +169,7 @@ test('clicking a walker opens a chat in place and they stop; Follow keeps someon
 
   // F follows the focused person: they walk on (never held by the owner's focus) and the camera keeps them in view.
   await page.mouse.move(260, 860);
-  const v = await findWalker(page);
+  const v = await findWalker(page, true);
   await page.locator(`.hc-o-seat[data-pid="${v.id}"]`).focus();
   await page.keyboard.press('f');
   await expect(page.locator('.hc-o-follow')).toBeVisible();

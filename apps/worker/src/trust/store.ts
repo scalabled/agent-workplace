@@ -174,6 +174,7 @@ export type UndoSpec =
   | { type: 'automation.remove'; automationId: string; label: string }
   | { type: 'grant.revoke'; grantId: string; label: string }
   | { type: 'autonomy.restore'; actionClass: ActionClass; before: Autonomy; label: string }
+  | { type: 'team.letgo'; personaId: string; label: string }
   | { type: 'none'; label: string };
 
 export interface AuditInput {

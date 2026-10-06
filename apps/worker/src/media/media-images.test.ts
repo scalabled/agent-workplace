@@ -155,7 +155,7 @@ describe('POST /api/media/image', () => {
     const url = new URL(`http://localhost/api/portraits/${lead.id}/generate?wait=1`);
     const portrait = await HANDLERS.generatePortrait(new Request(url, { method: 'POST' }), {
       env: t.env,
-      identity: { email: '', name: '', role: 'owner', actualRole: 'owner' },
+      identity: { email: '', name: '', role: 'owner', actualRole: 'owner', orgId: 'local', platform: true },
       ctx: { waitUntil() {} } as unknown as ExecutionContext,
       route: 'generatePortrait',
       params: { personaId: lead.id },

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { daytimeZone, frames, onboarded, recordFrames, setWorkspace, waitForFrame, type SeenFrame } from './helpers';
+import { daytimeZone, frames, onboarded, recordFrames, setWorkspace, waitForFrame, type SeenFrame, OFFICE_SEATS, staffOffice } from './helpers';
 import { deskLight, officeState, openOffice, OWNER, restOn, screenOf, seatedInView, skipOfficeHint } from './office-helpers';
 
 // The Office on the Floor, keyless (Mock chat, no speech provider): OFFICE-PHASE2 §7.4 and OFFICE-PLAN §6.6. The
@@ -15,6 +15,7 @@ const INVENTED = /12 points|went up 12|twelve/i;
 const FIGURE_LINE = "I'd want the real numbers before I put a figure on it.";
 
 test.beforeEach(async ({ request, page }) => {
+  await staffOffice(request);
   await onboarded(request);
   await setWorkspace(request, { ambience: 'lively', ownerName: OWNER });
   await skipOfficeHint(page);
@@ -30,7 +31,7 @@ test('the Floor opens as the Office on a desktop; the toggle is remembered; ?vie
   page.on('request', (r) => requests.push(r.url()));
   await page.goto('/app/floor');
   await expect(page.getByTestId('office-view')).toBeVisible();
-  await expect(page.locator('.hc-o-seat')).toHaveCount(165);
+  await expect(page.locator('.hc-o-seat')).toHaveCount(OFFICE_SEATS);
   const toggle = page.getByTestId('floor-view');
   await expect(toggle.getByRole('radio', { name: 'Office' })).toHaveAttribute('aria-checked', 'true');
   // The Directory tools are not rendered in Office view (the office has Find and Walk to).
@@ -48,7 +49,7 @@ test('the Floor opens as the Office on a desktop; the toggle is remembered; ?vie
   // Arrow keys move the radio group like any other.
   await page.getByTestId('floor-view').getByRole('radio', { name: 'Directory' }).focus();
   await page.keyboard.press('ArrowLeft');
-  await expect(page.locator('.hc-o-seat')).toHaveCount(165);
+  await expect(page.locator('.hc-o-seat')).toHaveCount(OFFICE_SEATS);
 
   // ?view= wins and is remembered; a link to the Directory shows the Directory.
   await page.goto('/app/floor?view=directory');
@@ -61,7 +62,7 @@ test('the Floor opens as the Office on a desktop; the toggle is remembered; ?vie
   expect(requests.filter((u) => /\/src\/office\/(OfficeView|mount)|\/packages\/office\/|\/api\/office\/people|\/office\/manifest\.json/.test(u))).toEqual([]);
 
   await page.goto('/app/floor?view=office');
-  await expect(page.locator('.hc-o-seat')).toHaveCount(165);
+  await expect(page.locator('.hc-o-seat')).toHaveCount(OFFICE_SEATS);
   // The office's first stop: "Use the Directory (list view)" switches and focuses the Directory's heading.
   const skip = page.locator('.hc-o-skip');
   await skip.focus();
@@ -334,7 +335,7 @@ test.describe('phone width (375 px)', () => {
     await expect(page.locator('.cw-grid .cw-card').first()).toBeVisible();
     await expect(page.locator('.hc-office')).toHaveCount(0);
     await page.getByTestId('floor-view').getByRole('radio', { name: 'Office' }).click();
-    await expect(page.locator('.hc-o-seat')).toHaveCount(165);
+    await expect(page.locator('.hc-o-seat')).toHaveCount(OFFICE_SEATS);
     const findBtn = page.locator('.hc-o-find__btn');
     await expect(findBtn).toBeVisible();
     const rows = await page.evaluate(() => {

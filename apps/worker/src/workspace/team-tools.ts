@@ -1,12 +1,15 @@
 // The Chief of Staff's way to the rest of the team, so nothing is turned away for being someone else's job: ask a
-// coworker (their expertise, answered at once and passed on) or hand the owner's request to them (it lands on their
-// desk, where they answer and can start the work themselves).
+// coworker (their expertise, answered at once and passed on), hand the owner's request to someone on the team (it lands
+// on their desk, where they answer and can start the work themselves), or hire someone when the owner asks for a role
+// nobody on the team has.
 import type { AgentTool, ToolOutcome } from '@headcount/agent-loop';
 import type { Done } from '../desk/desk-tools';
 
 export interface TeamToolHost {
   consult(who: string, question: string, signal: AbortSignal): Promise<Done<{ name: string; personaId: string; answer: string }>>;
   handTo(who: string, message: string): Promise<Done<{ name: string; personaId: string }>>;
+  /** Hire someone (by name or role) onto the team; the owner asked for it. */
+  hire(who: string): Promise<Done<{ name: string; personaId: string; title: string }>>;
   /** The owner's team, for the Chief's prompt. */
   roster(): Promise<{ personaId: string; name: string; title: string }[]>;
 }
@@ -25,6 +28,7 @@ const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 export const TEAM_TRIGGERS = {
   ask: [String.raw`\bask (?!me\b|you\b|about\b|for\b|if\b|whether\b)(the \w+|our \w+|[a-z]+) (about|what|whether|if|how|why|for)\b`],
   hand: [String.raw`\b(pass|hand|send|forward) (this|it|that) (on |over )?to (the \w+|our \w+|[a-z]+)\b`, String.raw`\b(put me through|connect me) to (the \w+|our \w+|[a-z]+)\b`],
+  hire: [String.raw`\bhire (?:a |an |someone (?:for|to do|who does) |somebody (?:for|to do) )?([a-z][a-z -]{2,40})`],
 };
 /** The name (or role) in a mock-triggered request: the group that holds it. */
 const whoIn = (re: string, text: string, group: number) => new RegExp(re, 'i').exec(text)?.[group] ?? '';
@@ -63,5 +67,22 @@ export function teamTools(host: TeamToolHost): AgentTool<any>[] {
       return ok({ coworker: r.name, link: `/app/desk/${r.personaId}/profile`, say: `I've passed it to [${first}](/app/desk/${r.personaId}/profile); ${first} is answering on their desk.` }, `Handed to ${r.name}`);
     },
   };
-  return [ask, hand];
+  const hire: AgentTool<{ who?: unknown }> = {
+    spec: {
+      name: 'hire_coworker',
+      description:
+        'Hire a coworker onto the owner’s team (by name or role: "a bookkeeper", "Maya"), only when the owner asks you to hire someone or agrees to your suggestion. They join at once, with a welcome in Talk; the owner can let them go later. When the owner needs a role nobody on the team has, suggest who to hire first.',
+      parameters: { type: 'object', properties: { who: { type: 'string', description: 'A name or a role.' } }, required: ['who'], additionalProperties: false },
+      mock: { triggers: TEAM_TRIGGERS.hire, args: (text: string) => ({ who: whoIn(TEAM_TRIGGERS.hire[0]!, text, 1).replace(/\s+(to|for|who|and|please)\b.*$/i, '').trim() }), reply: sayOf },
+    },
+    async execute(args) {
+      const who = str(args.who);
+      if (who.length < 2) return fail('Say who to hire.', 'A role ("a bookkeeper") or a name from the directory.');
+      const r = await host.hire(who);
+      if (!r.ok) return fail(r.message, 'Try a plainer role, or suggest someone from the directory.');
+      const first = r.name.split(' ')[0];
+      return ok({ coworker: r.name, personaId: r.personaId, link: `/app/desk/${r.personaId}/profile`, say: `Done: ${r.name} has joined as your ${r.title.toLowerCase()}. [Meet ${first}](/app/desk/${r.personaId}/profile).` }, `Hired ${r.name}`);
+    },
+  };
+  return [ask, hand, hire];
 }

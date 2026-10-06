@@ -18,7 +18,7 @@ let host: HTMLElement;
 const flush = () => act(async () => void (await new Promise((r) => setTimeout(r, 0))));
 
 const team = (over: Partial<TeamResponse['secondBrain']> = {}): TeamResponse => ({
-  members: STARTER_TEAM.map((m) => ({ personaId: m.personaId, why: m.why, firstTask: m.firstTask })),
+  members: STARTER_TEAM.map((m) => ({ personaId: m.personaId, why: m.why, firstTask: m.firstTask, does: [] })),
   secondBrain: { on: true, steward: 'knowledge-librarian', nextAt: '2026-10-06T10:00:00Z', ...over },
 });
 

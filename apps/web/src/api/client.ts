@@ -38,7 +38,7 @@ import type { ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, M
 import type { CanvasCreate, CanvasListResponse, CanvasResponse } from '@headcount/protocol/ext/canvas';
 import type { ConfigResponse, MemberPut, MembersResponse, ModelPrice, UsageResponse } from '@headcount/protocol/ext/admin';
 import type { DocRef, ThreadResponse, ThreadStart, ThreadsResponse } from '@headcount/protocol/ext/threads';
-import type { TeamResponse, TeamStartResponse } from '@headcount/protocol/ext/team';
+import type { HireResponse, SuggestResponse, TeamResponse, TeamStartResponse } from '@headcount/protocol/ext/team';
 import type { OrgsResponse, PlatformResponse } from '@headcount/protocol/ext/orgs';
 import type { AuditKind, AuditResponse, AutonomyPolicy, PutAutonomyRequest, TestMailbox, TrustResponse } from '@headcount/protocol/ext/trust';
 import type { HandbookSectionId as SectionId } from '@headcount/protocol/ext/memory';
@@ -121,6 +121,9 @@ export const api = {
   // Your team.
   getTeam: () => request<TeamResponse>(routePath('getTeam')),
   putTeam: (members: string[]) => request<TeamResponse>(routePath('putTeam'), jsonInit('PUT', { members })),
+  suggestHires: (about = '') => request<SuggestResponse>(`${routePath('suggestHires')}${about ? `?about=${encodeURIComponent(about)}` : ''}`),
+  hire: (personaIds: string[]) => request<HireResponse>(routePath('hire'), jsonInit('POST', { personaIds })),
+  letGo: (personaId: string) => request<TeamResponse>(routePath('letGo', { personaId }), { method: 'DELETE' }),
   startTeamTask: (personaId: string) => request<TeamStartResponse>(routePath('startTeamTask', { personaId }), { method: 'POST' }),
   putSecondBrain: (on: boolean) => request<TeamResponse>(routePath('putSecondBrain'), jsonInit('PUT', { on })),
   applyHandbookSuggestion: (section: SectionId, suggestion: string) => request<TeamResponse>(routePath('applyHandbookSuggestion'), jsonInit('POST', { section, suggestion })),

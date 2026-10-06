@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from '@playwright/test';
-import { daytimeZone, frames, livingReady, onboarded, recordFrames, setWorkspace, waitForFrame } from './helpers';
+import { daytimeZone, frames, livingReady, onboarded, recordFrames, setWorkspace, waitForFrame, OFFICE_SEATS, staffOffice } from './helpers';
 import { frameHuddle, officeState, openOffice, OWNER, skipOfficeHint } from './office-helpers';
 
 // The Office with voice (project "living-voice": Mock chat, Mock TTS with timing, a fake microphone), OFFICE-PHASE2
@@ -9,6 +9,7 @@ import { frameHuddle, officeState, openOffice, OWNER, skipOfficeHint } from './o
 test.use({ timezoneId: daytimeZone(), viewport: { width: 1440, height: 900 } });
 
 test.beforeEach(async ({ request }) => {
+  await staffOffice(request);
   await onboarded(request, 'Rosa', true);
   await setWorkspace(request, { ambience: 'lively', ownerName: OWNER });
 });

@@ -37,7 +37,7 @@ import { registerFace } from '../living/faces';
 import type { LivingRuntime } from '../living/types';
 import { activeDesk } from '../living/useDesk';
 import { officeStage } from '../living/viewer';
-import { chiefPresence, jobs, localPresence, presence, projectList, settings, teamWork } from '../store';
+import { chiefPresence, jobs, localPresence, presence, projectList, settings, teamIds, teamWork } from '../store';
 import { showNotice } from '../ui/notice';
 import { audio } from '../voice/engine';
 import { claimUnsettled, mayVoice } from '../voice/owner';
@@ -185,7 +185,7 @@ export function mountOffice(o: OfficeMountOptions): OfficeMount {
   let stage: StageBindingLike | null = null;
 
   // ── people ──
-  let roster = officeRoster(c, currentLead.peek(), chiefNameSig.peek(), podsOf(projectList.peek()));
+  let roster = officeRoster(c, currentLead.peek(), chiefNameSig.peek(), podsOf(projectList.peek()), teamIds.peek() ?? []);
   let chiefKey = `${currentLead.peek()?.id ?? ''}|${chiefNameSig.peek()}`;
   const personOf = new Map(roster.people.map((p) => [p.id, p]));
   const dtoOf = new Map<string, OfficePersonDto>();
@@ -475,8 +475,8 @@ export function mountOffice(o: OfficeMountOptions): OfficeMount {
   );
   disposers.push(
     effect(() => {
-      // Inc 1: a team project under way seats its people together in a pod; they go back when it ends.
-      const next = officeRoster(c, currentLead.value, chiefNameSig.value, podsOf(projectList.value));
+      // Inc 1: a team project under way seats its people together in a pod; they go back when it ends. Hiring adds desks.
+      const next = officeRoster(c, currentLead.value, chiefNameSig.value, podsOf(projectList.value), teamIds.value ?? []);
       if (next.key === roster.key) return;
       const newChief = `${currentLead.peek()?.id ?? ''}|${chiefNameSig.peek()}` !== chiefKey;
       chiefKey = `${currentLead.peek()?.id ?? ''}|${chiefNameSig.peek()}`;

@@ -201,3 +201,45 @@ export async function expectVoicedCaptioned(page: Page, since = 0): Promise<numb
   }
   return voiced.length;
 }
+
+/**
+ * A fully staffed office for the office specs: twenty hires (the most a team has) across departments, two of them
+ * strategists. The office shows the Chief and the team; a new office starts with the Chief alone.
+ */
+export const OFFICE_TEAM = [
+  'chief-strategist',
+  'brand-strategist',
+  'senior-copywriter',
+  'head-of-support',
+  'data-analyst',
+  'brand-designer',
+  'ecommerce-manager',
+  'full-stack-engineer',
+  'fractional-cfo',
+  'it-manager',
+  'contracts-analyst',
+  'growth-lead',
+  'operations-director',
+  'people-partner',
+  'product-manager',
+  'market-research-analyst',
+  'account-executive',
+  'bookkeeper',
+  'social-media-manager',
+  'knowledge-librarian',
+];
+/** Seats in that office: the Chief and the twenty. */
+export const OFFICE_SEATS = OFFICE_TEAM.length + 1;
+
+export async function staffOffice(request: APIRequestContext): Promise<void> {
+  const res = await request.put('/api/team', { data: { members: OFFICE_TEAM } });
+  if (!res.ok()) throw new Error(`staffing the office failed: ${res.status()}`);
+}
+
+/** The home office's everyday starter team (what the Team page specs expect). */
+export const STARTER_IDS = ['knowledge-librarian', 'bookkeeper', 'social-media-manager', 'senior-copywriter', 'head-of-support', 'operations-director', 'account-executive', 'market-research-analyst'];
+export async function starterTeam(request: APIRequestContext): Promise<void> {
+  const res = await request.put('/api/team', { data: { members: STARTER_IDS } });
+  if (!res.ok()) throw new Error(`resetting the team failed: ${res.status()}`);
+}
+

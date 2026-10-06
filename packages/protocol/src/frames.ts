@@ -169,6 +169,8 @@ export interface FrameDataMap {
   'effect.updated': EffectFrameData;
   /** Inc 6: Everyone stop turned on or off. Persisted. */
   'trust.updated': TrustFrameData;
+  /** Who is on the team changed (hired, let go). Persisted. */
+  'team.updated': { members: string[] };
 
   /** A face state claim. Ephemeral; recomputable from the ledger. */
   presence: PresenceData;
@@ -221,6 +223,7 @@ export const PERSISTED_FRAME_TYPES: ReadonlySet<FrameType> = new Set<FrameType>(
   'canvas.updated',
   'effect.updated',
   'trust.updated',
+  'team.updated',
   'workspace.updated',
 ]);
 

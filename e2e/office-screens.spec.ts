@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
-import { daytimeZone, livingReady, onboarded, setWorkspace, waitForFrame, recordFrames } from './helpers';
+import { daytimeZone, livingReady, onboarded, setWorkspace, waitForFrame, recordFrames, OFFICE_SEATS, staffOffice } from './helpers';
 import { frameHuddle, officeState, openOffice, OWNER, restOn, seatedInView, skipOfficeHint } from './office-helpers';
 
 // Office Phase 2 screens for the owner (docs/dev/screens/office-app/, JPEG at 2×), on the voice stack (Mock chat, Mock
@@ -16,6 +16,7 @@ test.setTimeout(240_000);
 
 test.beforeAll(() => mkdirSync(OUT, { recursive: true }));
 test.beforeEach(async ({ request, page }) => {
+  await staffOffice(request);
   await onboarded(request, 'Rosa', true);
   await setWorkspace(request, { ambience: 'lively', ownerName: OWNER });
   await skipOfficeHint(page);

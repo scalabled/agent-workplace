@@ -19,7 +19,7 @@ import { ContextFiles } from '../memory/ContextFiles';
 import { PageTitle } from '../links/CopyLink';
 import { useSampleSpeaker, VoiceSample } from '../components/VoiceSample';
 import { navigate, paths, linkTarget, queryParam, setQuery, linkTo } from '../router';
-import { localPresence, onboarded } from '../store';
+import { localPresence, onboarded, teamIds } from '../store';
 import { prefillComposer } from '../talk/draft';
 import './floor.css';
 import { accentFor } from '../lib/accent';
@@ -142,14 +142,17 @@ function TeamToggle({ personaId, first }: { personaId: string; first: string }) 
   return (
     <button
       type="button"
-      class="button-quiet"
+      class={on ? 'button-quiet' : 'button-primary'}
       aria-pressed={on}
+      title={on ? `Let ${first} go (you can hire them again)` : `Hire ${first} onto your team`}
       onClick={async () => {
-        const t = await api.putTeam(on ? members.filter((id) => id !== personaId) : [...members, personaId]);
-        setMembers(t.members.map((m) => m.personaId));
+        const t = on ? await api.letGo(personaId) : (await api.hire([personaId])).team;
+        const ids = t.members.map((m) => m.personaId);
+        setMembers(ids);
+        teamIds.value = ids;
       }}
     >
-      <Icon name={on ? 'check' : 'plus'} size={16} /> {on ? `${first} is on your team` : 'Add to your team'}
+      <Icon name={on ? 'check' : 'plus'} size={16} /> {on ? `${first} is on your team` : `Hire ${first}`}
     </button>
   );
 }

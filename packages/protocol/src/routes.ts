@@ -137,6 +137,9 @@ export const ROUTES = {
   exprHuddleRender: { method: 'POST', path: '/api/expr/huddle/render', auth: 'reader', body: 'json', bodyCap: 8 * 1024 },
   // Your team (ext/team.ts): meet them, start their first jobs, the weekly second-brain tidy.
   getTeam: { method: 'GET', path: '/api/team', auth: 'reader' },
+  suggestHires: { method: 'GET', path: '/api/team/suggest', auth: 'reader' },
+  hire: { method: 'POST', path: '/api/team/hire', auth: 'owner', body: 'json', bodyCap: 4 * 1024 },
+  letGo: { method: 'DELETE', path: '/api/team/:personaId', auth: 'owner' },
   putTeam: { method: 'PUT', path: '/api/team', auth: 'owner', body: 'json', bodyCap: 4 * 1024 },
   startTeamTask: { method: 'POST', path: '/api/team/:personaId/start', auth: 'contributor', bodyCap: 1024 },
   putSecondBrain: { method: 'PUT', path: '/api/team/second-brain', auth: 'owner', body: 'json', bodyCap: 1024 },

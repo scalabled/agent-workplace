@@ -1,4 +1,6 @@
 import { configured, loadConfig } from '../admin/config';
+import { doesOf, firstTaskOf, suggestHires, whyOf } from '../team/hiring';
+import { homeWorkspace } from '../lib/tenant';
 import { tenantOf, withTenant } from '../lib/tenant';
 import { DurableObject } from 'cloudflare:workers';
 import { catalogFull, fullIndex } from '@headcount/catalog/full';
@@ -51,7 +53,7 @@ import { memoryTools, type MemoryToolHost } from '../memory/chief-tools';
 import { isSection } from '../memory/handbook';
 import { answerThread, Threads, type DocContext } from '../threads/threads';
 import type { DocRef, DocThread, ThreadStart } from '@headcount/protocol/ext/threads';
-import { SECOND_BRAIN_STEWARD, STARTER_TEAM, TEAM_MAX, TIDY_EVERY_DAYS, type SecondBrainReport, type TeamMemberView, type TeamResponse, type TeamStartResponse } from '@headcount/protocol/ext/team';
+import { SECOND_BRAIN_STEWARD, STARTER_TEAM, TEAM_MAX, TIDY_EVERY_DAYS, type SecondBrainReport, type TeamMemberView, type TeamResponse, type TeamStartResponse, HIRE_ABOUT_MAX, type HireResponse, type SuggestResponse } from '@headcount/protocol/ext/team';
 import type { CanvasSnapshot } from '@headcount/protocol/ext/canvas';
 import type { ContextCard, HandbookResponse, HandbookSectionId, MemoryItem, MemoryKind, Recalled } from '@headcount/protocol/ext/memory';
 import { realtimeAck, voiceFrontOf, type AckRequest, type FrontPart } from './voice-front';
@@ -1643,8 +1645,73 @@ export class WorkspaceDO extends DurableObject<Env> {
 
   // ── your team (ext/team.ts): who is on it, their first jobs, the weekly tidy ─────────
 
+  /**
+   * Who is on the team. The deployment's home office keeps the everyday starter team it always had; every other
+   * organization starts with its Chief of Staff alone and hires.
+   */
   private async teamIds(): Promise<string[]> {
-    return (await this.ctx.storage.get<string[]>('team')) ?? STARTER_TEAM.map((m) => m.personaId);
+    const stored = await this.ctx.storage.get<string[]>('team');
+    if (stored) return stored;
+    return this.workspaceId === homeWorkspace(this.env) ? STARTER_TEAM.map((m) => m.personaId) : [];
+  }
+
+  private async hiredAt(): Promise<Record<string, string>> {
+    return (await this.ctx.storage.get<Record<string, string>>('team_hired_at')) ?? {};
+  }
+
+  /** The Chief's suggestions for this business (what the owner says it is, else the Handbook), leaving out the team. */
+  async suggestHires(about: string): Promise<SuggestResponse> {
+    const hb = this.knowledge.handbook.sections();
+    const known = ['business', 'customers', 'services'].map((id) => hb.find((s) => s.id === id)?.content ?? '').filter(Boolean).join('\n');
+    const text = (about.trim() || known).slice(0, HIRE_ABOUT_MAX);
+    const settings = await this.getSettings();
+    const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
+    return { about: text, candidates: suggestHires(text, { ...(lead ? { lead } : {}), exclude: await this.teamIds() }) };
+  }
+
+  /** Hire: they join the team, the Chief welcomes each one in Talk with what they will do, and it is undoable. */
+  async hire(personaIds: string[], by: string): Promise<HireResponse | { error: string }> {
+    const team = await this.teamIds();
+    const fresh = [...new Set(personaIds)].filter((id) => !team.includes(id));
+    if (fresh.some((id) => !fullIndex.persona(id))) return { error: 'Some of those are not in the directory.' };
+    if (team.length + fresh.length > TEAM_MAX) return { error: `A team has at most ${TEAM_MAX} people; bring others into projects as needed.` };
+    if (!fresh.length) return { hired: [], team: await this.teamView() };
+    const at = new Date(runtime.now()).toISOString();
+    const hiredAt = await this.hiredAt();
+    for (const id of fresh) hiredAt[id] = at;
+    await this.ctx.storage.put('team', [...team, ...fresh]);
+    await this.ctx.storage.put('team_hired_at', hiredAt);
+    this.feed.append({ type: 'team.updated', data: { members: [...team, ...fresh] }, actor: CHIEF_ID });
+    const settings = await this.getSettings();
+    const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
+    const chief = chiefDisplayName(lead, settings.chiefName);
+    for (const id of fresh) {
+      const p = fullIndex.persona(id)!;
+      const first = p.name.split(' ')[0];
+      const m = this.memberView(id, {}, hiredAt)!;
+      const does = m.does.length ? ` ${first} can do things like: ${m.does.map((d) => d.toLowerCase()).join('; ')}.` : '';
+      this.feed.append({
+        type: 'talk.message',
+        data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text: `Welcome ${p.name}, your new ${p.title.toLowerCase()}. ${m.why}${does} First job, when you’re ready: “${m.firstTask.title}”. [Meet ${first}](/app/desk/${id}/profile)`, kind: 'note' },
+        actor: CHIEF_ID,
+      });
+      this.audited({ actor: by.startsWith('owner') ? by : `owner:${by}`, kind: 'change', action: 'team.hired', summary: `Hired ${p.name} (${p.title})`, link: `/app/desk/${id}/profile`, undo: { type: 'team.letgo', personaId: id, label: `Let ${first} go` } });
+    }
+    if (team.length === 0) await this.ensureTidyAlarm();
+    void chief;
+    return { hired: fresh, team: await this.teamView() };
+  }
+
+  /** Let someone go: off the team (their history stays; they can be hired again). */
+  async letGo(personaId: string, by: string): Promise<TeamResponse | { error: string }> {
+    const team = await this.teamIds();
+    if (!team.includes(personaId)) return { error: 'They are not on your team.' };
+    const next = team.filter((id) => id !== personaId);
+    await this.ctx.storage.put('team', next);
+    this.feed.append({ type: 'team.updated', data: { members: next }, actor: CHIEF_ID });
+    const p = fullIndex.persona(personaId);
+    if (p && by !== 'undo') this.audited({ actor: by.startsWith('owner') ? by : `owner:${by}`, kind: 'change', action: 'team.letgo', summary: `Let ${p.name} go (${p.title})`, link: `/app/desk/${personaId}/profile`, undo: { type: 'none', label: `Hire ${p.name.split(' ')[0]} again from their profile` } });
+    return this.teamView();
   }
 
   private async secondBrain(): Promise<{ on: boolean; last?: SecondBrainReport }> {
@@ -1665,19 +1732,15 @@ export class WorkspaceDO extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(runtime.now() + TIDY_EVERY_DAYS * 86_400_000);
   }
 
-  private memberView(personaId: string, started: Record<string, { at: string; jobId?: string; projectId?: string }>): TeamMemberView | null {
+  private memberView(personaId: string, started: Record<string, { at: string; jobId?: string; projectId?: string }>, hiredAt: Record<string, string> = {}): TeamMemberView | null {
     const p = fullIndex.persona(personaId);
     if (!p) return null;
-    const starter = STARTER_TEAM.find((m) => m.personaId === personaId);
-    const first = p.name.split(' ')[0];
     return {
       personaId,
-      why: starter?.why ?? p.one_liner,
-      firstTask: starter?.firstTask ?? {
-        kind: 'research',
-        title: `${first}'s first week`,
-        brief: `As the ${p.title.toLowerCase()}, suggest the three most useful things you could do for this business in your first week, with why each matters, and do the first one. Use what the Handbook and shared files say about the business.`,
-      },
+      why: whyOf(p),
+      firstTask: firstTaskOf(p),
+      does: doesOf(p),
+      ...(hiredAt[personaId] ? { hiredAt: hiredAt[personaId] } : {}),
       ...(started[personaId] ? { started: started[personaId] } : {}),
     };
   }
@@ -1687,8 +1750,9 @@ export class WorkspaceDO extends DurableObject<Env> {
     const started = (await this.ctx.storage.get<Record<string, { at: string; jobId?: string; projectId?: string }>>('team_started')) ?? {};
     const sb = await this.secondBrain();
     const alarm = await this.ctx.storage.getAlarm();
+    const hiredAt = await this.hiredAt();
     return {
-      members: (await this.teamIds()).map((id) => this.memberView(id, started)).filter((m): m is TeamMemberView => !!m),
+      members: (await this.teamIds()).map((id) => this.memberView(id, started, hiredAt)).filter((m): m is TeamMemberView => !!m),
       secondBrain: { on: sb.on, steward: SECOND_BRAIN_STEWARD, ...(sb.on && alarm ? { nextAt: new Date(alarm).toISOString() } : {}), ...(sb.last ? { last: sb.last } : {}) },
     };
   }
@@ -1698,6 +1762,7 @@ export class WorkspaceDO extends DurableObject<Env> {
     if (clean.length !== new Set(ids).size) return { error: 'Some of those are not in the directory.' };
     if (clean.length > TEAM_MAX) return { error: `A team has at most ${TEAM_MAX} people; bring others into projects as needed.` };
     await this.ctx.storage.put('team', clean);
+    this.feed.append({ type: 'team.updated', data: { members: clean }, actor: CHIEF_ID });
     return this.teamView();
   }
 
@@ -1869,14 +1934,23 @@ export class WorkspaceDO extends DurableObject<Env> {
         throw err;
       }
     }
+    if (u.type === 'team.letgo') {
+      const r = await this.letGo(u.personaId, 'undo');
+      return 'error' in r ? { ok: false, message: r.error } : { ok: true };
+    }
     return { ok: false, message: 'That cannot be undone here.' };
   }
 
   /** The coworker someone means, by name or role ("Maya", "the bookkeeper", "a lawyer"); never `except`. */
-  private findColleague(who: string, except?: string): Persona | null {
+  /** `prefer`: ids searched first (the team); `avoid`: ids passed over (hiring someone not on the team yet). */
+  private findColleague(who: string, except?: string, prefer: readonly string[] = [], avoid: readonly string[] = []): Persona | null {
     const w = who.toLowerCase().replace(/^(the|our|a|an|my)\s+/, '').replace(/[^a-z0-9 '-]/g, '').trim();
     if (!w) return null;
-    const people = (fullIndex.catalog.personas as Persona[]).filter((p) => p.id !== except);
+    if (prefer.length) {
+      const preferred = this.findColleague(who, except, [], [...avoid, ...(fullIndex.catalog.personas as Persona[]).map((p) => p.id).filter((id) => !prefer.includes(id))]);
+      if (preferred) return preferred;
+    }
+    const people = (fullIndex.catalog.personas as Persona[]).filter((p) => p.id !== except && !avoid.includes(p.id));
     const exact = people.find((p) => p.name.toLowerCase() === w || p.id === w || p.handle?.toLowerCase() === w);
     if (exact) return exact;
     const first = people.filter((p) => p.name.toLowerCase().split(' ')[0] === w);
@@ -1923,14 +1997,25 @@ export class WorkspaceDO extends DurableObject<Env> {
           const p = fullIndex.persona(id);
           return p ? [{ personaId: id, name: p.name, title: p.title }] : [];
         }),
+      hire: async (who) => {
+        const team = await this.teamIds();
+        const p = this.findColleague(who, undefined, [], team);
+        if (!p) return { ok: false, message: `No one in the directory matches “${who}”.` };
+        if (team.includes(p.id)) return { ok: false, message: `${p.name} is already on the team.` };
+        const r = await this.hire([p.id], 'chief');
+        return 'error' in r ? { ok: false, message: r.error } : { ok: true, name: p.name, personaId: p.id, title: p.title };
+      },
       consult: async (who, question, signal) => {
         const settings = await this.getSettings();
         const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
         return this.consult(who, question, { name: chiefDisplayName(lead, settings.chiefName), title: 'Chief of Staff' }, signal);
       },
       handTo: async (who, message) => {
-        const colleague = this.findColleague(who);
+        const team = await this.teamIds();
+        const colleague = this.findColleague(who, undefined, team);
         if (!colleague) return { ok: false, message: `No one on the team matches “${who}”.` };
+        // Work goes to people who were hired; anyone else can be hired first, or brought into a project.
+        if (!team.includes(colleague.id)) return { ok: false, message: `${colleague.name} (${colleague.title}) is not on the team yet. Suggest hiring them (hire_coworker, once the owner agrees), or bring them into a project.` };
         const settings = await this.getSettings();
         const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
         const r = await this.deskSay(colleague.id, { text: `${chiefDisplayName(lead, settings.chiefName)} passed this on from Talk: ${message}`, opId: ids.op(), via: 'text' });

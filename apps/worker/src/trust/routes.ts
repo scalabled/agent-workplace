@@ -104,6 +104,7 @@ async function runUndo(rc: RouteContext, u: UndoSpec): Promise<{ ok: true } | { 
     case 'handbook.restore':
     case 'memory.forget':
     case 'instructions.restore':
+    case 'team.letgo':
       return (await workspaceStub(env).undoChange(u)) as unknown as { ok: true } | { ok: false; message: string };
     default:
       return { ok: false, message: 'That cannot be undone.' };

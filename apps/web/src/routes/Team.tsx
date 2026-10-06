@@ -17,7 +17,7 @@ import { accentFor } from '../lib/accent';
 import { CopyLink, PageTitle } from '../links/CopyLink';
 import { showToast } from '../links/links';
 import { linkTo, navigate, paths } from '../router';
-import { localPresence } from '../store';
+import { localPresence, teamIds } from '../store';
 import './pages.css';
 import './team.css';
 
@@ -40,7 +40,9 @@ export function Team() {
   const remove = async (personaId: string) => {
     if (!team) return;
     try {
-      setTeam(await api.putTeam(team.members.map((m) => m.personaId).filter((id) => id !== personaId)));
+      const t = await api.letGo(personaId);
+      setTeam(t);
+      teamIds.value = t.members.map((m) => m.personaId);
     } catch (err) {
       setError(errorOf(err, 'That did not go through.'));
     }
@@ -49,7 +51,12 @@ export function Team() {
     <section class="page team-page" aria-labelledby="team-title">
       <header class="page-head">
         <PageTitle id="team-title">Your team</PageTitle>
-        <p class="page-lede">The people who work with you. Hear them, say hello at their desk, or give them their first job: each one has something ready to start.</p>
+        <p class="page-lede">The people you hired. Hear them, say hello at their desk, or give them their first job: each one has something ready to start.</p>
+        {isOwner.value && (
+          <Link href={paths.hire} class="button-primary button-small team-hire">
+            <Icon name="plus" size={16} /> Hire someone
+          </Link>
+        )}
       </header>
       {lead && (
         <article class="panel team-chief" id="chief" style={{ '--accent': accentFor(lead.avatar.accent_color) }} aria-labelledby="team-chief-name">
@@ -92,7 +99,17 @@ export function Team() {
         </p>
       )}
       {(!team || !c) && !error && <p class="page-fine">Loading…</p>}
-      {team && c && (
+      {team && team.members.length === 0 && (
+        <p class="panel team-empty" role="status">
+          Nobody hired yet: it’s you and {name}. {name} suggests people for your business, each with a first job ready.{' '}
+          {isOwner.value && (
+            <Link href={`${paths.hire}?first=1`} class="button-primary button-small">
+              Hire your first coworkers
+            </Link>
+          )}
+        </p>
+      )}
+      {team && c && team.members.length > 0 && (
         <ul class="team-grid">
           {team.members.map((m) => {
             const p = c.persona(m.personaId);
@@ -102,7 +119,7 @@ export function Team() {
       )}
       {team && (
         <p class="page-fine team-more">
-          <Link href={paths.floor}>Everyone in the directory</Link> can be brought into a project; add the ones you work with most from their profile.
+          <Link href={paths.floor}>Everyone in the directory</Link> can be brought into a project for a while; hire the ones you work with most.
         </p>
       )}
     </section>
@@ -177,7 +194,7 @@ function MemberCard({ member: m, persona: p, team, onTeam, onRemove }: { member:
             </label>
           )}
           {isOwner.value && (
-            <button type="button" class="icon-button icon-button-sm team-remove" aria-label={`Take ${first} off your team`} title="Take off your team (they stay in the directory)" onClick={onRemove}>
+            <button type="button" class="icon-button icon-button-sm team-remove" aria-label={`Let ${first} go`} title="Let them go (they stay in the directory; you can hire them again)" onClick={onRemove}>
               <Icon name="close" size={14} />
             </button>
           )}

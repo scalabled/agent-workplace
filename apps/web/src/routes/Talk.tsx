@@ -19,7 +19,7 @@ import { VoiceElsewhere } from '../components/VoiceElsewhere';
 import { ago, now } from '../lib/time';
 import { bubbles, liveCaptions } from '../living/captions';
 import { linkTarget, linkTo, navigate, paths } from '../router';
-import { activeJobs, can, canvases, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, onboarded, settings, teamProjects, thread, trustStop, type ThreadItem } from '../store';
+import { activeJobs, can, canvases, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, onboarded, settings, teamIds, teamProjects, thread, trustStop, type ThreadItem } from '../store';
 import { retryOwnerMessage, sendOwnerMessage, setVoiceOn } from '../talk/actions';
 import { draft, focusComposer, greetedThisSession, greetOnArrival, prefillComposer } from '../talk/draft';
 import { notice, showNotice } from '../ui/notice';
@@ -296,12 +296,16 @@ function Thread({ greeting, name, stick }: { greeting: string; name: string; sti
           </li>
         )}
       </ol>
-      {items.every((m) => m.kind === 'note') && (
-        <Link href={paths.team} class="panel talk-meet-team">
+      {items.every((m) => m.kind === 'note') && teamIds.value !== null && (
+        <Link href={teamIds.value.length ? paths.team : `${paths.hire}?first=1`} class="panel talk-meet-team">
           <Icon name="floor" size={18} />
           <span>
-            <strong>Meet your team</strong>
-            <span class="page-fine"> Eight people ready to help, each with a first job you can start in one click.</span>
+            <strong>{teamIds.value.length ? 'Meet your team' : 'Hire your first coworkers'}</strong>
+            <span class="page-fine">
+              {teamIds.value.length
+                ? ` ${teamIds.value.length === 1 ? 'One person' : `${teamIds.value.length} people`} ready to help, each with a first job you can start in one click.`
+                : ` ${name} suggests people for your business: a bookkeeper, someone for your socials, whoever you need.`}
+            </span>
           </span>
           <Icon name="chevronRight" size={16} />
         </Link>

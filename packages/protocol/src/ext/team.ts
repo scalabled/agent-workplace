@@ -1,6 +1,7 @@
-// Your team: the everyday coworkers the owner meets first, each with a first job ready to start, and one who keeps the
-// company's second brain (its memory and Handbook) tidy every week. The owner can change who is on the team; anyone in
-// the directory can still be brought into a project.
+// Your team: the coworkers the owner hires, each with what they will do and a first job ready to start, and (when
+// hired) one who keeps the company's second brain (its memory and Handbook) tidy every week. A new organization starts
+// with its Chief of Staff alone and hires deliberately: the Chief suggests people for the business, the owner meets
+// them and hires them. Anyone in the directory can still be brought into a project for a while.
 import type { HandbookSectionId } from './memory';
 
 export type FirstTaskKind = 'second-brain' | 'research' | 'project';
@@ -130,9 +131,41 @@ export interface TeamMemberView {
   personaId: string;
   why: string;
   firstTask: FirstTask;
+  /** What they do for the business, in a few plain lines (their deliverables). */
+  does: string[];
+  /** When they joined (hired). */
+  hiredAt?: string;
   /** The first task, once started: when, and what it became. */
   started?: { at: string; jobId?: string; projectId?: string };
 }
+
+/** Someone the Chief of Staff suggests hiring, for this business. */
+export interface Candidate {
+  personaId: string;
+  /** Why they fit, in one plain sentence. */
+  why: string;
+  does: string[];
+  firstTask: FirstTask;
+  /** Among the few the Chief would hire first. */
+  recommended: boolean;
+}
+
+export interface SuggestResponse {
+  /** What the business is, as the suggestions read it (from the request, else the Handbook). */
+  about: string;
+  candidates: Candidate[];
+}
+
+export interface HireRequest {
+  personaIds: string[];
+}
+
+export interface HireResponse {
+  hired: string[];
+  team: TeamResponse;
+}
+
+export const HIRE_ABOUT_MAX = 1000;
 
 export interface TeamResponse {
   members: TeamMemberView[];

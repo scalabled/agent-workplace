@@ -25,6 +25,7 @@ import { Canvas, CanvasItem } from './routes/Canvas';
 import { Handbook } from './routes/Handbook';
 import { Admin } from './routes/Admin';
 import { Team } from './routes/Team';
+import { Hire } from './routes/Hire';
 import { actualRole, role, viewAs } from './auth/session';
 import { revealLinked } from './links/links';
 import { Toast } from './links/Toast';
@@ -33,7 +34,7 @@ import { Memory } from './routes/Memory';
 import { ChiefPrompt } from './routes/ChiefPrompt';
 import { Talk } from './routes/Talk';
 import * as store from './store';
-import { acceptSettings, applyFrame, capabilities, clearServerPresence, connection, lastSeq, mergeJobs, mergeProjects, onboarded, settings, trustStop } from './store';
+import { acceptSettings, applyFrame, capabilities, clearServerPresence, connection, lastSeq, mergeJobs, mergeProjects, onboarded, settings, teamIds, trustStop } from './store';
 import { draft } from './talk/draft';
 import { startUnread } from './ui/unread';
 import { bargeIn, chiefIsSpeaking, chiefSpeaker, startChiefVoice } from './voice/chief-voice';
@@ -64,6 +65,11 @@ function refreshJobs() {
   void api
     .listProjects()
     .then((r) => mergeProjects(r))
+    .catch(() => undefined);
+  // Who is on the team (the office shows them; hiring updates it).
+  void api
+    .getTeam()
+    .then((t) => (teamIds.value = t.members.map((m) => m.personaId)))
     .catch(() => undefined);
   // Everyone stop (Inc 6): whether it is on, however long ago it was turned on.
   void api
@@ -313,6 +319,8 @@ function Screen() {
       return <Admin section={r.params.section} />;
     case 'team':
       return <Team />;
+    case 'hire':
+      return <Hire />;
     case 'skill':
       return <SkillPage skillId={r.params.skillId!} />;
     case 'chief':

@@ -69,25 +69,37 @@ export function officeState(page: Page) {
 export async function seatedInView(page: Page, skip: readonly string[] = []): Promise<{ id: string; x: number; y: number }> {
   let found: { id: string; x: number; y: number } | null = null;
   await expect
-    .poll(async () => {
-      found = await page.evaluate((skipIds) => {
-        const o = (window as unknown as { __headcount: Required<Hc> }).__headcount.office;
-        const host = o.scene.el.getBoundingClientRect();
-        for (const b of document.querySelectorAll<HTMLElement>('.hc-o-seat[data-face]:not([data-away]):not([data-walking]):not([data-chief]):not([data-room])')) {
-          const id = b.dataset.pid!;
-          if (skipIds.includes(id)) continue;
-          const where = o.life?.whereIs(id);
-          if (where && where.kind !== 'desk') continue;
-          const r = (b.querySelector('.hc-o-seat__face') ?? b).getBoundingClientRect();
-          if (r.width < 18) continue;
-          const x = r.x + r.width / 2;
-          const y = r.y + r.height / 2;
-          if (x > host.left + 160 && x < host.right - 200 && y > host.top + 120 && y < host.bottom - 180) return { id, x, y };
-        }
-        return null;
-      }, skip);
-      return found !== null;
-    }, { timeout: 15_000 })
+    .poll(
+      async () => {
+        const r = await page.evaluate((skipIds) => {
+          const o = (window as unknown as { __headcount: Required<Hc> }).__headcount.office;
+          const host = o.scene.el.getBoundingClientRect();
+          const seated = [...document.querySelectorAll<HTMLElement>('.hc-o-seat[data-face]:not([data-away]):not([data-walking]):not([data-chief]):not([data-room])')].filter((b) => {
+            const id = b.dataset.pid!;
+            if (skipIds.includes(id)) return false;
+            const where = o.life?.whereIs(id);
+            return !where || where.kind === 'desk';
+          });
+          for (const b of seated) {
+            const r = (b.querySelector('.hc-o-seat__face') ?? b).getBoundingClientRect();
+            if (r.width < 18) continue;
+            const x = r.x + r.width / 2;
+            const y = r.y + r.height / 2;
+            if (x > host.left + 160 && x < host.right - 200 && y > host.top + 120 && y < host.bottom - 180) return { found: { id: b.dataset.pid!, x, y } };
+          }
+          // Nobody seated in view (a small team sits in one corner; the office opens on a lively place): bring the
+          // first one at their desk into view, and look again once the camera has settled.
+          const first = seated[0];
+          const at = first ? o.scene.placeOf(first.dataset.pid!) : null;
+          if (at) o.scene.zoomTo(2.2, { x: at.x, y: at.y * 0.82 });
+          return { found: null, zoomed: !!at };
+        }, skip);
+        if (r.zoomed) await page.waitForTimeout(1200);
+        found = r.found;
+        return found !== null;
+      },
+      { timeout: 15_000 },
+    )
     .toBe(true);
   return found!;
 }

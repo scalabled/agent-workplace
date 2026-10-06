@@ -3,7 +3,7 @@
 // redirect to their "/app" equivalents, so old links and bookmarks keep working.
 import { computed, signal } from '@preact/signals';
 
-export type RouteName = 'landing' | 'home' | 'onboarding' | 'talk' | 'floor' | 'coworker' | 'projects' | 'project' | 'inbox' | 'skills' | 'skill' | 'chief' | 'connectors' | 'automations' | 'canvas' | 'canvasItem' | 'memory' | 'handbook' | 'admin' | 'team' | 'notFound';
+export type RouteName = 'landing' | 'home' | 'onboarding' | 'talk' | 'floor' | 'coworker' | 'projects' | 'project' | 'inbox' | 'skills' | 'skill' | 'chief' | 'connectors' | 'automations' | 'canvas' | 'canvasItem' | 'memory' | 'handbook' | 'admin' | 'team' | 'hire' | 'notFound';
 
 export interface CurrentRoute {
   name: RouteName;
@@ -34,6 +34,7 @@ const PATTERNS: [RouteName, RegExp, string[]][] = [
   ['handbook', /^\/app\/handbook\/?$/, []],
   ['admin', /^\/app\/admin(?:\/([a-z]+))?\/?$/, ['section']],
   ['team', /^\/app\/team\/?$/, []],
+  ['hire', /^\/app\/team\/hire\/?$/, []],
 ];
 
 const LEGACY = [/^\/(welcome|talk|floor|projects|inbox)\/?$/, /^\/desk\/[^/]+\/profile\/?$/];
@@ -149,6 +150,7 @@ export const paths = {
   memory: `${APP_BASE}/memory`,
   handbook: `${APP_BASE}/handbook`,
   team: `${APP_BASE}/team`,
+  hire: `${APP_BASE}/team/hire`,
   admin: (section?: string) => `${APP_BASE}/admin${section ? `/${section}` : ''}`,
 } as const;
 

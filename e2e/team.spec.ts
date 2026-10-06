@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { onboarded } from './helpers';
+import { onboarded, starterTeam } from './helpers';
 
 // Your team (keyless): meet the Chief and the everyday team, start a first job and follow its link, tidy the second
 // brain and read the report on the Memory page, and add someone from the directory to the team.
 test.beforeEach(async ({ request }) => {
+  await starterTeam(request);
   await onboarded(request);
 });
 
@@ -36,10 +37,10 @@ test('the second brain: tidy now, then read the report on the Memory page', asyn
 
 test('add someone from the directory to the team', async ({ page }) => {
   await page.goto('/app/desk/tech-lead/profile');
-  await page.getByRole('button', { name: 'Add to your team' }).click();
+  await page.getByRole('button', { name: /^Hire / }).click();
   await expect(page.getByRole('button', { name: /is on your team/ })).toBeVisible();
   await page.goto('/app/team');
   await expect(page.locator('[id="tech-lead"]')).toBeVisible();
-  await page.locator('[id="tech-lead"]').getByRole('button', { name: /Take .* off your team/ }).click();
+  await page.locator('[id="tech-lead"]').getByRole('button', { name: /^Let .* go$/ }).click();
   await expect(page.locator('[id="tech-lead"]')).toHaveCount(0);
 });

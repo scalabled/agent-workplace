@@ -518,7 +518,7 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     const emailInput = mail?.ready && host.email ? { test: mail.provider === 'sink', level: (policy?.external_send === 'propose' ? 'propose' : 'ask') as 'ask' | 'propose', recent: await host.email.recent().catch(() => []) } : undefined;
     const system = buildChiefSystemPrompt({
       ...(emailInput ? { email: emailInput } : {}),
-      ...(policy ? { workspaceLevel: policy.workspace } : {}), lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: connectors.describe, automations: !!host.automations, ...(host.memory ? { handbook: known?.handbook ?? '', recalled: known?.recalled ?? [], interview: host.memory.interviewing() ? host.memory.missing() : null } : {}), ...(roster.length ? { team: roster } : {}) });
+      ...(policy ? { workspaceLevel: policy.workspace } : {}), lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: connectors.describe, automations: !!host.automations, ...(host.memory ? { handbook: known?.handbook ?? '', recalled: known?.recalled ?? [], interview: host.memory.interviewing() ? host.memory.missing() : null } : {}), ...(host.team ? { team: roster } : {}) });
     const tools = createChiefTools({
       project: host.project(),
       turnId,

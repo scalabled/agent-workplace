@@ -9,7 +9,7 @@ import { catalog } from '../catalog';
 import type { PaletteItem } from '../components/Palette';
 import { bubbles, resetCaptions } from '../living/captions';
 import { officeStage } from '../living/viewer';
-import { presence, settings } from '../store';
+import { presence, settings, teamIds } from '../store';
 import { resetOfficeFetch } from './fetch';
 import { availabilityLine, hoverRoute, LIFE_START_CAP_MS, mountOffice, nameCardText, VEIL_CAP_MS } from './mount';
 
@@ -26,6 +26,8 @@ beforeAll(() => {
   catalog.value = slimIndex;
 });
 beforeEach(() => {
+  // A full office: everyone in the directory hired (a new office starts with the Chief alone; see below).
+  teamIds.value = slimIndex.catalog.personas.map((p) => p.id);
   document.body.innerHTML = '';
   host = document.createElement('div');
   host.style.width = '1200px';
@@ -141,6 +143,17 @@ describe('mountOffice', () => {
     const m = mountOffice({ host, catalog: slimIndex, onRequestDirectory, faceFactory, planIn: 'sync', assetsBase: null, search: '', dev: false });
     (host.querySelector('.hc-o-skip') as HTMLAnchorElement).click();
     expect(onRequestDirectory).toHaveBeenCalledTimes(1);
+    m.destroy();
+  });
+
+  it('a new office: the Chief alone until the owner hires, then the hires get desks', async () => {
+    teamIds.value = [];
+    const m = mountOffice({ host, catalog: slimIndex, onRequestDirectory: vi.fn(), faceFactory, planIn: 'sync', assetsBase: null, search: '', dev: false });
+    expect([...host.querySelectorAll('.hc-o-seat')].map((s) => s.getAttribute('data-pid'))).toEqual([CHIEF_ID]);
+    teamIds.value = ['bookkeeper', 'social-media-manager'];
+    await new Promise((r) => setTimeout(r, 0));
+    expect(host.querySelectorAll('.hc-o-seat')).toHaveLength(3);
+    expect(host.querySelector('.hc-o-seat[data-pid="cw_bookkeeper"]')).not.toBeNull();
     m.destroy();
   });
 });

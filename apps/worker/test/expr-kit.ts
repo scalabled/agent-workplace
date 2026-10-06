@@ -119,7 +119,7 @@ export async function exprSetup(overrides: Partial<Env> = {}, opts: { lead?: str
     if (!found || !('match' in found)) throw new Error(`no route ${method} ${path}`);
     const { id, params } = found.match;
     let registry: Registry | undefined;
-    const rc: RouteContext = { env: t.env, identity: { email: '', name: '', role: 'owner', actualRole: 'owner' }, ctx: t.ctx, route: id, params, url, registry: () => (registry ??= runtime.registry(t.env)) };
+    const rc: RouteContext = { env: t.env, identity: { email: '', name: '', role: 'owner', actualRole: 'owner', orgId: 'local', platform: true }, ctx: t.ctx, route: id, params, url, registry: () => (registry ??= runtime.registry(t.env)) };
     const init: RequestInit = { method, headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...headers }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) };
     let res: Response;
     try {

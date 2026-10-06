@@ -209,7 +209,8 @@ function knowledgeBlocks(input: ChiefPromptInput): string {
 
 /** The owner's team: who they have met, to ask (ask_coworker), hand to (hand_to_coworker) or link. */
 function teamRosterBlock(team: readonly { personaId: string; name: string; title: string }[]): string {
-  if (!team.length) return '';
+  if (!team.length)
+    return "## THE OWNER'S TEAM\nNobody hired yet: it is you and the owner. When they need a role (bookkeeping, social posts, sales…), suggest someone from the directory and hire them once the owner agrees (hire_coworker), or bring specialists into a project.";
   return [
     "## THE OWNER'S TEAM (the coworkers they have met; anyone else in the directory can be brought into a project)",
     ...team.map((m) => `- ${m.name}, ${m.title} (/app/desk/${m.personaId}/profile)`),
@@ -235,7 +236,7 @@ export function buildChiefSystemPrompt(input: ChiefPromptInput): string {
     roleDirective(input.voiceOn),
     input.ownerFirst ? `The owner's name is ${input.ownerFirst}. Use it rarely.` : '',
     knowledgeBlocks(input),
-    teamRosterBlock(input.team ?? []),
+    input.team ? teamRosterBlock(input.team) : '',
     workStateBlock(input.jobs),
     teamStateBlock(input.projects ?? null),
     questionsBlock(input.decisions ?? []),
