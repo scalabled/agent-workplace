@@ -5,6 +5,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { generatePortrait, painting } from '../lib/generate';
 import { portraitEpoch, portraitFor } from '../lib/portraits';
 import { can } from '../store';
+import { isPlatform } from '../auth/session';
 
 export function PortraitAction({ id, name, class: cls = 'stage-paint' }: { id: string; name: string; class?: string }) {
   const [hasPortrait, setHasPortrait] = useState<boolean | null>(null);
@@ -18,7 +19,8 @@ export function PortraitAction({ id, name, class: cls = 'stage-paint' }: { id: s
     };
   }, [id, epoch]);
   const state = painting.value[id];
-  if (!can('image') || hasPortrait !== false) return null;
+  // Portraits are shared by every organization: the deployment's owners make them.
+  if (!can('image') || !isPlatform.value || hasPortrait !== false) return null;
   if (state?.status === 'painting')
     return (
       <p class={cls} role="status">

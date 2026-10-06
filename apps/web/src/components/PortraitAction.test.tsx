@@ -4,6 +4,7 @@ import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { capabilities } from '../store';
+import { isPlatform } from '../auth/session';
 import { PortraitAction } from './PortraitAction';
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -24,6 +25,7 @@ beforeEach(() => {
       return new Response('', { status: 404 });
     }),
   );
+  isPlatform.value = true;
   host = document.createElement('div');
   document.body.appendChild(host);
 });

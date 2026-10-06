@@ -18,6 +18,7 @@ import {
   type TtsProvider,
 } from '@headcount/expressions';
 import type { AttentionChangedData, ExprAgentResponse, MoodChangedData } from '@headcount/protocol/ext/expressions';
+import type { StreamId } from '@headcount/protocol';
 
 export interface AgentEntry {
   resp: ExprAgentResponse;
@@ -31,6 +32,8 @@ export interface AgentsDeps {
   now(): number;
   /** An agent was (re)loaded: its manifest or mood may have changed. */
   onLoaded?(entry: AgentEntry): void;
+  /** The workspace stream the agents' threads belong to (`ws:<organization>`). */
+  host?(): StreamId;
 }
 
 export interface Agents {
@@ -59,12 +62,13 @@ const MAILBOX_OF: Record<AttentionThread['kind'], Mailbox> = { talk: 'owner', de
  * attention.changed → the runner's AttentionView. The frame carries no per-thread voice or floor claim, so none is
  * invented here: in Inc 0.5 the Chief's background threads are jobs, which never contend for the voice (H5, §8.1).
  */
-export function attentionViewOf(data: AttentionChangedData, now: number): AttentionView {
+/** `host`: the workspace stream the threads belong to (`ws:<organization>`). */
+export function attentionViewOf(data: AttentionChangedData, now: number, host: StreamId = 'ws:local'): AttentionView {
   const thread = (t: NonNullable<AttentionChangedData['focus']>): AttentionThread => ({
     id: t.threadId,
     kind: t.kind,
     mailbox: MAILBOX_OF[t.kind],
-    host: 'ws:local',
+    host,
     label: t.label,
     voice: { speaking: false, untilMs: null },
     floorHeld: false,
@@ -111,7 +115,7 @@ export function createAgents(deps: AgentsDeps): Agents {
       // No mood on the server (a new lead starts from its own baseline), or another persona behind this id now: the
       // old mood, baseline and face palette go.
       else if (!resp.mood || (prev && prev.resp.personaId !== resp.personaId)) moods.delete(agentId);
-      if (resp.attention) views.set(agentId, attentionViewOf(resp.attention, deps.now()));
+      if (resp.attention) views.set(agentId, attentionViewOf(resp.attention, deps.now(), deps.host?.()));
       deps.onLoaded?.(entry);
       return entry;
     } catch {
@@ -160,7 +164,7 @@ export function createAgents(deps: AgentsDeps): Agents {
     },
     attention: (agentId) => views.get(agentId) ?? null,
     applyAttention(data) {
-      views.set(data.agentId, attentionViewOf(data, deps.now()));
+      views.set(data.agentId, attentionViewOf(data, deps.now(), deps.host?.()));
     },
     forget(agentId) {
       entries.delete(agentId);

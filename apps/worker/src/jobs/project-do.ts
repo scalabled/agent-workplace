@@ -1,4 +1,5 @@
 import { configured, loadConfig } from '../admin/config';
+import { tenantOf, withTenant } from '../lib/tenant';
 import { DurableObject } from 'cloudflare:workers';
 import { fullIndex } from '@headcount/catalog/full';
 import { chiefDisplayName } from '@headcount/catalog';
@@ -184,8 +185,9 @@ export class ProjectDO extends DurableObject<Env> {
   private readonly effects: Effects;
 
   constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, configured(env));
-    void ctx.blockConcurrencyWhile(() => loadConfig(env));
+    // The organization this object works for comes from its name (p:everyday:<org>); its settings over the deployment's.
+    super(ctx, configured(withTenant(env, tenantOf(ctx, env, 'p:everyday:'))));
+    void ctx.blockConcurrencyWhile(() => loadConfig(this.env));
     // Everything below reads the admin page's settings over the deployment's.
     env = this.env;
     for (const stmt of SCHEMA) ctx.storage.sql.exec(stmt);

@@ -39,6 +39,7 @@ import type { CanvasCreate, CanvasListResponse, CanvasResponse } from '@headcoun
 import type { ConfigResponse, MemberPut, MembersResponse, ModelPrice, UsageResponse } from '@headcount/protocol/ext/admin';
 import type { DocRef, ThreadResponse, ThreadStart, ThreadsResponse } from '@headcount/protocol/ext/threads';
 import type { TeamResponse, TeamStartResponse } from '@headcount/protocol/ext/team';
+import type { OrgsResponse, PlatformResponse } from '@headcount/protocol/ext/orgs';
 import type { AuditKind, AuditResponse, AutonomyPolicy, PutAutonomyRequest, TestMailbox, TrustResponse } from '@headcount/protocol/ext/trust';
 import type { HandbookSectionId as SectionId } from '@headcount/protocol/ext/memory';
 import type { CardResponse, CardsResponse, HandbookResponse, HandbookSectionId, MemoryCreate, MemoryItem, MemoryKind, MemoryListResponse, MemoryPatch } from '@headcount/protocol/ext/memory';
@@ -136,6 +137,10 @@ export const api = {
   removeMember: (email: string) => request<MembersResponse>(routePath('removeMember', { email }), { method: 'DELETE' }),
   adminUsage: (days = 7) => request<UsageResponse>(`${routePath('adminUsage')}?days=${days}`),
   putPrices: (prices: ModelPrice[]) => request<{ prices: ModelPrice[] }>(routePath('putPrices'), jsonInit('PUT', { prices })),
+  // Organizations.
+  listOrgs: () => request<OrgsResponse>(routePath('listOrgs')),
+  renameOrg: (name: string) => request<{ org: { orgId: string; name: string } }>(routePath('renameOrg'), jsonInit('PUT', { name })),
+  platformOrgs: () => request<PlatformResponse>(routePath('platformOrgs')),
   // Inc 6 trust.
   getTrust: () => request<TrustResponse>(routePath('getTrust')),
   putAutonomy: (body: PutAutonomyRequest) => request<{ policy: AutonomyPolicy }>(routePath('putAutonomy'), jsonInit('PUT', body)),

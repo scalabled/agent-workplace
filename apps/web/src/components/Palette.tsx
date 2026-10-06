@@ -9,7 +9,7 @@ import { catalog, loadCatalog } from '../catalog';
 import { chiefName } from '../chief';
 import { setTheme, theme } from '../lib/theme';
 import { navigate, paths } from '../router';
-import { auth, isOwner, signOut } from '../auth/session';
+import { auth, isOwner, signOut, currentOrg } from '../auth/session';
 import { copyLink, pageHref } from '../links/links';
 import { onboarded, settings } from '../store';
 import { setAmbience, setOwnerName, setVoiceOn } from '../talk/actions';
@@ -165,7 +165,10 @@ function useItems(): PaletteItem[] {
     items.push({ id: 'do:copy-link', label: 'Copy link to this page', hint: 'To share it or give it to an agent', group: 'Settings', icon: 'link', keywords: 'share url address permalink copy link', run: () => void copyLink(pageHref(), 'Link to this page') });
     items.push({ id: 'set:chief', label: 'Switch Chief of Staff', hint: 'Pick someone else', group: 'Settings', icon: 'user', keywords: 'lead change choose', run: go(paths.onboarding) });
     const who = auth.value;
-    if (who.status === 'signed-in') items.push({ id: 'set:signout', label: 'Sign out', hint: who.email, group: 'Settings', icon: 'user', keywords: 'log out logout account google leave', run: () => void signOut() });
+    if (who.status === 'signed-in') {
+      items.push({ id: 'set:org', label: 'Organization', hint: currentOrg.value?.name ?? '', group: 'Settings', icon: 'projects', keywords: 'organization office company switch another start new workspace team account', run: go(`${paths.admin()}?at=organization`) });
+      items.push({ id: 'set:signout', label: 'Sign out', hint: who.email, group: 'Settings', icon: 'user', keywords: 'log out logout account google leave', run: () => void signOut() });
+    }
     if (t !== 'dark') items.push({ id: 'set:dark', label: 'Use dark theme', group: 'Settings', icon: 'moon', keywords: 'night theme appearance', run: () => setTheme('dark') });
     if (t !== 'light') items.push({ id: 'set:light', label: 'Use light theme', group: 'Settings', icon: 'sun', keywords: 'day theme appearance', run: () => setTheme('light') });
     if (t !== 'system') items.push({ id: 'set:system', label: 'Match system theme', group: 'Settings', icon: 'sun', keywords: 'auto theme appearance', run: () => setTheme('system') });

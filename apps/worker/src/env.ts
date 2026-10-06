@@ -14,6 +14,14 @@ export interface Env extends ProviderEnv {
   BLOBS: R2Bucket;
   /** Single-owner local mode: "local". */
   WORKSPACE_ID: string;
+  /** The deployment's own workspace (the home organization) while a request works for another one (src/lib/tenant.ts). */
+  HOME_WORKSPACE_ID?: string;
+  /** Who may start an organization: "open" (anyone signed in with Google; the default), "invite", or "closed". */
+  SIGNUP_MODE?: string;
+  /** At most this many organizations on the deployment (default 100). */
+  MAX_ORGS?: string;
+  /** At most this many organizations one person may start (default 3). */
+  MAX_ORGS_PER_USER?: string;
   APP_VERSION?: string;
   /** "true": Mock TTS/STT answer (and count as available) instead of 503 naming the keys. Tests and demos only. */
   MOCK_MEDIA?: string;

@@ -3,7 +3,8 @@
 // `configured(env)` wraps an Env so every existing `env.X` read sees them — the worker, every Durable Object, the
 // model registry — with no call site changing. A change applies here at once and everywhere else within seconds.
 // Only editable keys can be overridden: sign-in, allowed origins, the secrets and the workspace id never can.
-import { CONFIG_OPTIONS, EDITABLE_KEYS, type ConfigOption, type ConfigValue } from '@headcount/protocol/ext/admin';
+import { CONFIG_OPTIONS, EDITABLE_KEYS, type ConfigOption, type ConfigValue, PLATFORM_KEYS } from '@headcount/protocol/ext/admin';
+import { homeWorkspace } from '../lib/tenant';
 import { connectorSecret, openToken, sealToken } from '../connectors/secret';
 import type { Env } from '../env';
 
@@ -45,8 +46,9 @@ export async function loadConfig(env: Env, force = false): Promise<void> {
       const rows = (await raw.DB.prepare('SELECT key, value, sealed, updated_at, updated_by FROM settings_kv WHERE ws_id = ?').bind(wsOf(raw)).all<Row>()).results ?? [];
       const secret = connectorSecret(raw);
       const next = new Map<string, Entry>();
+      const locked = lockedKeys(raw);
       for (const r of rows) {
-        if (!EDITABLE_KEYS.has(r.key)) continue;
+        if (!EDITABLE_KEYS.has(r.key) || locked.has(r.key)) continue;
         const value = r.sealed ? (secret ? await openToken(secret, aad(r.key), r.value) : null) : r.value;
         if (value !== null) next.set(r.key, { value, updatedAt: r.updated_at, updatedBy: r.updated_by });
       }
@@ -97,11 +99,18 @@ export function configured<E extends Env>(env: E): E {
   });
 }
 
+/** Keys this organization may not change: the platform's, for every organization but the home one. */
+export function lockedKeys(env: Env): ReadonlySet<string> {
+  const raw = rawEnv(env);
+  return wsOf(raw) === homeWorkspace(raw) ? new Set() : PLATFORM_KEYS;
+}
+
 /** Every option with the value in effect and where it comes from (secrets never leave). */
 export async function configView(env: Env): Promise<{ values: ConfigValue[]; canStoreKeys: boolean }> {
   const raw = rawEnv(env);
   await loadConfig(raw, true);
   const c = cacheOf(wsOf(raw));
+  const locked = lockedKeys(raw);
   const values = CONFIG_OPTIONS.map((o): ConfigValue => {
     const admin = c.values.get(o.key);
     const deployed = (raw as unknown as Record<string, unknown>)[o.key];
@@ -109,7 +118,8 @@ export async function configView(env: Env): Promise<{ values: ConfigValue[]; can
     const value = admin?.value ?? dep ?? o.fallback;
     const source = admin ? 'admin' : dep !== null ? 'deployment' : 'default';
     const meta = admin ? { updatedAt: admin.updatedAt, ...(admin.updatedBy ? { updatedBy: admin.updatedBy } : {}) } : {};
-    return o.kind === 'secret' ? { key: o.key, value: '', source, set: !!(admin?.value || dep), ...meta } : { key: o.key, value, source, ...meta };
+    const lock = locked.has(o.key) ? { locked: true } : {};
+    return o.kind === 'secret' ? { key: o.key, value: '', source, set: !!(admin?.value || dep), ...meta, ...lock } : { key: o.key, value, source, ...meta, ...lock };
   });
   return { values, canStoreKeys: connectorSecret(raw) !== null };
 }
@@ -154,6 +164,7 @@ export async function saveConfig(env: Env, changes: Record<string, string | null
   for (const [key, v] of Object.entries(changes)) {
     const o = byKey.get(key);
     if (!o || !EDITABLE_KEYS.has(key)) throw new ConfigError(`${o?.label ?? key} changes only with the deployment.`);
+    if (lockedKeys(raw).has(key)) throw new ConfigError(`${o.label} is set by Headcount for every organization.`);
     if (v === null) {
       stmts.push(raw.DB.prepare('DELETE FROM settings_kv WHERE ws_id = ? AND key = ?').bind(ws, key));
       continue;

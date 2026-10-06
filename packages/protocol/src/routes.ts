@@ -14,10 +14,12 @@ export interface RouteDef {
   /** Express-style pattern; `:name` segments become params. */
   path: string;
   /**
-   * Who may call it: anyone (`public`), or a signed-in member with at least this role (readers read, contributors
-   * work with the team, owners configure). Local mode (loopback, sign-in off) is the owner.
+   * Who may call it: anyone (`public`), any signed-in person whether or not they belong to an organization yet
+   * (`account`: their organizations), the deployment's owners (`platform`), or a member of the current organization
+   * with at least this role (readers read, contributors work with the team, owners configure). Local mode (loopback,
+   * sign-in off) is the owner.
    */
-  auth: 'public' | Role;
+  auth: 'public' | 'account' | 'platform' | Role;
   /** Max request body in bytes (enforced by the router before the handler runs). */
   bodyCap?: number;
   /** Request body content type the router accepts. */
@@ -114,7 +116,8 @@ export const ROUTES = {
   tts: { method: 'POST', path: '/api/speech/tts', auth: 'reader', body: 'json', bodyCap: 32 * 1024 },
   stt: { method: 'POST', path: '/api/speech/stt', auth: 'contributor', body: 'binary', bodyCap: 10 * 1024 * 1024 },
   listPortraits: { method: 'GET', path: '/api/portraits', auth: 'public' },
-  generatePortrait: { method: 'POST', path: '/api/portraits/:personaId/generate', auth: 'owner', bodyCap: 4 * 1024 },
+  // Portraits are shared by every organization: only the deployment's owners make them (local mode: the owner).
+  generatePortrait: { method: 'POST', path: '/api/portraits/:personaId/generate', auth: 'platform', bodyCap: 4 * 1024 },
   getPortrait: { method: 'GET', path: '/api/portraits/:personaId', auth: 'public' },
   getLandmarks: { method: 'GET', path: '/api/portraits/:personaId/landmarks', auth: 'public' },
   putLandmarks: { method: 'PUT', path: '/api/portraits/:personaId/landmarks', auth: 'owner', body: 'json', bodyCap: 110 * 1024 },
@@ -151,6 +154,12 @@ export const ROUTES = {
   removeMember: { method: 'DELETE', path: '/api/admin/members/:email', auth: 'owner' },
   adminUsage: { method: 'GET', path: '/api/admin/usage', auth: 'owner' },
   putPrices: { method: 'PUT', path: '/api/admin/prices', auth: 'owner', body: 'json', bodyCap: 32 * 1024 },
+  // Organizations (ext/orgs.ts): start one, switch between them, rename; the platform page for the deployment's owners.
+  listOrgs: { method: 'GET', path: '/api/orgs', auth: 'account' },
+  createOrg: { method: 'POST', path: '/api/orgs', auth: 'account', body: 'json', bodyCap: 2 * 1024 },
+  switchOrg: { method: 'POST', path: '/api/orgs/:id/switch', auth: 'account', bodyCap: 1024 },
+  renameOrg: { method: 'PUT', path: '/api/org', auth: 'owner', body: 'json', bodyCap: 2 * 1024 },
+  platformOrgs: { method: 'GET', path: '/api/platform/orgs', auth: 'platform' },
   // Inc 6 trust (ext/trust.ts): the autonomy dial, grants, the audit trail with Undo, email, resuming after Everyone stop.
   getTrust: { method: 'GET', path: '/api/trust', auth: 'reader' },
   putAutonomy: { method: 'PUT', path: '/api/trust/autonomy', auth: 'owner', body: 'json', bodyCap: 1024 },

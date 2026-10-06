@@ -1,4 +1,5 @@
 import { configured, loadConfig } from '../admin/config';
+import { tenantOf, withTenant } from '../lib/tenant';
 import { DurableObject } from 'cloudflare:workers';
 import { catalogFull, fullIndex } from '@headcount/catalog/full';
 import { chiefDisplayName, type Persona } from '@headcount/catalog';
@@ -225,8 +226,9 @@ export class WorkspaceDO extends DurableObject<Env> {
   private readonly approvalWaiters = new Map<string, (v: 'approved' | 'declined') => void>();
 
   constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, configured(env));
-    void ctx.blockConcurrencyWhile(() => loadConfig(env));
+    // The organization this object works for comes from its name (ws:<org>); its settings over the deployment's.
+    super(ctx, configured(withTenant(env, tenantOf(ctx, env, 'ws:'))));
+    void ctx.blockConcurrencyWhile(() => loadConfig(this.env));
     // Everything below reads the admin page's settings over the deployment's.
     env = this.env;
     for (const stmt of SCHEMA) ctx.storage.sql.exec(stmt);
@@ -1839,7 +1841,7 @@ export class WorkspaceDO extends DurableObject<Env> {
         if (err instanceof AgentConfigError) return { ok: false, message: err.message };
         throw err;
       }
-      await audit(this.env.DB, wsOf(this.env), { actor: coworkerAgentId(ask.target), kind: 'change', action: 'instructions.changed', summary: `${persona.name.split(' ')[0]}'s instructions changed (approved by ${by}): ${clipText(ask.why, 200)}`, link: `/app/floor/${ask.target}?tab=prompt`, undo: { type: 'instructions.restore', personaId: ask.target, before, label: 'Restore their previous instructions' } });
+      await audit(this.env.DB, wsOf(this.env), { actor: coworkerAgentId(ask.target), kind: 'change', action: 'instructions.changed', summary: `${persona.name.split(' ')[0]}'s instructions changed (approved by ${by}): ${clipText(ask.why, 200)}`, link: `/app/desk/${ask.target}/profile?tab=prompt`, undo: { type: 'instructions.restore', personaId: ask.target, before, label: 'Restore their previous instructions' } });
       return { ok: true, summary: `Updated how ${persona.name.split(' ')[0]} works.` };
     }
     if (!isSection(ask.target)) return { ok: false, message: 'There is no such Handbook section.' };

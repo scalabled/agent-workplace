@@ -61,7 +61,7 @@ describe('auth: local dev', () => {
   it('leaves loopback hosts open when AUTH_MODE is unset', async () => {
     const t = await createTestEnv();
     expect((await send(t, '/api/workspace', { base: 'http://localhost' })).status).toBe(200);
-    expect(await (await send(t, '/api/auth/me', { base: 'http://localhost' })).json()).toEqual({ mode: 'off', signedIn: true, role: 'owner' });
+    expect(await (await send(t, '/api/auth/me', { base: 'http://localhost' })).json()).toEqual({ mode: 'off', signedIn: true, role: 'owner', org: { orgId: 'local', name: 'Headcount' } });
   });
 
   it('requires sign-in on loopback when AUTH_MODE=google', async () => {
@@ -135,21 +135,21 @@ describe('auth: Google sign-in', () => {
     expect(stored).toEqual({ token_hash: await hash(session), email: OWNER });
     const headers = { cookie: `hc_session=${session}`, origin: HOST };
     expect((await send(t, '/api/workspace', { headers })).status).toBe(200);
-    expect(await (await send(t, '/api/auth/me', { headers })).json()).toEqual({ mode: 'google', signedIn: true, email: OWNER, name: 'Owner', role: 'owner' });
+    expect(await (await send(t, '/api/auth/me', { headers })).json()).toEqual({ mode: 'google', signedIn: true, email: OWNER, name: 'Owner', role: 'owner', org: { orgId: 'local', name: 'Headcount' }, canCreateOrg: true, platform: true });
   });
 
-  it('refuses an email that is not on the allowlist', async () => {
-    const t = await createTestEnv(deployed);
+  it('refuses an email that is not on the allowlist while sign-up is closed', async () => {
+    const t = await createTestEnv({ ...deployed, SIGNUP_MODE: 'closed' });
     const { cb } = await signIn(t, { sub: 'g-2', email: 'stranger@example.com', email_verified: true });
     expect(cb.headers.get('location')).toBe(`${HOST}/app?signin=denied`);
     expect(cookieValue(cb, 'hc_session')).toBeNull();
     expect(await t.env.DB.prepare('SELECT count(*) AS n FROM auth_sessions').first('n')).toBe(0);
   });
 
-  it('refuses an unverified email and an empty allowlist', async () => {
+  it('refuses an unverified email, and anyone when sign-up is closed and the allowlist is empty', async () => {
     const t = await createTestEnv(deployed);
     expect((await signIn(t, { sub: 'g-3', email: OWNER, email_verified: false })).cb.headers.get('location')).toBe(`${HOST}/app?signin=denied`);
-    const t2 = await createTestEnv({ ...deployed, OWNER_EMAILS: '' });
+    const t2 = await createTestEnv({ ...deployed, OWNER_EMAILS: '', SIGNUP_MODE: 'closed' });
     expect((await signIn(t2, { sub: 'g-4', email: OWNER, email_verified: true })).cb.headers.get('location')).toBe(`${HOST}/app?signin=denied`);
   });
 

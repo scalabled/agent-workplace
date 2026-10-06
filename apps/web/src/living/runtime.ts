@@ -186,6 +186,7 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
     catalog,
     fetchAgent: (id) => deps.api.exprAgent(id),
     now,
+    host: () => `ws:${settings.peek()?.workspaceId ?? 'local'}` as const,
     onLoaded: (e) => onAgentLoaded(e),
   });
   const clips = createClipStore({

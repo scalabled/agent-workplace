@@ -25,7 +25,7 @@ import {
 } from '@headcount/protocol/ext/admin';
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { api, ApiError } from '../api/client';
-import { actualRole, auth, isOwner, role, viewAs } from '../auth/session';
+import { actualRole, auth, isOwner, role, viewAs, isPlatform } from '../auth/session';
 import { chiefName } from '../chief';
 import { Icon, type IconName } from '../components/Icon';
 import { Link } from '../components/Link';
@@ -35,10 +35,11 @@ import { settings } from '../store';
 import { setAmbience, setOwnerName, setVoiceOn, updateSettings } from '../talk/actions';
 import { CopyLink, PageTitle } from '../links/CopyLink';
 import { AuditSection, AutonomySection, EmailExtras } from '../admin/Trust';
+import { OrgCard, PlatformSection } from '../admin/Orgs';
 import './pages.css';
 import './admin.css';
 
-type Section = 'general' | 'people' | 'autonomy' | 'audit' | 'usage' | ConfigGroup;
+type Section = 'general' | 'people' | 'autonomy' | 'audit' | 'usage' | 'platform' | ConfigGroup;
 const SECTIONS: readonly { id: Section; title: string; icon: IconName }[] = [
   { id: 'general', title: 'General', icon: 'sun' },
   { id: 'people', title: 'People and roles', icon: 'user' },
@@ -46,6 +47,7 @@ const SECTIONS: readonly { id: Section; title: string; icon: IconName }[] = [
   { id: 'audit', title: 'Audit log', icon: 'book' },
   { id: 'usage', title: 'Usage and costs', icon: 'expand' },
   ...CONFIG_GROUPS.map((g) => ({ id: g.id as Section, title: g.title, icon: (g.id === 'keys' ? 'code' : g.id === 'voice' ? 'voiceOn' : g.id === 'deployment' ? 'book' : g.id === 'email' ? 'send' : 'edit') as IconName })),
+  { id: 'platform', title: 'Every organization', icon: 'projects' },
 ];
 const isSection = (s: string | undefined): s is Section => !!s && SECTIONS.some((x) => x.id === s);
 
@@ -69,6 +71,8 @@ export function Admin({ section }: { section?: string }) {
       </section>
     );
   const title = SECTIONS.find((s) => s.id === current)!.title;
+  // The platform page is for the deployment's owners only.
+  const sections = SECTIONS.filter((s) => s.id !== 'platform' || (isPlatform.value && auth.value.status === 'signed-in'));
   return (
     <section class="page admin-page" aria-labelledby="admin-title">
       <header class="page-head">
@@ -77,7 +81,7 @@ export function Admin({ section }: { section?: string }) {
       </header>
       <div class="admin-layout">
         <nav class="admin-nav" aria-label="Admin sections">
-          {SECTIONS.map((s) => (
+          {sections.map((s) => (
             <Link key={s.id} href={s.id === 'general' ? paths.admin() : paths.admin(s.id)} class="admin-nav-item" data-on={s.id === current || undefined}>
               <Icon name={s.icon} size={16} /> {s.title}
             </Link>
@@ -89,7 +93,8 @@ export function Admin({ section }: { section?: string }) {
           {current === 'usage' && <Usage />}
           {current === 'autonomy' && <AutonomySection />}
           {current === 'audit' && <AuditSection />}
-          {current !== 'general' && current !== 'people' && current !== 'usage' && current !== 'autonomy' && current !== 'audit' && <ConfigSection group={current} />}
+          {current === 'platform' && <PlatformSection />}
+          {current !== 'general' && current !== 'people' && current !== 'usage' && current !== 'autonomy' && current !== 'audit' && current !== 'platform' && <ConfigSection group={current} />}
           {current === 'email' && <EmailExtras />}
         </div>
       </div>
@@ -130,6 +135,7 @@ function General() {
   const signedIn = auth.value.status === 'signed-in';
   return (
     <div class="admin-stack">
+      <OrgCard />
       <section class="panel admin-card" aria-labelledby="adm-office">
         <h2 id="adm-office" class="admin-card-title">
           Your office
@@ -711,7 +717,7 @@ function ConfigSection({ group }: { group: ConfigGroup }) {
           }}
         >
           {options.map((o) => (
-            <OptionRow key={o.key} option={o} value={values.get(o.key)} draft={draft[o.key]} disabled={busy || !!o.fixed || (o.kind === 'secret' && !data.canStoreKeys)} onDraft={(v) => setDraft((d) => ({ ...d, [o.key]: v }))} onReset={() => void save({ [o.key]: null })} />
+            <OptionRow key={o.key} option={o} value={values.get(o.key)} draft={draft[o.key]} disabled={busy || !!o.fixed || !!values.get(o.key)?.locked || (o.kind === 'secret' && !data.canStoreKeys)} onDraft={(v) => setDraft((d) => ({ ...d, [o.key]: v }))} onReset={() => void save({ [o.key]: null })} />
           ))}
           {group !== 'deployment' && (
             <div class="admin-row">
@@ -788,6 +794,7 @@ function OptionRow({ option: o, value, draft, disabled, onDraft, onReset }: { op
           {value?.source === 'admin' && value.updatedBy && value.updatedBy !== 'owner' ? ` by ${value.updatedBy}` : ''}
           {o.kind === 'secret' && value ? (value.set ? ' · set' : ' · not set') : ''}
           {o.fallback && o.kind !== 'secret' && value?.source !== 'default' ? ` · default ${o.choices?.find((c) => c.value === o.fallback)?.label ?? o.fallback}` : ''}
+          {value?.locked ? ' · set by Headcount for every organization' : ''}
         </span>
       </div>
       <div class="admin-option-input">

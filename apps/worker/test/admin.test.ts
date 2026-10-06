@@ -118,7 +118,7 @@ describe('people and roles', () => {
     const set = await api('POST', '/api/auth/view-as', { role: 'reader' });
     const cookie = set.res.headers.getSetCookie()[0]!.split(';')[0]!;
     const asReader = client(t, 'http://localhost', cookie);
-    expect((await asReader('GET', '/api/auth/me')).body).toEqual({ mode: 'off', signedIn: true, role: 'reader', actualRole: 'owner' });
+    expect((await asReader('GET', '/api/auth/me')).body).toEqual({ mode: 'off', signedIn: true, role: 'reader', actualRole: 'owner', org: { orgId: 'local', name: 'Headcount' } });
     expect((await asReader('POST', '/api/talk', { text: 'hi', opId: ids.op() })).status).toBe(403);
     expect((await api('POST', '/api/auth/view-as', { role: 'owner' })).status).toBe(400);
   });

@@ -1,5 +1,6 @@
-// Who is signed in (Google sign-in, apps/worker/src/auth/auth.ts), and their role. The app itself only loads once this
-// says they may be here: signed in as a member, or sign-in is off (local dev on localhost, where you are the owner).
+// Who is signed in (Google sign-in, apps/worker/src/auth/auth.ts), their organization and their role in it. The app
+// itself only loads once this says they may be here: signed in as a member of an organization, or sign-in is off
+// (local dev on localhost, where you are the owner). Signed in without an organization yet: they start one.
 // The role shapes what the app offers (readers read; contributors work with the team; owners also configure); the
 // worker enforces it on every call either way.
 import { computed, signal } from '@preact/signals';
@@ -11,7 +12,15 @@ export type AuthState =
   | { status: 'checking' }
   | { status: 'open' } // sign-in off (loopback dev)
   | { status: 'signed-in'; email: string; name: string }
+  | { status: 'needs-org'; email: string; name: string; canCreate: boolean }
   | { status: 'signed-out'; reason: SignInReason | null };
+
+/** The organization this session works in (its name shows in the app). */
+export const currentOrg = signal<{ orgId: string; name: string } | null>(null);
+/** May start another organization. */
+export const canCreateOrg = signal(false);
+/** One of the deployment's owners (sees the platform page; makes the shared portraits). */
+export const isPlatform = signal(false);
 
 export const auth = signal<AuthState>({ status: 'checking' });
 
@@ -52,7 +61,11 @@ export async function checkAuth(fetcher: typeof fetch = fetch): Promise<AuthStat
     else {
       const me = (await res.json()) as MeResponse;
       applyRole(me.role ?? 'owner', me.actualRole);
+      currentOrg.value = me.org ?? null;
+      canCreateOrg.value = !!me.canCreateOrg;
+      isPlatform.value = me.mode === 'off' || !!me.platform;
       if (me.mode === 'off') next = { status: 'open' };
+      else if (me.signedIn && me.needsOrg) next = { status: 'needs-org', email: me.email ?? '', name: me.name ?? '', canCreate: !!me.canCreateOrg };
       else if (me.signedIn) next = { status: 'signed-in', email: me.email ?? '', name: me.name ?? '' };
       else next = { status: 'signed-out', reason };
     }
@@ -85,3 +98,20 @@ export async function signOut(fetcher: typeof fetch = fetch): Promise<void> {
     location.assign('/');
   }
 }
+
+/** Start an organization (you become its owner); the app then opens in it, at its first-day setup. */
+export async function createOrg(name: string, fetcher: typeof fetch = fetch): Promise<string | null> {
+  const res = await fetcher('/api/orgs', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name }) });
+  if (!res.ok) return ((await res.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? 'That did not work. Try again.';
+  location.assign('/app/welcome');
+  return null;
+}
+
+/** Work in another organization you belong to: the app reloads in it. */
+export async function switchOrg(orgId: string, fetcher: typeof fetch = fetch): Promise<string | null> {
+  const res = await fetcher(`/api/orgs/${encodeURIComponent(orgId)}/switch`, { method: 'POST' });
+  if (!res.ok) return ((await res.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? 'That did not work. Try again.';
+  location.assign('/app');
+  return null;
+}
+

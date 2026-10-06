@@ -1,12 +1,13 @@
-// The app's front door when sign-in is on: nothing of the app (socket, audio, catalog) loads until the owner is
-// signed in. Locally (sign-in off) it renders the app straight away.
+// The app's front door when sign-in is on: nothing of the app (socket, audio, catalog) loads until the person is
+// signed in and in an organization. Someone new starts their own office here first. Locally (sign-in off) it renders
+// the app straight away.
 import type { ComponentChildren } from 'preact';
-import { useEffect } from 'preact/hooks';
-import { auth, checkAuth, signInHref, type SignInReason } from './session';
+import { useEffect, useState } from 'preact/hooks';
+import { auth, checkAuth, createOrg, signInHref, signOut, type SignInReason } from './session';
 import './auth.css';
 
 const REASON_TEXT: Record<SignInReason, string> = {
-  denied: 'That Google account has not been invited to this office. Ask an owner to add you on the People page.',
+  denied: 'That Google account cannot start an office here right now, and nobody has invited it yet. Ask an owner to add you on their People page.',
   failed: 'Google sign-in did not finish. Please try again.',
   expired: 'Your session ended. Sign in again to pick up where you left off.',
   unconfigured: 'Sign-in is not set up on this server yet (the Google client secret is missing).',
@@ -31,7 +32,7 @@ export function SignIn({ reason }: { reason: SignInReason | null }) {
           <span class="signin-dot" aria-hidden="true" /> Headcount
         </a>
         <h1 id="signin-title">Sign in to your office</h1>
-        <p class="signin-lede">Your Chief of Staff and the team are waiting.</p>
+        <p class="signin-lede">Your Chief of Staff and your team are waiting. New here? The same button starts your own office.</p>
         {reason && (
           <p class="signin-note" role="alert">
             {REASON_TEXT[reason]}
@@ -41,7 +42,59 @@ export function SignIn({ reason }: { reason: SignInReason | null }) {
           <GoogleMark />
           Continue with Google
         </a>
-        <p class="signin-fine">Only people the owner invited can sign in. Everyone else here is an AI coworker.</p>
+        <p class="signin-fine">Your office is yours alone: your team, files and memory are never shared with another one. Everyone in it but you (and anyone you invite) is an AI coworker.</p>
+      </div>
+    </main>
+  );
+}
+
+/** Signed in, with no organization yet: name your office (a business, a team, a project), or wait for an invitation. */
+export function StartOrg({ name, email, canCreate }: { name: string; email: string; canCreate: boolean }) {
+  const [org, setOrg] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const first = name.split(' ')[0] || 'there';
+  const start = async (e: Event) => {
+    e.preventDefault();
+    if (org.trim().length < 2 || busy) return;
+    setBusy(true);
+    setError(await createOrg(org.trim()));
+    setBusy(false);
+  };
+  return (
+    <main class="signin" aria-labelledby="startorg-title">
+      <div class="signin-card">
+        <a class="signin-brand" href="/">
+          <span class="signin-dot" aria-hidden="true" /> Headcount
+        </a>
+        <h1 id="startorg-title">Welcome, {first}</h1>
+        {canCreate ? (
+          <form class="startorg" onSubmit={start}>
+            <p class="signin-lede">Start your office. Next you choose your Chief of Staff, then hire your first coworkers.</p>
+            <label class="startorg-label" for="org-name">
+              What is it for?
+            </label>
+            <input id="org-name" class="startorg-input" placeholder="Your business, team or project" maxLength={80} value={org} onInput={(e) => setOrg((e.target as HTMLInputElement).value)} autoFocus />
+            {error && (
+              <p class="signin-note" role="alert">
+                {error}
+              </p>
+            )}
+            <button type="submit" class="signin-google startorg-go" disabled={busy || org.trim().length < 2}>
+              {busy ? 'Opening your office…' : 'Start my office'}
+            </button>
+          </form>
+        ) : (
+          <p class="signin-note" role="status">
+            Headcount is invite-only right now. Ask someone to invite <strong>{email}</strong>: they add it on their People page, and you will find their office here.
+          </p>
+        )}
+        <p class="signin-fine">
+          Signed in as {email}.{' '}
+          <button type="button" class="link-button" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </p>
       </div>
     </main>
   );
@@ -54,5 +107,6 @@ export function AuthGate({ children }: { children: ComponentChildren }) {
   }, []);
   if (state.status === 'checking') return <div class="boot" aria-busy="true" />;
   if (state.status === 'signed-out') return <SignIn reason={state.reason} />;
+  if (state.status === 'needs-org') return <StartOrg name={state.name} email={state.email} canCreate={state.canCreate} />;
   return <>{children}</>;
 }

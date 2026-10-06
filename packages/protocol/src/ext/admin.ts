@@ -55,6 +55,14 @@ export interface Me {
   role: Role;
   /** The role they really have, when they are previewing a lower one. */
   actualRole?: Role;
+  /** The organization this session works in (multi-tenant): absent before they start or join one. */
+  org?: { orgId: string; name: string };
+  /** Signed in, but not in any organization yet: start one (or ask to be invited). */
+  needsOrg?: boolean;
+  /** They may start an organization (sign-up is open to them). */
+  canCreateOrg?: boolean;
+  /** One of the deployment's owners (OWNER_EMAILS): sees the platform page. */
+  platform?: boolean;
 }
 
 // ── settings ─────────────────────────────────────────────────────────────────────────
@@ -189,6 +197,11 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
 ];
 
 export const CONFIG_KEYS = new Set(CONFIG_OPTIONS.map((o) => o.key));
+/**
+ * What the platform sets for every organization other than its home one (multi-tenant): the daily limits and how much
+ * work runs at once (the platform pays for the models), and the test doubles.
+ */
+export const PLATFORM_KEYS = new Set(CONFIG_OPTIONS.filter((o) => o.group === 'limits' || o.group === 'work' || o.key === 'ENABLE_MOCK' || o.key === 'MOCK_MEDIA').map((o) => o.key));
 /** Keys the admin page may change (everything not fixed to the deployment). */
 export const EDITABLE_KEYS = new Set(CONFIG_OPTIONS.filter((o) => !o.fixed).map((o) => o.key));
 
@@ -202,6 +215,8 @@ export interface ConfigValue {
   set?: boolean;
   updatedAt?: string;
   updatedBy?: string;
+  /** Set by the platform for every organization (spending limits, how work runs): shown, not editable here. */
+  locked?: boolean;
 }
 
 export interface ConfigResponse {

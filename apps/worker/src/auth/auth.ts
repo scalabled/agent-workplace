@@ -1,9 +1,12 @@
 // Google sign-in for the deployed app (docs/DEPLOY.md, Phase B). Ported from personagram-ai's authRoute and
 // user() (src/worker/security.ts): OAuth 2.0 authorization code + PKCE (S256), a one-time state stored hashed in D1
-// and echoed in a short-lived cookie, the verified Google email checked against OWNER_EMAILS, and a random session
-// token whose SHA-256 is the only thing stored. Who may sign in: the owners named in OWNER_EMAILS, and the members an
-// owner invited on the admin page (D1 `members`), each with a role: owner, contributor or reader. Every API route
-// names the least role it needs (packages/protocol/src/routes.ts); an owner can preview a lower role ("view as").
+// and echoed in a short-lived cookie, and a random session token whose SHA-256 is the only thing stored.
+//
+// Multi-tenant (ext/orgs.ts): a session works in one organization at a time (auth_sessions.org_id). Who may sign in:
+// the deployment's owners (OWNER_EMAILS, owners of the home organization), anyone invited to an organization
+// (D1 `members`, a role per organization: owner, contributor or reader), and, while sign-up is open (SIGNUP_MODE),
+// anyone with a verified Google account, who then starts their own organization. Every API route names the least
+// role it needs in the current organization (packages/protocol/src/routes.ts); an owner can preview a lower role.
 //
 // Fail closed: sign-in is required unless AUTH_MODE is "off" AND the request's host is loopback (local dev). With
 // AUTH_MODE unset, loopback hosts are open and every other host requires a session.
@@ -11,6 +14,7 @@ import { ROUTES, type RouteId } from '@headcount/protocol';
 import { atLeast, ROLE_RANK, type Me, type Role } from '@headcount/protocol/ext/admin';
 import type { Env } from '../env';
 import { errorResponse, json } from '../lib/http';
+import { homeWorkspace } from '../lib/tenant';
 
 export const SESSION_COOKIE = 'hc_session';
 export const STATE_COOKIE = 'hc_oauth';
@@ -32,6 +36,10 @@ export type AuthMode = 'google' | 'off';
 export interface Session {
   email: string;
   name: string;
+  /** The organization this session works in (null: none chosen yet). */
+  orgId: string | null;
+  /** SHA-256 of the cookie token (to move the session to another organization). */
+  tokenHash: string;
 }
 
 /** Who is asking, and what they may do. Local mode (loopback, sign-in off) is the owner, with no email. */
@@ -40,6 +48,19 @@ export interface Identity {
   name: string;
   role: Role;
   actualRole: Role;
+  /** The organization the request works for. */
+  orgId: string;
+  /** One of the deployment's owners (OWNER_EMAILS). */
+  platform: boolean;
+}
+
+/** Signed in, whether or not they belong to an organization yet (account-level routes). */
+export interface Account {
+  email: string;
+  name: string;
+  tokenHash: string;
+  orgId: string | null;
+  platform: boolean;
 }
 
 export function isLoopback(hostname: string): boolean {
@@ -133,8 +154,8 @@ export async function sessionFor(req: Request, env: Pick<Env, 'DB'>, now = Date.
   const key = await hash(raw);
   const hit = cache.get(key);
   if (hit && hit.until > now) return hit.session;
-  const row = await env.DB.prepare('SELECT email, name FROM auth_sessions WHERE token_hash = ? AND expires_at > ?').bind(key, now).first<Session>();
-  const session = row ? { email: row.email, name: row.name ?? '' } : null;
+  const row = await env.DB.prepare('SELECT email, name, org_id FROM auth_sessions WHERE token_hash = ? AND expires_at > ?').bind(key, now).first<{ email: string; name: string | null; org_id: string | null }>();
+  const session = row ? { email: row.email, name: row.name ?? '', orgId: row.org_id ?? null, tokenHash: key } : null;
   cache.set(key, { session, until: now + SESSION_CACHE_MS });
   if (cache.size > 500) cache.delete(cache.keys().next().value as string);
   return session;
@@ -148,22 +169,60 @@ export function clearRoleCache(): void {
 
 const isRole = (v: unknown): v is Role => v === 'owner' || v === 'contributor' || v === 'reader';
 
-/** A signed-in email's role: an owner named in the deployment, an invited member, or null (not allowed in). */
-export async function roleFor(env: Pick<Env, 'OWNER_EMAILS' | 'DB' | 'WORKSPACE_ID'>, email: string, now = Date.now()): Promise<Role | null> {
+/**
+ * A signed-in email's role in an organization (by default the deployment's home one): an owner named in the
+ * deployment (home organization only), an invited member, or null (not a member).
+ */
+export async function roleFor(env: Pick<Env, 'OWNER_EMAILS' | 'DB' | 'WORKSPACE_ID' | 'HOME_WORKSPACE_ID'>, email: string, now = Date.now(), ws = homeWorkspace(env)): Promise<Role | null> {
   const e = email.trim().toLowerCase();
-  if (ownerEmails(env).has(e)) return 'owner';
-  const hit = roles.get(e);
+  if (ws === homeWorkspace(env) && ownerEmails(env).has(e)) return 'owner';
+  const cacheKey = `${ws}|${e}`;
+  const hit = roles.get(cacheKey);
   if (hit && hit.until > now) return hit.role;
   let role: Role | null = null;
   try {
-    const row = await env.DB.prepare('SELECT role FROM members WHERE ws_id = ? AND email = ?').bind(env.WORKSPACE_ID || 'local', e).first<{ role: string }>();
+    const row = await env.DB.prepare('SELECT role FROM members WHERE ws_id = ? AND email = ?').bind(ws, e).first<{ role: string }>();
     role = isRole(row?.role) ? row.role : null;
   } catch {
     role = null; // an unmigrated database: owners only
   }
-  roles.set(e, { role, until: now + SESSION_CACHE_MS });
+  roles.set(cacheKey, { role, until: now + SESSION_CACHE_MS });
   if (roles.size > 500) roles.delete(roles.keys().next().value as string);
   return role;
+}
+
+/** The organizations an email belongs to: the home one for the deployment's owners, and every invitation. */
+export async function orgsFor(env: Pick<Env, 'OWNER_EMAILS' | 'DB' | 'WORKSPACE_ID' | 'HOME_WORKSPACE_ID'>, email: string): Promise<{ orgId: string; name: string; role: Role; home: boolean; createdAt?: string }[]> {
+  const e = email.trim().toLowerCase();
+  const home = homeWorkspace(env);
+  let rows: { ws_id: string; role: string; name: string | null; created_at: string | null }[] = [];
+  try {
+    rows = (await env.DB.prepare('SELECT m.ws_id, m.role, o.name, o.created_at FROM members m LEFT JOIN orgs o ON o.org_id = m.ws_id WHERE m.email = ? ORDER BY m.added_at, m.rowid').bind(e).all<(typeof rows)[number]>()).results ?? [];
+  } catch {
+    rows = []; // an unmigrated database: the home organization only
+  }
+  const out = rows.filter((r) => isRole(r.role)).map((r) => ({ orgId: r.ws_id, name: r.name || (r.ws_id === home ? 'Headcount' : 'My office'), role: r.role as Role, home: r.ws_id === home, ...(r.created_at ? { createdAt: r.created_at } : {}) }));
+  if (ownerEmails(env).has(e)) {
+    const at = out.findIndex((o) => o.orgId === home);
+    const name = (await homeName(env)) ?? out[at]?.name ?? 'Headcount';
+    if (at >= 0) out.splice(at, 1);
+    out.unshift({ orgId: home, name, role: 'owner', home: true });
+  }
+  return out;
+}
+
+async function homeName(env: Pick<Env, 'DB' | 'WORKSPACE_ID' | 'HOME_WORKSPACE_ID'>): Promise<string | null> {
+  try {
+    return (await env.DB.prepare('SELECT name FROM orgs WHERE org_id = ?').bind(homeWorkspace(env)).first<string>('name')) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Point a session at an organization (or none). */
+export async function setSessionOrg(env: Pick<Env, 'DB'>, tokenHash: string, orgId: string | null): Promise<void> {
+  await env.DB.prepare('UPDATE auth_sessions SET org_id = ? WHERE token_hash = ?').bind(orgId, tokenHash).run();
+  cache.delete(tokenHash);
 }
 
 /** The lower of a role and the "view as" preview. */
@@ -172,13 +231,65 @@ function viewed(req: Request, actual: Role): Role {
   return isRole(want) && ROLE_RANK[want] < ROLE_RANK[actual] ? want : actual;
 }
 
-/** Who this request comes from, or null when it needs a session it does not have (or a member was removed). */
+/** The signed-in person (whether or not they belong to an organization yet), or null. Local mode has no account. */
+export async function account(req: Request, env: Env): Promise<Account | null> {
+  const session = await sessionFor(req, env);
+  return session ? { email: session.email, name: session.name, tokenHash: session.tokenHash, orgId: session.orgId, platform: ownerEmails(env).has(session.email.toLowerCase()) } : null;
+}
+
+/**
+ * Who this request comes from and the organization it works for, or null when it needs a session it does not have,
+ * or the person belongs to no organization (yet). A session whose organization is gone (removed from it) moves to
+ * their first remaining one.
+ */
 export async function identify(req: Request, env: Env, url: URL): Promise<Identity | null> {
-  if (authMode(env, url) === 'off') return { email: '', name: '', role: viewed(req, 'owner'), actualRole: 'owner' };
+  const home = homeWorkspace(env);
+  if (authMode(env, url) === 'off') return { email: '', name: '', role: viewed(req, 'owner'), actualRole: 'owner', orgId: home, platform: true };
   const session = await sessionFor(req, env);
   if (!session) return null;
-  const actual = await roleFor(env, session.email);
-  return actual ? { email: session.email, name: session.name, role: viewed(req, actual), actualRole: actual } : null;
+  const platform = ownerEmails(env).has(session.email.toLowerCase());
+  let orgId = session.orgId;
+  let actual = orgId ? await roleFor(env, session.email, Date.now(), orgId) : null;
+  if (!actual) {
+    // No organization chosen yet, or no longer a member of it: the first one they belong to.
+    const first = (await orgsFor(env, session.email))[0];
+    if (!first) return null;
+    orgId = first.orgId;
+    actual = first.role;
+    await setSessionOrg(env, session.tokenHash, orgId).catch(() => undefined);
+  }
+  return { email: session.email, name: session.name, role: viewed(req, actual), actualRole: actual, orgId: orgId!, platform };
+}
+
+/** Who may start an organization. */
+export function signupMode(env: Pick<Env, 'SIGNUP_MODE'>): 'open' | 'invite' | 'closed' {
+  const m = (env.SIGNUP_MODE ?? '').trim().toLowerCase();
+  return m === 'invite' || m === 'closed' ? m : 'open';
+}
+
+const intOr = (raw: string | undefined, fallback: number) => {
+  const n = Number(raw);
+  return raw !== undefined && raw !== '' && Number.isInteger(n) && n >= 0 ? n : fallback;
+};
+export const maxOrgs = (env: Pick<Env, 'MAX_ORGS'>): number => intOr(env.MAX_ORGS, 100);
+export const maxOrgsPerUser = (env: Pick<Env, 'MAX_ORGS_PER_USER'>): number => intOr(env.MAX_ORGS_PER_USER, 3);
+
+/** May this person start an organization now? (Sign-up open, under the caps.) */
+export async function mayCreateOrg(env: Env, email: string): Promise<{ ok: true } | { ok: false; why: string }> {
+  const mode = signupMode(env);
+  const e = email.toLowerCase();
+  const platform = ownerEmails(env).has(e);
+  if (mode === 'closed' && !platform) return { ok: false, why: 'New organizations are not open right now. Ask someone to invite you to theirs.' };
+  if (mode === 'invite' && !platform && (await orgsFor(env, e)).length === 0) return { ok: false, why: 'Headcount is invite-only right now. Ask someone to invite you to their organization.' };
+  try {
+    const mine = (await env.DB.prepare('SELECT count(*) AS n FROM orgs WHERE created_by = ?').bind(e).first<number>('n')) ?? 0;
+    if (!platform && mine >= maxOrgsPerUser(env)) return { ok: false, why: `You have started ${mine} organizations, the most for now.` };
+    const all = (await env.DB.prepare('SELECT count(*) AS n FROM orgs').first<number>('n')) ?? 0;
+    if (!platform && all >= maxOrgs(env)) return { ok: false, why: 'Headcount is full for now. Try again later, or ask someone to invite you.' };
+  } catch {
+    return { ok: false, why: 'Organizations are not set up on this deployment yet.' };
+  }
+  return { ok: true };
 }
 
 const ROLE_REFUSAL: Record<Role, string> = {
@@ -191,11 +302,23 @@ const ROLE_REFUSAL: Record<Role, string> = {
  * The identity a request may go on with (null for a public read), or the 401/403 to answer. The least role comes
  * from the route table; paths outside it (/api/media/*) need a reader to read and a contributor to change.
  */
-export async function authorize(req: Request, env: Env, url: URL, route: RouteId | null): Promise<{ identity: Identity | null } | Response> {
+export async function authorize(req: Request, env: Env, url: URL, route: RouteId | null): Promise<{ identity: Identity | null; account?: Account | null } | Response> {
   const reading = req.method === 'GET' || req.method === 'HEAD';
   if (route && reading && (PUBLIC_ROUTES.has(route) || ROUTES[route].auth === 'public')) return { identity: null };
-  const needed: Role = route ? (ROUTES[route].auth === 'public' ? 'reader' : (ROUTES[route].auth as Role)) : reading ? 'reader' : 'contributor';
+  const level = route ? ROUTES[route].auth : null;
+  if (level === 'account') {
+    // Signed in, organization or not (their organizations). Local mode: the owner of the home organization.
+    if (authMode(env, url) === 'off') return { identity: await identify(req, env, url), account: null };
+    const acct = await account(req, env);
+    if (!acct) return errorResponse('unauthenticated', 'Sign in to continue.');
+    return { identity: await identify(req, env, url), account: acct };
+  }
   const identity = await identify(req, env, url);
+  if (level === 'platform') {
+    if (!identity) return errorResponse('unauthenticated', 'Sign in to continue.');
+    return identity.platform ? { identity } : errorResponse('forbidden', 'Only the deployment’s owners can see this.');
+  }
+  const needed: Role = level && level !== 'public' ? (level as Role) : reading ? 'reader' : 'contributor';
   if (!identity) return errorResponse('unauthenticated', 'Sign in to continue.');
   if (!atLeast(identity.role, needed)) return errorResponse('forbidden', ROLE_REFUSAL[needed]);
   return { identity };
@@ -236,13 +359,32 @@ export async function handleAuthRoute(req: Request, url: URL, env: Env, fetcher:
   if (path === 'me') {
     if (req.method !== 'GET') return errorResponse('method_not_allowed', 'Use GET for /api/auth/me.', { headers: { allow: 'GET' } });
     const who = await identify(req, env, url);
-    if (!who) return json({ mode, signedIn: false, role: 'reader' } satisfies Me);
+    if (!who) {
+      // Signed in but in no organization yet: they may start one (or are waiting for an invitation).
+      const acct = mode === 'google' ? await account(req, env) : null;
+      if (acct) {
+        const may = await mayCreateOrg(env, acct.email);
+        return json({ mode, signedIn: true, email: acct.email, name: acct.name, role: 'reader', needsOrg: true, canCreateOrg: may.ok, ...(acct.platform ? { platform: true } : {}) } satisfies Me);
+      }
+      return json({ mode, signedIn: false, role: 'reader' } satisfies Me);
+    }
     if (who.email)
       await env.DB.prepare('UPDATE members SET last_seen_at = ?, name = CASE WHEN name = \'\' THEN ? ELSE name END WHERE ws_id = ? AND email = ?')
-        .bind(new Date().toISOString(), who.name, env.WORKSPACE_ID || 'local', who.email)
+        .bind(new Date().toISOString(), who.name, who.orgId, who.email)
         .run()
         .catch(() => undefined);
-    return json({ mode, signedIn: true, ...(who.email ? { email: who.email, name: who.name } : {}), role: who.role, ...(who.role !== who.actualRole ? { actualRole: who.actualRole } : {}) } satisfies Me);
+    const orgName = (await env.DB.prepare('SELECT name FROM orgs WHERE org_id = ?').bind(who.orgId).first<string>('name').catch(() => null)) ?? (who.orgId === homeWorkspace(env) ? 'Headcount' : 'My office');
+    const may = who.email ? await mayCreateOrg(env, who.email) : { ok: false as const, why: '' };
+    return json({
+      mode,
+      signedIn: true,
+      ...(who.email ? { email: who.email, name: who.name } : {}),
+      role: who.role,
+      ...(who.role !== who.actualRole ? { actualRole: who.actualRole } : {}),
+      org: { orgId: who.orgId, name: orgName },
+      ...(may.ok ? { canCreateOrg: true } : {}),
+      ...(who.platform && who.email ? { platform: true } : {}),
+    } satisfies Me);
   }
 
   // Preview a lower role (a cookie; it can only ever lower what the session may do).
@@ -343,12 +485,14 @@ export async function handleAuthRoute(req: Request, url: URL, env: Env, fetcher:
 
     const email = (profile.email ?? '').trim().toLowerCase();
     if (!profile.sub || !email || profile.email_verified !== true) return backToApp(origin, 'denied', secure);
-    if (!(await roleFor(env, email))) return backToApp(origin, 'denied', secure);
+    // In: a member of an organization (or a deployment owner), or anyone who may start one while sign-up is open.
+    const orgs = await orgsFor(env, email);
+    if (!orgs.length && !(await mayCreateOrg(env, email)).ok) return backToApp(origin, 'denied', secure);
 
     const session = token();
     const now = Date.now();
-    await env.DB.prepare('INSERT INTO auth_sessions (token_hash, email, name, created_at, expires_at) VALUES (?, ?, ?, ?, ?)')
-      .bind(await hash(session), email, (profile.name ?? '').slice(0, 120), now, now + SESSION_TTL_S * 1000)
+    await env.DB.prepare('INSERT INTO auth_sessions (token_hash, email, name, created_at, expires_at, org_id) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(await hash(session), email, (profile.name ?? '').slice(0, 120), now, now + SESSION_TTL_S * 1000, orgs[0]?.orgId ?? null)
       .run();
     return redirect(`${origin}${safeReturnTo(row.return_to)}`, [cookieHeader(SESSION_COOKIE, session, SESSION_TTL_S, secure), cookieHeader(STATE_COOKIE, '', 0, secure, '/api/auth')]);
   }

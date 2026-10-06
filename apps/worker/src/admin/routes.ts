@@ -3,6 +3,7 @@ import { CHIEF_ID } from '@headcount/protocol';
 import { CONFIG_OPTIONS, ROLES, type ConfigPut, type LimitUse, type Member, type MemberPut, type MembersResponse, type ModelPrice, type Role } from '@headcount/protocol/ext/admin';
 import { fullIndex } from '@headcount/catalog/full';
 import { authMode, clearRoleCache, clearSessionCache, ownerEmails } from '../auth/auth';
+import { homeWorkspace } from '../lib/tenant';
 import type { Env } from '../env';
 import { exprLimit } from '../expr/config';
 import { HttpError, json, readJson, type RouteContext, type RouteHandler } from '../lib/http';
@@ -37,8 +38,11 @@ export const handlePutAdminConfig: RouteHandler = async (req, rc) => {
 
 type MemberRow = { email: string; name: string; role: string; added_at: string; added_by: string; last_seen_at: string | null };
 
+/** The deployment's owners (OWNER_EMAILS) belong to the home organization only. */
+const deploymentOwners = (env: Env): Set<string> => (wsOf(env) === homeWorkspace(env) ? ownerEmails(env) : new Set<string>());
+
 async function members(env: Env): Promise<Member[]> {
-  const owners = ownerEmails(env);
+  const owners = deploymentOwners(env);
   const rows = (await env.DB.prepare('SELECT email, name, role, added_at, added_by, last_seen_at FROM members WHERE ws_id = ? ORDER BY added_at, rowid').bind(wsOf(env)).all<MemberRow>()).results ?? [];
   const byEmail = new Map(rows.map((r) => [r.email, r]));
   const list: Member[] = [...owners].map((email) => {
@@ -56,7 +60,7 @@ export const handleListMembers: RouteHandler = async (_req, rc) => json<MembersR
 function memberEmail(rc: RouteContext): string {
   const email = (rc.params.email ?? '').trim().toLowerCase();
   if (!EMAIL.test(email)) throw new HttpError('bad_request', 'Use their Google email address.');
-  if (ownerEmails(rc.env).has(email)) throw new HttpError('conflict', 'That owner is named in the deployment (OWNER_EMAILS); their role changes with it.');
+  if (deploymentOwners(rc.env).has(email)) throw new HttpError('conflict', 'That owner is named in the deployment (OWNER_EMAILS); their role changes with it.');
   if (rc.identity?.email && rc.identity.email === email) throw new HttpError('bad_request', 'You cannot change your own role. Ask another owner.');
   return email;
 }
@@ -79,8 +83,8 @@ export const handleRemoveMember: RouteHandler = async (_req, rc) => {
   const email = memberEmail(rc);
   const gone = await rc.env.DB.prepare('DELETE FROM members WHERE ws_id = ? AND email = ? RETURNING email').bind(wsOf(rc.env), email).first();
   if (!gone) throw new HttpError('not_found', 'They are not a member.');
-  // Signed out everywhere at once.
-  await rc.env.DB.prepare('DELETE FROM auth_sessions WHERE email = ?').bind(email).run();
+  // Out of this organization at once: their sessions here move to their next one (or to none).
+  await rc.env.DB.prepare('UPDATE auth_sessions SET org_id = NULL WHERE email = ? AND org_id = ?').bind(email, wsOf(rc.env)).run();
   clearRoleCache();
   clearSessionCache();
   return json<MembersResponse>({ members: await members(rc.env), signIn: authMode(rc.env, rc.url) === 'google' });

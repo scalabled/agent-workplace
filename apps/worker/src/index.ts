@@ -1,6 +1,7 @@
 // Headcount worker router (integrator-owned). Every route in @headcount/protocol ROUTES is registered
 // here to a handler in its owner's directory; the Record<RouteId, …> type makes a missing handler a type error.
 import { MissingProviderError, ProviderError, createRegistry, type Registry } from '@headcount/models';
+import { homeWorkspace, withTenant } from './lib/tenant';
 import { LandmarksError, ROUTES, matchRoute, type RouteDef, type RouteId } from '@headcount/protocol';
 import type { Env } from './env';
 import { handleCancelJob, handleGetJob, handleListJobs, handleSteerJob } from './jobs/routes';
@@ -30,6 +31,7 @@ import { handleAddAutomation, handleListAutomations, handlePutAutomation, handle
 import { handleAddConnector, handleListConnectors, handlePatchConnector, handleRemoveConnector, handleRevokeConnectorGrant, handleTestConnector } from './connectors/routes';
 import { handleChiefPrompt, handleGetAgent, handleGetSkill, handleListModels, handleListSkills, handlePutAgent, handlePutSkill, handleResetAgent, handleRollbackSkill } from './agents/routes';
 import { handleGetWorkspace, handlePutWorkspace, handleTalk, handleWs } from './workspace/routes';
+import { handleCreateOrg, handleListOrgs, handlePlatformOrgs, handleRenameOrg, handleSwitchOrg } from './auth/orgs';
 import { handleGetTrust, handleListAudit, handlePutAutonomy, handleResumeAll, handleRevokeGrant, handleTestEmail, handleTestMailbox, handleUndoAudit } from './trust/routes';
 
 export { ProjectDO } from './jobs/project-do';
@@ -148,6 +150,11 @@ export const HANDLERS: Record<RouteId, RouteHandler> = {
   removeMember: handleRemoveMember,
   adminUsage: handleAdminUsage,
   putPrices: handlePutPrices,
+  listOrgs: handleListOrgs,
+  createOrg: handleCreateOrg,
+  switchOrg: handleSwitchOrg,
+  renameOrg: handleRenameOrg,
+  platformOrgs: handlePlatformOrgs,
   getTrust: handleGetTrust,
   putAutonomy: handlePutAutonomy,
   revokeGrant: handleRevokeGrant,
@@ -195,9 +202,8 @@ function policyFor(env: Env): OriginPolicy {
 
 export async function handle(request: Request, deployed: Env, ctx: ExecutionContext): Promise<Response> {
   let route: RouteId | 'router' = 'router';
-  // The admin page's settings over the deployment's environment (cached; read again every few seconds).
-  await loadConfig(deployed);
-  const env = configured(deployed);
+  // Sign-in and the origin guard read the deployment's own settings; everything after works for the organization.
+  let env: Env = deployed;
   // Everything, including matching (a malformed %-escape) and the body cap (an aborted upload), answers an ApiErrorBody.
   try {
     const url = new URL(request.url);
@@ -217,6 +223,11 @@ export async function handle(request: Request, deployed: Env, ctx: ExecutionCont
     // host is loopback with sign-in off (local dev). Fails closed on any deployed host.
     const allowed = await authorize(request, env, url, routeId);
     if (allowed instanceof Response) return allowed;
+    // From here the request works for the person's organization (its Durable Objects, rows and files), with that
+    // organization's settings from the admin page over the deployment's (cached; read again every few seconds).
+    const tenant = withTenant(deployed, allowed.identity?.orgId ?? homeWorkspace(deployed));
+    await loadConfig(tenant);
+    env = configured(tenant);
     // /api/media/* (media-owned, outside the protocol table): POST /api/media/image, GET /api/media/:key.
     if (!found) {
       // Generic image generation is tooling (marketing art): loopback dev, or ENABLE_MEDIA_TOOLS=true, only.
@@ -232,7 +243,7 @@ export async function handle(request: Request, deployed: Env, ctx: ExecutionCont
     if (capped instanceof Response) return capped;
 
     let registry: Registry | undefined;
-    const rc: RouteContext = { env, identity: allowed.identity, ctx, route: id, params, url, registry: () => (registry ??= metered(createRegistry(env), d1Sink(env), { surface: id === 'generatePortrait' ? 'image' : 'speech' })) };
+    const rc: RouteContext = { env, identity: allowed.identity, ...(allowed.account !== undefined ? { account: allowed.account } : {}), ctx, route: id, params, url, registry: () => (registry ??= metered(createRegistry(env), d1Sink(env), { surface: id === 'generatePortrait' ? 'image' : 'speech' })) };
     return await HANDLERS[id](capped, rc);
   } catch (err) {
     return toErrorResponse(err, route);

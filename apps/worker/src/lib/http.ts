@@ -1,13 +1,15 @@
 import type { ApiErrorBody, ErrorCode, RouteId } from '@headcount/protocol';
 import type { Registry } from '@headcount/models';
 import type { Env } from '../env';
-import type { Identity } from '../auth/auth';
+import type { Account, Identity } from '../auth/auth';
 
 /** Per-request context handed to every route handler. */
 export interface RouteContext {
   env: Env;
   /** Who is asking (null only for public reads). Local mode is the owner with no email. */
   identity: Identity | null;
+  /** The signed-in person on account-level routes (their organizations), whether or not they are in one yet. */
+  account?: Account | null;
   ctx: ExecutionContext;
   route: RouteId;
   params: Record<string, string>;

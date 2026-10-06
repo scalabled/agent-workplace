@@ -1,4 +1,5 @@
 import { configured, loadConfig } from '../admin/config';
+import { tenantOf, withTenant } from '../lib/tenant';
 import { DurableObject } from 'cloudflare:workers';
 import { newId } from '@headcount/protocol';
 import type { ExprPrevoiceStatus, ExprPrevoiceTier, ExprTtsProvider } from '@headcount/protocol/ext/expressions';
@@ -116,8 +117,9 @@ function status(r: RunRow): ExprPrevoiceStatus {
  */
 export class RunDO extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, configured(env));
-    void ctx.blockConcurrencyWhile(() => loadConfig(env));
+    // The organization this object works for comes from its name (run:expr-prevoice:<org>); its settings over the deployment's.
+    super(ctx, configured(withTenant(env, tenantOf(ctx, env, 'run:expr-prevoice:'))));
+    void ctx.blockConcurrencyWhile(() => loadConfig(this.env));
     // Everything below reads the admin page's settings over the deployment's.
     env = this.env;
     for (const stmt of SCHEMA) ctx.storage.sql.exec(stmt);

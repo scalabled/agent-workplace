@@ -193,10 +193,12 @@ async function takeClipBudget(env: Env, provider: ExprTtsProvider): Promise<() =
  * Throws HttpError: rate_limited (budget), not_configured (that provider is gone), provider_error (it failed).
  */
 export function renderClip(env: Env, registry: Registry, input: RenderClipInput, now: () => number = Date.now): Promise<RenderedClip> {
-  const running = inflight.get(input.clipKey);
+  // Keyed by organization too: a workspace clip is written under that organization's own prefix.
+  const flightKey = `${env.WORKSPACE_ID}|${input.clipKey}`;
+  const running = inflight.get(flightKey);
   if (running) return running.then((r) => ({ ...r, cached: true }));
-  const p = doRender(env, registry, input, now).finally(() => inflight.delete(input.clipKey));
-  inflight.set(input.clipKey, p);
+  const p = doRender(env, registry, input, now).finally(() => inflight.delete(flightKey));
+  inflight.set(flightKey, p);
   return p;
 }
 
