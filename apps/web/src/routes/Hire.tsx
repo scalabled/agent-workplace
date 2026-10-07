@@ -110,7 +110,7 @@ export function Hire() {
         <label class="field-label" for="hire-about">
           What does {org} do?
         </label>
-        <textarea id="hire-about" class="note-input" rows={2} maxLength={1000} placeholder="e.g. An online crystal shop selling healing crystals and gemstones on Shopify and Etsy" value={about} onInput={(e) => setAbout((e.target as HTMLTextAreaElement).value)} />
+        <textarea id="hire-about" class="note-input" rows={3} maxLength={1000} placeholder="e.g. An online crystal shop selling healing crystals and gemstones on Shopify and Etsy" value={about} onInput={(e) => setAbout((e.target as HTMLTextAreaElement).value)} />
         <div class="admin-row">
           <button type="submit" class="button-quiet">
             <Icon name="sparkle" size={16} /> Suggest people for this
