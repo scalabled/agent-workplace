@@ -7,6 +7,7 @@ import { BRAND } from '@headcount/protocol';
 import { auth, canCreateOrg, createOrg, currentOrg, isOwner, myOrgs, switchOrg } from '../auth/session';
 import { CopyLink } from '../links/CopyLink';
 import { paths } from '../router';
+import { ORG_NAME_MAX } from '@headcount/protocol/ext/orgs';
 
 const ROLE: Record<string, string> = { owner: 'Owner', contributor: 'Contributor', reader: 'Reader' };
 const when = (at?: string) => (at ? new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '');
@@ -36,6 +37,7 @@ export function OrgCard() {
     try {
       const r = await api.renameOrg(name.trim());
       currentOrg.value = r.org;
+      setName(r.org.name);
       myOrgs.value = myOrgs.value?.map((o) => (o.orgId === r.org.orgId ? { ...o, name: r.org.name } : o)) ?? null;
       setNote('Renamed. The new name is at the top of the app.');
     } catch (err) {
@@ -62,7 +64,7 @@ export function OrgCard() {
             Office name <span class="page-fine">(shown at the top of the app, in place of {BRAND.name})</span>
           </label>
           <div class="admin-row">
-            <input id="org-rename" class="field-input" maxLength={80} value={name} placeholder="Your business’s name" onInput={(e) => setName((e.target as HTMLInputElement).value)} />
+            <input id="org-rename" class="field-input" maxLength={ORG_NAME_MAX} value={name} placeholder="Your business’s name" onInput={(e) => setName((e.target as HTMLInputElement).value)} />
             <button type="submit" class="button-quiet" disabled={name.trim().length < 2 || name.trim() === currentOrg.value?.name}>
               Rename
             </button>
@@ -98,7 +100,7 @@ export function OrgCard() {
           <label class="visually-hidden" for="org-new">
             Start another office
           </label>
-          <input id="org-new" class="field-input" maxLength={80} placeholder="Start another office: its name" value={fresh} onInput={(e) => setFresh((e.target as HTMLInputElement).value)} />
+          <input id="org-new" class="field-input" maxLength={ORG_NAME_MAX} placeholder="Start another office: its name" value={fresh} onInput={(e) => setFresh((e.target as HTMLInputElement).value)} />
           <button type="submit" class="button-quiet" disabled={fresh.trim().length < 2}>
             Start it
           </button>

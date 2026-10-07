@@ -6,6 +6,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { auth, checkAuth, createOrg, signInHref, signOut, type SignInReason } from './session';
 import './auth.css';
 import { BRAND } from '@headcount/protocol';
+import { ORG_NAME_MAX } from '@headcount/protocol/ext/orgs';
 
 const REASON_TEXT: Record<SignInReason, string> = {
   denied: 'That Google account cannot start an office here right now, and nobody has invited it yet. Ask an owner to add you on their People page.',
@@ -75,7 +76,7 @@ export function StartOrg({ name, email, canCreate }: { name: string; email: stri
             <label class="startorg-label" for="org-name">
               What is it for?
             </label>
-            <input id="org-name" class="startorg-input" placeholder="Your business, team or project" maxLength={80} value={org} onInput={(e) => setOrg((e.target as HTMLInputElement).value)} autoFocus />
+            <input id="org-name" class="startorg-input" placeholder="Your business, team or project" maxLength={ORG_NAME_MAX} value={org} onInput={(e) => setOrg((e.target as HTMLInputElement).value)} autoFocus />
             {error && (
               <p class="signin-note" role="alert">
                 {error}

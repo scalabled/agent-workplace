@@ -48,6 +48,8 @@ const ASK_OWNER: ToolView = {
 };
 
 export interface ViewInput {
+  /** The office's own name (cleaned), as the prompts say it. */
+  office?: string;
   persona: Persona;
   setup: AgentSetup;
   history: InstructionVersion[];
@@ -89,12 +91,12 @@ export function agentView(i: ViewInput): AgentView {
   const project = { title: staffed?.title ?? '(the project they are on)', team: [], chiefName: chief };
   // Connector tools as the work turn sees them (the view never calls them).
   const conn = connectorTools(i.setup.connectors?.[i.persona.id] ?? [], { call: async () => ({ status: 'error', message: 'Preview only.' }) }, { subject: i.persona.id, mode: () => ({ kind: 'note' }) });
-  const workSections = coworkerSections({ persona: i.persona, instructions: agent.instructions, edited: agent.edited, skills: agent.skills, research: kit.describe, project, collaborate: ['If a decision, permission or input only the owner can give is missing, call request_owner_input (one specific question); continue with reasonable, stated assumptions for anything that does not block you.', conn.describe].filter(Boolean).join(' ') }, 'work');
-  const reviewSections = coworkerSections({ persona: i.persona, instructions: agent.instructions, edited: agent.edited, skills: agent.skills, research: kit.describe, project }, 'review');
+  const workSections = coworkerSections({ persona: i.persona, ...(i.office ? { office: i.office } : {}), instructions: agent.instructions, edited: agent.edited, skills: agent.skills, research: kit.describe, project, collaborate: ['If a decision, permission or input only the owner can give is missing, call request_owner_input (one specific question); continue with reasonable, stated assumptions for anything that does not block you.', conn.describe].filter(Boolean).join(' ') }, 'work');
+  const reviewSections = coworkerSections({ persona: i.persona, ...(i.office ? { office: i.office } : {}), instructions: agent.instructions, edited: agent.edited, skills: agent.skills, research: kit.describe, project }, 'review');
   const extras = [...kit.tools, ...(skill ? [skill] : [])];
-  const desk = buildDeskSystemPrompt(i.persona, chief, ownerFirstNameOf(i.settings), i.staffing);
+  const desk = buildDeskSystemPrompt(i.persona, chief, ownerFirstNameOf(i.settings), i.staffing, i.office);
   const self = roomMember(coworkerAgentId(i.persona.id), i.settings);
-  const room = self ? buildRoomSystemPrompt({ roomId: 'skyline', self, others: [], ownerFirst: ownerFirstNameOf(i.settings), chiefName: chief }) : '';
+  const room = self ? buildRoomSystemPrompt({ roomId: 'skyline', self, others: [], ownerFirst: ownerFirstNameOf(i.settings), chiefName: chief, ...(i.office ? { office: i.office } : {}) }) : '';
   const prompts: PromptView[] = [
     { surface: 'work', label: 'Project work', when: 'When they do a step of a team project (and when they revise it).', sections: workSections, text: joinSections(workSections), tools: [ASK_OWNER, SUBMIT_WORK, ...toolViews([...extras, ...conn.tools], kit.hosted)] },
     { surface: 'review', label: 'Reviewing', when: 'When they review a teammate’s step.', sections: reviewSections, text: joinSections(reviewSections), tools: [SUBMIT_REVIEW, ...toolViews(extras, kit.hosted)] },

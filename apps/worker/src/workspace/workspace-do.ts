@@ -103,6 +103,7 @@ import { isPhatic, planFloor, type FloorCandidate } from '../rooms/floor';
 import { existingNote, meetingNoteText, meetingStats } from '../rooms/meeting';
 import { roomMember, type RoomMember } from '../rooms/prompt';
 import { ROOM_NO_PROVIDER_MESSAGE, ROOM_RATE_MESSAGE, cancelRoomTurn, newRoomTurn, runRoomTurn, type RoomHost, type RoomTurnState } from '../rooms/room-turn';
+import { officeName } from '../lib/office';
 
 /** Idempotency records for owner commands (ARCHITECTURE §3.4: 24 h). */
 const OP_TTL_MS = 24 * 60 * 60 * 1000;
@@ -513,7 +514,13 @@ export class WorkspaceDO extends DurableObject<Env> {
   }
 
   /** The document a thread is about, who answers for it, and the change they can make. */
+  /** The document a side chat is about, with the office's own name for the agent's instructions. */
   private async docContext(doc: DocRef, anchor: string, quote: string): Promise<DocContext | null> {
+    const c = await this.docContextOf(doc, anchor, quote);
+    return c ? { ...c, office: await officeName(this.env) } : null;
+  }
+
+  private async docContextOf(doc: DocRef, anchor: string, quote: string): Promise<DocContext | null> {
     const settings = await this.getSettings();
     const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
     const chief = { id: CHIEF_ID, name: chiefDisplayName(lead, settings.chiefName), role: 'the Chief of Staff', ...(lead?.tone ? { manner: `Your manner: ${lead.tone}` } : {}) };
@@ -772,7 +779,7 @@ export class WorkspaceDO extends DurableObject<Env> {
     } catch (err) {
       logError('agents.staffing', err);
     }
-    return agentView({ persona, setup: await this.agentSetup([personaId]), history: this.agents.history(personaId), settings: await this.getSettings(), staffing, registry: runtime.registry(this.env), webTools: webToolsOn(this.env), connectors: this.connectors.list() });
+    return agentView({ persona, office: await officeName(this.env), setup: await this.agentSetup([personaId]), history: this.agents.history(personaId), settings: await this.getSettings(), staffing, registry: runtime.registry(this.env), webTools: webToolsOn(this.env), connectors: this.connectors.list() });
   }
 
   async patchAgent(personaId: string, patch: AgentConfigPatch): Promise<{ view: AgentView } | { error: string }> {
@@ -847,7 +854,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       /* no provider */
     }
     const conn = connectorTools(this.connectors.kitsFor('chief'), this.connectors, { subject: 'chief', mode: () => ({ kind: 'note' }) });
-    const text = buildChiefSystemPrompt({ lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(runtime.now()), ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: conn.describe, automations: true, handbook: this.knowledge.handbook.compact(), interview: this.knowledge.handbook.interviewing ? this.knowledge.handbook.missing() : null, team: await this.teamHost().roster() });
+    const text = buildChiefSystemPrompt({ office: await officeName(this.env),  lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(runtime.now()), ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: conn.describe, automations: true, handbook: this.knowledge.handbook.compact(), interview: this.knowledge.handbook.interviewing ? this.knowledge.handbook.missing() : null, team: await this.teamHost().roster() });
     const tools = createChiefTools({ project: this.project(), turnId: 'turn_view' as TurnId, jobs: jobs ?? [], projects: projects ?? [], decisions, log: new TurnLog(), leadId: settings.leadId, chiefName: settings.chiefName });
     return {
       surface: 'chief',
@@ -1551,7 +1558,7 @@ export class WorkspaceDO extends DurableObject<Env> {
     try {
       const settings = await this.getSettings();
       const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
-      const r = await composeAnnouncement({ provider: announcer.provider, model: announcer.model, lead, chiefName: settings.chiefName, facts: plan.facts });
+      const r = await composeAnnouncement({ provider: announcer.provider, model: announcer.model, lead, chiefName: settings.chiefName, facts: plan.facts, office: await officeName(this.env) });
       text = r.text;
       if (r.source === 'template') logWarn('workspace.announce', `used the template (${r.fallback}) after ${r.ms} ms`);
     } catch (err) {
@@ -1631,6 +1638,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       memory: this.memoryHost(),
       team: this.teamHost(),
       media: () => this.mediaHost(),
+      office: () => officeName(this.env),
       shown: (ids: readonly string[]) => this.shown(ids),
       email: {
         status: () => mailStatus(this.env),
@@ -1670,6 +1678,7 @@ export class WorkspaceDO extends DurableObject<Env> {
 
   private deskHost(): DeskHost {
     return {
+      office: () => officeName(this.env),
       feed: this.feed,
       ledger: this.ledger,
       registry: (agentId?: string) => models(this.env, { surface: 'desk', ...(agentId ? { agentId } : {}) }),
@@ -2108,7 +2117,7 @@ export class WorkspaceDO extends DurableObject<Env> {
     }
     const known = await this.knowledge.block(question, [`coworker:${colleague.id}`]).catch(() => '');
     const staffing = await this.staffingOf(colleague.id);
-    const system = `${buildDeskSystemPrompt(colleague, chief, ownerFirstNameOf(settings), staffing)}${known ? `\n\n${known}` : ''}\n\n## This time\nA colleague is asking you for the owner. Answer them directly, in two or three sentences, from your expertise. Say what you would need to know if the question is unclear.`;
+    const system = `${buildDeskSystemPrompt(colleague, chief, ownerFirstNameOf(settings), staffing, await officeName(this.env))}${known ? `\n\n${known}` : ''}\n\n## This time\nA colleague is asking you for the owner. Answer them directly, in two or three sentences, from your expertise. Say what you would need to know if the question is unclear.`;
     const guard = new ReplyGuard({ allowedFigures: ownerFigures([question, known]), ownerText: [question], workLine: '', work: 'room', figureLine: FIGURE_LINE, maxSentences: 3, where: 'consult.guard' });
     const result = await runTurn({ provider: r.provider, model: r.model, system, messages: [{ role: 'user', content: `${asker.name} (${asker.title}) asks you, for the owner: ${question}` }], signal, maxSteps: 1, ...callBudget(r.provider, r.model, DESK_MAX_TOKENS, 'none') });
     const answer = `${guard.push(`${result.fullText || result.text} `)}${guard.flush()}`.trim();
@@ -2176,6 +2185,7 @@ export class WorkspaceDO extends DurableObject<Env> {
   private roomHost(): RoomHost {
     const limit = dailyLimit(this.env, 'chat');
     return {
+      office: () => officeName(this.env),
       feed: this.feed,
       ledger: this.ledger,
       streamId: this.ledger.streamId,

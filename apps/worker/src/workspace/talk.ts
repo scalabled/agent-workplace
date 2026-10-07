@@ -68,6 +68,8 @@ export interface TalkHost {
   team?: TeamToolHost;
   /** Images and videos from a description (Phase 4); absent when nothing can make them here. */
   media?: () => MediaToolHost | null;
+  /** The office's own name (cleaned) for the Chief's identity line. */
+  office?(): Promise<string>;
   /** What the owner showed with a message (Inc 4 vision): images and shared files. */
   shown?(ids: readonly string[]): Promise<ShownFiles>;
   memory?: MemoryToolHost & { forChief(query: string): Promise<{ recalled: Recalled[]; chips: Recalled[]; handbook: string }> };
@@ -519,7 +521,9 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     const roster = host.team ? await host.team.roster().catch(() => []) : [];
     const policy = host.email ? await host.email.policy().catch(() => null) : null;
     const emailInput = mail?.ready && host.email ? { test: mail.provider === 'sink', level: (policy?.external_send === 'propose' ? 'propose' : 'ask') as 'ask' | 'propose', recent: await host.email.recent().catch(() => []) } : undefined;
+    const office = host.office ? await host.office().catch(() => undefined) : undefined;
     const system = buildChiefSystemPrompt({
+      ...(office ? { office } : {}),
       ...(emailInput ? { email: emailInput } : {}),
       ...(policy ? { workspaceLevel: policy.workspace } : {}), lead, chiefName: settings.chiefName, voiceOn: settings.voiceOn, jobs, projects, honestyPolicy: honestyPolicyText(catalogFull.honestyPolicy), now: new Date(host.now()), turnNote, ownerFirst: ownerFirstNameOf(settings), webSearch, decisions, connectors: connectors.describe, automations: !!host.automations, ...(host.memory ? { handbook: known?.handbook ?? '', recalled: known?.recalled ?? [], interview: host.memory.interviewing() ? host.memory.missing() : null } : {}), ...(host.team ? { team: roster } : {}) });
     const tools = createChiefTools({

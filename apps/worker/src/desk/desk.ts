@@ -16,6 +16,7 @@ import type { Ledger } from '../workspace/ledger';
 import { honestyPolicyText } from '../workspace/chief-prompt';
 import { logError, logWarn } from '../workspace/runtime';
 import { FIGURE_LINE, ReplyGuard, ownerFigures } from '../rooms/guard';
+import { officeLabel } from '@headcount/protocol/ext/orgs';
 
 /** Visible output of a quick-chat reply (two short sentences). */
 export const DESK_MAX_TOKENS = 400;
@@ -178,12 +179,12 @@ export function staffingStatus(staffing: readonly StaffingContext[], chief: stri
 }
 
 /** The quick-chat system prompt: platform rules, the persona, their status (staffed or not) and the style. */
-export function buildDeskSystemPrompt(persona: Persona, chief: string, ownerFirst?: string | null, staffing: readonly StaffingContext[] = []): string {
+export function buildDeskSystemPrompt(persona: Persona, chief: string, ownerFirst?: string | null, staffing: readonly StaffingContext[] = [], office?: string): string {
   const policy = honestyPolicyText(catalogFull.honestyPolicy);
   return [
     [
       '## Platform rules (these override everything below)',
-      `- You are an AI coworker in ${BRAND.name}, the owner's AI office. Your backstory is character lore, not a record of real events. If the owner sincerely asks whether you are an AI, answer plainly.`,
+      `- You are an AI coworker at ${officeLabel(office, BRAND.name)}. Your backstory is character lore, not a record of real events. If the owner sincerely asks whether you are an AI, answer plainly.`,
       `- Helpful first: never answer with only a refusal. When the owner asks for something, do the part you can: start_research for anything that needs looking into, propose_project for work with several steps, ask_colleague when it is someone else's expertise, remember_this for something they want kept. If none fits, say who can (${chief} for anything else) and offer the nearest thing you can do.`,
       '- You cannot send, book, pay, publish or contact anyone outside the office, and you never say you did; offer to draft it instead, or to research it.',
       '- If a tool fails, read why, fix what you sent and try once more, or take another route; then say plainly what happened.',
@@ -263,6 +264,8 @@ export interface DeskHost {
   knowledge?(query: string, personaId: string): Promise<string>;
   /** What this coworker can do from their desk (start research, propose a project, ask a colleague, remember). */
   actions?(persona: Persona): DeskActions;
+  /** The office's own name (cleaned). */
+  office?(): Promise<string>;
 }
 
 function finishOf(r: TurnResult, text: string): TalkFinish {
@@ -330,7 +333,7 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
     const result = await runTurn({
       provider: resolved.provider,
       model: resolved.model,
-      system: `${buildDeskSystemPrompt(spec.persona, chief, ownerFirstNameOf(settings), staffing)}${known ? `\n\n${known}` : ''}`,
+      system: `${buildDeskSystemPrompt(spec.persona, chief, ownerFirstNameOf(settings), staffing, host.office ? await host.office().catch(() => undefined) : undefined)}${known ? `\n\n${known}` : ''}`,
       messages,
       ...(tools.length ? { tools } : {}),
       signal: spec.signal,

@@ -5,7 +5,32 @@
 import type { Role } from './admin';
 
 export const ORG_ID_RE = /^(org_[a-z0-9]{12}|[a-z0-9][a-z0-9_-]{0,39})$/;
-export const ORG_NAME_MAX = 80;
+export const ORG_NAME_MAX = 60;
+
+/**
+ * An office's name as it may appear anywhere, the agents' instructions included: letters (any script), digits, spaces
+ * and the few marks a business name uses (& ' ’ . , -), at most ORG_NAME_MAX characters. Everything else (quotes,
+ * brackets, colons, newlines, symbols) is dropped: a name can hold a few plain words, never markup, quoted text, line
+ * breaks or a paragraph. '' when nothing name-like is left (at least two letters or digits).
+ */
+export function cleanOfficeName(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  const name = raw
+    .normalize('NFKC')
+    .replace(/[^\p{L}\p{M}\p{N} &'’.,-]/gu, ' ')
+    // A mark belongs to the letter before it; one left behind by a dropped symbol (an emoji's variation selector) goes.
+    .replace(/(?<![\p{L}\p{N}\p{M}])\p{M}+/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, ORG_NAME_MAX)
+    .trim();
+  return (name.match(/[\p{L}\p{N}]/gu)?.length ?? 0) >= 2 ? name : '';
+}
+
+/** How the agents name the office, the custom name defined in brackets: "Amethyst & Co (the owner's AI office)". */
+export function officeLabel(name: string | null | undefined, fallback: string): string {
+  return `${cleanOfficeName(name) || fallback} (the owner's AI office)`;
+}
 
 export interface OrgView {
   orgId: string;

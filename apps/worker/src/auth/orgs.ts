@@ -1,6 +1,7 @@
 // Organizations (ext/orgs.ts): the ones you belong to, starting one (you become its owner), switching the session to
 // another, renaming the current one, and the platform page for the deployment's owners.
-import { ORG_NAME_MAX, type CreateOrgRequest, type CreateOrgResponse, type OrgsResponse, type PlatformResponse, type RenameOrgRequest } from '@headcount/protocol/ext/orgs';
+import { cleanOfficeName, type CreateOrgRequest, type CreateOrgResponse, type OrgsResponse, type PlatformResponse, type RenameOrgRequest } from '@headcount/protocol/ext/orgs';
+import { forgetOfficeName } from '../lib/office';
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
 import { homeWorkspace } from '../lib/tenant';
 import { clearRoleCache, maxOrgs, mayCreateOrg, orgsFor, setSessionOrg, signupMode } from './auth';
@@ -8,7 +9,8 @@ import { clearRoleCache, maxOrgs, mayCreateOrg, orgsFor, setSessionOrg, signupMo
 const rand = (n: number) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]).join('');
 export const newOrgId = () => `org_${rand(12)}`;
 
-const cleanName = (raw: unknown): string => (typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim().slice(0, ORG_NAME_MAX) : '');
+/** Only name characters, at most ORG_NAME_MAX (the name reaches the agents' instructions). */
+const cleanName = (raw: unknown): string => cleanOfficeName(raw);
 
 /** GET /api/orgs: yours, the current one, and whether you may start another. */
 export const handleListOrgs: RouteHandler = async (_req, rc) => {
@@ -56,8 +58,9 @@ export const handleSwitchOrg: RouteHandler = async (_req, rc) => {
 /** PUT /api/org {name}: rename the current organization (owners). The home one too: its name shows in the app. */
 export const handleRenameOrg: RouteHandler = async (req, rc) => {
   const name = cleanName((await readJson<Partial<RenameOrgRequest>>(req))?.name);
-  if (name.length < 2) throw new HttpError('bad_request', 'Give it a name of at least two letters.');
+  if (name.length < 2) throw new HttpError('bad_request', 'Give it a name of at least two letters, using letters, numbers, spaces and & \' . , -');
   const orgId = rc.identity?.orgId ?? homeWorkspace(rc.env);
+  forgetOfficeName(orgId);
   await rc.env.DB.prepare('INSERT INTO orgs (org_id, name, created_at, created_by) VALUES (?, ?, ?, ?) ON CONFLICT (org_id) DO UPDATE SET name = excluded.name')
     .bind(orgId, name, new Date().toISOString(), rc.identity?.email ?? '')
     .run();

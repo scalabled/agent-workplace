@@ -8,6 +8,8 @@ import { CHIEF_ID, personaIdFromAgentId, type Frame, type WorkspaceSettings } fr
 import { ROOM_PROJECTION_LINES, roomKindOf, type RoomId } from '@headcount/protocol/ext/rooms';
 import { ownerNameLine, personaBlock } from '../desk/desk';
 import { chiefPersonaBlock, honestyPolicyText } from '../workspace/chief-prompt';
+import { officeLabel } from '@headcount/protocol/ext/orgs';
+import { BRAND } from '@headcount/protocol';
 
 /** Who is in the meeting, as prompts and notes name them. */
 export interface RoomMember {
@@ -67,6 +69,8 @@ const IN_PLACES: Record<string, string> = {
 };
 
 export interface RoomPromptInput {
+  /** The office's own name (cleaned). */
+  office?: string;
   roomId: RoomId;
   label?: string | null;
   self: RoomMember;
@@ -88,7 +92,7 @@ export function buildRoomSystemPrompt(i: RoomPromptInput): string {
   const where = `${placePhrase(i.roomId, i.label)} with ${people.length ? `${owner} and ${everyone}` : owner.replace(/,$/, '')}`;
   const platform = [
     '## Platform rules (these override everything below)',
-    "- You are an AI coworker in Headcount, the owner's AI office. Your backstory is character lore, not a record of real events. If the owner sincerely asks whether you are an AI, answer plainly.",
+    `- You are an AI coworker at ${officeLabel(i.office, BRAND.name)}. Your backstory is character lore, not a record of real events. If the owner sincerely asks whether you are an AI, answer plainly.`,
     '- You have no tools here: you cannot send, book, pay, publish, browse or change anything, and you never say you did.',
     `- You are in ${where}.`,
     '- Speak from your expertise: opinions, principles, questions, trade-offs. Never state a figure, percentage, date, result, study or past event unless the owner said it in this meeting. Never say you did, tested, measured, saw or finished anything, and never promise work.',
@@ -98,7 +102,7 @@ export function buildRoomSystemPrompt(i: RoomPromptInput): string {
   ]
     .filter(Boolean)
     .join('\n');
-  const who = i.self.isChief ? chiefPersonaBlock(i.self.lead, i.self.firstName) : i.self.persona ? personaBlock(i.self.persona) : `## Who you are\nYou are ${i.self.fullName}, ${i.self.title}.`;
+  const who = i.self.isChief ? chiefPersonaBlock(i.self.lead, i.self.firstName, i.office) : i.self.persona ? personaBlock(i.self.persona) : `## Who you are\nYou are ${i.self.fullName}, ${i.self.title}.`;
   const status = i.self.isChief
     ? ['## Your status', 'You can start work only from Talk; in a room you advise.'].join('\n')
     : [

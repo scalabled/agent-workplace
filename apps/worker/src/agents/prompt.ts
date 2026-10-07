@@ -8,9 +8,13 @@ import type { TeamMember } from '@headcount/protocol/ext/projects';
 import { clipText } from '../jobs/job-view';
 import { EXTERNAL_RULE } from '../tools/external';
 import { skillsIndex } from './skills';
+import { officeLabel } from '@headcount/protocol/ext/orgs';
+import { BRAND } from '@headcount/protocol';
 
 export interface CoworkerPromptInput {
   persona: Persona;
+  /** The office's own name (cleaned). */
+  office?: string;
   /** Instructions in force (owner's or catalog's) and whether the owner wrote them. */
   instructions: string;
   edited: boolean;
@@ -30,7 +34,7 @@ export function coworkerSections(i: CoworkerPromptInput, surface: 'work' | 'revi
       id: 'identity',
       title: 'Who they are',
       origin: 'persona',
-      text: [`You are ${p.name}, ${p.title}, an AI coworker in the owner's office. ${p.one_liner}`, p.expertise?.length ? `Your expertise: ${p.expertise.slice(0, 6).join('; ')}.` : ''].filter(Boolean).join('\n'),
+      text: [`You are ${p.name}, ${p.title}, an AI coworker at ${officeLabel(i.office, BRAND.name)}. ${p.one_liner}`, p.expertise?.length ? `Your expertise: ${p.expertise.slice(0, 6).join('; ')}.` : ''].filter(Boolean).join('\n'),
     },
   ];
   if (i.instructions.trim()) {

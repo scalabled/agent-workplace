@@ -8,8 +8,11 @@ import { BRAND } from '@headcount/protocol';
 import type { JobSnapshot } from '@headcount/protocol';
 import type { Decision, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { workStateBlock } from '../jobs/job-view';
+import { officeLabel } from '@headcount/protocol/ext/orgs';
 
 export interface ChiefPromptInput {
+  /** The office's own name (cleaned; the product's when unset): "Amethyst & Co (the owner's AI office)". */
+  office?: string;
   /** The chosen catalog lead; undefined before onboarding (a neutral Chief of Staff is used). */
   lead: Lead | undefined;
   /** The owner's name for their Chief of Staff (null → the lead's first name). */
@@ -84,12 +87,12 @@ function platformRules(honestyPolicy?: string, webSearch = false, connectors = '
 }
 
 /** Layer 2: the persona, from the catalog lead record. */
-function personaLayer(lead: Lead, name: string): string {
+function personaLayer(lead: Lead, name: string, office?: string): string {
   const renamed = firstName(lead.name) !== name;
   const p = lead.personality;
   const c = lead.communication;
   const identity = [
-    `You are ${name}, the owner's Chief of Staff in ${BRAND.name}, their AI office. ${lead.tagline}`,
+    `You are ${name}, the owner's Chief of Staff at ${officeLabel(office, BRAND.name)}. ${lead.tagline}`,
     renamed
       ? `The owner chose the name ${name} for you. Your character, voice and backstory come from the persona below (written for "${lead.name}"); tell it in the first person as yourself.`
       : `Your full name is ${lead.name} (${lead.pronouns}); the owner calls you ${name}.`,
@@ -146,13 +149,13 @@ function personaLayer(lead: Lead, name: string): string {
  * The Chief of Staff's persona (the chosen lead in the owner's name for it, or the neutral one before onboarding): the
  * same block the Talk prompt uses, for the Chief's voice in office rooms (Office Phase 2 §4.2.5).
  */
-export function chiefPersonaBlock(lead: Lead | undefined, name: string): string {
-  return lead ? personaLayer(lead, name) : neutralPersona(name);
+export function chiefPersonaBlock(lead: Lead | undefined, name: string, office?: string): string {
+  return lead ? personaLayer(lead, name, office) : neutralPersona(name, office);
 }
 
 /** Fallback identity before a lead is chosen. */
-function neutralPersona(name: string): string {
-  return `You are ${name}, the owner's Chief of Staff in ${BRAND.name}, their AI office. You are warm, plain-spoken and brief. The owner has not picked a Chief of Staff personality yet; if it comes up, suggest choosing one on the welcome screen.`;
+function neutralPersona(name: string, office?: string): string {
+  return `You are ${name}, the owner's Chief of Staff at ${officeLabel(office, BRAND.name)}. You are warm, plain-spoken and brief. The owner has not picked a Chief of Staff personality yet; if it comes up, suggest choosing one on the welcome screen.`;
 }
 
 /** Layer 3: the conversation-loop directive (D2: communication first; never block on work). */
@@ -234,7 +237,7 @@ export function buildChiefSystemPrompt(input: ChiefPromptInput): string {
   const name = chiefDisplayName(input.lead, input.chiefName);
   return [
     platformRules(input.honestyPolicy, input.webSearch, input.connectors, input.automations, input.email),
-    input.lead ? personaLayer(input.lead, name) : neutralPersona(name),
+    input.lead ? personaLayer(input.lead, name, input.office) : neutralPersona(name, input.office),
     roleDirective(input.voiceOn),
     input.ownerFirst ? `The owner's name is ${input.ownerFirst}. Use it rarely.` : '',
     knowledgeBlocks(input),

@@ -54,6 +54,7 @@ import { MAX_EDITED_STEPS, assignVoices, forecastOf, forecastSentence, normalize
 import { chooseRecipe, consultCoworker, discussionTurn, doStepWork, planProject, qaDeliverable, replyToOwner, reviewStep, reviseStep, writeDeliverable, type Captured, type DiscussionPhase, type ProjectBrief, type Worker } from './team-work';
 import { TeamChannel, mentionsIn } from './channel';
 import { stepImageTool } from '../workspace/media-tools';
+import { cachedOfficeName, officeName } from '../lib/office';
 import type { FileView } from '@headcount/protocol/ext/files';
 import { MAX_ADDED_SPECIALISTS, MAX_TEAM, collabTools, type CollabHost } from './collab';
 import { words } from './staffing';
@@ -1253,6 +1254,8 @@ export class TeamProjects {
 
   /** The owner's overrides for the team (one RPC per unit of work). */
   private async setupOf(team: readonly TeamMember[]): Promise<AgentSetup> {
+    // Every piece of work starts here: the office's name is fresh for the workers made next.
+    await officeName(this.p.env).catch(() => undefined);
     if (!this.p.agents) return { configs: {}, skills: {} };
     try {
       return await this.p.agents(team.map((m) => m.personaId));
@@ -1276,6 +1279,7 @@ export class TeamProjects {
       providerId: resolved.providerId,
       model: resolved.model,
       signal,
+      office: cachedOfficeName(this.p.env),
       ...(web || read ? { research: researchKitFactory(this.p.env, this.p.usage, resolved.provider, { webSearch: web, fetchPage: read }) } : {}),
       ...(extra ?? {}),
     };

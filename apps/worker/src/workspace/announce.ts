@@ -7,6 +7,7 @@ import { chiefDisplayName, type Lead } from '@headcount/catalog';
 import { collectEvents, type ChatProvider } from '@headcount/models';
 import { clipText } from '../jobs/job-view';
 import { BRAND } from '@headcount/protocol';
+import { officeLabel } from '@headcount/protocol/ext/orgs';
 
 export type AnnouncementKind = 'done' | 'failed' | 'stopped';
 
@@ -41,11 +42,11 @@ export function templateAnnouncement(f: AnnouncementFacts): string {
   return oneLine(`I could not finish ${title}. ${reason}`);
 }
 
-function voicePrompt(lead: Lead | undefined, name: string): string {
+function voicePrompt(lead: Lead | undefined, name: string, office?: string): string {
   const p = lead?.personality;
   const c = lead?.communication;
   const persona = [
-    `You are ${name}, the owner's Chief of Staff in ${BRAND.name}, their AI office.${lead ? ` Tone: ${lead.tone}` : ' You are warm, plain-spoken and brief.'}`,
+    `You are ${name}, the owner's Chief of Staff at ${officeLabel(office, BRAND.name)}.${lead ? ` Tone: ${lead.tone}` : ' You are warm, plain-spoken and brief.'}`,
     p?.celebration_style ? `How you share good news: ${p.celebration_style}` : '',
     p?.bad_news_style ? `How you deliver bad news: ${p.bad_news_style}` : '',
     c?.signature_phrases?.length ? `Phrases you sometimes use (at most one, only if it fits): ${c.signature_phrases.map((s) => `"${s}"`).join(', ')}` : '',
@@ -106,6 +107,8 @@ export interface ComposeInput {
   chiefName: string | null;
   facts: AnnouncementFacts;
   timeoutMs?: number;
+  /** The office's own name (cleaned). */
+  office?: string;
 }
 
 export interface Composed {
@@ -139,7 +142,7 @@ export async function composeAnnouncement(input: ComposeInput): Promise<Composed
   const call = collectEvents(
     input.provider.chat({
       model: input.model,
-      system: voicePrompt(input.lead, name),
+      system: voicePrompt(input.lead, name, input.office),
       messages: [{ role: 'user', content: factsBlock(input.facts) }],
       ...callBudget(input.provider, input.model, ANNOUNCE_OUTPUT_TOKENS, 'none'),
       signal: ac.signal,

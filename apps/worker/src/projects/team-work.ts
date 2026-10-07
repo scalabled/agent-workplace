@@ -39,6 +39,8 @@ export interface Worker {
   extraDescribe?: string;
   /** True when the work stopped on purpose (the lead asked the owner): no output is expected. */
   paused?: () => boolean;
+  /** The office's own name (cleaned), for the identity line. */
+  office?: string;
 }
 
 /** A model call as the run inspector keeps it. */
@@ -298,6 +300,7 @@ export async function runAgentTurn(w: Worker, spec: TurnSpec): Promise<{ result:
     ...coworkerSections(
       {
         persona: w.agent.persona,
+        ...(w.office ? { office: w.office } : {}),
         instructions: w.agent.instructions,
         edited: w.agent.edited,
         skills: w.agent.skills,

@@ -87,6 +87,8 @@ export interface RoomHost {
   ownerMood(agentId: AgentId, cues: AffectCues, cause: ExprCause): void;
   /** Record who is generating now (restart recovery closes their reply). */
   markCurrent(turn: RoomTurnState): void;
+  /** The office's own name (cleaned). */
+  office?(): Promise<string>;
   streamId: ExprCause['streamId'];
 }
 
@@ -198,6 +200,7 @@ export async function runRoomTurn(host: RoomHost, t: RoomTurnState): Promise<voi
   const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
   const chiefName = chiefDisplayName(lead, settings.chiefName);
   const ownerFirst = ownerFirstNameOf(settings);
+  const office = host.office ? await host.office().catch(() => undefined) : undefined;
   const nameOf = (agentId: string) => {
     const m = members.get(agentId) ?? roomMember(agentId, settings);
     return m ? projectionName(m) : 'A colleague';
@@ -241,7 +244,7 @@ export async function runRoomTurn(host: RoomHost, t: RoomTurnState): Promise<voi
           feed.claim(agentId, 'room', null);
           return stop('limit', { code: 'rate_limited', message: chat.message });
         }
-        const outcome = await modelReply(host, t, reply, { member, members, wrapUp, chiefName, ownerFirst, nameOf, settings });
+        const outcome = await modelReply(host, t, reply, { member, members, wrapUp, chiefName, ownerFirst, nameOf, settings, ...(office ? { office } : {}) });
         if (outcome === 'no_provider') return;
       }
     } catch (err) {
@@ -269,7 +272,7 @@ async function modelReply(
   host: RoomHost,
   t: RoomTurnState,
   reply: RoomReplyState,
-  c: { member: RoomMember; members: Map<string, RoomMember>; wrapUp: boolean; chiefName: string; ownerFirst: string | null; nameOf: (id: string) => string; settings: WorkspaceSettings },
+  c: { member: RoomMember; members: Map<string, RoomMember>; wrapUp: boolean; chiefName: string; ownerFirst: string | null; nameOf: (id: string) => string; settings: WorkspaceSettings; office?: string },
 ): Promise<'ok' | 'no_provider'> {
   const { feed } = host;
   let resolved;
@@ -291,7 +294,7 @@ async function modelReply(
   }
   const frames = host.ledger.recent(['talk.owner', 'talk.message'], 400);
   const others = t.participants.filter((id) => id !== reply.agentId).map((id) => c.members.get(id)).filter((m): m is RoomMember => !!m);
-  const system = buildRoomSystemPrompt({ roomId: t.roomId, label: t.label, self: c.member, others, ownerFirst: c.ownerFirst, chiefName: c.chiefName, wrapUp: c.wrapUp });
+  const system = buildRoomSystemPrompt({ roomId: t.roomId, label: t.label, self: c.member, others, ownerFirst: c.ownerFirst, chiefName: c.chiefName, wrapUp: c.wrapUp, ...(c.office ? { office: c.office } : {}) });
   const messages = roomProjection(frames, t.meetingId, reply.agentId, c.nameOf);
   const ownerLines = ownerLinesOf(frames, t.meetingId);
   const guard = new ReplyGuard({

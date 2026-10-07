@@ -5,6 +5,8 @@
 import { runTurn, type AgentTool } from '@headcount/agent-loop';
 import type { ChatMessage, ChatProvider } from '@headcount/models';
 import { THREAD_QUOTE_MAX, THREAD_TEXT_MAX, type DocAction, type DocMessage, type DocRef, type DocThread } from '@headcount/protocol/ext/threads';
+import { officeLabel } from '@headcount/protocol/ext/orgs';
+import { BRAND } from '@headcount/protocol';
 
 export const THREAD_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS doc_threads (
@@ -104,6 +106,8 @@ export interface DocContext {
   /** The heading of the part the passage sits in, when known. */
   section?: string;
   agent: { id: string; name: string; role: string; manner?: string };
+  /** The office's own name (cleaned). */
+  office?: string;
   /** The Handbook (compact) and what is remembered that bears on it. */
   known?: string;
   /** A change the agent can make. */
@@ -130,7 +134,7 @@ export function threadSystem(c: DocContext, quote: string): string {
         ? `- If they want the section changed, call update_handbook with the complete new text of the "${c.change.section}" section (keep what is still right; short Markdown bullets are fine). Then say what you changed, in a sentence.`
         : '- If they want it changed, write the improved passage in a quote block they can paste, and say what you changed.';
   return [
-    `You are ${c.agent.name}, ${c.agent.role} in the owner's small business (an AI coworker in their workplace).${c.agent.manner ? ` ${c.agent.manner}` : ''}`,
+    `You are ${c.agent.name}, ${c.agent.role} at ${officeLabel(c.office, BRAND.name)}, an AI coworker in their workplace.${c.agent.manner ? ` ${c.agent.manner}` : ''}`,
     `The owner is reading ${c.what} "${c.title}" and has selected a passage to ask you about. You wrote or keep this document. Help with that exact passage:`,
     '- Answer plainly and specifically, in a few sentences, in your own voice. Explain your reasoning or sources when they ask why.',
     change,
