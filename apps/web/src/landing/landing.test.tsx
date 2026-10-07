@@ -223,8 +223,10 @@ describe('Landing page', () => {
     expect(h1.querySelectorAll('.lp-line[aria-hidden="true"]').length).toBe(TAGLINE.length);
     expect([...host.querySelectorAll('.lp-lead-name')].map((n) => n.textContent)).toEqual(slimIndex.catalog.leads.map((l) => l.name));
     expect(host.textContent).toContain(`${countWord(leads.length, true)} personalities`);
-    // Every section that describes a capability shows its status.
-    expect(host.querySelectorAll('.lp-status').length).toBeGreaterThan(20);
+    // Only what is not built yet is labelled; what works today carries no pill.
+    expect(host.textContent).not.toContain('Works today');
+    expect(host.querySelectorAll('.lp-status[data-status="now"]')).toHaveLength(0);
+    expect(host.querySelectorAll('.lp-status[data-status="planned"]').length).toBeGreaterThan(0);
     expect(host.querySelectorAll('.lp-illus-tag').length).toBeGreaterThanOrEqual(3);
     expect(host.querySelectorAll('.lp-tier')).toHaveLength(TIERS.length);
     expect(host.querySelector('#pricing .lp-status')?.textContent).toBe('Planned pricing');

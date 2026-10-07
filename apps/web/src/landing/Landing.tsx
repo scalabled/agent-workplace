@@ -1,7 +1,7 @@
 // The public landing page ("/"): bold motion, generated imagery, big type, and the real coworker faces
 // (OWNER-DIRECTIVES D3). Always dark. Honest copy only: no testimonials, logos, customer counts or invented
-// metrics; every capability carries its status (works today, in the works, planned). The app is not loaded until
-// someone walks in.
+// metrics. What works today carries no label; anything not built yet says so (in the works, planned). The app is not
+// loaded until someone walks in.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { BRAND, routePath, type CapabilitiesResponse } from '@headcount/protocol';
 import { coworkers, counts, images, leads, voiceSamples } from 'virtual:headcount-landing';
@@ -62,7 +62,9 @@ function useHashScroll() {
   }, []);
 }
 
+/** "In the works" or "Planned"; what works today shows no label. */
 export function StatusChip({ status }: { status: Status }) {
+  if (status === 'now') return null;
   return (
     <span class="lp-status" data-status={status}>
       {STATUS_LABEL[status]}
