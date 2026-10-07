@@ -20,6 +20,7 @@ import { d1Sink } from './usage/store';
 import { configured, loadConfig } from './admin/config';
 import { handleCapabilities } from './media/capabilities';
 import { handleMediaRoute } from './media/media-images';
+import { handleExport, handleGetFile, handleListFiles, handleMakeImage, handleMakeVideo, handleRemoveFile } from './files/routes';
 import { handleGeneratePortrait, handleGetLandmarks, handleGetPortrait, handleListPortraits, handlePutLandmarks } from './media/portraits';
 import { handleStt, handleTts } from './media/speech';
 import { handleOfficePeople } from './rooms/people';
@@ -112,6 +113,12 @@ export const HANDLERS: Record<RouteId, RouteHandler> = {
   listMeetings: handleListMeetings,
   callMeeting: handleCallMeeting,
   findMeeting: handleFindMeeting,
+  listFiles: handleListFiles,
+  getFile: handleGetFile,
+  makeImage: handleMakeImage,
+  makeVideo: handleMakeVideo,
+  removeFile: handleRemoveFile,
+  exportDocument: handleExport,
   listCanvas: handleListCanvas,
   createCanvas: handleCreateCanvas,
   getCanvas: handleGetCanvas,

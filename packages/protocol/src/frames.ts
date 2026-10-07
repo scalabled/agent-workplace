@@ -19,6 +19,7 @@ import type { ChannelFrameData, DecisionFrameData, MeetingSummary, ProjectFrameD
 import type { AutomationFiredData, AutomationResultData } from './ext/automations';
 import type { CanvasFrameData } from './ext/canvas';
 import type { EffectFrameData, TrustFrameData } from './ext/trust';
+import type { FileFrameData } from './ext/files';
 import type { Recalled } from './ext/memory';
 
 /**
@@ -173,6 +174,8 @@ export interface FrameDataMap {
   'team.updated': { members: string[] };
   /** A meeting opened, someone took the floor, or it ended (with the chair's summary). Persisted. */
   'meeting.updated': { meeting: MeetingSummary };
+  /** An image or video was asked for, became ready, failed or was removed. Persisted. */
+  'file.updated': FileFrameData & { removed?: boolean };
 
   /** A face state claim. Ephemeral; recomputable from the ledger. */
   presence: PresenceData;
@@ -227,6 +230,7 @@ export const PERSISTED_FRAME_TYPES: ReadonlySet<FrameType> = new Set<FrameType>(
   'trust.updated',
   'team.updated',
   'meeting.updated',
+  'file.updated',
   'workspace.updated',
 ]);
 

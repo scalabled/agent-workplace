@@ -95,6 +95,10 @@ import { rollupEvents, upsertWorkspace } from './rollup';
 import { logError, logWarn, models, runtime } from './runtime';
 import { closeReflexTurn, closeTurn, newTurnState, runChiefTurn, type TurnState } from './talk';
 import { VoiceOwnership } from './voice';
+import { Files, VIDEO_POLL_MS } from '../files/store';
+import type { MediaToolHost } from './media-tools';
+import { mediaRuntime } from '../media/media-images';
+import type { FileView } from '@headcount/protocol/ext/files';
 import { isPhatic, planFloor, type FloorCandidate } from '../rooms/floor';
 import { existingNote, meetingNoteText, meetingStats } from '../rooms/meeting';
 import { roomMember, type RoomMember } from '../rooms/prompt';
@@ -224,6 +228,8 @@ export class WorkspaceDO extends DurableObject<Env> {
   /** What the workspace knows: memory, the Handbook, context cards (Inc 4). */
   private readonly knowledge: Knowledge;
   private readonly threads: Threads;
+  /** Images and videos made here (Phase 4). */
+  readonly files: Files;
   /** The Chief's connector calls waiting for the owner's OK, by decision id. */
   private readonly approvalWaiters = new Map<string, (v: 'approved' | 'declined') => void>();
 
@@ -249,6 +255,17 @@ export class WorkspaceDO extends DurableObject<Env> {
       background: (work) => ctx.waitUntil(work.catch((err) => logError('memory', err))),
     });
     this.threads = new Threads(ctx.storage.sql, () => runtime.now());
+    this.files = new Files({
+      sql: ctx.storage.sql,
+      env,
+      blobs: env.BLOBS,
+      workspaceId: env.WORKSPACE_ID || DEFAULT_WORKSPACE_ID,
+      registry: () => mediaRuntime.registry(this.env),
+      now: () => runtime.now(),
+      changed: (file, removed) => this.fileChanged(file, removed),
+      background: (work) => ctx.waitUntil(work.catch((err) => logError('files', err))),
+      pollAt: (at) => this.armAlarm(at),
+    });
     this.connectors = new ConnectorStore({
       sql: ctx.storage.sql,
       env,
@@ -1448,10 +1465,10 @@ export class WorkspaceDO extends DurableObject<Env> {
     if (!m.standalone || m.status !== 'done' || !m.summary) return null;
     const chair = fullIndex.persona(m.chairId)?.name.split(' ')[0] ?? 'The chair';
     const text = `The meeting on “${m.title ?? m.question}” is over. ${chair}'s summary:\n\n${clipText(m.summary, 900)}\n\n[Read the meeting](/app/meetings/${m.meetingId}) · Say the word and I'll turn it into a project.`;
-    const spoken = this.usage.take('ping', dailyLimit(this.env, 'ping'), runtime.now()).allowed;
+    // The owner called the meeting: the outcome is the Chief's own message, not an interruption.
     return {
       type: 'talk.message',
-      data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text, kind: spoken ? 'announcement' : 'note' },
+      data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text, kind: 'announcement' },
       actor: CHIEF_ID,
       cause: { streamId: frame.streamId as StreamId, seq: frame.seq! },
     };
@@ -1613,6 +1630,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       automations: { propose: (spec: Partial<AutomationSpec>, signal: AbortSignal) => this.proposeAutomation(spec, signal) },
       memory: this.memoryHost(),
       team: this.teamHost(),
+      media: () => this.mediaHost(),
       shown: (ids: readonly string[]) => this.shown(ids),
       email: {
         status: () => mailStatus(this.env),
@@ -1756,15 +1774,87 @@ export class WorkspaceDO extends DurableObject<Env> {
   /** The weekly tidy's alarm (set once there is a team; kept while the tidy is on). */
   private async ensureTidyAlarm(): Promise<void> {
     if (!(await this.secondBrain()).on) return;
-    if ((await this.ctx.storage.getAlarm()) === null) await this.ctx.storage.setAlarm(runtime.now() + TIDY_EVERY_DAYS * 86_400_000);
+    if ((await this.ctx.storage.get<number>('tidy_at')) === undefined) {
+      // An office from before the shared alarm kept the tidy's time as the alarm itself.
+      const existing = await this.ctx.storage.getAlarm();
+      await this.ctx.storage.put('tidy_at', existing ?? runtime.now() + TIDY_EVERY_DAYS * 86_400_000);
+    }
+    await this.armAlarm();
+  }
+
+  /** One alarm for everything here: the weekly tidy (while on), working videos to check, and `at` if sooner. */
+  private async armAlarm(at?: number): Promise<void> {
+    const times: number[] = [];
+    const tidyAt = await this.ctx.storage.get<number>('tidy_at');
+    if (tidyAt !== undefined && (await this.secondBrain()).on) times.push(tidyAt);
+    if (this.files.hasWorkingVideos()) times.push(runtime.now() + VIDEO_POLL_MS);
+    if (at !== undefined) times.push(at);
+    if (!times.length) return;
+    const next = Math.min(...times);
+    const current = await this.ctx.storage.getAlarm();
+    if (current === null || next < current || current < runtime.now()) await this.ctx.storage.setAlarm(next);
   }
 
   override async alarm(): Promise<void> {
+    if (this.files.hasWorkingVideos()) await this.files.poll().catch((err) => logError('files.poll', err));
     const sb = await this.secondBrain();
-    if (!sb.on) return;
-    const due = !sb.last || runtime.now() - Date.parse(sb.last.at) >= (TIDY_EVERY_DAYS - 0.5) * 86_400_000;
-    if (due && this.knowledge.memory.list({ limit: 1 }).length) await this.runTidy().catch((err) => logError('second-brain', err));
-    await this.ctx.storage.setAlarm(runtime.now() + TIDY_EVERY_DAYS * 86_400_000);
+    const tidyAt = (await this.ctx.storage.get<number>('tidy_at')) ?? (sb.on ? runtime.now() : undefined);
+    if (sb.on && tidyAt !== undefined && runtime.now() >= tidyAt - 1000) {
+      const due = !sb.last || runtime.now() - Date.parse(sb.last.at) >= (TIDY_EVERY_DAYS - 0.5) * 86_400_000;
+      if (due && this.knowledge.memory.list({ limit: 1 }).length) await this.runTidy().catch((err) => logError('second-brain', err));
+      await this.ctx.storage.put('tidy_at', runtime.now() + TIDY_EVERY_DAYS * 86_400_000);
+    }
+    await this.armAlarm();
+  }
+
+  // ── files (Phase 4) ─────────────────────────────────────────────────────────────
+
+  async filesList(): Promise<{ files: FileView[]; can: { image: boolean; video: boolean } }> {
+    if (this.files.hasWorkingVideos()) await this.armAlarm();
+    return { files: this.files.list(), can: this.files.can() };
+  }
+
+  async fileStored(fileName: string): Promise<{ key: string; mime: string; bytes: number } | null> {
+    return this.files.stored(fileName);
+  }
+
+  async makeImage(req: { prompt: string; aspect?: string; madeBy: string; source?: FileView['source']; wait?: boolean }) {
+    return this.files.makeImage(req);
+  }
+
+  async makeVideo(req: { prompt: string; aspect?: string; seconds?: number; madeBy: string; source?: FileView['source'] }) {
+    return this.files.makeVideo(req);
+  }
+
+  async removeFile(fileName: string, by: string): Promise<boolean> {
+    const f = this.files.get(fileName.split('.')[0] ?? '');
+    const removed = await this.files.remove(fileName);
+    if (removed && f) this.audited({ actor: by.startsWith('owner') ? by : `owner:${by}`, kind: 'change', action: 'file.removed', summary: `Removed the ${f.kind} “${f.title}”`, link: '/app/files', undo: { type: 'none', label: 'Make it again from its description' } });
+    return removed;
+  }
+
+  /** The Chief's image and video tools (only what can be made here). */
+  private mediaHost(): MediaToolHost | null {
+    const can = this.files.can();
+    if (!can.image && !can.video) return null;
+    const answer = (r: Awaited<ReturnType<Files['makeImage']>>) => (r.ok ? r : { ok: false as const, message: r.message });
+    return {
+      image: async (req) => (can.image ? answer(await this.files.makeImage({ ...req, madeBy: 'chief', source: { kind: 'talk' } })) : { ok: false, message: 'Images need an OpenAI or xAI key. An owner adds one in Admin → Provider keys.' }),
+      ...(can.video ? { video: async (req: { prompt: string; aspect?: string; seconds?: number }) => answer(await this.files.makeVideo({ ...req, madeBy: 'chief', source: { kind: 'talk' } })) } : {}),
+    };
+  }
+
+  /** A file changed: the frame; one made for Talk is brought there by the Chief when it is ready (or could not be made). */
+  private fileChanged(file: FileView, removed?: boolean): void {
+    this.feed.append({ type: 'file.updated', data: { file, ...(removed ? { removed: true } : {}) }, actor: file.madeBy === 'owner' ? 'owner' : CHIEF_ID });
+    if (removed || file.source?.kind !== 'talk' || file.status === 'working') return;
+    const what = file.kind === 'video' ? 'video' : 'image';
+    const text =
+      file.status === 'ready'
+        ? `Here's the ${what}: “${file.title}”.${file.placeholder ? ` (A placeholder: there is no ${file.kind === 'video' ? 'video' : 'image'} service set up here.)` : ''}\n\n![${file.title.replace(/[[\]]/g, '')}](${file.url})\n\nIt's kept in [Files](/app/files).`
+        : `The ${what} “${file.title}” could not be made: ${file.error ?? 'try again'}`;
+    // The owner asked for it: the Chief brings it as their own message (spoken without the picture's address).
+    this.feed.append({ type: 'talk.message', data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text, kind: 'announcement' }, actor: CHIEF_ID });
   }
 
   private memberView(personaId: string, started: Record<string, { at: string; jobId?: string; projectId?: string }>, hiredAt: Record<string, string> = {}): TeamMemberView | null {
@@ -1785,10 +1875,11 @@ export class WorkspaceDO extends DurableObject<Env> {
     const started = (await this.ctx.storage.get<Record<string, { at: string; jobId?: string; projectId?: string }>>('team_started')) ?? {};
     const sb = await this.secondBrain();
     const alarm = await this.ctx.storage.getAlarm();
+    const tidyAt = await this.ctx.storage.get<number>('tidy_at');
     const hiredAt = await this.hiredAt();
     return {
       members: (await this.teamIds()).map((id) => this.memberView(id, started, hiredAt)).filter((m): m is TeamMemberView => !!m),
-      secondBrain: { on: sb.on, steward: SECOND_BRAIN_STEWARD, ...(sb.on && alarm ? { nextAt: new Date(alarm).toISOString() } : {}), ...(sb.last ? { last: sb.last } : {}) },
+      secondBrain: { on: sb.on, steward: SECOND_BRAIN_STEWARD, ...(sb.on && (tidyAt ?? alarm) ? { nextAt: new Date((tidyAt ?? alarm)!).toISOString() } : {}), ...(sb.last ? { last: sb.last } : {}) },
     };
   }
 

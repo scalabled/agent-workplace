@@ -250,12 +250,13 @@ export class FakeR2 {
     this.objects.set(key, stored);
     return this.meta(key, stored);
   }
-  async get(key: string) {
+  async get(key: string, opts: { range?: { offset: number; length: number } } = {}) {
     const o = this.objects.get(key);
     if (!o) return null;
+    const data = opts.range ? o.data.slice(opts.range.offset, opts.range.offset + opts.range.length) : o.data;
     return {
       ...this.meta(key, o),
-      body: new Response(o.data).body,
+      body: new Response(data).body,
       arrayBuffer: async () => o.data.slice(0),
       text: async () => new TextDecoder().decode(o.data),
       json: async <T>() => JSON.parse(new TextDecoder().decode(o.data)) as T,

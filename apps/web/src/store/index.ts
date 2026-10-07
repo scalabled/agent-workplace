@@ -19,6 +19,7 @@ import {
 } from '@headcount/protocol';
 import type { DeskSayAccepted } from '@headcount/protocol/ext/expressions';
 import type { ChannelEntry, Decision, MeetingSummary, ProjectsResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { FileView } from '@headcount/protocol/ext/files';
 import type { CanvasSnapshot } from '@headcount/protocol/ext/canvas';
 import type { Recalled } from '@headcount/protocol/ext/memory';
 import type { EffectView, StopState } from '@headcount/protocol/ext/trust';
@@ -135,6 +136,19 @@ export function upsertMeetings(list: readonly MeetingSummary[]): void {
   for (const m of list) next[m.meetingId] = m;
   meetingsById.value = next;
 }
+/** Images and videos made here (Files), by id: from the list and file.updated frames. */
+export const filesById = signal<Record<string, FileView>>({});
+export function upsertFiles(list: readonly FileView[], removed = false): void {
+  if (!list.length) return;
+  const next = { ...filesById.value };
+  for (const f of list) {
+    if (removed) delete next[f.fileId];
+    else next[f.fileId] = f;
+  }
+  filesById.value = next;
+}
+export const fileList = computed(() => Object.values(filesById.value).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)));
+
 /** Live now, the newest first. */
 export const liveMeetings = computed(() =>
   Object.values(meetingsById.value)
@@ -637,6 +651,9 @@ function reduce(frame: Frame, live: boolean): void {
       break;
     case 'meeting.updated':
       upsertMeetings([frame.data.meeting]);
+      break;
+    case 'file.updated':
+      upsertFiles([frame.data.file], frame.data.removed === true);
       break;
     case 'job.progress':
       patchJob(frame.data.jobId, { status: 'running', label: frame.data.label, step: frame.data.step, of: frame.data.of, ...(frame.data.partial ? { partial: frame.data.partial } : {}) }, frame.ts);

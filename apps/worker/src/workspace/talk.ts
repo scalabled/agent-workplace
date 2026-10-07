@@ -17,6 +17,7 @@ import { automationTool, type ProposeOutcome } from '../automations/chief-tool';
 import { FRONT_SAMPLE_RATE, type AckRequest, type FrontPart } from './voice-front';
 import { memoryTools, type MemoryToolHost } from '../memory/chief-tools';
 import { teamTools, type TeamToolHost } from './team-tools';
+import { mediaTools, type MediaToolHost } from './media-tools';
 import type { Recalled } from '@headcount/protocol/ext/memory';
 import type { AutomationSpec } from '@headcount/protocol/ext/automations';
 import { TurnLog, createChiefTools, type ProjectApi } from './chief-tools';
@@ -65,6 +66,8 @@ export interface TalkHost {
   /** What the workspace knows (Inc 4): recall for this turn, the Handbook, and the memory tools. */
   /** Ask a coworker, or hand a request to their desk. */
   team?: TeamToolHost;
+  /** Images and videos from a description (Phase 4); absent when nothing can make them here. */
+  media?: () => MediaToolHost | null;
   /** What the owner showed with a message (Inc 4 vision): images and shared files. */
   shown?(ids: readonly string[]): Promise<ShownFiles>;
   memory?: MemoryToolHost & { forChief(query: string): Promise<{ recalled: Recalled[]; chips: Recalled[]; handbook: string }> };
@@ -535,6 +538,8 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
     if (emailInput && email) tools.push(sendEmailTool({ request: (e) => email.request(e, turnId) }, { owner: ownerFirstNameOf(settings) ?? 'the owner', test: emailInput.test, onResult: (r) => void (r.status === 'done' && receipts++) }));
     if (host.memory) tools.unshift(...memoryTools(host.memory));
     if (host.team) tools.unshift(...teamTools(host.team));
+    const media = host.media?.();
+    if (media) tools.push(...mediaTools(media));
     const auto = host.automations;
     if (auto) tools.push(automationTool({ propose: (spec) => auto.propose(spec, signal) }));
 

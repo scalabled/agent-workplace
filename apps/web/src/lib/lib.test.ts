@@ -17,6 +17,18 @@ describe('renderMarkdown', () => {
       expect(html).toContain('&#60;script&#62;');
     }
   });
+
+  it('shows the office’s own images and videos (Files), never a remote one', () => {
+    const html = renderMarkdown('![logo](/api/files/fil_0123456789abcdef0123.png) ![clip](/api/files/fil_0123456789abcdef0123.mp4) ![x](https://evil.example/t.png) ![y](/api/files/../secret.png)');
+    // happy-dom's sanitiser falls back to escaped text (no tags at all); a real browser renders.
+    if (!html.includes('<img')) expect(html).not.toMatch(/<(img|video)/);
+    else {
+      expect(html).not.toMatch(/evil\.example|secret\.png/);
+      expect(html).toMatch(/<img[^>]+src="\/api\/files\/fil_0123456789abcdef0123\.png"/);
+      expect(html).toMatch(/<video[^>]+src="\/api\/files\/fil_0123456789abcdef0123\.mp4"/);
+      expect(html).not.toMatch(/autoplay/);
+    }
+  });
 });
 
 describe('palette filter', () => {

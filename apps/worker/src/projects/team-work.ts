@@ -521,8 +521,9 @@ export async function writeDeliverable(w: Worker, brief: ProjectBrief, kind: Del
   const missing = brief.steps.filter((s) => s.status !== 'done');
   const sources = mergeSources(...brief.steps.map((s) => s.sources));
   const cite = sources.length && kind === 'document' ? ' Cite the sources below as [n] where the work relies on them, and end with a Sources section.' : '';
+  const images = kind === 'document' && /!\[[^\]]*\]\(\/api\/files\//.test(outputs) ? ' Keep the images the team made (Markdown such as ![…](/api/files/…)) exactly as written, where they belong.' : '';
   const prompt = [
-    revision ? `Revise the deliverable using the reviewer's notes and submit the complete revised version with submit_deliverable.` : `Assemble the deliverable for the owner from the team's step outputs and submit it with submit_deliverable. Keep (unverified) markers.${cite}`,
+    revision ? `Revise the deliverable using the reviewer's notes and submit the complete revised version with submit_deliverable.` : `Assemble the deliverable for the owner from the team's step outputs and submit it with submit_deliverable. Keep (unverified) markers.${cite}${images}`,
     KIND_RULE[kind],
     missing.length ? `These steps are not finished: ${missing.map((s) => `“${s.title}” (${s.status})`).join(', ')}. Say clearly what is missing or unapproved; never claim those steps succeeded.` : '',
     '',

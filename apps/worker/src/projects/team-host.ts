@@ -53,6 +53,8 @@ import { logError, models, runtime } from '../workspace/runtime';
 import { MAX_EDITED_STEPS, assignVoices, forecastOf, forecastSentence, normalizePlan, ownersOf, readySteps, recipesOf, shortlist, staffingNote, stepEditError, stepsFrom, teamFrom, titleFromGoal, type Recipe } from './staffing';
 import { chooseRecipe, consultCoworker, discussionTurn, doStepWork, planProject, qaDeliverable, replyToOwner, reviewStep, reviseStep, writeDeliverable, type Captured, type DiscussionPhase, type ProjectBrief, type Worker } from './team-work';
 import { TeamChannel, mentionsIn } from './channel';
+import { stepImageTool } from '../workspace/media-tools';
+import type { FileView } from '@headcount/protocol/ext/files';
 import { MAX_ADDED_SPECIALISTS, MAX_TEAM, collabTools, type CollabHost } from './collab';
 import { words } from './staffing';
 import type { ChannelEntry, ConnectorScope } from '@headcount/protocol/ext/projects';
@@ -133,6 +135,11 @@ export interface TeamHostPorts {
   };
   /** Inc 6: record an approved automation in the audit trail (with Undo). */
   audited?(entry: { actor: string; summary: string; automationId: string }): void;
+  /** Phase 4: images for the work (made in the WorkspaceDO, kept in Files). */
+  media?: {
+    canImage(): boolean;
+    image(req: { prompt: string; aspect?: string; madeBy: string; projectId: string }): Promise<{ ok: true; file: FileView } | { ok: false; message: string }>;
+  };
 }
 
 type ProjectRow = {
@@ -1437,9 +1444,12 @@ export class TeamProjects {
               { test: mail.test, endTurnWhenWaiting: true, onResult: (r) => void (r.status === 'awaiting' && (emailsWaiting = true)) },
             )
           : null;
+      // Phase 4: the lead may make an image the work needs (waited for, embedded in the work, kept in Files).
+      const media = this.p.media;
+      const imageTool = media?.canImage() ? stepImageTool((req) => media.image({ ...req, madeBy: lead, projectId })) : null;
       const leadWorker = this.worker(lead, setup, deadlineSignal(UNIT_BUDGET_MS, signal), {
         // One question per step: after the owner answers, the lead works with the answer.
-        extraTools: [...(s0.answer ? [] : [askOwnerTool((q) => (asked = q))]), ...(collab.extraTools ?? []), ...conn.tools, ...(emailTool ? [emailTool] : [])],
+        extraTools: [...(s0.answer ? [] : [askOwnerTool((q) => (asked = q))]), ...(collab.extraTools ?? []), ...conn.tools, ...(emailTool ? [emailTool] : []), ...(imageTool ? [imageTool] : [])],
         extraDescribe: [
           'If a decision, permission or input only the owner can give is missing, call request_owner_input (one specific question); continue with reasonable, stated assumptions for anything that does not block you.',
           collab.extraDescribe ?? '',

@@ -10,11 +10,12 @@ const PLACES: { href: string; label: string; icon: IconName; prefix?: boolean }[
   { href: paths.floor, label: 'Floor', icon: 'floor', prefix: true },
   { href: paths.meetings, label: 'Meetings', icon: 'meetings', prefix: true },
   { href: paths.projects, label: 'Projects', icon: 'projects', prefix: true },
+  { href: paths.files, label: 'Files', icon: 'file', prefix: true },
   { href: paths.inbox, label: 'Inbox', icon: 'inbox', prefix: true },
 ];
 
 /**
- * The places (D3): Talk · Floor · Meetings · Projects · Inbox. Everything else via ⌘K, which on phones (no keyboard)
+ * The places (D3): Talk · Floor · Meetings · Projects · Files · Inbox. Everything else via ⌘K, which on phones (no keyboard)
  * is the last tab, More (EXPERIENCE §2.2): switch Chief of Staff, theme, voice, any coworker.
  * Talk shows how many Chief of Staff messages arrived while you were elsewhere; Meetings, when one is live.
  */

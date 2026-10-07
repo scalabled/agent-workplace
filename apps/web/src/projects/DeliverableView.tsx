@@ -3,6 +3,8 @@
 // file. Copy and download for each; the reviewer's check underneath.
 import type { TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { useMemo, useState } from 'preact/hooks';
+import { api } from '../api/client';
+import { ExportMenu } from '../components/ExportMenu';
 import { Markdown } from '../components/Markdown';
 import { DocAsk, DocThreads } from '../docs/DocAsk';
 import { paths } from '../router';
@@ -42,9 +44,14 @@ export function DeliverableView({ project, reviewerName }: { project: TeamProjec
           <button type="button" class="button-quiet" onClick={() => void navigator.clipboard?.writeText(content)}>
             Copy
           </button>
-          <button type="button" class="button-quiet" onClick={() => download(file.name, content, file.type)}>
-            Download
-          </button>
+          {kind === 'document' ? (
+            // The frame carries a clipped copy: the export reads the whole deliverable.
+            <ExportMenu title={project.title} markdown={async () => (await api.getProject(project.projectId).catch(() => null))?.deliverable ?? content} />
+          ) : (
+            <button type="button" class="button-quiet" onClick={() => download(file.name, content, file.type)}>
+              Download
+            </button>
+          )}
         </span>
       </header>
       {kind === 'web' && !source && <iframe class="deliverable-frame" title={`${project.title} (preview)`} sandbox="allow-scripts" srcdoc={content} />}

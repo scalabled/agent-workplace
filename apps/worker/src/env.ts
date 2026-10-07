@@ -27,6 +27,8 @@ export interface Env extends ProviderEnv {
   MOCK_MEDIA?: string;
   /** Paid portrait generations allowed per UTC day (default 200). */
   PORTRAIT_DAILY_LIMIT?: string;
+  /** Videos made per UTC day (xAI; default 10). */
+  VIDEO_DAILY_LIMIT?: string;
   /** Per-UTC-day caps (see src/lib/limits.ts): spoken sentences, recordings, Chief of Staff turns, new jobs. */
   TTS_DAILY_LIMIT?: string;
   STT_DAILY_LIMIT?: string;

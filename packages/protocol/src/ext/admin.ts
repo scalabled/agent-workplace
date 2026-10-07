@@ -116,6 +116,7 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
   limit('VOICE_FRONT_DAILY_LIMIT', 'Spoken acknowledgements', 600, 'Realtime spoken acknowledgements per day.'),
   limit('INTERRUPTION_BUDGET', 'Unprompted updates', 6, 'Updates your Chief of Staff says aloud without being asked, per day. Past it, they are quiet lines.'),
   limit('PORTRAIT_DAILY_LIMIT', 'Portraits and images', 200, 'Portraits and images generated per day.'),
+  limit('VIDEO_DAILY_LIMIT', 'Videos', 10, 'Short videos made per day (xAI).'),
   limit('EXPR_CLIP_DAILY_LIMIT', 'Voice clips', 600, 'Short pre-voiced lines rendered per day.'),
   { key: 'MAX_ACTIVE_JOBS', group: 'work', label: 'Background jobs at once', help: 'Jobs that run at the same time; more wait their turn.', kind: 'number', fallback: '3', min: 1, max: 20 },
   { key: 'MAX_ACTIVE_PROJECTS', group: 'work', label: 'Team projects at once', help: 'Team projects that run at the same time.', kind: 'number', fallback: '2', min: 1, max: 10 },

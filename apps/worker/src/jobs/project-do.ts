@@ -3,6 +3,8 @@ import { tenantOf, withTenant } from '../lib/tenant';
 import { DurableObject } from 'cloudflare:workers';
 import { fullIndex } from '@headcount/catalog/full';
 import { chiefDisplayName } from '@headcount/catalog';
+import type { FileView } from '@headcount/protocol/ext/files';
+import { canMakeImages } from '../files/store';
 import { MissingProviderError, deadlineSignal } from '@headcount/models';
 import {
   CHIEF_ID,
@@ -211,6 +213,14 @@ export class ProjectDO extends DurableObject<Env> {
       // What the workspace knows (the Handbook, memories) lives in the WorkspaceDO.
       knowledge: async (query, scopes) => String(await workspaceStub(env).knowledgeFor(query, scopes)),
       distillMeeting: async (input) => void (await workspaceStub(env).distillMeeting(input)),
+      // Phase 4: images for the work, made and kept in the WorkspaceDO's Files.
+      media: {
+        canImage: () => canMakeImages(this.env),
+        image: async (req) => {
+          const r = (await workspaceStub(env).makeImage({ prompt: req.prompt, ...(req.aspect ? { aspect: req.aspect } : {}), madeBy: req.madeBy, source: { kind: 'project', ref: req.projectId }, wait: true })) as unknown as { ok: true; file: FileView } | { ok: false; message: string };
+          return r.ok ? { ok: true, file: r.file } : { ok: false, message: r.message };
+        },
+      },
       // Inc 6: emails (exactly once, with receipts) and changes the owner approved.
       effects: {
         ready: () => {

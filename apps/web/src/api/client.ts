@@ -34,6 +34,7 @@ import type {
 import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcount/protocol/ext/media';
 import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, RoomCancelResponse, RoomId, RoomSayAccepted, RoomSayRequest } from '@headcount/protocol/ext/rooms';
 import { noteUnauthenticated } from '../auth/session';
+import type { ExportRequest, FilesResponse, MakeFileResponse, MakeImageRequest, MakeVideoRequest } from '@headcount/protocol/ext/files';
 import type { CallMeetingRequest, CallMeetingResponse, ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, MeetingResponse, MeetingSay, MeetingsResponse, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
 import type { CanvasCreate, CanvasListResponse, CanvasResponse } from '@headcount/protocol/ext/canvas';
 import type { ConfigResponse, MemberPut, MembersResponse, ModelPrice, UsageResponse } from '@headcount/protocol/ext/admin';
@@ -203,6 +204,16 @@ export const api = {
   listMeetings: () => request<MeetingsResponse>(routePath('listMeetings')),
   callMeeting: (req: CallMeetingRequest) => request<CallMeetingResponse>(routePath('callMeeting'), jsonInit('POST', req)),
   findMeeting: (meetingId: string) => request<MeetingResponse>(routePath('findMeeting', { meetingId })),
+  listFiles: () => request<FilesResponse>(routePath('listFiles')),
+  makeImage: (req: MakeImageRequest) => request<MakeFileResponse>(routePath('makeImage'), jsonInit('POST', req)),
+  makeVideo: (req: MakeVideoRequest) => request<MakeFileResponse>(routePath('makeVideo'), jsonInit('POST', req)),
+  removeFile: (fileName: string) => request<{ removed: true }>(routePath('removeFile', { fileName }), { method: 'DELETE' }),
+  /** A Markdown document as a Word, Excel or PowerPoint file (a Blob to save). */
+  exportDocument: async (req: ExportRequest): Promise<Blob> => {
+    const res = await fetch(routePath('exportDocument'), jsonInit('POST', req));
+    if (!res.ok) throw await toApiError(res);
+    return res.blob();
+  },
   projectRuns: (id: string, stepId?: string) => request<RunsResponse>(`${routePath('projectRuns', { id })}${stepId ? `?stepId=${encodeURIComponent(stepId)}` : ''}`),
   // Parity stage 2: how each coworker works, skills, the Chief's prompt, models.
   getAgent: (personaId: string) => request<AgentView>(routePath('getAgent', { personaId })),
