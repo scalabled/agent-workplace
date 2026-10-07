@@ -54,7 +54,7 @@ export const GUIDE: GuideEntry[] = [
     area: 'start',
     title: 'Start your office',
     what: 'Every business gets its own office: its own Chief of Staff, team, memory, files and conversations, kept apart from every other office.',
-    steps: ['Sign in with Google.', 'If someone invited you, their office is there when you sign in.', 'If you are not in an office yet, name yours and say in a line what it is for. (While sign-up is invite-only, ask someone to invite you first.)', 'People in several offices switch between them in Admin → General.'],
+    steps: ['Sign in with Google.', 'If someone invited you, their office is there when you sign in.', 'If you are not in an office yet, name yours and say in a line what it is for. (While sign-up is invite-only, ask someone to invite you first.)', 'To switch offices or start another, click your office’s name at the top of the sidebar. On a phone, use More (or ⌘K) → “Switch to …” or “Start another office”.'],
     open: { label: 'Enter the office', href: '/app' },
     since: '0.4',
   },
@@ -301,6 +301,15 @@ export const GUIDE: GuideEntry[] = [
 
   // ── admin ──
   {
+    id: 'admin-name',
+    area: 'admin',
+    title: 'Your office’s own name',
+    what: 'The app shows your business’s name at the top and in the browser tab, in place of Headcount.',
+    steps: ['Open Admin → General (or click your office’s name at the top of the sidebar → “Rename this office”).', 'Type the name under Organization and press Rename. Owners can rename it any time.'],
+    open: { label: 'Name your office', href: '/app/admin' },
+    since: '0.5',
+  },
+  {
     id: 'admin-people',
     area: 'admin',
     title: 'People and roles',
@@ -330,6 +339,20 @@ export const GUIDE: GuideEntry[] = [
 
 /** Newest first. Each change links to its guide entry where there is one. */
 export const RELEASES: Release[] = [
+  {
+    version: '0.5',
+    date: '2026-10-07',
+    title: 'Make it yours',
+    summary: 'Your office carries your business’s name, switching between offices is one click, and the Hire, Meetings and Files pages read better, especially on a phone.',
+    changes: [
+      { text: 'Your office’s own name at the top of the app and in the browser tab.', guide: 'admin-name' },
+      { text: 'Switch offices, or start another, from your office’s name at the top of the sidebar (More on a phone).', guide: 'start-office' },
+      { text: 'People who are not owners can switch or start offices from the Admin page.' },
+      { text: 'A cleaner Hire page: faces, room to breathe, and the Hire button clear of your Chief.', guide: 'start-hire' },
+      { text: 'Meetings fits your phone’s screen; Files shows what was made first, and making something new last.', guide: 'files-images' },
+      { text: 'This releases page, with how to use every feature.' },
+    ],
+  },
   {
     version: '0.4',
     date: '2026-10-06',

@@ -1,6 +1,6 @@
-// Files: everything the office makes, in one place. Make an image or a short video from a description (or ask the
-// Chief in Talk); the documents the projects delivered, each downloadable as Word, PowerPoint or Excel; the apps and
-// pages built on the canvas; and a pointer to what the owner shared with the team (Memory).
+// Files: everything the office makes, in one place. What was made comes first: images and videos, the documents the
+// projects delivered (each downloadable as Word, PowerPoint or Excel), the apps and pages built on the canvas. Making a
+// new image or short video (or asking the Chief in Talk) comes last, so a phone opens on the files themselves.
 import { IMAGE_ASPECTS, VIDEO_ASPECTS, VIDEO_SECONDS_MAX, type FileView, type ImageAspect, type VideoAspect } from '@headcount/protocol/ext/files';
 import type { TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { useEffect, useState } from 'preact/hooks';
@@ -60,7 +60,6 @@ export function Files() {
         <PageTitle id="files-title">Files</PageTitle>
         <p class="page-lede">Everything your office makes: images and videos, the documents your projects deliver, and the apps and pages built for you. Download any document as Word, PowerPoint or Excel.</p>
       </header>
-      {mayContribute.value && can && <MakePanel can={can} />}
       {error && (
         <p class="form-error" role="alert">
           {error}
@@ -68,9 +67,16 @@ export function Files() {
       )}
 
       <section class="files-section" aria-labelledby="media-title">
-        <h2 id="media-title" class="admin-card-title">
-          Images and videos
-        </h2>
+        <div class="files-section-head">
+          <h2 id="media-title" class="admin-card-title">
+            Images and videos
+          </h2>
+          {mayContribute.value && can && (can.image || can.video) && (
+            <a href="#make" class="button-quiet button-small">
+              <Icon name="sparkle" size={14} /> Make an image or video
+            </a>
+          )}
+        </div>
         {media.length ? (
           <ul class="media-grid">
             {media.map((f) => (
@@ -78,7 +84,7 @@ export function Files() {
             ))}
           </ul>
         ) : (
-          <p class="page-fine">Nothing made yet. Describe one above, or ask {chiefName.value} in Talk: “Make an image for our spring sale”.</p>
+          <p class="page-fine">Nothing made yet. Describe one at the bottom of this page, or ask {chiefName.value} in Talk: “Make an image for our spring sale”.</p>
         )}
       </section>
 
@@ -126,6 +132,8 @@ export function Files() {
         )}
       </section>
 
+      {mayContribute.value && can && <MakePanel can={can} />}
+
       <p class="page-fine files-shared">
         <Icon name="attach" size={16} />
         <span>
@@ -145,7 +153,7 @@ function MakePanel({ can }: { can: { image: boolean; video: boolean } }) {
   const [error, setError] = useState<string | null>(null);
   if (!can.image && !can.video)
     return (
-      <p class="panel files-make files-make-off">
+      <p id="make" class="panel files-make files-make-off">
         Images need an OpenAI or xAI key, and videos an xAI key. {isOwner.value ? <Link href={paths.admin('keys')}>Add one in Admin → Provider keys</Link> : 'An owner adds them in Admin → Provider keys.'}
       </p>
     );
@@ -170,7 +178,10 @@ function MakePanel({ can }: { can: { image: boolean; video: boolean } }) {
     }
   };
   return (
-    <form class="panel files-make" onSubmit={make} aria-label="Make an image or a video">
+    <form id="make" class="panel files-make" onSubmit={make} aria-labelledby="make-title">
+      <h2 id="make-title" class="admin-card-title">
+        Make an image or a video
+      </h2>
       <div class="files-make-kinds" role="radiogroup" aria-label="What to make">
         {(['image', 'video'] as const).map((k) => (
           <button key={k} type="button" role="radio" aria-checked={kind === k} class="files-kind" disabled={!can[k]} title={can[k] ? undefined : k === 'video' ? 'Videos need an xAI key' : 'Images need an OpenAI or xAI key'} onClick={() => pick(k)}>

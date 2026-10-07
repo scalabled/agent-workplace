@@ -3,7 +3,8 @@
 import type { OrgsResponse, PlatformResponse } from '@headcount/protocol/ext/orgs';
 import { useEffect, useState } from 'preact/hooks';
 import { api, ApiError } from '../api/client';
-import { auth, canCreateOrg, createOrg, currentOrg, isOwner, switchOrg } from '../auth/session';
+import { BRAND } from '@headcount/protocol';
+import { auth, canCreateOrg, createOrg, currentOrg, isOwner, myOrgs, switchOrg } from '../auth/session';
 import { CopyLink } from '../links/CopyLink';
 import { paths } from '../router';
 
@@ -17,20 +18,26 @@ export function OrgCard() {
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
+    if (auth.value.status !== 'signed-in') return;
     void api
       .listOrgs()
-      .then(setData)
+      .then((r) => {
+        setData(r);
+        myOrgs.value = r.orgs;
+      })
       .catch(() => undefined);
   }, []);
   const signedIn = auth.value.status === 'signed-in';
-  if (!signedIn) return null; // this computer: one office
+  // This computer (sign-in off): one office, which its owner can still name.
+  if (!signedIn && auth.value.status !== 'open') return null;
   const rename = async (e: Event) => {
     e.preventDefault();
     setError(null);
     try {
       const r = await api.renameOrg(name.trim());
       currentOrg.value = r.org;
-      setNote('Renamed.');
+      myOrgs.value = myOrgs.value?.map((o) => (o.orgId === r.org.orgId ? { ...o, name: r.org.name } : o)) ?? null;
+      setNote('Renamed. The new name is at the top of the app.');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Not renamed. Try again.');
     }
@@ -50,19 +57,21 @@ export function OrgCard() {
       </div>
       <p class="page-fine">This office’s team, memory and files belong to it alone. Invite people on the People page.</p>
       {isOwner.value ? (
-        <form class="admin-row" onSubmit={rename}>
-          <label class="visually-hidden" for="org-rename">
-            Organization name
+        <form class="org-rename" onSubmit={rename}>
+          <label class="field-label" for="org-rename">
+            Office name <span class="page-fine">(shown at the top of the app, in place of {BRAND.name})</span>
           </label>
-          <input id="org-rename" class="field-input" maxLength={80} value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} />
-          <button type="submit" class="button-quiet" disabled={name.trim().length < 2 || name.trim() === currentOrg.value?.name}>
-            Rename
-          </button>
-          {note && (
-            <span class="page-fine" role="status">
-              {note}
-            </span>
-          )}
+          <div class="admin-row">
+            <input id="org-rename" class="field-input" maxLength={80} value={name} placeholder="Your business’s name" onInput={(e) => setName((e.target as HTMLInputElement).value)} />
+            <button type="submit" class="button-quiet" disabled={name.trim().length < 2 || name.trim() === currentOrg.value?.name}>
+              Rename
+            </button>
+            {note && (
+              <span class="page-fine" role="status">
+                {note}
+              </span>
+            )}
+          </div>
         </form>
       ) : (
         <p class="trust-class-name">{currentOrg.value?.name}</p>

@@ -28,7 +28,8 @@ import { Team } from './routes/Team';
 import { Hire } from './routes/Hire';
 import { MeetingRoom, Meetings } from './routes/Meetings';
 import { Files } from './routes/Files';
-import { actualRole, role, viewAs } from './auth/session';
+import { BRAND } from '@headcount/protocol';
+import { actualRole, auth, currentOrg, loadOrgs, role, viewAs } from './auth/session';
 import { revealLinked } from './links/links';
 import { Toast } from './links/Toast';
 import './routes/admin.css';
@@ -355,6 +356,10 @@ export function App() {
   useGlobalKeys();
   // A link to an item (`?at=`): take the reader to it once the page has it.
   useEffect(() => revealLinked(), [route.value.path, linkTarget.value]);
+  // The browser tab carries the office's own name; the offices this person belongs to load for the switcher and ⌘K.
+  const office = currentOrg.value?.name ?? BRAND.name;
+  useEffect(() => void (document.title = office), [office]);
+  useEffect(() => void loadOrgs(), [auth.value.status]);
   const name = route.value.name;
   const bare = name === 'onboarding';
   return (

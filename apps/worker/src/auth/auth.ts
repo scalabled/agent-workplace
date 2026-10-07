@@ -373,7 +373,7 @@ export async function handleAuthRoute(req: Request, url: URL, env: Env, fetcher:
         .bind(new Date().toISOString(), who.name, who.orgId, who.email)
         .run()
         .catch(() => undefined);
-    const orgName = (await env.DB.prepare('SELECT name FROM orgs WHERE org_id = ?').bind(who.orgId).first<string>('name').catch(() => null)) ?? (who.orgId === homeWorkspace(env) ? 'Headcount' : 'My office');
+    const orgName = (await env.DB.prepare('SELECT name FROM orgs WHERE org_id = ?').bind(who.orgId).first<string>('name').catch(() => null)) ?? (who.orgId === homeWorkspace(env) ? BRAND.name : 'My office');
     const may = who.email ? await mayCreateOrg(env, who.email) : { ok: false as const, why: '' };
     return json({
       mode,

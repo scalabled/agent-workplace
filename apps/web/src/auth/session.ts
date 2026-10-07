@@ -5,6 +5,7 @@
 // worker enforces it on every call either way.
 import { computed, signal } from '@preact/signals';
 import { atLeast, type Me, type Role } from '@headcount/protocol/ext/admin';
+import type { OrgView, OrgsResponse } from '@headcount/protocol/ext/orgs';
 
 export type SignInReason = 'denied' | 'failed' | 'expired' | 'unconfigured';
 
@@ -19,6 +20,20 @@ export type AuthState =
 export const currentOrg = signal<{ orgId: string; name: string } | null>(null);
 /** May start another organization. */
 export const canCreateOrg = signal(false);
+/** Every office this person belongs to (signed in with Google), loaded when first needed (the switcher, ⌘K). */
+export const myOrgs = signal<OrgView[] | null>(null);
+export async function loadOrgs(fetcher: typeof fetch = fetch): Promise<void> {
+  if (auth.value.status !== 'signed-in') return;
+  try {
+    const res = await fetcher('/api/orgs', { headers: { accept: 'application/json' } });
+    if (!res.ok) return;
+    const r = (await res.json()) as OrgsResponse;
+    myOrgs.value = r.orgs;
+    canCreateOrg.value = r.canCreate;
+  } catch {
+    /* the switcher shows only this office */
+  }
+}
 /** One of the deployment's owners (sees the platform page; makes the shared portraits). */
 export const isPlatform = signal(false);
 

@@ -9,7 +9,7 @@ import { catalog, loadCatalog } from '../catalog';
 import { chiefName } from '../chief';
 import { setTheme, theme } from '../lib/theme';
 import { navigate, paths } from '../router';
-import { auth, isOwner, signOut, currentOrg } from '../auth/session';
+import { auth, canCreateOrg, currentOrg, isOwner, myOrgs, signOut, switchOrg } from '../auth/session';
 import { copyLink, pageHref } from '../links/links';
 import { onboarded, settings } from '../store';
 import { setAmbience, setOwnerName, setVoiceOn } from '../talk/actions';
@@ -169,7 +169,13 @@ function useItems(): PaletteItem[] {
     items.push({ id: 'set:chief', label: 'Switch Chief of Staff', hint: 'Pick someone else', group: 'Settings', icon: 'user', keywords: 'lead change choose', run: go(paths.onboarding) });
     const who = auth.value;
     if (who.status === 'signed-in') {
-      items.push({ id: 'set:org', label: 'Organization', hint: currentOrg.value?.name ?? '', group: 'Settings', icon: 'projects', keywords: 'organization office company switch another start new workspace team account', run: go(`${paths.admin()}?at=organization`) });
+      items.push({ id: 'set:org', label: 'Organization', hint: currentOrg.value?.name ?? '', group: 'Settings', icon: 'projects', keywords: 'organization office company name rename switch another start new workspace team account', run: go(`${paths.admin()}?at=organization`) });
+      // Every other office this person belongs to, one switch away (the sidebar's switcher is hidden on phones).
+      for (const o of myOrgs.value ?? []) {
+        if (o.orgId === currentOrg.value?.orgId) continue;
+        items.push({ id: `org:${o.orgId}`, label: `Switch to ${o.name}`, hint: 'Another office', group: 'Settings', icon: 'projects', keywords: `office organization switch ${o.name}`, run: () => void switchOrg(o.orgId) });
+      }
+      if (canCreateOrg.value) items.push({ id: 'org:new', label: 'Start another office', hint: 'For another business', group: 'Settings', icon: 'plus', keywords: 'office organization new start create business', run: go(`${paths.admin()}?at=organization`) });
       items.push({ id: 'set:signout', label: 'Sign out', hint: who.email, group: 'Settings', icon: 'user', keywords: 'log out logout account google leave', run: () => void signOut() });
     }
     if (t !== 'dark') items.push({ id: 'set:dark', label: 'Use dark theme', group: 'Settings', icon: 'moon', keywords: 'night theme appearance', run: () => setTheme('dark') });

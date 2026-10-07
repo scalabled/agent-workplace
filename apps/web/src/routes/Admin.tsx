@@ -69,6 +69,7 @@ export function Admin({ section }: { section?: string }) {
           <p class="page-lede">Only owners can change the office’s settings. Ask an owner if something needs changing.</p>
         </header>
         {actualRole.value === 'owner' && <ViewAsBar />}
+        <OrgCard />
       </section>
     );
   const title = SECTIONS.find((s) => s.id === current)!.title;
