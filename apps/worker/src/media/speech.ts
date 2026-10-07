@@ -6,6 +6,7 @@ import { takeDaily } from '../lib/limits';
 import { withFailover } from './failover';
 import { toBase64 } from './image';
 import { chooseVoice, voiceHeader } from './voice';
+import { cannedSpeechKey, isCannedSpeech } from './canned';
 
 // Speech routes (owned by media). Provider choice is the registry's (TTS xai → openai, STT openai → xai); keys never
 // leave the worker. Keyless, both answer 503 not_configured naming OPENAI_API_KEY / XAI_API_KEY, and the browser
@@ -18,6 +19,7 @@ export function mockMediaEnabled(env: Env): boolean {
 }
 
 const SPEAKER_ID = /^[A-Za-z0-9_:.-]{1,120}$/;
+/** "hit" or "miss" (this office's replay cache), "shared" (canned speech kept for every office). */
 export const TTS_CACHE_HEADER = 'x-tts-cache';
 
 /** Where a voiced line is kept: per workspace, content-addressed by the words, the voice and the provider order. */
@@ -41,8 +43,21 @@ export const handleTts: RouteHandler = async (req, rc) => {
   const asJson = b.response === 'json';
   const text = b.text.trim();
   const { voice, prefer } = chooseVoice(b.voiceRef, b.speakerId);
-  // Replay cache (meeting lines): the same words in the same voice come from R2, free.
-  const cacheKey = asJson && b.cache === true && rc.env.BLOBS ? await ttsCacheKey(rc.env, { text, voice, prefer, format: format ?? null }) : null;
+  // Canned speech (the office's fixed lines, everyday acknowledgements): rendered once per voice for every office,
+  // kept outside any office's prefix. Only exact matches of the list qualify, so nothing personal is shared.
+  const sharedKey = rc.env.BLOBS && isCannedSpeech(text) ? await cannedSpeechKey({ text, voice, prefer, format: format ?? null, json: asJson }) : null;
+  if (sharedKey) {
+    const hit = await rc.env.BLOBS.get(sharedKey).catch(() => null);
+    if (hit) {
+      const headers: Record<string, string> = { 'cache-control': 'private, max-age=86400', [TTS_CACHE_HEADER]: 'shared' };
+      if (asJson) return new Response(hit.body, { headers: { ...headers, 'content-type': 'application/json' } });
+      return new Response(hit.body, {
+        headers: { ...headers, 'content-type': hit.httpMetadata?.contentType ?? 'audio/mpeg', [SPEECH_HEADERS.provider]: hit.customMetadata?.provider ?? '', [SPEECH_HEADERS.voice]: hit.customMetadata?.voice ?? '' },
+      });
+    }
+  }
+  // Replay cache (meeting lines): the same words in the same voice come from R2, free, within this office.
+  const cacheKey = !sharedKey && asJson && b.cache === true && rc.env.BLOBS ? await ttsCacheKey(rc.env, { text, voice, prefer, format: format ?? null }) : null;
   if (cacheKey) {
     const hit = await rc.env.BLOBS.get(cacheKey).catch(() => null);
     if (hit) return new Response(hit.body, { headers: { 'content-type': 'application/json', 'cache-control': 'private, max-age=86400', [TTS_CACHE_HEADER]: 'hit' } });
@@ -67,14 +82,18 @@ export const handleTts: RouteHandler = async (req, rc) => {
   const provider = out.provider ?? resolved.providerId;
   const voiceLabel = voiceHeader(out.voice);
 
+  // A canned line is kept for every office (never the Mock's placeholder audio).
+  const share = sharedKey && provider !== 'mock' ? sharedKey : null;
   if (asJson) {
     const payload: TtsJsonResponse = { mime: out.mime, audioBase64: toBase64(out.audio), alignment: out.alignment ?? null, provider, voice: voiceLabel };
+    if (share) rc.ctx.waitUntil(rc.env.BLOBS.put(share, JSON.stringify(payload), { httpMetadata: { contentType: 'application/json' }, customMetadata: { provider, voice: voiceLabel } }).catch(() => undefined));
     if (cacheKey) {
       const put = rc.env.BLOBS.put(cacheKey, JSON.stringify(payload), { httpMetadata: { contentType: 'application/json' }, customMetadata: { speakerId: b.speakerId as string } }).catch(() => undefined);
       rc.ctx.waitUntil(put);
     }
-    return json<TtsJsonResponse>(payload, cacheKey ? { headers: { [TTS_CACHE_HEADER]: 'miss' } } : undefined);
+    return json<TtsJsonResponse>(payload, cacheKey || share ? { headers: { [TTS_CACHE_HEADER]: 'miss' } } : undefined);
   }
+  if (share) rc.ctx.waitUntil(rc.env.BLOBS.put(share, out.audio, { httpMetadata: { contentType: out.mime }, customMetadata: { provider, voice: voiceLabel } }).catch(() => undefined));
   return new Response(out.audio, {
     headers: {
       'content-type': out.mime,

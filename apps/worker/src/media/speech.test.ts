@@ -120,6 +120,39 @@ describe('POST /api/speech/tts', () => {
     expect(c.status).toBe(429);
   });
 
+  it('canned speech is kept once for every office: another office gets it free; nothing personal is shared', async () => {
+    const a = await mediaEnv({ OPENAI_API_KEY: 'test-openai', XAI_API_KEY: 'test-xai' });
+    const calls: Call[] = [];
+    const regA = cloudRegistry(a.env, { openai: fakeSpeech('openai', calls), xai: fakeSpeech('xai', calls) });
+    const line = { text: 'On it.', voiceRef: { openai: 'echo', xai: 'rex' }, speakerId: 'cw_chief', response: 'json' };
+    const first = await invoke(a, regA, 'POST', '/api/speech/tts', postJson(line));
+    expect(first.headers.get('x-tts-cache')).toBe('miss');
+    const body = (await first.json()) as TtsJsonResponse;
+    await new Promise((r) => setTimeout(r, 0)); // the R2 write runs in waitUntil
+    const blobs = a.env.BLOBS as unknown as FakeR2;
+    expect([...blobs.objects.keys()].filter((k) => k.startsWith('speech/canned/'))).toHaveLength(1);
+    // Another organization, its daily budget already spent: served from the shared copy, no provider call.
+    const b = { env: { ...a.env, WORKSPACE_ID: 'org_bbbbbbbbbbbb', TTS_DAILY_LIMIT: '0' } as Env, ctx: a.ctx };
+    const regB = cloudRegistry(b.env, { openai: fakeSpeech('openai', calls), xai: fakeSpeech('xai', calls) });
+    const again = await invoke(b, regB, 'POST', '/api/speech/tts', postJson({ ...line, speakerId: 'cw_chief' }));
+    expect(again.status).toBe(200);
+    expect(again.headers.get('x-tts-cache')).toBe('shared');
+    expect(await again.json()).toEqual(body);
+    expect(calls).toHaveLength(1);
+    // Plain audio too.
+    const audio = await invoke(a, regA, 'POST', '/api/speech/tts', postJson({ text: 'Thank you, everyone.', voiceRef: { openai: 'echo', xai: 'rex' }, speakerId: 'cw_chief' }));
+    expect(audio.headers.get('content-type')).toBe('audio/mpeg');
+    await new Promise((r) => setTimeout(r, 0));
+    const audioAgain = await invoke(b, regB, 'POST', '/api/speech/tts', postJson({ text: 'Thank you, everyone.', voiceRef: { openai: 'echo', xai: 'rex' }, speakerId: 'cw_chief' }));
+    expect(audioAgain.headers.get('x-tts-cache')).toBe('shared');
+    expect(audioAgain.headers.get('content-type')).toBe('audio/mpeg');
+    expect(new Uint8Array(await audioAgain.arrayBuffer())).toEqual(new Uint8Array([0x49, 0x44, 0x33, 4]));
+    // Anything else (a name, a number, the owner's words) is never kept in the shared space.
+    await invoke(a, regA, 'POST', '/api/speech/tts', postJson({ ...line, text: 'Call Jo Smith at 555 0100 about the invoice.' }));
+    await new Promise((r) => setTimeout(r, 0));
+    expect([...blobs.objects.keys()].filter((k) => k.startsWith('speech/canned/'))).toHaveLength(2);
+  });
+
   it('prefers xAI when both providers are configured and the voice has both ids (catalog lead voice)', async () => {
     const t = await mediaEnv({ OPENAI_API_KEY: 'test-openai', XAI_API_KEY: 'test-xai' });
     const calls: Call[] = [];

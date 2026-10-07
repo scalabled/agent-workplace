@@ -127,3 +127,22 @@ Code: `apps/worker/src/files/` (`store.ts`, `video.ts`, `export.ts`, `routes.ts`
 ## The name
 
 `packages/protocol/src/brand.ts` holds `BRAND`. See `docs/dev/NAMING.md`.
+
+## Voice caching (shared, no personal data)
+
+Voice audio is kept in R2 in three ways. Only text that is the same for every office is shared.
+
+- **Pre-voiced reflex clips** (`apps/worker/src/expr/clips.ts`, `prevoice.ts`):
+  - What they are: short lines from the expressions catalog ("mm-hm", "good question, one sec", laughs).
+  - Each is rendered once per voice and keyed by its content.
+  - Lines with nothing office-specific are kept under `expr/clips/` and shared by every office.
+  - Lines carrying an office's details stay under `ws/<org>/expr/`. Those details are the owner's name, a renamed Chief,
+    a coworker, project, client or blocker.
+- **Canned speech** (`apps/worker/src/media/canned.ts`):
+  - What it is: the office's own fixed lines, such as "Bring it to me in Talk and it goes on my list.", the figure
+    lines and "Thank you, everyone.", plus everyday acknowledgements ("On it.", "Got it.", "One moment.").
+  - Its audio is kept under `speech/canned/` the first time any office hears it, and every office reuses it.
+  - A shared hit makes no provider call and uses none of the daily voice budget. It is marked `x-tts-cache: shared`.
+  - Only text that exactly matches the list is shared: no names, numbers or anything a person wrote.
+  - The Mock's placeholder audio is never kept.
+- **Replay of meeting lines:** kept per office under `ws/<org>/tts/`, so replaying a meeting is free.
