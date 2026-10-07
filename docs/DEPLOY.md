@@ -38,11 +38,46 @@ again. Invite contributors and readers on Admin → People; `OWNER_EMAILS` stay 
   cross-site `POST /api/talk` returns 403, and Google sign-in sends a 302.
 - `Permissions-Policy` allows `camera`, `display-capture` and the microphone for the app itself.
 
-**Before the next deploy (Inc 6, not deployed yet):**
-- Apply migration `0005_trust.sql` (autonomy, grants, the audit log) first:
-  `npx wrangler d1 migrations apply headcount --remote -c wrangler.deploy.jsonc`.
-- Email stays off until an owner turns it on in Admin → Email. To try it without sending, choose the test mailbox.
-  For real email, verify a domain with Resend, set "Send as", and save the Resend key. See `docs/dev/TRUST.md`.
+**Before the next deploy (not deployed yet):**
+
+The next deploy covers these commits:
+- Inc 6: trust and real actions.
+- Multi-tenant organizations.
+- Hiring.
+- Meetings.
+- Files: images, video and Office documents.
+- The brand constant and the landing refresh.
+
+1. **Apply two D1 migrations first, in this order:**
+   - `0005_trust.sql`: autonomy, grants, the audit log.
+   - `0006_orgs.sql`: the `orgs` table, `auth_sessions.org_id`, and an index on members by email.
+
+   One command applies both:
+   `(cd apps/worker && npx wrangler d1 migrations apply headcount --remote -c wrangler.deploy.jsonc)`.
+   Both only add tables, columns and an index. No new Durable Object classes, so there is no DO migration tag.
+2. **Who may start an office.** `wrangler.deploy.jsonc` has `SIGNUP_MODE: "open"`, `MAX_ORGS: "100"` and
+   `MAX_ORGS_PER_USER: "3"`.
+   - With `open`, anyone with a Google account can start their own office.
+   - `invite` admits only people an owner invited.
+   - `closed` admits nobody new.
+   - Every office uses the deployment's provider keys unless its owners save their own. Each office has its own daily
+     limits (Admin → Limits), which only the home office can change. The home office is `WORKSPACE_ID`, and its
+     `OWNER_EMAILS` are platform admins who see Admin → Every organization.
+3. **Google sign-in for other people.** If the OAuth consent screen is still in *Testing*, only listed test users can
+   sign in. To let test groups in, publish the app (Google Cloud → OAuth consent screen → Publish app), or add each
+   tester's address to the test users list.
+4. **Images and video.**
+   - Images use the OpenAI or xAI key (already secrets), counted against `PORTRAIT_DAILY_LIMIT` per office.
+   - Videos use `XAI_API_KEY` (grok-imagine-video, up to 15 s), at most `VIDEO_DAILY_LIMIT` (default 10) per office
+     per day.
+   - Files are kept in R2 under `ws/<org>/files/`.
+5. **Workers Paid is strongly recommended** (H5). The Free plan's 10 ms of CPU per request is too little for Office
+   exports (`POST /api/export` zips the document) and for image decoding.
+6. **Email** stays off until an owner turns it on in Admin → Email. To try it without sending anything, choose the
+   test mailbox. For real email, verify a domain with Resend, set "Send as", and save the Resend key. See
+   `docs/dev/TRUST.md`.
+7. **The existing office keeps its data.** It is the home organization: its sessions pick it up at the next request,
+   and its members stay members. `docs/dev/PLATFORM.md` describes organizations, hiring, meetings and files.
 
 **Owner steps left (historical; done as of this deploy except the plan upgrade):**
 1. Set these secrets: `wrangler secret put GOOGLE_CLIENT_SECRET --name headcount` and `wrangler secret put OWNER_EMAILS --name headcount`.

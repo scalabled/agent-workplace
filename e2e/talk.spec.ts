@@ -12,6 +12,7 @@ test('a reply streams in, then lands as one message', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: 'Rosa' })).toBeVisible();
   await recordFrames(page);
   const before = await page.locator('.msg-chief').count();
+  const announcementsBefore = await page.locator('.msg-chief[data-kind="announcement"]').count();
   await say(page, 'Tell me what you can do for me');
   // The owner's message shows at once.
   await expect(page.locator('.msg-owner .msg-body').last()).toHaveText('Tell me what you can do for me');
@@ -23,9 +24,12 @@ test('a reply streams in, then lands as one message', async ({ page }) => {
   expect(deltas.length).toBeGreaterThan(1);
   expect(deltas.map((d) => d.data.delta).join('')).toBe(message.data.text);
   expect(done.data).toMatchObject({ finish: 'stop', route: 'answer' });
-  await expect(page.locator('.msg-chief')).toHaveCount(before + 1);
-  await expect(page.locator('.msg-chief').last()).not.toHaveAttribute('data-streaming', /.*/);
-  await expect(page.locator('.msg-chief .msg-body').last()).toContainText(String(message.data.text).slice(0, 30));
+  // The reply lands as one message: the streamed bubble becomes it (announcements of other work may land meanwhile).
+  const reply = page.locator(`[id="${String(message.data.messageId)}"]`);
+  await expect(reply).toHaveCount(1);
+  await expect(page.locator('.msg-chief')).toHaveCount(before + 1 + (await page.locator('.msg-chief[data-kind="announcement"]').count()) - announcementsBefore);
+  await expect(reply).not.toHaveAttribute('data-streaming', /.*/);
+  await expect(reply.locator('.msg-body')).toContainText(String(message.data.text).slice(0, 30));
 });
 
 test('delegate, ask how it is going while it runs, steer it, hear it finish', async ({ page }) => {

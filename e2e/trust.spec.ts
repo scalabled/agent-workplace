@@ -17,8 +17,9 @@ test('an email waits for your OK, goes out once with a receipt, and the receipt 
   await expect(card).toBeVisible({ timeout: 30_000 });
   await expect(card).toContainText('To jo@example.com');
   await expect(card).toContainText('The spring menu');
-  await waitForFrame(page, (f) => f.type === 'talk.done' && f.live);
-  await expect(page.locator('.msg-chief').last()).toContainText('nothing has been sent yet');
+  const done = await waitForFrame(page, (f) => f.type === 'talk.done' && f.live);
+  // This turn's reply (announcements of other work may land in the thread meanwhile).
+  await expect(page.locator(`[id="${String(done.data.messageId)}"]`)).toContainText('nothing has been sent yet');
   await card.getByRole('combobox').selectOption('day');
   await card.getByRole('button', { name: 'Send it' }).click();
   const sent = page.locator('.msg-note[data-email]', { hasText: 'Sent “The spring menu” to jo@example.com' });
