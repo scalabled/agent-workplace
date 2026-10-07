@@ -519,6 +519,8 @@ node scripts/deploy-preflight.mjs                          # exit 1 = do not dep
 
 Migrations go first: they are additive, and the old version keeps working against the new schema.
 
+Add each deploy that users will notice to the releases page (`docs/dev/RELEASES.md`).
+
 ### 8.3 Smoke test
 
 Phase A (Mock, before Access):

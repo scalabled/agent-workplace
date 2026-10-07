@@ -3,7 +3,7 @@
 import { render, type ComponentType } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { AuthGate } from './auth/AuthGate';
-import { loadApp, loadLanding, type Loader } from './lazy';
+import { loadApp, loadLanding, loadReleases, type Loader } from './lazy';
 import { forcedThemeFor, forceTheme, initTheme } from './lib/theme';
 import { lastNav, route, savedScroll } from './router';
 import './styles/fonts.css';
@@ -40,7 +40,8 @@ function Lazy({ load }: { load: Loader }) {
 
 function Root() {
   const name = route.value.name;
-  const landing = name === 'landing';
+  // The public pages: the landing page and the releases page (no sign-in, no app).
+  const landing = name === 'landing' || name === 'releases';
   // The route's theme is pinned before this render paints (the landing is dark even for owners who chose light).
   forceTheme(forcedThemeFor(name));
   const first = useRef(true);
@@ -65,7 +66,9 @@ function Root() {
     if (y !== null) requestAnimationFrame(() => window.scrollTo(0, y));
   }, [name]);
   // The app loads only once the owner may be here (signed in, or sign-in off on localhost); the landing is public.
-  return landing ? (
+  return name === 'releases' ? (
+    <Lazy key="releases" load={loadReleases} />
+  ) : landing ? (
     <Lazy key="landing" load={loadLanding} />
   ) : (
     <AuthGate>

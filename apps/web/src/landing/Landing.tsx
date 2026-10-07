@@ -108,6 +108,7 @@ const NAV_LINKS = [
   { href: '#trust', label: 'Trust' },
   { href: '#pricing', label: 'Pricing' },
   { href: '#faq', label: 'FAQ' },
+  { href: '/releases', label: 'Releases' },
 ] as const;
 
 function TopNav() {
@@ -647,6 +648,9 @@ export function Landing() {
           {BRAND.name}
         </span>
         <span class="lp-footer-note">The AI Office. Every coworker is an AI, and says so.</span>
+        <a class="lp-footer-link" href="/releases">
+          Releases
+        </a>
         <EnterLink class="lp-footer-link">Enter the office</EnterLink>
       </footer>
     </div>

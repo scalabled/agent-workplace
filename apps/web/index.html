@@ -24,7 +24,8 @@
           if (v === 'light') t = 'light';
           else if (v === 'system') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
         } catch (e) {}
-        d.dataset.theme = landing ? 'dark' : t;
+        // The public pages ("/" and "/releases") are always dark.
+        d.dataset.theme = landing || /^\/releases\/?$/.test(location.pathname) ? 'dark' : t;
         var hero = '__HEADCOUNT_HERO__';
         var heroSet = '__HEADCOUNT_HERO_SRCSET__';
         if (landing && hero) {

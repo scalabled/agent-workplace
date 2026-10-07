@@ -4,6 +4,7 @@ import type { ComponentType } from 'preact';
 export type Loader = () => Promise<ComponentType>;
 
 export const loadLanding: Loader = () => import('./landing/Landing').then((m) => m.Landing);
+export const loadReleases: Loader = () => import('./releases/Releases').then((m) => m.Releases);
 export const loadApp: Loader = () => import('./app').then((m) => m.App);
 
 let appPrefetch: Promise<unknown> | null = null;

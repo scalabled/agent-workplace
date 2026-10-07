@@ -76,7 +76,7 @@ export function forceTheme(value: ResolvedTheme | null): void {
 
 /** The theme a route pins: the public landing page is always dark; the app follows the owner's choice. */
 export function forcedThemeFor(routeName: string): ResolvedTheme | null {
-  return routeName === 'landing' ? 'dark' : null;
+  return routeName === 'landing' || routeName === 'releases' ? 'dark' : null;
 }
 
 /**

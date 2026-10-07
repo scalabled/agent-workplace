@@ -241,7 +241,7 @@ describe('Landing page', () => {
     expect(imgs.slice(1).every((i) => i.getAttribute('loading') === 'lazy')).toBe(true);
     expect(imgs.every((i) => i.hasAttribute('alt'))).toBe(true);
     // Phones get a menu with every section; the provider list is plain text, not a logo wall.
-    expect([...host.querySelectorAll('#lp-nav-links a')].map((a) => a.getAttribute('href'))).toEqual(['#how', '#meetings', '#leads', '#trust', '#pricing', '#faq']);
+    expect([...host.querySelectorAll('#lp-nav-links a')].map((a) => a.getAttribute('href'))).toEqual(['#how', '#meetings', '#leads', '#trust', '#pricing', '#faq', '/releases']);
     expect(host.querySelectorAll('.lp-providers li').length).toBe(6);
     // The pricing section ends in a call to action, and the emphasised tier says why, honestly.
     expect(host.querySelector('#pricing .lp-pricing-cta a')?.getAttribute('href')).toBe('/app');
