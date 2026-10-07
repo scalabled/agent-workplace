@@ -2,7 +2,7 @@
 // Keyless (browser voice) unless a test says otherwise: browser lines are always instant, so reflex-grade picks work.
 import type { ChatRequest, ModelEvent } from '@headcount/models';
 import { CHIEF_ID, type Frame } from '@headcount/protocol';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { exprSetup, gate, isTalk, sleep, useProviders, viewerOp } from '../../test/expr-kit';
 import { FakeWebSocket } from '../../test/fake-cloud';
 import { defaultRuntime, runtime } from '../workspace/runtime';
@@ -15,6 +15,7 @@ import { ownerClock, parseRecentOp, parseViewerOp } from './viewer';
 afterEach(() => {
   Object.assign(runtime, defaultRuntime);
   Object.assign(exprTiming, defaultExprTiming);
+  vi.useRealTimers();
 });
 
 const lastUser = (req: ChatRequest) => {
@@ -296,6 +297,9 @@ describe('server reflexes for the Chief (A9)', () => {
 
 describe('mood (A7)', () => {
   it('folds real events, persists them, coalesces small changes and snapshots on connect', async () => {
+    // Mood reads the time of day: pin it to the afternoon (UTC) so the sizes of the changes do not depend on when the
+    // suite runs. Time still moves (the coalescing window is real).
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-07T14:00:00Z'), shouldAdvanceTime: true });
     exprTiming.moodCoalesceMs = 60;
     useProviders();
     const s = await exprSetup();

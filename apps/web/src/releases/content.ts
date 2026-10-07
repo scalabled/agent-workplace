@@ -256,7 +256,7 @@ export const GUIDE: GuideEntry[] = [
     area: 'automation',
     title: 'Connected services',
     what: 'Outside services your Chief and coworkers can use. Keys stay on the server; anything that changes things waits for your OK.',
-    steps: ['Open Connectors, add a service and test it.', 'Let every coworker use it, or switch it on for one coworker from their page; say whether your Chief may use it in Talk.'],
+    steps: ['Open Connectors, add a service and test it. Buffer posts to X, LinkedIn, Facebook and Instagram; Notion, HubSpot, Asana, Canva and others are there too.', 'Let every coworker use it, or switch it on for one coworker from their page; say whether your Chief may use it in Talk.', 'Anything that changes things in a connected app waits for your OK, unless you change that in Admin → Autonomy.'],
     open: { label: 'Open Connectors', href: '/app/connectors' },
     since: '0.2',
   },
@@ -304,7 +304,7 @@ export const GUIDE: GuideEntry[] = [
     id: 'admin-name',
     area: 'admin',
     title: 'Your office’s own name',
-    what: 'The app shows your business’s name at the top and in the browser tab, in place of Headcount.',
+    what: 'The app shows your business’s name at the top and in the browser tab, in place of Headcount, and your Chief of Staff and coworkers call the office by it.',
     steps: ['Open Admin → General (or click your office’s name at the top of the sidebar → “Rename this office”).', 'Type the name under Organization and press Rename. Owners can rename it any time.'],
     open: { label: 'Name your office', href: '/app/admin' },
     since: '0.5',
@@ -339,6 +339,17 @@ export const GUIDE: GuideEntry[] = [
 
 /** Newest first. Each change links to its guide entry where there is one. */
 export const RELEASES: Release[] = [
+  {
+    version: '0.6',
+    date: '2026-10-07',
+    title: 'In your words',
+    summary: 'Your Chief of Staff and coworkers call your office by its own name, everyday phrases play straight away, and the team can post to social media through Buffer.',
+    changes: [
+      { text: 'Your Chief of Staff and coworkers call the office by its own name.', guide: 'admin-name' },
+      { text: 'Everyday phrases (“On it.”, “Thank you, everyone.”) play straight away: each voice says them once for everyone.' },
+      { text: 'Buffer in Connectors: your team can draft and schedule posts for X, LinkedIn, Facebook and Instagram.', guide: 'connectors' },
+    ],
+  },
   {
     version: '0.5',
     date: '2026-10-07',
