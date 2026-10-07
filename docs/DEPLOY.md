@@ -10,9 +10,9 @@
 
 | Resource | State |
 |---|---|
-| Worker `headcount` | **Deployed:** the real app, version `271d5e19` (commit `895a5ed`, 2026-09-29: pictures, files and screen or camera snapshots shown to the Chief, and portraits on profiles). The version before was `1124bc4b` (commit `e1b5fdf`: admin, roles, usage metering, links and side chats, team and second brain, the everyday cast). It runs at https://headcount.greg-371.workers.dev, with Google sign-in required. The first real deploy (`0c0efa43`) replaced the placeholder (`apps/worker/placeholder/`). |
+| Worker `headcount` | **Deployed:** version `ff45c498` (commit `fac47d4`, 2026-10-06). It added: trust and real actions (Inc 6); multi-tenant organizations with invite-only sign-up; hiring; meetings with the Chief moderating; Files (images, xAI videos, Word/PowerPoint/Excel); and the refreshed landing page. The version before was `271d5e19` (commit `895a5ed`, 2026-09-29: pictures, files and screen or camera snapshots shown to the Chief, and portraits on profiles). The version before was `1124bc4b` (commit `e1b5fdf`: admin, roles, usage metering, links and side chats, team and second brain, the everyday cast). It runs at https://headcount.greg-371.workers.dev, with Google sign-in required. The first real deploy (`0c0efa43`) replaced the placeholder (`apps/worker/placeholder/`). |
 | Secrets on `headcount` | `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `XAI_API_KEY`, uploaded from `.dev.vars` (API keys only, never printed). The owner set `GOOGLE_CLIENT_SECRET`, `OWNER_EMAILS` and `CONNECTOR_SECRET`. |
-| D1 `headcount` | `080a0f85-f9fe-4aa5-9dc5-08e025f0e951` (ENAM). Migrations 0001–0004 are applied (0004: members, admin settings, token usage, prices). |
+| D1 `headcount` | `080a0f85-f9fe-4aa5-9dc5-08e025f0e951` (ENAM). Migrations 0001–0006 are applied: 0005 (trust) and 0006 (orgs) on 2026-10-06, before the `ff45c498` deploy. |
 | R2 `headcount-blobs` | Private. It holds the migrated data. |
 | Migrated data | 1,376 objects (72.5 MiB): 176 portraits, 1,198 clips and 2 workspace clips, all with customMetadata. D1 has 176 portrait rows, all with landmarks. |
 | Deploy config | `apps/worker/wrangler.deploy.jsonc` has the real ids, `AUTH_MODE=google`, `APP_ORIGIN`, `GOOGLE_CLIENT_ID`, production vars and test limits. |
@@ -38,7 +38,15 @@ again. Invite contributors and readers on Admin → People; `OWNER_EMAILS` stay 
   cross-site `POST /api/talk` returns 403, and Google sign-in sends a 302.
 - `Permissions-Policy` allows `camera`, `display-capture` and the microphone for the app itself.
 
-**Before the next deploy (not deployed yet):**
+**Smoke test after the `ff45c498` deploy (2026-10-06):**
+- Health reports `fac47d4`.
+- `/`, `/app/talk`, `/app/meetings`, `/app/files` and `/app/team/hire` return 200. The page title comes from the
+  brand constant.
+- Without a session, `/api/meetings`, `/api/files`, `/api/orgs`, `/api/team/suggest` and `/api/workspace` return
+  401.
+- A cross-site `POST /api/export` returns 403, and Google sign-in sends a 302.
+
+**Notes for that deploy (all done except the owner steps in 3 and 5):**
 
 The next deploy covers these commits:
 - Inc 6: trust and real actions.
