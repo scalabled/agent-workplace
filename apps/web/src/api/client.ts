@@ -34,7 +34,7 @@ import type {
 import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcount/protocol/ext/media';
 import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, RoomCancelResponse, RoomId, RoomSayAccepted, RoomSayRequest } from '@headcount/protocol/ext/rooms';
 import { noteUnauthenticated } from '../auth/session';
-import type { ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, MeetingResponse, MeetingSay, MeetingsResponse, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
+import type { CallMeetingRequest, CallMeetingResponse, ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, MeetingResponse, MeetingSay, MeetingsResponse, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
 import type { CanvasCreate, CanvasListResponse, CanvasResponse } from '@headcount/protocol/ext/canvas';
 import type { ConfigResponse, MemberPut, MembersResponse, ModelPrice, UsageResponse } from '@headcount/protocol/ext/admin';
 import type { DocRef, ThreadResponse, ThreadStart, ThreadsResponse } from '@headcount/protocol/ext/threads';
@@ -200,6 +200,9 @@ export const api = {
   projectMeetings: (id: string) => request<MeetingsResponse>(routePath('projectMeetings', { id })),
   getMeeting: (id: string, meetingId: string) => request<MeetingResponse>(routePath('getMeeting', { id, meetingId })),
   meetingSay: (id: string, meetingId: string, say: MeetingSay) => request<{ accepted: true; entry: ChannelEntry }>(routePath('meetingSay', { id, meetingId }), jsonInit('POST', say)),
+  listMeetings: () => request<MeetingsResponse>(routePath('listMeetings')),
+  callMeeting: (req: CallMeetingRequest) => request<CallMeetingResponse>(routePath('callMeeting'), jsonInit('POST', req)),
+  findMeeting: (meetingId: string) => request<MeetingResponse>(routePath('findMeeting', { meetingId })),
   projectRuns: (id: string, stepId?: string) => request<RunsResponse>(`${routePath('projectRuns', { id })}${stepId ? `?stepId=${encodeURIComponent(stepId)}` : ''}`),
   // Parity stage 2: how each coworker works, skills, the Chief's prompt, models.
   getAgent: (personaId: string) => request<AgentView>(routePath('getAgent', { personaId })),

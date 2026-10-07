@@ -2,7 +2,7 @@
 // floor first (the addressed coworker answers), then raised hands (@mentions), then the speaking order; a whisper
 // reaches only its addressee; a review meeting takes the work so far as its question; meetings are listed and read back.
 import { ids, parseFrame } from '@headcount/protocol';
-import type { ChannelEntry, Decision, MeetingResponse, MeetingsResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { ChannelEntry, Decision, MeetingResponse, MeetingSummary, MeetingsResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { RunsResponse } from '@headcount/protocol/ext/agents';
 import { describe, expect, it } from 'vitest';
 import type { Env } from '../src/env';
@@ -122,5 +122,67 @@ describe('meetings', () => {
     await s.api('POST', `/api/projects/${project.projectId}/cancel`);
     const m = ((await s.api('GET', `/api/projects/${project.projectId}/meetings/${opened.body.meetingId}`)).body as MeetingResponse).meeting;
     expect(m.status).toBe('stopped');
+  });
+});
+
+describe('meetings called on their own', () => {
+  it('people from the team meet about a topic: the first chairs, the Chief moderates, and brings the outcome to Talk', async () => {
+    const s = await setup();
+    const r = await s.api('POST', '/api/meetings', { topic: 'Should we raise prices on our gift boxes this spring?', people: ['market-research-analyst', 'bookkeeper', 'social-media-manager'], rounds: 1 });
+    expect(r.status).toBe(202);
+    const m0 = r.body.meeting as MeetingSummary;
+    expect(m0).toMatchObject({ kind: 'meeting', status: 'live', standalone: true, chairId: 'market-research-analyst', people: ['market-research-analyst', 'bookkeeper', 'social-media-manager'] });
+    expect(m0.title).toContain('gift boxes');
+    // Live first in the office's list.
+    expect(((await s.api('GET', '/api/meetings')).body as MeetingsResponse).meetings[0]).toMatchObject({ meetingId: m0.meetingId, status: 'live' });
+    await s.tick();
+
+    const m = (await s.api('GET', `/api/meetings/${m0.meetingId}`)).body as MeetingResponse;
+    expect(m.meeting).toMatchObject({ status: 'done', standalone: true });
+    expect(m.meeting.summary).toBeTruthy();
+    const said = m.entries.filter((e: ChannelEntry) => e.kind === 'discussion').map((e) => [e.fromId, e.phase]);
+    expect(said).toEqual([
+      ['chief', 'moderator'],
+      ['market-research-analyst', 'framing'],
+      ['bookkeeper', 'opening'],
+      ['social-media-manager', 'opening'],
+      ['market-research-analyst', 'synthesis'],
+      ['chief', 'moderator'],
+    ]);
+    expect(m.entries[0]).toMatchObject({ kind: 'owner', text: 'Let’s meet about: Should we raise prices on our gift boxes this spring?'.replace('’', "'") });
+    // Not a project: never listed, never opened as one.
+    expect(((await s.api('GET', '/api/projects')).body.projects as TeamProjectSnapshot[]).some((p) => p.projectId === m.meeting.projectId)).toBe(false);
+    expect((await s.api('GET', `/api/projects/${m.meeting.projectId}`)).status).toBe(404);
+    // The Chief brings the outcome back to Talk, with the link.
+    const frames = await s.ws.frames(0, 5000);
+    const note = frames.filter((f) => f.type === 'talk.message').map((f) => (f.data as { text: string }).text).find((t) => t.startsWith('The meeting on'));
+    expect(note).toContain(`[Read the meeting](/app/meetings/${m0.meetingId})`);
+    expect(frames.filter((f) => f.type === 'meeting.updated').at(-1)!.data).toMatchObject({ meeting: { meetingId: m0.meetingId, status: 'done' } });
+  });
+
+  it('only people on the team are invited; at most six; a topic is needed', async () => {
+    const s = await setup();
+    const out = await s.api('POST', '/api/meetings', { topic: 'Logo refresh', people: ['bookkeeper', 'brand-strategist'] });
+    expect(out.status).toBe(400);
+    expect(out.body.error.message).toMatch(/not on your team/);
+    expect((await s.api('POST', '/api/meetings', { topic: 'Hi', people: ['bookkeeper'] })).status).toBe(400);
+    expect((await s.api('POST', '/api/meetings', { topic: 'Logo refresh', people: [] })).status).toBe(400);
+    expect((await s.api('POST', '/api/meetings', { topic: 'Logo refresh', people: ['a', 'b', 'c', 'd', 'e', 'f', 'g'] })).status).toBe(400);
+  });
+
+  it('the Chief calls one from Talk with the people best placed, and Everyone stop ends it', async () => {
+    const s = await setup();
+    await s.api('POST', '/api/talk', { text: 'Call a meeting about our social media posts and the spring campaign budget', opId: ids.op() });
+    await s.t.ctx.drain();
+    const frames = await s.ws.frames(0, 5000);
+    const reply = frames.filter((f) => f.type === 'talk.message' && (f.data as { kind: string }).kind === 'reply').map((f) => (f.data as { text: string }).text).join(' ');
+    expect(reply).toMatch(/\/app\/meetings\/mtg_/);
+    const live = ((await s.api('GET', '/api/meetings')).body as MeetingsResponse).meetings[0]!;
+    expect(live).toMatchObject({ status: 'live', standalone: true });
+    expect(live.people).toContain('social-media-manager');
+    expect((await s.api('POST', '/api/stop-all')).status).toBe(200);
+    expect(((await s.api('GET', '/api/meetings')).body as MeetingsResponse).meetings[0]).toMatchObject({ meetingId: live.meetingId, status: 'stopped' });
+    await s.tick();
+    expect(((await s.api('GET', `/api/meetings/${live.meetingId}`)).body as MeetingResponse).entries.filter((e) => e.kind === 'discussion')).toEqual([]);
   });
 });

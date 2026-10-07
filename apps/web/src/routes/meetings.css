@@ -1,0 +1,334 @@
+/* Meetings: call one, who is meeting now, earlier meetings; and one meeting's room (the table, the lines, the floor). */
+.meetings-page,
+.meeting-room {
+  max-width: 960px;
+}
+.call-meeting {
+  display: grid;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.call-meeting-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.call-meeting-people {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.call-meeting-people legend {
+  margin-bottom: var(--space-2);
+}
+.seat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.seat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  min-height: var(--hit, 44px);
+  padding: 4px var(--space-3) 4px 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+button.seat-chip {
+  cursor: pointer;
+}
+button.seat-chip:hover {
+  border-color: var(--ink-faint, var(--line));
+}
+.seat-chip[data-on] {
+  border-color: var(--lamp);
+  box-shadow: 0 0 0 1px var(--lamp);
+}
+.seat-chip .face {
+  flex: none;
+}
+.seat-role {
+  display: block;
+  color: var(--ink-soft);
+  font-size: var(--text-xs, 12px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 14em;
+}
+.seat-chip .seat-role {
+  display: inline;
+}
+.meetings-section {
+  margin-top: var(--space-6);
+}
+.meeting-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.meeting-card {
+  display: grid;
+  gap: var(--space-2);
+  border: 1px solid var(--lamp);
+}
+.meeting-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.meeting-card-title {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.meeting-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.meeting-card-foot .button-primary {
+  margin-left: auto;
+}
+.meeting-live-tag {
+  background: var(--lamp);
+  color: var(--on-lamp, #1b1b1b);
+}
+.meeting-faces {
+  display: inline-flex;
+  align-items: center;
+}
+.meeting-faces > * + * {
+  margin-left: -6px;
+}
+.meeting-face {
+  display: inline-flex;
+  border-radius: 50%;
+}
+.meeting-face[data-speaking] {
+  box-shadow: 0 0 0 2px var(--lamp);
+}
+.meeting-rows {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.meeting-row-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 10px);
+  background: var(--surface);
+}
+.meeting-row-main {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+.meeting-row-main:hover .meeting-row-title {
+  text-decoration: underline;
+}
+.meeting-row-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.meeting-row-summary {
+  color: var(--ink-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* The room */
+.room-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: var(--space-2);
+}
+.room-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.room-table {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-4);
+  border-radius: 28px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+}
+.room-seat {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1, 4px);
+  margin: 0;
+  width: 112px;
+  text-align: center;
+}
+.room-seat figcaption {
+  font-weight: 600;
+  font-size: var(--text-sm, 14px);
+}
+.room-seat .seat-role {
+  font-weight: 400;
+  margin: 0 auto;
+  max-width: 112px;
+}
+.room-seat[data-speaking] .face {
+  box-shadow: 0 0 0 3px var(--lamp);
+  border-radius: 50%;
+}
+.room-seat-chief .seat-role {
+  color: var(--lamp);
+}
+.room-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+.room-outcome {
+  margin: var(--space-4) 0;
+  border: 1px solid var(--lamp);
+}
+.room-summary {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.room-transcript {
+  margin-top: var(--space-5);
+}
+.room-lines {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.room-line {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+.room-line-face {
+  flex: none;
+  display: inline-flex;
+  width: 32px;
+  justify-content: center;
+}
+.room-line-body {
+  min-width: 0;
+}
+.room-line-who {
+  margin: 0;
+}
+.room-line-text {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.room-line[data-phase='moderator'] .room-line-text,
+.room-line[data-kind='system'] .room-line-text {
+  color: var(--ink-soft);
+}
+.room-line[data-phase='synthesis'] .room-line-body {
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--lamp);
+  background: var(--surface-sunken);
+  border-radius: 0 8px 8px 0;
+}
+.room-line[data-kind='whisper'] .room-line-text {
+  font-style: italic;
+}
+.room-line-typing {
+  color: var(--ink-soft);
+  font-style: italic;
+  padding-left: calc(32px + var(--space-3));
+}
+@media (max-width: 600px) {
+  .room-seat {
+    width: 88px;
+  }
+  .meeting-row-link > .meeting-faces {
+    display: none;
+  }
+}
+
+/* Panels carry no padding of their own (components.css). */
+.call-meeting,
+.meeting-card,
+.room-outcome {
+  padding: var(--space-5);
+}
+@media (max-width: 600px) {
+  .call-meeting,
+  .meeting-card,
+  .room-outcome {
+    padding: var(--space-4);
+  }
+}
+/* Faces have no size of their own: each place sets it. */
+.seat-chip .face {
+  width: 32px;
+  height: 32px;
+}
+.meeting-faces .face {
+  width: 28px;
+  height: 28px;
+  box-shadow: 0 0 0 2px var(--panel);
+}
+.room-seat .face {
+  width: 72px;
+  height: 72px;
+}
+.room-line-face .face {
+  width: 32px;
+  height: 32px;
+}
+@media (max-width: 600px) {
+  .room-seat .face {
+    width: 56px;
+    height: 56px;
+  }
+}
+.room-outcome {
+  display: grid;
+  gap: var(--space-3);
+}
+.room-outcome .admin-card-title,
+.room-summary {
+  margin: 0;
+}
+.room-outcome a.button-quiet {
+  text-decoration: none;
+}

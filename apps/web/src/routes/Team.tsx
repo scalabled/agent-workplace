@@ -52,11 +52,18 @@ export function Team() {
       <header class="page-head">
         <PageTitle id="team-title">Your team</PageTitle>
         <p class="page-lede">The people you hired. Hear them, say hello at their desk, or give them their first job: each one has something ready to start.</p>
-        {isOwner.value && (
-          <Link href={paths.hire} class="button-primary button-small team-hire">
-            <Icon name="plus" size={16} /> Hire someone
-          </Link>
-        )}
+        <div class="team-head-actions">
+          {isOwner.value && (
+            <Link href={paths.hire} class="button-primary button-small team-hire">
+              <Icon name="plus" size={16} /> Hire someone
+            </Link>
+          )}
+          {(teamIds.value?.length ?? 0) > 0 && mayContribute.value && (
+            <Link href={paths.meetings} class="button-quiet button-small">
+              <Icon name="meetings" size={16} /> Call a meeting
+            </Link>
+          )}
+        </div>
       </header>
       {lead && (
         <article class="panel team-chief" id="chief" style={{ '--accent': accentFor(lead.avatar.accent_color) }} aria-labelledby="team-chief-name">

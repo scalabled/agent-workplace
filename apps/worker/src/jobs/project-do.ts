@@ -476,6 +476,22 @@ export class ProjectDO extends DurableObject<Env> {
     return this.team.meetingSay(projectId, meetingId, text, toId, whisper);
   }
 
+  /** Every meeting in the office (live first), one by id, and a meeting called on its own. */
+  async allMeetings(limit?: number) {
+    return this.team.allMeetings(limit);
+  }
+
+  async findMeeting(meetingId: string) {
+    return this.team.findMeeting(meetingId);
+  }
+
+  async callMeeting(req: { topic: string; people: string[]; rounds?: number; chiefName?: string; leadId?: string | null; context?: string; opener?: string }) {
+    if (this.stopState()) return { accepted: false as const, code: 'conflict' as const, message: 'Everyone stop is on. An owner resumes work in Admin → Autonomy first.' };
+    const who = req.chiefName ? { leadId: req.leadId ?? null, chiefName: req.chiefName } : await this.chiefIdentity();
+    const lead = who.leadId ? fullIndex.lead(who.leadId) : undefined;
+    return this.team.callMeeting({ ...req, chiefName: req.chiefName ?? chiefDisplayName(lead, who.chiefName), leadId: who.leadId });
+  }
+
   /** Open raised hands (the Chief can relay the owner's answer). */
   async openDecisions(): Promise<Decision[]> {
     return this.team.list(1).decisions;
@@ -544,6 +560,7 @@ export class ProjectDO extends DurableObject<Env> {
       if (p.status !== 'running' && p.status !== 'paused') continue;
       if ((await this.team.cancel(p.projectId, 'Everyone stop: the owner halted all work.')).accepted) stoppedProjects++;
     }
+    this.team.stopMeetings();
     await this.flush();
     await this.reschedule();
     return { stoppedJobs, stoppedProjects };

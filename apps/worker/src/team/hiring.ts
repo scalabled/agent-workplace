@@ -107,3 +107,20 @@ export function suggestHires(about: string, opts: { lead?: Lead; exclude?: reado
 }
 
 export { firstTaskOf };
+
+/** Who on the team is best placed to talk a topic through (their title, tags and expertise against its words), up to n. */
+export function bestPlaced(topic: string, team: readonly string[], n = 3): string[] {
+  const words = wordsOf(topic);
+  const scored = team
+    .map((id, i) => {
+      const p = fullIndex.persona(id) as Persona | undefined;
+      if (!p) return null;
+      const head = `${p.title} ${(p.tags ?? []).join(' ')} ${p.department}`.toLowerCase();
+      const body = `${p.one_liner} ${(p.expertise ?? []).join(' ')}`.toLowerCase();
+      const score = words.reduce((s, w) => s + (head.includes(w) ? 2 : body.includes(w) ? 0.5 : 0), 0);
+      return { id, score, i };
+    })
+    .filter((x): x is { id: string; score: number; i: number } => !!x)
+    .sort((a, b) => b.score - a.score || a.i - b.i);
+  return scored.slice(0, n).map((x) => x.id);
+}

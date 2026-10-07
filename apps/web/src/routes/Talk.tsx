@@ -19,7 +19,7 @@ import { VoiceElsewhere } from '../components/VoiceElsewhere';
 import { ago, now } from '../lib/time';
 import { bubbles, liveCaptions } from '../living/captions';
 import { linkTarget, linkTo, navigate, paths } from '../router';
-import { activeJobs, can, canvases, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, onboarded, settings, teamIds, teamProjects, thread, trustStop, type ThreadItem } from '../store';
+import { activeJobs, can, canvases, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, liveMeetings, onboarded, settings, teamIds, teamProjects, thread, trustStop, type ThreadItem } from '../store';
 import { retryOwnerMessage, sendOwnerMessage, setVoiceOn } from '../talk/actions';
 import { draft, focusComposer, greetedThisSession, greetOnArrival, prefillComposer } from '../talk/draft';
 import { notice, showNotice } from '../ui/notice';
@@ -125,6 +125,7 @@ export function Talk() {
       <TalkHead />
       <Thread greeting={greeting} name={name} stick={stick} />
       <div class="talk-dock" ref={dock}>
+        <LiveMeetings />
         <ChiefAsks />
         <Activity />
         {mayContribute.value ? (
@@ -136,6 +137,29 @@ export function Talk() {
         )}
       </div>
     </section>
+  );
+}
+
+/** Meetings going on now (the Chief moderates each): one line each, with who has the floor and a way in. */
+function LiveMeetings() {
+  const live = liveMeetings.value;
+  if (!live.length) return null;
+  const nameOf = (id?: string) => (id ? (catalog.value?.persona(id)?.name.split(' ')[0] ?? '') : '');
+  return (
+    <div class="talk-meetings" aria-label="Meetings now">
+      {live.slice(0, 2).map((m) => (
+        <p key={m.meetingId} class="talk-meeting" role="status">
+          <Icon name="meetings" size={16} />
+          <span class="talk-meeting-text">
+            Meeting now: <strong>{m.standalone ? (m.title ?? m.question) : m.kind === 'discussion' ? m.question : (m.title ?? m.question)}</strong>
+            {m.speakerId ? ` · ${nameOf(m.speakerId)} has the floor` : ''}
+          </span>
+          <Link href={paths.meeting(m.meetingId)} class="button-quiet button-small">
+            Join
+          </Link>
+        </p>
+      ))}
+    </div>
   );
 }
 

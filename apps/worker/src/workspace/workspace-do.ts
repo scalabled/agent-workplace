@@ -1,5 +1,5 @@
 import { configured, loadConfig } from '../admin/config';
-import { doesOf, firstTaskOf, suggestHires, whyOf } from '../team/hiring';
+import { bestPlaced, doesOf, firstTaskOf, suggestHires, whyOf } from '../team/hiring';
 import { homeWorkspace } from '../lib/tenant';
 import { tenantOf, withTenant } from '../lib/tenant';
 import { DurableObject } from 'cloudflare:workers';
@@ -72,7 +72,7 @@ import type { DeskActions, Done } from '../desk/desk-tools';
 import { FIGURE_LINE, ownerFigures, ReplyGuard } from '../rooms/guard';
 import type { TeamToolHost } from './team-tools';
 import type { ShownFiles } from './talk';
-import type { Decision, StaffingContext, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { Decision, MeetingSummary, StaffingContext, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { Env } from '../env';
 import { exprLexicon } from '../expr/catalog';
 import { DESK_PER_MIN } from '../expr/config';
@@ -1395,6 +1395,7 @@ export class WorkspaceDO extends DurableObject<Env> {
   private milestoneFrame(frame: Frame): FrameInput<'talk.message'> | null {
     if (frame.type === 'decision.opened') return this.handFrame(frame);
     if (frame.type === 'automation.result') return this.automationFrame(frame);
+    if (frame.type === 'meeting.updated') return this.meetingFrame(frame);
     if (frame.type !== 'project.updated' || frame.data.project.status !== 'running') return null;
     const p = frame.data.project;
     // An automation's project: its gate speaks for it at the end.
@@ -1433,6 +1434,24 @@ export class WorkspaceDO extends DurableObject<Env> {
     return {
       type: 'talk.message',
       data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text, kind: spoken ? 'announcement' : 'note', projectId: d.projectId },
+      actor: CHIEF_ID,
+      cause: { streamId: frame.streamId as StreamId, seq: frame.seq! },
+    };
+  }
+
+  /**
+   * A meeting called on its own ended: the Chief of Staff, who moderated it, brings the chair's summary back to Talk
+   * with a link to the whole meeting (aloud within the interruption budget). A project's meetings feed the project.
+   */
+  private meetingFrame(frame: Extract<Frame, { type: 'meeting.updated' }>): FrameInput<'talk.message'> | null {
+    const m = frame.data.meeting;
+    if (!m.standalone || m.status !== 'done' || !m.summary) return null;
+    const chair = fullIndex.persona(m.chairId)?.name.split(' ')[0] ?? 'The chair';
+    const text = `The meeting on “${m.title ?? m.question}” is over. ${chair}'s summary:\n\n${clipText(m.summary, 900)}\n\n[Read the meeting](/app/meetings/${m.meetingId}) · Say the word and I'll turn it into a project.`;
+    const spoken = this.usage.take('ping', dailyLimit(this.env, 'ping'), runtime.now()).allowed;
+    return {
+      type: 'talk.message',
+      data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text, kind: spoken ? 'announcement' : 'note' },
       actor: CHIEF_ID,
       cause: { streamId: frame.streamId as StreamId, seq: frame.seq! },
     };
@@ -1653,6 +1672,22 @@ export class WorkspaceDO extends DurableObject<Env> {
     const stored = await this.ctx.storage.get<string[]>('team');
     if (stored) return stored;
     return this.workspaceId === homeWorkspace(this.env) ? STARTER_TEAM.map((m) => m.personaId) : [];
+  }
+
+  /**
+   * A meeting called on its own (the Meetings page, or the Chief from Talk): the people come from the team; the Chief
+   * of Staff moderates and brings the outcome back to Talk.
+   */
+  async callMeeting(req: { topic: string; people: string[]; rounds?: number; context?: string; opener?: string }): Promise<{ accepted: true; meeting: MeetingSummary } | { accepted: false; code: 'bad_request' | 'conflict' | 'not_found' | 'rate_limited' | 'not_configured'; message: string }> {
+    const team = new Set(await this.teamIds());
+    const outside = req.people.filter((id) => !team.has(id));
+    if (outside.length) {
+      const names = outside.map((id) => fullIndex.persona(id)?.name.split(' ')[0] ?? id);
+      return { accepted: false, code: 'bad_request', message: `${names.join(' and ')} ${names.length > 1 ? 'are' : 'is'} not on your team. Hire them first, or invite people from your team.` };
+    }
+    const settings = await this.getSettings();
+    const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
+    return (await projectStub(this.env).callMeeting({ ...req, chiefName: chiefDisplayName(lead, settings.chiefName), leadId: settings.leadId })) as unknown as { accepted: true; meeting: MeetingSummary } | { accepted: false; code: 'bad_request' | 'conflict' | 'not_found' | 'rate_limited'; message: string };
   }
 
   private async hiredAt(): Promise<Record<string, string>> {
@@ -2020,6 +2055,29 @@ export class WorkspaceDO extends DurableObject<Env> {
         const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
         const r = await this.deskSay(colleague.id, { text: `${chiefDisplayName(lead, settings.chiefName)} passed this on from Talk: ${message}`, opId: ids.op(), via: 'text' });
         return r.accepted ? { ok: true, name: colleague.name, personaId: colleague.id } : { ok: false, message: r.message };
+      },
+      meet: async (topic, who, projectId) => {
+        const first = (name: string) => name.split(' ')[0]!;
+        if (projectId) {
+          const r = (await projectStub(this.env).discuss(projectId, topic)) as unknown as { accepted: true; project: TeamProjectSnapshot; meetingId: string } | { accepted: false; message: string };
+          if (!r.accepted) return { ok: false, message: r.message };
+          const chair = r.project.team.find((m) => m.role === 'lead') ?? r.project.team[0];
+          return { ok: true, meetingId: r.meetingId, names: r.project.team.map((m) => first(m.name)), chair: chair ? first(chair.name) : 'The lead' };
+        }
+        const team = await this.teamIds();
+        if (!team.length) return { ok: false, message: 'There is no one on the team yet. Suggest who to hire first (hire_coworker, once the owner agrees).' };
+        const picked: string[] = [];
+        for (const w of who) {
+          const p = this.findColleague(w, undefined, team);
+          if (!p) return { ok: false, message: `No one on the team matches “${w}”.` };
+          if (!team.includes(p.id)) return { ok: false, message: `${p.name} (${p.title}) is not on the team yet. Suggest hiring them first.` };
+          if (!picked.includes(p.id)) picked.push(p.id);
+        }
+        const people = picked.length ? picked : bestPlaced(topic, team, 3);
+        const r = await this.callMeeting({ topic, people });
+        if (!r.accepted) return { ok: false, message: r.message };
+        const names = people.map((id) => first(fullIndex.persona(id)?.name ?? id));
+        return { ok: true, meetingId: r.meeting.meetingId, names, chair: names[0]! };
       },
     };
   }

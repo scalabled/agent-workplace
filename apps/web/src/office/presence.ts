@@ -3,7 +3,8 @@
 // real work overrides ambient life: the Chief's running job shows as work at their place (monitor lit, the running
 // sentence as the status; the server never claims the Chief busy, D2) and sets their activity (research walks them to
 // the library), coworkers staffed on a running team project show their step as work (reviewers think), and anyone
-// the owner is talking to stays where they are while the conversation lasts and 20 s after.
+// the owner is talking to stays where they are while the conversation lasts and 20 s after. People in a live meeting
+// gather at the lounge round the Chief of Staff, who moderates, until it ends.
 import { effect, type ReadonlySignal } from '@preact/signals';
 import { activityOf, type OfficeLife, type OfficeScene, type PresenceBadge, type PresenceState, type WorkActivity } from '@headcount/office';
 import { CHIEF_ID, mergePresence, type JobSnapshot, type PresenceData } from '@headcount/protocol';
@@ -59,6 +60,9 @@ export interface PresenceBindingDeps {
   teamWork?: ReadonlySignal<Record<string, TeamWorkClaim>>;
   /** The Chief's merged state (Talk's): thinking, speaking or listening means a conversation. */
   chiefState: ReadonlySignal<string>;
+  /** Meetings live now (agent ids at the table, the Chief first), and where people can gather. */
+  meetings?: ReadonlySignal<readonly { meetingId: string; agentIds: readonly string[] }[]>;
+  gatherSpots?(): readonly { id: string; kind: string; slots: readonly unknown[] }[];
   /** Whose bubble has its reply field open (a quick chat). */
   replying: ReadonlySignal<string | null>;
   /** Everyone the scene shows (ids). */
@@ -148,6 +152,39 @@ export function bindPresence(d: PresenceBindingDeps): () => void {
       else release(CHIEF_ID);
     }),
   );
+  // ── a live meeting gathers its people at a lounge (one place per meeting), released when it ends ──
+  const gathered = new Map<string, () => void>();
+  let gatherLife: OfficeLife | null = null;
+  if (d.meetings && d.gatherSpots)
+    disposers.push(
+      effect(() => {
+        const life = d.life.value;
+        const live = d.meetings!.value.slice(0, 2);
+        if (life !== gatherLife) {
+          for (const u of gathered.values()) u();
+          gathered.clear();
+          gatherLife = life;
+        }
+        if (!life) return;
+        const spots = [...d.gatherSpots!()].filter((sp) => sp.kind === 'lounge' || sp.kind === 'library' || sp.kind === 'coffee_bar').sort((a, b) => b.slots.length - a.slots.length);
+        const want = new Map<string, { spotId: string; slot: number }>();
+        live.forEach((m, i) => {
+          const sp = spots[i];
+          if (!sp) return;
+          m.agentIds.slice(0, sp.slots.length).forEach((id, slot) => want.set(`${m.meetingId}|${id}`, { spotId: sp.id, slot }));
+        });
+        for (const [key, unpin] of gathered) {
+          if (want.has(key)) continue;
+          unpin();
+          gathered.delete(key);
+        }
+        for (const [key, at] of want) if (!gathered.has(key)) gathered.set(key, life.pin(key.split('|')[1]!, { kind: 'spot', spotId: at.spotId, slot: at.slot }, 'host'));
+      }),
+    );
+  disposers.push(() => {
+    for (const u of gathered.values()) u();
+    gathered.clear();
+  });
   let replyingTo: string | null = null;
   disposers.push(
     effect(() => {

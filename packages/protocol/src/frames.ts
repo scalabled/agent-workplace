@@ -15,7 +15,7 @@ import type {
 import type { PresenceData } from './presence';
 import type { VoiceClaimOp, VoiceOwnerData } from './ext/voice-owner';
 import type { RoomId, RoomTurnData } from './ext/rooms';
-import type { ChannelFrameData, DecisionFrameData, ProjectFrameData } from './ext/projects';
+import type { ChannelFrameData, DecisionFrameData, MeetingSummary, ProjectFrameData } from './ext/projects';
 import type { AutomationFiredData, AutomationResultData } from './ext/automations';
 import type { CanvasFrameData } from './ext/canvas';
 import type { EffectFrameData, TrustFrameData } from './ext/trust';
@@ -171,6 +171,8 @@ export interface FrameDataMap {
   'trust.updated': TrustFrameData;
   /** Who is on the team changed (hired, let go). Persisted. */
   'team.updated': { members: string[] };
+  /** A meeting opened, someone took the floor, or it ended (with the chair's summary). Persisted. */
+  'meeting.updated': { meeting: MeetingSummary };
 
   /** A face state claim. Ephemeral; recomputable from the ledger. */
   presence: PresenceData;
@@ -224,6 +226,7 @@ export const PERSISTED_FRAME_TYPES: ReadonlySet<FrameType> = new Set<FrameType>(
   'effect.updated',
   'trust.updated',
   'team.updated',
+  'meeting.updated',
   'workspace.updated',
 ]);
 

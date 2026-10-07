@@ -1,8 +1,8 @@
-import { CHANNEL_POST_MAX, MEETING_SAY_MAX, PROJECT_NOTE_MAX, type ChannelEntry, type DecisionAccepted, type MeetingResponse, type MeetingSay, type MeetingSummary, type MeetingsResponse, type ChannelPost, type ChannelResponse, type DecisionAnswer, type DiscussRequest, type PlanEdit, type ProjectActionAccepted, type ProjectNoteRequest, type ProjectResponse, type ProjectsResponse, type StepEdit, type StopAllResponse } from '@headcount/protocol/ext/projects';
+import { CHANNEL_POST_MAX, MEETING_PEOPLE_MAX, MEETING_SAY_MAX, MEETING_TOPIC_MAX, type CallMeetingRequest, type CallMeetingResponse, PROJECT_NOTE_MAX, type ChannelEntry, type DecisionAccepted, type MeetingResponse, type MeetingSay, type MeetingSummary, type MeetingsResponse, type ChannelPost, type ChannelResponse, type DecisionAnswer, type DiscussRequest, type PlanEdit, type ProjectActionAccepted, type ProjectNoteRequest, type ProjectResponse, type ProjectsResponse, type StepEdit, type StopAllResponse } from '@headcount/protocol/ext/projects';
 import { whoOf } from '../trust/routes';
 import type { RunsResponse } from '@headcount/protocol/ext/agents';
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
-import { projectStub } from '../lib/stubs';
+import { projectStub, workspaceStub } from '../lib/stubs';
 
 // Route handlers for Inc 1 team projects (hosted in the Everyday ProjectDO). Approve and cancel answer at once; the
 // work and every status change arrive on the owner feed as project.* frames.
@@ -195,6 +195,46 @@ export const handleGetMeeting: RouteHandler = async (_req, { env, params }) => {
   const m = (await projectStub(env).getMeeting(params.id, params.meetingId)) as unknown as MeetingResponse | null;
   if (!m) throw new HttpError('not_found', 'No such meeting.');
   return json<MeetingResponse>(m);
+};
+
+/** GET /api/meetings → every meeting in the office: live ones first, then the latest. */
+export const handleListMeetings: RouteHandler = async (_req, { env }) => json<MeetingsResponse>({ meetings: (await projectStub(env).allMeetings()) as unknown as MeetingSummary[] });
+
+/** GET /api/meetings/:meetingId → one meeting with its lines, by its id alone. */
+export const handleFindMeeting: RouteHandler = async (_req, { env, params }) => {
+  if (!isMeetingId(params.meetingId)) throw new HttpError('not_found', 'No such meeting.');
+  const m = (await projectStub(env).findMeeting(params.meetingId)) as unknown as MeetingResponse | null;
+  if (!m) throw new HttpError('not_found', 'No such meeting.');
+  return json<MeetingResponse>(m);
+};
+
+/**
+ * POST /api/meetings → 202: call a meeting. With a projectId, that project's team meets (a discussion or a review);
+ * without, the people chosen from the team meet about the topic, the Chief of Staff moderating.
+ */
+export const handleCallMeeting: RouteHandler = async (req, { env }) => {
+  const body = await readJson<Partial<CallMeetingRequest>>(req);
+  if (!body || typeof body.topic !== 'string') throw new HttpError('bad_request', 'Say what the meeting is about.');
+  const kind = body.kind === 'review' ? 'review' : 'discussion';
+  const topic = body.topic.trim();
+  if (topic.length > MEETING_TOPIC_MAX) throw new HttpError('bad_request', `Keep the topic under ${MEETING_TOPIC_MAX} characters.`);
+  const rounds = typeof body.rounds === 'number' ? body.rounds : undefined;
+  if (body.projectId !== undefined) {
+    if (!isProjectId(body.projectId)) throw new HttpError('not_found', 'That project does not exist.');
+    if (kind === 'discussion' && !topic) throw new HttpError('bad_request', 'Say what the team should discuss.');
+    const r = (await projectStub(env).discuss(body.projectId, topic, rounds, kind)) as unknown as { accepted: true; meetingId: string } | Refusal;
+    if (!r.accepted) throw new HttpError(r.code, r.message);
+    const m = (await projectStub(env).findMeeting(r.meetingId)) as unknown as MeetingResponse | null;
+    if (!m) throw new HttpError('not_found', 'No such meeting.');
+    return json<CallMeetingResponse>({ meeting: m.meeting }, { status: 202 });
+  }
+  const people = Array.isArray(body.people) ? body.people.filter((p): p is string => typeof p === 'string' && /^[a-z0-9][a-z0-9-]{0,80}$/.test(p)) : [];
+  if (!people.length) throw new HttpError('bad_request', 'Invite at least one coworker.');
+  if (people.length > MEETING_PEOPLE_MAX) throw new HttpError('bad_request', `Invite at most ${MEETING_PEOPLE_MAX} people.`);
+  if (topic.length < 3) throw new HttpError('bad_request', 'Say what the meeting is about.');
+  const r = (await workspaceStub(env).callMeeting({ topic, people, ...(rounds ? { rounds } : {}) })) as unknown as { accepted: true; meeting: MeetingSummary } | Refusal;
+  if (!r.accepted) throw new HttpError(r.code, r.message);
+  return json<CallMeetingResponse>({ meeting: r.meeting }, { status: 202 });
 };
 
 /** POST /api/projects/:id/meetings/:meetingId/say → the owner takes the floor, or whispers to one coworker. */

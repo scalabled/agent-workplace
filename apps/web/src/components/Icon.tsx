@@ -11,6 +11,18 @@ const PATHS = {
     </>
   ),
   projects: <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />,
+  // A table with seats around it (a meeting room).
+  meetings: (
+    <>
+      <rect x="6" y="9" width="12" height="6" rx="1.5" />
+      <circle cx="9" cy="5" r="1.6" />
+      <circle cx="15" cy="5" r="1.6" />
+      <circle cx="9" cy="19" r="1.6" />
+      <circle cx="15" cy="19" r="1.6" />
+      <circle cx="3" cy="12" r="1.6" />
+      <circle cx="21" cy="12" r="1.6" />
+    </>
+  ),
   inbox: (
     <>
       <path d="M22 12h-6l-2 3h-4l-2-3H2" />

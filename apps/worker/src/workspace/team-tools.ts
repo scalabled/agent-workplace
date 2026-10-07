@@ -12,6 +12,8 @@ export interface TeamToolHost {
   hire(who: string): Promise<Done<{ name: string; personaId: string; title: string }>>;
   /** The owner's team, for the Chief's prompt. */
   roster(): Promise<{ personaId: string; name: string; title: string }[]>;
+  /** Call a meeting: people from the team (by name or role; none: those best placed for the topic), or a project's team. */
+  meet?(topic: string, who: string[], projectId?: string): Promise<Done<{ meetingId: string; names: string[]; chair: string }>>;
 }
 
 const ok = (payload: Record<string, unknown>, summary: string): ToolOutcome => ({ ok: true, content: JSON.stringify(payload), summary });
@@ -29,6 +31,7 @@ export const TEAM_TRIGGERS = {
   ask: [String.raw`\bask (?!me\b|you\b|about\b|for\b|if\b|whether\b)(the \w+|our \w+|[a-z]+) (about|what|whether|if|how|why|for)\b`],
   hand: [String.raw`\b(pass|hand|send|forward) (this|it|that) (on |over )?to (the \w+|our \w+|[a-z]+)\b`, String.raw`\b(put me through|connect me) to (the \w+|our \w+|[a-z]+)\b`],
   hire: [String.raw`\bhire (?:a |an |someone (?:for|to do|who does) |somebody (?:for|to do) )?([a-z][a-z -]{2,40})`],
+  meet: [String.raw`\b(call|hold|set up|start|have|organi[sz]e) a (meeting|brainstorm|huddle)\b`, String.raw`\bget (the team|everyone|everybody) together\b`, String.raw`\bbrainstorm with (the team|everyone)\b`],
 };
 /** The name (or role) in a mock-triggered request: the group that holds it. */
 const whoIn = (re: string, text: string, group: number) => new RegExp(re, 'i').exec(text)?.[group] ?? '';
@@ -84,5 +87,35 @@ export function teamTools(host: TeamToolHost): AgentTool<any>[] {
       return ok({ coworker: r.name, personaId: r.personaId, link: `/app/desk/${r.personaId}/profile`, say: `Done: ${r.name} has joined as your ${r.title.toLowerCase()}. [Meet ${first}](/app/desk/${r.personaId}/profile).` }, `Hired ${r.name}`);
     },
   };
-  return [ask, hand, hire];
+  const meet: AgentTool<{ topic?: unknown; who?: unknown; project_id?: unknown }> = {
+    spec: {
+      name: 'call_meeting',
+      description:
+        'Call a meeting: coworkers from the team sit down together now and talk a question through, one after another, with you moderating; the first person invited chairs and sums up, and you bring the outcome back here. Use it when the owner wants a meeting, a brainstorm, the team’s views or a decision talked through. Invite 2 to 4 people by name or role (leave who empty and the people best placed for the topic are invited). For a project, pass project_id and its own team meets about it. The owner can listen in and take the floor. Tell them, with the link.',
+      parameters: {
+        type: 'object',
+        properties: {
+          topic: { type: 'string', description: 'The question to settle, in a sentence, with any context the owner gave.' },
+          who: { type: 'array', items: { type: 'string' }, description: 'Names or roles from the team; the first chairs.' },
+          project_id: { type: 'string', description: 'A project (prj_…) whose team should meet about it.' },
+        },
+        required: ['topic'],
+        additionalProperties: false,
+      },
+      mock: { triggers: TEAM_TRIGGERS.meet, args: (text: string) => ({ topic: text.replace(/^.*?\b(about|on|to discuss)\s+/i, '').slice(0, 300) || text, who: [] }), reply: sayOf },
+    },
+    async execute(args) {
+      const topic = str(args.topic);
+      if (topic.length < 3) return fail('Say what the meeting is about.', 'Put the question to settle in a sentence.');
+      if (!host.meet) return fail('Meetings are not available here.', 'Ask the coworkers one at a time instead.');
+      const who = Array.isArray(args.who) ? args.who.map(str).filter(Boolean).slice(0, 6) : [];
+      const projectId = str(args.project_id);
+      const r = await host.meet(topic.slice(0, 1000), who, /^prj_[a-z0-9]+$/.test(projectId) ? projectId : undefined);
+      if (!r.ok) return fail(r.message, 'Invite people from the team, or hire someone first.');
+      const list = r.names.length > 1 ? `${r.names.slice(0, -1).join(', ')} and ${r.names[r.names.length - 1]}` : r.names[0];
+      const link = `/app/meetings/${r.meetingId}`;
+      return ok({ meetingId: r.meetingId, link, people: r.names, say: `I've called a meeting with ${list}; ${r.chair} chairs and I'll moderate. [Listen in](${link}) any time, or take the floor. I'll bring you the outcome here.` }, `Called a meeting with ${list}`);
+    },
+  };
+  return [ask, hand, hire, meet];
 }

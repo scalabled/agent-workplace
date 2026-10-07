@@ -37,7 +37,7 @@ import { registerFace } from '../living/faces';
 import type { LivingRuntime } from '../living/types';
 import { activeDesk } from '../living/useDesk';
 import { officeStage } from '../living/viewer';
-import { chiefPresence, jobs, localPresence, presence, projectList, settings, teamIds, teamWork } from '../store';
+import { chiefPresence, jobs, liveMeetings, localPresence, presence, projectList, settings, teamIds, teamWork } from '../store';
 import { showNotice } from '../ui/notice';
 import { audio } from '../voice/engine';
 import { claimUnsettled, mayVoice } from '../voice/owner';
@@ -446,6 +446,8 @@ export function mountOffice(o: OfficeMountOptions): OfficeMount {
       jobs,
       teamWork,
       chiefState: computed(() => chiefPresence.value.state),
+      meetings: computed(() => liveMeetings.value.map((m) => ({ meetingId: m.meetingId, agentIds: [CHIEF_ID, ...(m.people ?? [m.chairId]).map((id) => `cw_${id}`)] }))),
+      gatherSpots: () => scene.spots(),
       replying: replyingAgent,
       ids: () => roster.people.map((p) => p.id),
       onSpeakingChange: (cb) => {

@@ -2,18 +2,19 @@
 // Chief of Staff moderating. The owner calls one (a question, or a review of the work so far), listens in (each line in
 // the speaker's team voice), takes the floor (whoever they address answers next), whispers to one coworker (only they
 // hear it), and reads or replays any meeting later.
-import type { MeetingResponse, MeetingSummary, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { MeetingResponse, MeetingSummary, TeamMember, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { MEETING_SAY_MAX } from '@headcount/protocol/ext/projects';
 import { useEffect, useState } from 'preact/hooks';
 import { api, ApiError } from '../api/client';
 import { chiefName } from '../chief';
 import { Icon } from '../components/Icon';
+import { Link } from '../components/Link';
 import { listen, nowPlaying, stopListening } from '../meetings/listen';
 import { projectChannels, upsertProject } from '../store';
 import { takeVoice } from '../voice/handoff';
 import { linkTarget, paths } from '../router';
 
-const KIND: Record<MeetingSummary['kind'], string> = { kickoff: 'Kickoff', review: 'Review', discussion: 'Discussion' };
+export const KIND: Record<MeetingSummary['kind'], string> = { kickoff: 'Kickoff', review: 'Review', discussion: 'Discussion', meeting: 'Meeting' };
 const errorOf = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
 const when = (at: string) => new Date(at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -164,6 +165,9 @@ function MeetingRow({ project, meeting: m, onListen }: { project: TeamProjectSna
           </p>
         </div>
         <div class="meeting-actions">
+          <Link href={paths.meeting(m.meetingId)} class="button-quiet button-small">
+            <Icon name="meetings" size={14} /> {live ? 'Join' : 'Open'}
+          </Link>
           <CopyLink page={paths.project(project.projectId)} at={m.meetingId} label="Copy link to this meeting" what="Link to this meeting" />
           {playing ? (
             <button type="button" class="button-quiet button-small" onClick={stopListening}>
@@ -179,7 +183,7 @@ function MeetingRow({ project, meeting: m, onListen }: { project: TeamProjectSna
           </button>
         </div>
       </div>
-      {live && <TakeTheFloor project={project} meetingId={m.meetingId} />}
+      {live && <TakeTheFloor projectId={project.projectId} team={project.team} meetingId={m.meetingId} />}
       {open && (
         <ol class="meeting-transcript">
           {(detail?.entries ?? []).map((e) => (
@@ -198,7 +202,7 @@ function MeetingRow({ project, meeting: m, onListen }: { project: TeamProjectSna
 }
 
 /** The owner in a live meeting: to the room (whoever they name, else the chair, answers next), or a whisper. */
-function TakeTheFloor({ project, meetingId }: { project: TeamProjectSnapshot; meetingId: string }) {
+export function TakeTheFloor({ projectId, team, meetingId }: { projectId: string; team: readonly TeamMember[]; meetingId: string }) {
   const [text, setText] = useState('');
   const [to, setTo] = useState('');
   const [whisper, setWhisper] = useState(false);
@@ -212,9 +216,9 @@ function TakeTheFloor({ project, meetingId }: { project: TeamProjectSnapshot; me
     setBusy(true);
     setError(null);
     try {
-      await api.meetingSay(project.projectId, meetingId, { text: t, ...(to ? { toId: to } : {}), ...(whisper && to ? { whisper: true } : {}) });
+      await api.meetingSay(projectId, meetingId, { text: t, ...(to ? { toId: to } : {}), ...(whisper && to ? { whisper: true } : {}) });
       setText('');
-      const name = to ? project.team.find((m) => m.personaId === to)?.name.split(' ')[0] : null;
+      const name = to ? team.find((m) => m.personaId === to)?.name.split(' ')[0] : null;
       setSent(whisper && name ? `Whispered to ${name}; only they hear it.` : name ? `${name} answers next.` : 'The chair answers next.');
     } catch (err) {
       setError(errorOf(err, 'That did not reach the meeting.'));
@@ -233,7 +237,7 @@ function TakeTheFloor({ project, meetingId }: { project: TeamProjectSnapshot; me
       </label>
       <select id={`to-${meetingId}`} class="field-input meeting-to" value={to} onChange={(e) => setTo((e.target as HTMLSelectElement).value)}>
         <option value="">The room</option>
-        {project.team.map((m) => (
+        {team.map((m) => (
           <option key={m.personaId} value={m.personaId}>
             {m.name.split(' ')[0]}
           </option>

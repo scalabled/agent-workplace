@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { bodyLuminance, expectNoHorizontalScroll, onboarded } from './helpers';
 
-// The shell (D3): four places only, the Chief of Staff bubble on every screen, phone width, light + dark.
+// The shell (D3): five places only, the Chief of Staff bubble on every screen, phone width, light + dark.
 const PLACES = [
   { path: '/app/talk', heading: 'Rosa' },
   { path: '/app/floor', heading: 'Floor' },
+  { path: '/app/meetings', heading: 'Meetings' },
   { path: '/app/projects', heading: 'Projects' },
   { path: '/app/inbox', heading: 'Inbox' },
 ];
@@ -13,13 +14,13 @@ test.beforeEach(async ({ request }) => {
   await onboarded(request);
 });
 
-test('four places, and the Chief of Staff bubble on every one', async ({ page }) => {
+test('the places, and the Chief of Staff bubble on every one', async ({ page }) => {
   for (const place of PLACES) {
     await page.goto(place.path);
     await expect(page.getByRole('heading', { level: 1, name: place.heading })).toBeVisible();
     const nav = page.getByRole('navigation', { name: 'Places' });
-    await expect(nav.getByRole('link')).toHaveCount(4);
-    for (const name of ['Talk', 'Floor', 'Projects', 'Inbox']) await expect(nav.getByRole('link', { name })).toBeVisible();
+    await expect(nav.getByRole('link')).toHaveCount(5);
+    for (const name of ['Talk', 'Floor', 'Meetings', 'Projects', 'Inbox']) await expect(nav.getByRole('link', { name })).toBeVisible();
     if (place.path === '/app/talk') {
       // On Talk the header face is the bubble (same gestures); a floating copy would show the face twice.
       await expect(page.locator('.chief-bubble')).toBeHidden();

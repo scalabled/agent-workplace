@@ -302,7 +302,7 @@ export interface DiscussRequest {
 // moderating. The owner reads or listens in (each line voiced on demand in the speaker's team voice), takes the floor
 // (the addressed coworker answers next), whispers to one coworker (only they hear it), and replays it later.
 
-export type MeetingKind = 'kickoff' | 'review' | 'discussion';
+export type MeetingKind = 'kickoff' | 'review' | 'discussion' | 'meeting';
 export type MeetingPhase = 'framing' | 'opening' | 'debate' | 'synthesis' | 'reply' | 'moderator';
 
 export interface MeetingSummary {
@@ -319,10 +319,38 @@ export interface MeetingSummary {
   lines: number;
   /** The chair's closing words. */
   summary?: string;
+  /** What it is about: the project's title, or the topic of a meeting called on its own. */
+  title?: string;
+  /** Called on its own (from Talk or the Meetings page), not about one project: `projectId` is its own record. */
+  standalone?: boolean;
+  /** Who is at the table (persona ids, the chair first). The Chief of Staff moderates every meeting. */
+  people?: string[];
+  /** Live: who has the floor now. */
+  speakerId?: string;
 }
 
 export interface MeetingsResponse {
   meetings: MeetingSummary[];
+}
+
+/** The most coworkers at one meeting's table (the Chief of Staff moderates on top). */
+export const MEETING_PEOPLE_MAX = 6;
+export const MEETING_TOPIC_MAX = 1000;
+
+/**
+ * POST /api/meetings: call a meeting. With `projectId`, that project's team meets about it (a discussion, or a review
+ * of the work). Without, the people chosen from your team meet about the topic (the first chairs); the Chief of Staff
+ * moderates either way, and tells you the outcome in Talk.
+ */
+export interface CallMeetingRequest {
+  topic: string;
+  people?: string[];
+  projectId?: string;
+  rounds?: number;
+  kind?: 'discussion' | 'review';
+}
+export interface CallMeetingResponse {
+  meeting: MeetingSummary;
 }
 
 /** GET /api/projects/:id/meetings/:meetingId: the meeting, its lines in order (whispers included for the owner), the team. */

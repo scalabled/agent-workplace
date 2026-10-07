@@ -32,11 +32,11 @@ test('capabilities are keyless-safe', async ({ request }) => {
   expect((await request.get('/api/portraits/lead-warm-mentor')).status()).toBe(404);
 });
 
-test('shell shows the four places and the Chief of Staff bubble', async ({ page }) => {
+test('shell shows the places and the Chief of Staff bubble', async ({ page }) => {
   await pinDirectory(page);
   await page.goto('/app/floor');
   const nav = page.getByRole('navigation', { name: 'Places' });
-  for (const place of ['Talk', 'Floor', 'Projects', 'Inbox']) await expect(nav.getByRole('link', { name: place })).toBeVisible();
+  for (const place of ['Talk', 'Floor', 'Meetings', 'Projects', 'Inbox']) await expect(nav.getByRole('link', { name: place })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Talk to / })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Floor' })).toBeVisible();
   await expect(page.getByText(/coworkers across \d+ departments/)).toBeVisible();

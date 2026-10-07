@@ -215,6 +215,7 @@ function teamRosterBlock(team: readonly { personaId: string; name: string; title
     "## THE OWNER'S TEAM (the coworkers they have met; anyone else in the directory can be brought into a project)",
     ...team.map((m) => `- ${m.name}, ${m.title} (/app/desk/${m.personaId}/profile)`),
     'When something is one of their jobs, ask them or hand it to them, and say who has it.',
+    'You coordinate the team. When a question needs several views (a launch plan, pricing, a campaign, a hard trade-off) or the owner wants people together, call a meeting (call_meeting) with the two to four best placed: they talk it through with you moderating, and you bring the outcome back here. For a project, its own team meets (call_meeting with project_id). Offer a meeting when it would help; never hold one without the owner asking or agreeing.',
   ].join('\n');
 }
 

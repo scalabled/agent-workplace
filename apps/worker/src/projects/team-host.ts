@@ -18,7 +18,9 @@ import { coworkerAgentId, type FrameInput, type FrameType } from '@headcount/pro
 import type { ProjectUsage, RunTrace } from '@headcount/protocol/ext/agents';
 import {
   DECISION_ANSWER_MAX,
+  MEETING_PEOPLE_MAX,
   MEETING_SAY_MAX,
+  MEETING_TOPIC_MAX,
   OUTPUT_FRAME_MAX,
   PROJECT_NOTE_MAX,
   type Decision,
@@ -48,7 +50,7 @@ import { DailyCounter, dailyLimit, limitMessage } from '../lib/limits';
 import { researchKitFactory } from '../tools/kit';
 import { mergeSources, type Source } from '../tools/web-search';
 import { logError, models, runtime } from '../workspace/runtime';
-import { MAX_EDITED_STEPS, forecastOf, forecastSentence, normalizePlan, ownersOf, readySteps, recipesOf, shortlist, staffingNote, stepEditError, stepsFrom, teamFrom, titleFromGoal, type Recipe } from './staffing';
+import { MAX_EDITED_STEPS, assignVoices, forecastOf, forecastSentence, normalizePlan, ownersOf, readySteps, recipesOf, shortlist, staffingNote, stepEditError, stepsFrom, teamFrom, titleFromGoal, type Recipe } from './staffing';
 import { chooseRecipe, consultCoworker, discussionTurn, doStepWork, planProject, qaDeliverable, replyToOwner, reviewStep, reviseStep, writeDeliverable, type Captured, type DiscussionPhase, type ProjectBrief, type Worker } from './team-work';
 import { TeamChannel, mentionsIn } from './channel';
 import { MAX_ADDED_SPECIALISTS, MAX_TEAM, collabTools, type CollabHost } from './collab';
@@ -166,6 +168,8 @@ type ProjectRow = {
   pending_discussion: string | null;
   discussion_state: string | null;
   added_count: number | null;
+  /** 'meeting': a meeting called on its own (no plan, never listed as a project); null: a team project. */
+  kind: string | null;
 };
 type StepRow = {
   project_id: string;
@@ -261,6 +265,7 @@ const TEAM_MIGRATIONS = [
   'ALTER TABLE tprojects ADD COLUMN discussion_state TEXT',
   'ALTER TABLE tprojects ADD COLUMN added_count INTEGER',
   'ALTER TABLE tnotes ADD COLUMN from_id TEXT',
+  'ALTER TABLE tprojects ADD COLUMN kind TEXT',
 ];
 
 /** A discussion to hold: the kickoff (teams of three or more) or one the owner asked for. */
@@ -443,7 +448,7 @@ export class TeamProjects {
     this.sql.exec(`UPDATE tprojects SET status = 'cancelled', error = ?, fence = fence + 1, updated_at = ?, finished_at = ? WHERE project_id = ?`, reason, at, at, projectId);
     this.sql.exec(`UPDATE tsteps SET status = 'waiting' WHERE project_id = ? AND status IN ('working','reviewing','revising')`, projectId);
     for (const d of this.sql.exec<DecisionRow>(`SELECT * FROM tdecisions WHERE project_id = ? AND status = 'open'`, projectId).toArray()) this.resolve(d.decision_id, 'declined', at);
-    this.sql.exec(`UPDATE tmeetings SET status = 'stopped', finished_at = ? WHERE project_id = ? AND status = 'live'`, at, projectId);
+    for (const m of this.sql.exec<{ meeting_id: string }>(`SELECT meeting_id FROM tmeetings WHERE project_id = ? AND status = 'live'`, projectId).toArray()) this.closeMeeting(m.meeting_id, 'stopped');
     this.sql.exec('UPDATE tprojects SET pending_discussion = NULL, discussion_state = NULL WHERE project_id = ?', projectId);
     this.inflight.get(projectId)?.abort();
     this.emit(projectId);
@@ -760,14 +765,14 @@ export class TeamProjects {
   }
 
   list(limit = 20): { projects: TeamProjectSnapshot[]; decisions: Decision[] } {
-    const projects = this.sql.exec<ProjectRow>('SELECT * FROM tprojects ORDER BY created_at DESC LIMIT ?', limit).toArray().map((r) => this.snapshot(r));
+    const projects = this.sql.exec<ProjectRow>('SELECT * FROM tprojects WHERE kind IS NULL ORDER BY created_at DESC LIMIT ?', limit).toArray().map((r) => this.snapshot(r));
     const decisions = this.sql.exec<DecisionRow>(`SELECT * FROM tdecisions WHERE status = 'open' ORDER BY created_at DESC LIMIT 50`).toArray().map((r) => this.toDecision(r));
     return { projects, decisions };
   }
 
   get(projectId: string): TeamProjectSnapshot | null {
     const row = this.row(projectId);
-    return row ? this.snapshot(row) : null;
+    return row && !row.kind ? this.snapshot(row) : null;
   }
 
   /** Projects under way for the Chief of Staff's live work state. */
@@ -793,7 +798,7 @@ export class TeamProjects {
   async tick(now: number): Promise<void> {
     const due = this.sql
       .exec<{ project_id: string; status: string }>(
-        `SELECT project_id, status FROM tprojects WHERE (status IN ('planning','running') AND next_at <= ?) OR (pending_discussion IS NOT NULL AND status IN ('proposed','paused','needs_review')) ORDER BY created_at ASC`,
+        `SELECT project_id, status FROM tprojects WHERE (status IN ('planning','running') AND next_at <= ?) OR (pending_discussion IS NOT NULL AND status IN ('proposed','paused','needs_review','meeting')) ORDER BY created_at ASC`,
         now,
       )
       .toArray()
@@ -893,6 +898,72 @@ export class TeamProjects {
     return this.sql.exec<MeetingRow>('SELECT * FROM tmeetings WHERE project_id = ? ORDER BY started_at DESC', projectId).toArray().map((m) => this.toMeeting(m));
   }
 
+  /** Every meeting in the office: live ones first, then the latest (projects' and those called on their own). */
+  allMeetings(limit = 40): MeetingSummary[] {
+    return this.sql
+      .exec<MeetingRow>(`SELECT * FROM tmeetings ORDER BY CASE status WHEN 'live' THEN 0 ELSE 1 END, started_at DESC LIMIT ?`, Math.max(1, Math.min(100, limit)))
+      .toArray()
+      .map((m) => this.toMeeting(m));
+  }
+
+  /** One meeting by its id alone (a link to /app/meetings/:id). */
+  findMeeting(meetingId: string): MeetingResponse | null {
+    const m = this.meetingRow(meetingId);
+    return m ? this.getMeeting(m.project_id, meetingId) : null;
+  }
+
+  /**
+   * A meeting called on its own (from Talk or the Meetings page): the people chosen sit at the table (the first chairs),
+   * the Chief of Staff moderates, and the chair's summary goes to the owner in Talk. No plan, no steps; it is never
+   * listed as a project. The owner can take the floor or whisper as in any meeting. At most two at once.
+   */
+  async callMeeting(req: { topic: string; people: string[]; rounds?: number; chiefName: string; leadId?: string | null; context?: string; opener?: string }): Promise<{ accepted: true; meeting: MeetingSummary } | ProjectRefusal> {
+    const topic = req.topic.replace(/\s+/g, ' ').trim().slice(0, MEETING_TOPIC_MAX);
+    if (topic.length < 3) return { accepted: false, code: 'bad_request', message: 'Say what the meeting is about.' };
+    const ids = [...new Set(req.people)].filter((id) => !!this.persona(id));
+    if (!ids.length) return { accepted: false, code: 'bad_request', message: 'Invite at least one coworker.' };
+    if (ids.length > MEETING_PEOPLE_MAX) return { accepted: false, code: 'bad_request', message: `Invite at most ${MEETING_PEOPLE_MAX} people; smaller meetings decide faster.` };
+    const live = Number(this.sql.exec<{ n: number }>(`SELECT count(*) AS n FROM tprojects WHERE kind = 'meeting' AND status = 'meeting'`).toArray()[0]?.n ?? 0);
+    if (live >= 2) return { accepted: false, code: 'conflict', message: 'Two meetings are already going on. Let one finish first.' };
+    const now = runtime.now();
+    const daily = dailyLimit(this.p.env, 'project');
+    if (!this.p.usage.take('project', daily, now).allowed) return { accepted: false, code: 'rate_limited', message: limitMessage('project', daily) };
+    const people = ids.map((id) => this.persona(id)!);
+    const lead = req.leadId ? this.index.lead(req.leadId) : undefined;
+    const voices = assignVoices(people.map((p) => ({ persona: p })), lead, this.index.catalog.voices);
+    const team: TeamMember[] = people.map((p, i) => {
+      const voice = voices.get(p.id);
+      return { personaId: p.id, name: p.name, title: p.title, role: i === 0 ? 'lead' : 'specialist', why: p.one_liner.slice(0, 300), ...(voice ? { voice } : {}) };
+    });
+    const r = Math.min(3, Math.max(1, Math.floor(req.rounds ?? 2) || 2));
+    const projectId = newId('prj');
+    const at = iso();
+    const goal = req.context ? `${topic}\n\nContext: ${clipText(req.context.trim(), 2000)}` : topic;
+    this.sql.exec(
+      `INSERT INTO tprojects (project_id, title, goal, staffing_note, team, status, chief_name, created_at, updated_at, next_at, lead_id, kind)
+       VALUES (?, ?, ?, '', ?, 'meeting', ?, ?, ?, ?, ?, 'meeting')`,
+      projectId, clipText(topic, 80), goal, JSON.stringify(team), req.chiefName, at, at, now, req.leadId ?? null,
+    );
+    const meetingId = this.openMeeting(projectId, 'meeting', topic, team[0]!.personaId, r);
+    this.sql.exec('UPDATE tprojects SET pending_discussion = ? WHERE project_id = ?', JSON.stringify({ question: topic, rounds: r, kind: 'meeting', meetingId } satisfies PendingDiscussion), projectId);
+    const opened = this.channel.add(projectId, { kind: 'owner', fromId: 'owner', meetingId, text: req.opener ?? `Let's meet about: ${topic}` });
+    this.channel.handled(opened.seq);
+    await this.p.armAlarm(now + 10);
+    void this.p.flush();
+    return { accepted: true, meeting: this.toMeeting(this.meetingRow(meetingId)!) };
+  }
+
+  /** Everyone stop: meetings called on their own end too (a project's end with its project). */
+  stopMeetings(): number {
+    const rows = this.sql.exec<{ project_id: string }>(`SELECT project_id FROM tprojects WHERE kind = 'meeting' AND status = 'meeting'`).toArray();
+    for (const r of rows) {
+      this.sql.exec('UPDATE tprojects SET fence = fence + 1 WHERE project_id = ?', r.project_id);
+      for (const m of this.sql.exec<{ meeting_id: string }>(`SELECT meeting_id FROM tmeetings WHERE project_id = ? AND status = 'live'`, r.project_id).toArray()) this.closeMeeting(m.meeting_id, 'stopped');
+      this.inflight.get(r.project_id)?.abort();
+    }
+    return rows.length;
+  }
+
   getMeeting(projectId: string, meetingId: string): MeetingResponse | null {
     const m = this.meetingRow(meetingId);
     if (!m || m.project_id !== projectId) return null;
@@ -905,7 +976,15 @@ export class TeamProjects {
 
   private toMeeting(m: MeetingRow): MeetingSummary {
     const lines = Number(this.sql.exec<{ n: number }>(`SELECT COUNT(*) AS n FROM tchannel WHERE meeting_id = ? AND kind != 'whisper'`, m.meeting_id).toArray()[0]?.n ?? 0);
+    const p = this.row(m.project_id);
+    const team = p ? (JSON.parse(p.team) as TeamMember[]) : [];
+    const state = m.status === 'live' ? json<{ meetingId?: string; speakerId?: string } | null>(p?.discussion_state, null) : null;
+    const people = [m.chair_id, ...team.map((x) => x.personaId).filter((id) => id !== m.chair_id)];
     return {
+      ...(p ? { title: p.title } : {}),
+      ...(p?.kind === 'meeting' ? { standalone: true } : {}),
+      people,
+      ...(state?.meetingId === m.meeting_id && state.speakerId ? { speakerId: state.speakerId } : {}),
       meetingId: m.meeting_id,
       projectId: m.project_id,
       kind: m.kind as MeetingKind,
@@ -923,11 +1002,17 @@ export class TeamProjects {
   private openMeeting(projectId: string, kind: MeetingKind, question: string, chairId: string, rounds: number): string {
     const meetingId = newId('mtg');
     this.sql.exec(`INSERT INTO tmeetings (meeting_id, project_id, kind, question, chair_id, status, rounds, started_at) VALUES (?, ?, ?, ?, ?, 'live', ?, ?)`, meetingId, projectId, kind, question, chairId, rounds, iso());
+    this.emitMeeting(meetingId);
     return meetingId;
   }
 
   private closeMeeting(meetingId: string, status: 'done' | 'stopped', summary?: string): void {
-    this.sql.exec(`UPDATE tmeetings SET status = ?, finished_at = ?, summary = COALESCE(?, summary) WHERE meeting_id = ? AND status = 'live'`, status, iso(), summary ?? null, meetingId);
+    const at = iso();
+    if (!this.sql.exec(`UPDATE tmeetings SET status = ?, finished_at = ?, summary = COALESCE(?, summary) WHERE meeting_id = ? AND status = 'live'`, status, at, summary ?? null, meetingId).rowsWritten) return;
+    // A meeting called on its own ends with its meeting.
+    const m = this.meetingRow(meetingId);
+    if (m) this.sql.exec(`UPDATE tprojects SET status = ?, discussion_state = NULL, pending_discussion = NULL, updated_at = ?, finished_at = ? WHERE project_id = ? AND kind = 'meeting' AND status = 'meeting'`, status === 'done' ? 'done' : 'cancelled', at, at, m.project_id);
+    this.emitMeeting(meetingId);
   }
 
   /** The meeting as one member heard it: their own lines as "You", whispers only to them, the owner and the Chief by role. */
@@ -962,7 +1047,7 @@ export class TeamProjects {
   /** Still this project and not stopped (a discussion may run while proposed or paused). */
   private meetingLive(projectId: string, fence: number): boolean {
     const r = this.sql.exec<{ status: string; fence: number }>('SELECT status, fence FROM tprojects WHERE project_id = ?', projectId).toArray()[0];
-    return !!r && ['proposed', 'running', 'paused', 'needs_review'].includes(r.status) && Number(r.fence) === fence;
+    return !!r && ['proposed', 'running', 'paused', 'needs_review', 'meeting'].includes(r.status) && Number(r.fence) === fence;
   }
 
   /**
@@ -991,14 +1076,17 @@ export class TeamProjects {
     const meetingId = d.meetingId ?? this.openMeeting(projectId, d.kind, d.question, chair.personaId, d.rounds);
     this.sql.exec('UPDATE tprojects SET pending_discussion = NULL WHERE project_id = ?', projectId);
     const chiefName = row.chief_name || 'the Chief of Staff';
-    const kindWord = d.kind === 'kickoff' ? 'Kickoff' : d.kind === 'review' ? 'Review' : 'Discussion';
+    const standalone = row.kind === 'meeting';
+    const kindWord = d.kind === 'kickoff' ? 'Kickoff' : d.kind === 'review' ? 'Review' : d.kind === 'meeting' ? 'Meeting' : 'Discussion';
+    const names = members.map((m) => first(m.personaId));
+    const floor = names.length ? ` ${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0]}, you'll ${names.length > 1 ? 'each ' : ''}have the floor${d.rounds > 1 ? ` over ${d.rounds} rounds` : ''}.` : '';
     // The Chief of Staff moderates: opens, hands the chair the floor, and closes.
     this.channel.add(projectId, {
       kind: 'discussion',
       fromId: 'chief',
       phase: 'moderator',
       meetingId,
-      text: `${kindWord} for “${row.title}”. ${first(chair.personaId)} chairs; ${members.map((m) => first(m.personaId)).join(', ')}, you'll each have the floor${d.rounds > 1 ? ` over ${d.rounds} rounds` : ''}. ${first(chair.personaId)}, over to you.`,
+      text: `${standalone ? `We're meeting about “${row.title}”.` : `${kindWord} for “${row.title}”.`} ${first(chair.personaId)} chairs.${floor} ${first(chair.personaId)}, over to you.`,
     });
     void this.p.flush();
     let summary = '';
@@ -1025,6 +1113,7 @@ export class TeamProjects {
       const who = team.find((m) => m.personaId === t.id)!;
       this.sql.exec('UPDATE tprojects SET discussion_state = ? WHERE project_id = ?', JSON.stringify({ question: d.question, speakerId: t.id, round: t.round, rounds: d.rounds, meetingId }), projectId);
       this.emit(projectId);
+      this.emitMeeting(meetingId);
       void this.p.flush();
       try {
         const w = this.worker(t.id, setup, deadlineSignal(120_000, signal), undefined, 'meeting');
@@ -1058,11 +1147,13 @@ export class TeamProjects {
       fromId: 'chief',
       phase: 'moderator',
       meetingId,
-      text: summary ? `Thank you, everyone. ${first(chair.personaId)}'s summary goes to the team as direction for the next steps.` : 'Thank you, everyone.',
+      text: summary ? (standalone ? `Thank you, everyone. I'll take ${first(chair.personaId)}'s summary to the owner.` : `Thank you, everyone. ${first(chair.personaId)}'s summary goes to the team as direction for the next steps.`) : 'Thank you, everyone.',
     });
+    this.sql.exec('UPDATE tprojects SET discussion_state = NULL WHERE project_id = ?', projectId);
     this.closeMeeting(meetingId, 'done', summary ? clipText(summary, 2000) : undefined);
     if (summary && this.p.distillMeeting)
-      void this.p.distillMeeting({ text: `MEETING (${kindWord}) on “${row.title}”: ${d.question}\nSUMMARY BY THE CHAIR: ${clipText(summary, 2500)}`, scope: `project:${projectId}`, sourceLabel: `${kindWord}: ${row.title}`, sourceRef: meetingId }).catch((err) => logError('project.memory', err));
+      void this.p.distillMeeting({ text: `MEETING (${kindWord}) on “${row.title}”: ${d.question}\nSUMMARY BY THE CHAIR: ${clipText(summary, 2500)}`, scope: standalone ? 'workspace' : `project:${projectId}`, sourceLabel: `${kindWord}: ${row.title}`, sourceRef: meetingId }).catch((err) => logError('project.memory', err));
+    if (standalone) return;
     const kickoff = d.kind === 'kickoff';
     this.sql.exec(`UPDATE tprojects SET discussion_state = NULL${kickoff ? ", kickoff = 'done'" : ''}, updated_at = ? WHERE project_id = ?`, iso(), projectId);
     if (summary) this.note(projectId, { text: `${kickoff ? 'Kickoff agreement' : d.kind === 'review' ? 'Review outcome' : 'Discussion outcome'} (${chair.name.split(' ')[0]} chairing): ${clipText(summary, 900)}`, via: 'channel' });
@@ -1795,7 +1886,13 @@ export class TeamProjects {
 
   private emit(projectId: string): void {
     const row = this.row(projectId);
-    if (row) this.p.append({ type: 'project.updated', data: { project: this.clip(this.snapshot(row)) } });
+    if (row && !row.kind) this.p.append({ type: 'project.updated', data: { project: this.clip(this.snapshot(row)) } });
+  }
+
+  /** A meeting opened, someone took the floor, or it ended: the Meetings page, Talk and the office follow it. */
+  private emitMeeting(meetingId: string): void {
+    const m = this.meetingRow(meetingId);
+    if (m) this.p.append({ type: 'meeting.updated', data: { meeting: this.toMeeting(m) } });
   }
 
   /** Frames carry clipped outputs; GET /api/projects/:id has them in full. */

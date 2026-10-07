@@ -26,6 +26,7 @@ import { Handbook } from './routes/Handbook';
 import { Admin } from './routes/Admin';
 import { Team } from './routes/Team';
 import { Hire } from './routes/Hire';
+import { MeetingRoom, Meetings } from './routes/Meetings';
 import { actualRole, role, viewAs } from './auth/session';
 import { revealLinked } from './links/links';
 import { Toast } from './links/Toast';
@@ -321,6 +322,10 @@ function Screen() {
       return <Team />;
     case 'hire':
       return <Hire />;
+    case 'meetings':
+      return <Meetings />;
+    case 'meeting':
+      return <MeetingRoom meetingId={r.params.meetingId!} />;
     case 'skill':
       return <SkillPage skillId={r.params.skillId!} />;
     case 'chief':

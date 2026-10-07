@@ -63,6 +63,10 @@ export const ROUTES = {
   projectMeetings: { method: 'GET', path: '/api/projects/:id/meetings', auth: 'reader' },
   getMeeting: { method: 'GET', path: '/api/projects/:id/meetings/:meetingId', auth: 'reader' },
   meetingSay: { method: 'POST', path: '/api/projects/:id/meetings/:meetingId/say', auth: 'contributor', body: 'json', bodyCap: 4 * 1024 },
+  // Meetings across the office: live first, then the latest; call one about a project or on its own.
+  listMeetings: { method: 'GET', path: '/api/meetings', auth: 'reader' },
+  callMeeting: { method: 'POST', path: '/api/meetings', auth: 'contributor', body: 'json', bodyCap: 8 * 1024 },
+  findMeeting: { method: 'GET', path: '/api/meetings/:meetingId', auth: 'reader' },
   // Parity stage 5: MCP connectors (ext/connectors.ts).
   listConnectors: { method: 'GET', path: '/api/connectors', auth: 'reader' },
   addConnector: { method: 'POST', path: '/api/connectors', auth: 'owner', body: 'json', bodyCap: 8 * 1024 },

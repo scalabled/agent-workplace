@@ -18,7 +18,7 @@ import {
   type TalkAttachment,
 } from '@headcount/protocol';
 import type { DeskSayAccepted } from '@headcount/protocol/ext/expressions';
-import type { ChannelEntry, Decision, ProjectsResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
+import type { ChannelEntry, Decision, MeetingSummary, ProjectsResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import type { CanvasSnapshot } from '@headcount/protocol/ext/canvas';
 import type { Recalled } from '@headcount/protocol/ext/memory';
 import type { EffectView, StopState } from '@headcount/protocol/ext/trust';
@@ -127,6 +127,21 @@ export const projectList = computed(() => Object.values(teamProjects.value).sort
 /** Who is on the team (persona ids; null until loaded). The office shows them, with the Chief of Staff. */
 export const teamIds = signal<string[] | null>(null);
 
+/** Meetings across the office by id (the Meetings page, Talk's live strip, the nav's dot), from the list and frames. */
+export const meetingsById = signal<Record<string, MeetingSummary>>({});
+export function upsertMeetings(list: readonly MeetingSummary[]): void {
+  if (!list.length) return;
+  const next = { ...meetingsById.value };
+  for (const m of list) next[m.meetingId] = m;
+  meetingsById.value = next;
+}
+/** Live now, the newest first. */
+export const liveMeetings = computed(() =>
+  Object.values(meetingsById.value)
+    .filter((m) => m.status === 'live')
+    .sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1)),
+);
+
 /** Inc 6: Everyone stop is on (emails are held until an owner resumes). */
 export const trustStop = signal<StopState | null>(null);
 
@@ -211,6 +226,12 @@ export const teamWork = computed(() => {
         for (const r of [...[st.ownerId, ...(st.coOwnerIds ?? [])].filter((o) => o !== lead), ...st.reviewerIds]) out[`cw_${r}`] ??= { state: 'thinking', label: `Reviewing: ${st.title}` };
       } else if (st.status === 'asking') out[`cw_${lead}`] = { state: 'raised_hand', label: `Question for you: ${st.question?.text ?? st.title}` };
     }
+  }
+  // A meeting called on its own: the one with the floor is speaking; everyone else at the table is in the meeting.
+  for (const m of liveMeetings.value) {
+    if (!m.standalone) continue;
+    const topic = m.title ?? m.question;
+    for (const id of m.people ?? [m.chairId]) out[`cw_${id}`] ??= id === m.speakerId ? { state: 'thinking', label: `Speaking in the meeting: ${topic}` } : { state: 'working', label: `In a meeting: ${topic}` };
   }
   return out;
 });
@@ -613,6 +634,9 @@ function reduce(frame: Frame, live: boolean): void {
       break;
     case 'team.updated':
       teamIds.value = frame.data.members;
+      break;
+    case 'meeting.updated':
+      upsertMeetings([frame.data.meeting]);
       break;
     case 'job.progress':
       patchJob(frame.data.jobId, { status: 'running', label: frame.data.label, step: frame.data.step, of: frame.data.of, ...(frame.data.partial ? { partial: frame.data.partial } : {}) }, frame.ts);
