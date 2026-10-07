@@ -16,6 +16,7 @@ import {
   type TurnId,
   type WorkspaceSettings,
   type TalkAttachment,
+  BRAND,
 } from '@headcount/protocol';
 import type { DeskSayAccepted } from '@headcount/protocol/ext/expressions';
 import type { ChannelEntry, Decision, MeetingSummary, ProjectsResponse, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
@@ -165,7 +166,7 @@ function effectNote(e: EffectView, ts: string): void {
   const who = e.email.to.join(', ');
   const text =
     e.status === 'done'
-      ? `Sent “${e.email.subject}” to ${who}${e.receipt?.provider === 'sink' ? ' (test mailbox: nothing left Headcount)' : ''}`
+      ? `Sent “${e.email.subject}” to ${who}${e.receipt?.provider === 'sink' ? ` (test mailbox: nothing left ${BRAND.name})` : ''}`
       : e.status === 'declined'
         ? `Not sent: “${e.email.subject}” to ${who} (you said no)`
         : `Not sent: “${e.email.subject}” to ${who}. ${e.note ?? ''}`.trim();

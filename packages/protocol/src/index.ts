@@ -6,3 +6,4 @@ export * from './face';
 export * from './api';
 export * from './frames';
 export * from './routes';
+export * from './brand';

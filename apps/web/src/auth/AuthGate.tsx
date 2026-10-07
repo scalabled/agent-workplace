@@ -5,6 +5,7 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { auth, checkAuth, createOrg, signInHref, signOut, type SignInReason } from './session';
 import './auth.css';
+import { BRAND } from '@headcount/protocol';
 
 const REASON_TEXT: Record<SignInReason, string> = {
   denied: 'That Google account cannot start an office here right now, and nobody has invited it yet. Ask an owner to add you on their People page.',
@@ -29,7 +30,7 @@ export function SignIn({ reason }: { reason: SignInReason | null }) {
     <main class="signin" aria-labelledby="signin-title">
       <div class="signin-card">
         <a class="signin-brand" href="/">
-          <span class="signin-dot" aria-hidden="true" /> Headcount
+          <span class="signin-dot" aria-hidden="true" /> {BRAND.name}
         </a>
         <h1 id="signin-title">Sign in to your office</h1>
         <p class="signin-lede">Your Chief of Staff and your team are waiting. New here? The same button starts your own office.</p>
@@ -65,7 +66,7 @@ export function StartOrg({ name, email, canCreate }: { name: string; email: stri
     <main class="signin" aria-labelledby="startorg-title">
       <div class="signin-card">
         <a class="signin-brand" href="/">
-          <span class="signin-dot" aria-hidden="true" /> Headcount
+          <span class="signin-dot" aria-hidden="true" /> {BRAND.name}
         </a>
         <h1 id="startorg-title">Welcome, {first}</h1>
         {canCreate ? (
@@ -86,7 +87,7 @@ export function StartOrg({ name, email, canCreate }: { name: string; email: stri
           </form>
         ) : (
           <p class="signin-note" role="status">
-            Headcount is invite-only right now. Ask someone to invite <strong>{email}</strong>: they add it on their People page, and you will find their office here.
+            {BRAND.name} is invite-only right now. Ask someone to invite <strong>{email}</strong>: they add it on their People page, and you will find their office here.
           </p>
         )}
         <p class="signin-fine">

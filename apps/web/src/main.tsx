@@ -9,6 +9,7 @@ import { lastNav, route, savedScroll } from './router';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
+import { BRAND } from '@headcount/protocol';
 
 const loaded = new Map<Loader, ComponentType>();
 
@@ -31,7 +32,7 @@ function Lazy({ load }: { load: Loader }) {
   if (failed)
     return (
       <p class="boot-error" role="alert">
-        Headcount could not load. Check your connection and <a href={location.pathname}>reload the page</a>.
+        {BRAND.name} could not load. Check your connection and <a href={location.pathname}>reload the page</a>.
       </p>
     );
   return Component ? <Component /> : <div class="boot" aria-busy="true" />;

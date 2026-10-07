@@ -4,6 +4,7 @@ import { unread } from '../ui/unread';
 import { openPalette } from './Palette';
 import { Icon, type IconName } from './Icon';
 import { Link } from './Link';
+import { BRAND } from '@headcount/protocol';
 
 const PLACES: { href: string; label: string; icon: IconName; prefix?: boolean }[] = [
   { href: paths.talk, label: 'Talk', icon: 'talk' },
@@ -27,7 +28,7 @@ export function Nav() {
   return (
     <nav class="nav" aria-label="Places">
       <div class="nav-brand" aria-hidden="true">
-        Headcount
+        {BRAND.name}
       </div>
       {PLACES.map((p) => (
         <Link key={p.href} href={p.href} matchPrefix={p.prefix} class="nav-link" aria-label={navLabel(p.label, hands, fresh)}>

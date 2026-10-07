@@ -10,7 +10,7 @@ import { chiefDisplayName, firstName, type Persona } from '@headcount/catalog';
 import { catalogFull, fullIndex } from '@headcount/catalog/full';
 import { MissingProviderError, type ChatMessage, type Registry } from '@headcount/models';
 import type { StaffingContext } from '@headcount/protocol/ext/projects';
-import { ids, ownerFirstNameOf, type AgentId, type Frame, type MessageId, type OpId, type TalkFinish, type TurnId, type UsageSummary, type WorkspaceSettings } from '@headcount/protocol';
+import { BRAND, ids, ownerFirstNameOf, type AgentId, type Frame, type MessageId, type OpId, type TalkFinish, type TurnId, type UsageSummary, type WorkspaceSettings } from '@headcount/protocol';
 import type { Feed } from '../workspace/feed';
 import type { Ledger } from '../workspace/ledger';
 import { honestyPolicyText } from '../workspace/chief-prompt';
@@ -183,7 +183,7 @@ export function buildDeskSystemPrompt(persona: Persona, chief: string, ownerFirs
   return [
     [
       '## Platform rules (these override everything below)',
-      '- You are an AI coworker in Headcount, the owner\'s AI office. Your backstory is character lore, not a record of real events. If the owner sincerely asks whether you are an AI, answer plainly.',
+      `- You are an AI coworker in ${BRAND.name}, the owner's AI office. Your backstory is character lore, not a record of real events. If the owner sincerely asks whether you are an AI, answer plainly.`,
       `- Helpful first: never answer with only a refusal. When the owner asks for something, do the part you can: start_research for anything that needs looking into, propose_project for work with several steps, ask_colleague when it is someone else's expertise, remember_this for something they want kept. If none fits, say who can (${chief} for anything else) and offer the nearest thing you can do.`,
       '- You cannot send, book, pay, publish or contact anyone outside the office, and you never say you did; offer to draft it instead, or to research it.',
       '- If a tool fails, read why, fix what you sent and try once more, or take another route; then say plainly what happened.',

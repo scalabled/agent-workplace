@@ -6,7 +6,7 @@ import { coworkers, counts, images, leads, voiceSamples } from 'virtual:headcoun
 import { hexToOklch, nightAccent } from '../lib/accent';
 import { forcedThemeFor, initTheme, parseChoice, resolveTheme } from '../lib/theme';
 import { ageFloor, curate, hueGap, isSenior, isYoung } from './cast';
-import { countWord, FAQ, LIVING, MODALITIES, SPEEDS, STEPS, TAGLINE, TALK_POINTS, TIERS, TRUST } from './content';
+import { countWord, FAQ, LIVING, MEETINGS, MODALITIES, OFFICE, SPEEDS, STEPS, TAGLINE, TALK_POINTS, TIERS, TRUST } from './content';
 import { Landing } from './Landing';
 import { sampleText } from './LeadCarousel';
 import { srcsetOf } from './Picture';
@@ -76,17 +76,48 @@ describe('casting helpers', () => {
 
 describe('honest copy (INC0 §4: present tense only for what works today)', () => {
   // What Inc 0 verifies. Anything else on the page must say "In the works" or "Planned".
-  const BUILT = new Set(['Delegate', 'Ask and steer', 'Always reachable', 'Steer mid-flight', 'Text, push-to-talk or voice', 'Voice', 'Images', 'Honest AI', 'Conversation', 'Work', 'Vision', 'Approve', 'Approvals', 'Receipts', 'Everyone stop']);
-  const all = [...STEPS.map((s) => ({ title: s.title, status: s.status })), ...LIVING, ...SPEEDS.map((s) => ({ title: s.name, status: s.status })), ...TALK_POINTS, ...MODALITIES, ...TRUST];
+  const BUILT = new Set([
+    'Delegate',
+    'Hire your team',
+    'Meet and steer',
+    'Always reachable',
+    'Steer mid-flight',
+    'Text, push-to-talk or voice',
+    'Voice',
+    'Images',
+    'Video',
+    'Documents',
+    'Honest AI',
+    'Conversation',
+    'Work',
+    'Reflex',
+    'Reflexes',
+    'Passing-by chat',
+    'Side-talk',
+    'Mood and ambience',
+    'Vision',
+    'Approve',
+    'Approvals',
+    'Receipts',
+    'Everyone stop',
+    'Called in a sentence',
+    'Your Chief moderates',
+    'Listen in, or speak up',
+    'The outcome comes to you',
+    'Start in a minute',
+    'Yours alone',
+    'Bring your people',
+  ]);
+  const all = [...STEPS.map((s) => ({ title: s.title, status: s.status })), ...LIVING, ...SPEEDS.map((s) => ({ title: s.name, status: s.status })), ...TALK_POINTS, ...MODALITIES, ...TRUST, ...MEETINGS, ...OFFICE];
 
   it('gives every capability a status, and "Works today" only to built ones', () => {
     for (const f of all) {
       expect(f.status, f.title).toBeDefined();
       if (f.status === 'now') expect(BUILT.has(f.title), `${f.title} is marked Works today`).toBe(true);
     }
-    // The living workforce is not marked built here; approvals, receipts and Everyone stop are (Inc 6).
-    for (const f of LIVING) expect(f.status).not.toBe('now');
-    for (const f of TRUST) expect(f.status, f.title).toBe('now');
+    // The living workforce (Inc 0.5, Office Phase 2), approvals, receipts and Everyone stop (Inc 6), meetings and
+    // your own office are built; industry packs and pricing are not.
+    for (const f of [...LIVING, ...TRUST, ...MEETINGS, ...OFFICE]) expect(f.status, f.title).toBe('now');
   });
 
   it('never promises pause (jobs can be steered or stopped, not paused) or a voice for every coworker', () => {
@@ -95,7 +126,7 @@ describe('honest copy (INC0 §4: present tense only for what works today)', () =
   });
 
   it('spells in US English', () => {
-    const text = JSON.stringify({ STEPS, LIVING, TALK_POINTS, MODALITIES, TRUST, FAQ, TIERS });
+    const text = JSON.stringify({ STEPS, LIVING, TALK_POINTS, MODALITIES, TRUST, MEETINGS, OFFICE, FAQ, TIERS });
     expect(text).not.toMatch(/sceptic|labelled|colour|optimis/i);
   });
 });
@@ -208,7 +239,7 @@ describe('Landing page', () => {
     expect(imgs.slice(1).every((i) => i.getAttribute('loading') === 'lazy')).toBe(true);
     expect(imgs.every((i) => i.hasAttribute('alt'))).toBe(true);
     // Phones get a menu with every section; the provider list is plain text, not a logo wall.
-    expect([...host.querySelectorAll('#lp-nav-links a')].map((a) => a.getAttribute('href'))).toEqual(['#how', '#leads', '#trust', '#pricing', '#faq']);
+    expect([...host.querySelectorAll('#lp-nav-links a')].map((a) => a.getAttribute('href'))).toEqual(['#how', '#meetings', '#leads', '#trust', '#pricing', '#faq']);
     expect(host.querySelectorAll('.lp-providers li').length).toBe(6);
     // The pricing section ends in a call to action, and the emphasised tier says why, honestly.
     expect(host.querySelector('#pricing .lp-pricing-cta a')?.getAttribute('href')).toBe('/app');

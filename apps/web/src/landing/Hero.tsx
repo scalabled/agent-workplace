@@ -15,6 +15,7 @@ import { reducedMotion } from './motion';
 import { Picture } from './Picture';
 import { heroPeople, usePainted, type WallPerson } from './PortraitWall';
 import { nextExchange, rng } from './sidetalk';
+import { BRAND } from '@headcount/protocol';
 
 /** What each face in the illustration is doing (the app's real states; captions say it in words too). */
 const DEMO_STATES: { state: 'speaking' | 'working' | 'listening' | 'idle'; words: string }[] = [
@@ -194,7 +195,7 @@ export function Hero() {
             ))}
           </h1>
           <p class="lp-lede">
-            <strong>Headcount gives you staff:</strong> a Chief of Staff you talk to, and a team with faces and voices that does the work while you watch.
+            <strong>{BRAND.name} gives you staff:</strong> a Chief of Staff you talk to, and a team with faces and voices that does the work while you watch.
           </p>
           <div class="lp-cta-row">
             <EnterLink class="lp-btn lp-btn-primary lp-btn-lg" hero>
@@ -204,7 +205,7 @@ export function Hero() {
               See how it works
             </a>
           </div>
-          <p class="lp-fineprint">Runs keyless on a built-in demo provider or your local models. Add a key when you want the real thing.</p>
+          <p class="lp-fineprint">Sign in with Google to start your own office. Every coworker is an AI, and says so.</p>
         </div>
         <HeroCast />
       </div>

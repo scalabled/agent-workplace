@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import preact from '@preact/preset-vite';
 import { defineConfig } from 'vite';
 import { landingData } from './landing-data.ts';
+import { BRAND } from '../../packages/protocol/src/brand.ts';
 
 // Ports come from scripts/dev.mjs (HEADCOUNT_WEB_PORT / HEADCOUNT_WORKER_PORT); defaults 5173 / 8787.
 const webPort = Number(process.env.HEADCOUNT_WEB_PORT ?? 5173);
@@ -10,6 +11,8 @@ const workerPort = Number(process.env.HEADCOUNT_WORKER_PORT ?? 8787);
 export default defineConfig({
   plugins: [
     preact(),
+    // The product's name in the page head (packages/protocol/src/brand.ts).
+    { name: 'brand', transformIndexHtml: (html: string) => html.replaceAll('%BRAND_NAME%', BRAND.name).replaceAll('%BRAND_TAGLINE%', BRAND.tagline).replaceAll('%BRAND_DESCRIPTION%', BRAND.description) },
     // The landing page's cast (from the catalog bundle, never hard-coded) and marketing images.
     landingData({
       catalog: fileURLToPath(new URL('../../packages/catalog/generated/slim.js', import.meta.url)),

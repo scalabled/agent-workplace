@@ -7,6 +7,7 @@ import { CONFIG_OPTIONS, EDITABLE_KEYS, type ConfigOption, type ConfigValue, PLA
 import { homeWorkspace } from '../lib/tenant';
 import { connectorSecret, openToken, sealToken } from '../connectors/secret';
 import type { Env } from '../env';
+import { BRAND } from '@headcount/protocol';
 
 /** How long a cached copy is used before it is read again (other isolates pick up a change within this). */
 const TTL_MS = 5_000;
@@ -164,7 +165,7 @@ export async function saveConfig(env: Env, changes: Record<string, string | null
   for (const [key, v] of Object.entries(changes)) {
     const o = byKey.get(key);
     if (!o || !EDITABLE_KEYS.has(key)) throw new ConfigError(`${o?.label ?? key} changes only with the deployment.`);
-    if (lockedKeys(raw).has(key)) throw new ConfigError(`${o.label} is set by Headcount for every organization.`);
+    if (lockedKeys(raw).has(key)) throw new ConfigError(`${o.label} is set by ${BRAND.name} for every organization.`);
     if (v === null) {
       stmts.push(raw.DB.prepare('DELETE FROM settings_kv WHERE ws_id = ? AND key = ?').bind(ws, key));
       continue;

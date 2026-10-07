@@ -10,7 +10,7 @@
 //
 // Fail closed: sign-in is required unless AUTH_MODE is "off" AND the request's host is loopback (local dev). With
 // AUTH_MODE unset, loopback hosts are open and every other host requires a session.
-import { ROUTES, type RouteId } from '@headcount/protocol';
+import { BRAND, ROUTES, type RouteId } from '@headcount/protocol';
 import { atLeast, ROLE_RANK, type Me, type Role } from '@headcount/protocol/ext/admin';
 import type { Env } from '../env';
 import { errorResponse, json } from '../lib/http';
@@ -201,10 +201,10 @@ export async function orgsFor(env: Pick<Env, 'OWNER_EMAILS' | 'DB' | 'WORKSPACE_
   } catch {
     rows = []; // an unmigrated database: the home organization only
   }
-  const out = rows.filter((r) => isRole(r.role)).map((r) => ({ orgId: r.ws_id, name: r.name || (r.ws_id === home ? 'Headcount' : 'My office'), role: r.role as Role, home: r.ws_id === home, ...(r.created_at ? { createdAt: r.created_at } : {}) }));
+  const out = rows.filter((r) => isRole(r.role)).map((r) => ({ orgId: r.ws_id, name: r.name || (r.ws_id === home ? BRAND.name : 'My office'), role: r.role as Role, home: r.ws_id === home, ...(r.created_at ? { createdAt: r.created_at } : {}) }));
   if (ownerEmails(env).has(e)) {
     const at = out.findIndex((o) => o.orgId === home);
-    const name = (await homeName(env)) ?? out[at]?.name ?? 'Headcount';
+    const name = (await homeName(env)) ?? out[at]?.name ?? BRAND.name;
     if (at >= 0) out.splice(at, 1);
     out.unshift({ orgId: home, name, role: 'owner', home: true });
   }
@@ -280,12 +280,12 @@ export async function mayCreateOrg(env: Env, email: string): Promise<{ ok: true 
   const e = email.toLowerCase();
   const platform = ownerEmails(env).has(e);
   if (mode === 'closed' && !platform) return { ok: false, why: 'New organizations are not open right now. Ask someone to invite you to theirs.' };
-  if (mode === 'invite' && !platform && (await orgsFor(env, e)).length === 0) return { ok: false, why: 'Headcount is invite-only right now. Ask someone to invite you to their organization.' };
+  if (mode === 'invite' && !platform && (await orgsFor(env, e)).length === 0) return { ok: false, why: `${BRAND.name} is invite-only right now. Ask someone to invite you to their organization.` };
   try {
     const mine = (await env.DB.prepare('SELECT count(*) AS n FROM orgs WHERE created_by = ?').bind(e).first<number>('n')) ?? 0;
     if (!platform && mine >= maxOrgsPerUser(env)) return { ok: false, why: `You have started ${mine} organizations, the most for now.` };
     const all = (await env.DB.prepare('SELECT count(*) AS n FROM orgs').first<number>('n')) ?? 0;
-    if (!platform && all >= maxOrgs(env)) return { ok: false, why: 'Headcount is full for now. Try again later, or ask someone to invite you.' };
+    if (!platform && all >= maxOrgs(env)) return { ok: false, why: `${BRAND.name} is full for now. Try again later, or ask someone to invite you.` };
   } catch {
     return { ok: false, why: 'Organizations are not set up on this deployment yet.' };
   }

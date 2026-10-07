@@ -1,6 +1,6 @@
 // Owner commands: send (optimistic, idempotent by opId), retry, steer and stop jobs, voice on/off, Ambience, and
 // the Floor quick-chat with a coworker.
-import { CHIEF_ID, coworkerAgentId, ids, OWNER_NAME_MAX_CHARS, TALK_MAX_CHARS, type OpId, type TalkAttachment, type UpdateWorkspaceRequest } from '@headcount/protocol';
+import { BRAND, CHIEF_ID, coworkerAgentId, ids, OWNER_NAME_MAX_CHARS, TALK_MAX_CHARS, type OpId, type TalkAttachment, type UpdateWorkspaceRequest } from '@headcount/protocol';
 import type { Ambience } from '@headcount/protocol/ext/expressions';
 import { api, ApiError } from '../api/client';
 import { beginSend, livingOwnerTurn, livingSendDecision, livingSetAmbience } from '../living';
@@ -18,7 +18,7 @@ export function errorSentence(err: unknown): string {
     if (err.missingKeys.length && !/[A-Z_]{6,}/.test(err.message)) return `${err.message} Add ${err.missingKeys.join(' or ')} to apps/worker/.dev.vars.`;
     return err.message;
   }
-  return 'Could not reach Headcount. Check that it is running, then try again.';
+  return `Could not reach ${BRAND.name}. Check that it is running, then try again.`;
 }
 
 async function deliver(opId: OpId, text: string, via: 'text' | 'voice', at = Date.now(), attachments: readonly TalkAttachment[] = []): Promise<boolean> {

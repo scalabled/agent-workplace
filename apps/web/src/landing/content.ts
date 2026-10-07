@@ -1,7 +1,9 @@
 // Landing page copy (PRODUCT.md §1–§3, §7, §9, §10; OWNER-DIRECTIVES D2, D3, D5). Honest by rule: no
 // testimonials, customer logos, customer counts or invented metrics. Every capability says whether it works today
 // (INC0 §4), is in the works, or is planned, and the present tense is kept for what works today. Prices are
-// labelled planned. Coworker names never appear here: they come from the catalog at build time.
+// labelled planned. Coworker names never appear here: they come from the catalog at build time. Examples follow one
+// business (an online crystal shop) so the page reads as one story.
+import { BRAND } from '@headcount/protocol';
 
 export const TAGLINE = ['Hire a team in a sentence.', 'Watch it work.'] as const;
 
@@ -18,8 +20,8 @@ export interface Step {
 
 export const STEPS: Step[] = [
   { n: '01', title: 'Delegate', icon: 'talk', status: 'now', body: 'Say what you need in one sentence: typed, spoken or held on the mic. Your Chief of Staff takes it and starts it in the background.' },
-  { n: '02', title: 'Staff it', icon: 'team', status: 'planned', body: 'Your Chief of Staff brings in coworkers who already know your business, and a specialist only when a skill is missing.' },
-  { n: '03', title: 'Ask and steer', icon: 'eye', status: 'now', body: 'Ask how it is going at any moment: the answer comes from the live job, and the work never pauses. Add a note and it lands at the next checkpoint.' },
+  { n: '02', title: 'Hire your team', icon: 'team', status: 'now', body: 'Your office starts with your Chief of Staff. Say what your business does and they suggest who to hire, why, and the first job each will do.' },
+  { n: '03', title: 'Meet and steer', icon: 'eye', status: 'now', body: 'Put the right people in a room to talk it through, with your Chief moderating. Listen in, take the floor, or ask how the work is going: it never pauses.' },
   { n: '04', title: 'Approve', icon: 'check', status: 'now', body: 'Anything that leaves the building waits for your yes: an email shows on a card, word for word, and goes out once, with a receipt.' },
 ];
 
@@ -29,27 +31,27 @@ export interface Feature {
   status?: Status;
 }
 
-/** D5, the living workforce. The engine (reflexes, mood, side-talk) is being built; none of it is in the app yet. */
+/** D5, the living workforce: reflexes, passing-by chat, side-talk and mood, grounded in real work. */
 export const LIVING: Feature[] = [
-  { title: 'Reflexes', status: 'next', body: 'A quick “mm-hm”, a “good question, one sec”, a laugh in the right place: short lines pre-voiced in each coworker’s own voice, so they land instantly.' },
-  { title: 'Passing-by chat', status: 'planned', body: 'Walk past a desk on the Floor and a coworker may look up with a line about what they are really working on. Answer inline, no meeting needed.' },
-  { title: 'Side-talk', status: 'next', body: 'Coworkers trade quick notes on real hand-offs, asks and results: bubbles on the Floor, voiced only if you are listening.' },
-  { title: 'Mood and ambience', status: 'next', body: 'Wins lift the mood and blockers weigh on it. One setting, Quiet, Lively or Buzzing, decides how chatty the office gets.' },
+  { title: 'Reflexes', status: 'now', body: 'A quick “mm-hm”, a “good question, one sec”, a laugh in the right place: short lines pre-voiced in each coworker’s own voice, so they land instantly.' },
+  { title: 'Passing-by chat', status: 'now', body: 'Walk past a desk on the Floor and a coworker may look up with a line about what they are really working on. Answer inline, no meeting needed.' },
+  { title: 'Side-talk', status: 'now', body: 'Coworkers trade quick notes on real hand-offs, asks and results: bubbles on the Floor, voiced only if you are listening.' },
+  { title: 'Mood and ambience', status: 'now', body: 'Wins lift the mood and blockers weigh on it. One setting, Quiet, Lively or Buzzing, decides how chatty the office gets.' },
 ];
 
 export const SPEEDS: { name: string; body: string; status: Status }[] = [
-  { name: 'Reflex', status: 'next', body: 'Instant, pre-voiced micro-lines. No model call.' },
+  { name: 'Reflex', status: 'now', body: 'Instant, pre-voiced micro-lines. No model call.' },
   { name: 'Conversation', status: 'now', body: 'A fast model answers you while work continues.' },
   { name: 'Work', status: 'now', body: 'Background jobs that run for minutes, and keep running.' },
 ];
 
 /** An illustration of the Talk screen (clearly labelled as one on the page). */
 export const TALK_DEMO: { from: 'you' | 'chief'; text: string; kind?: 'status' | 'job' }[] = [
-  { from: 'you', text: 'Look into coffee suppliers in Portland for me.' },
+  { from: 'you', text: 'Find three wholesale suppliers of ethically sourced amethyst.' },
   { from: 'chief', text: 'On it. I started that in the background. Keep talking to me meanwhile.' },
   { from: 'you', text: 'How’s it going?' },
-  { from: 'chief', text: 'Step 2 of 5: gathering options and the facts on each.', kind: 'status' },
-  { from: 'you', text: 'Also check which ones are fair trade certified.' },
+  { from: 'chief', text: 'Step 2 of 5: comparing minimum orders and shipping times.', kind: 'status' },
+  { from: 'you', text: 'Also check which ones can show where the stones are mined.' },
   { from: 'chief', text: 'Got it. I’ll fold that in at the next checkpoint.' },
 ];
 
@@ -68,7 +70,7 @@ export interface Provider {
 export const PROVIDERS: Provider[] = [
   { name: 'Anthropic', caps: ['Chat'] },
   { name: 'OpenAI', caps: ['Chat', 'Voice', 'Images'] },
-  { name: 'xAI', caps: ['Chat', 'Voice', 'Images'] },
+  { name: 'xAI', caps: ['Chat', 'Voice', 'Images', 'Video'] },
   { name: 'Google Gemini', caps: ['Chat'] },
   { name: 'OpenAI-compatible', caps: ['Chat'] },
   { name: 'Ollama', caps: ['Chat', 'Local'] },
@@ -76,10 +78,10 @@ export const PROVIDERS: Provider[] = [
 
 export const MODALITIES: (Feature & { icon: 'voice' | 'image' | 'eye' | 'video' | 'doc'; status: Status })[] = [
   { icon: 'voice', title: 'Voice', status: 'now', body: 'Talk and listen in your Chief of Staff’s own voice, with a face that lip-syncs to what is actually playing.' },
-  { icon: 'image', title: 'Images', status: 'now', body: 'A portrait for every coworker today. Designs and mock-ups are next.' },
+  { icon: 'image', title: 'Images', status: 'now', body: 'Product shots, social graphics and banners from a sentence. Ask in Talk and it lands in the thread, and in Files.' },
   { icon: 'eye', title: 'Vision', status: 'now', body: 'Show a receipt, a shelf or your screen, or take a photo, and ask about it.' },
-  { icon: 'video', title: 'Video', status: 'planned', body: 'Launch cuts and social clips, made as background jobs.' },
-  { icon: 'doc', title: 'Documents', status: 'planned', body: 'Drop in PDFs, spreadsheets and decks. Get Word, Excel and PowerPoint back.' },
+  { icon: 'video', title: 'Video', status: 'now', body: 'Teasers and social clips up to 15 seconds, made in the background while you keep working.' },
+  { icon: 'doc', title: 'Documents', status: 'now', body: 'Show the team PDFs and spreadsheets. Every project’s document downloads as Word, PowerPoint or Excel.' },
 ];
 
 export const TRUST: (Feature & { icon: 'hand' | 'receipt' | 'stop' | 'badge'; status: Status })[] = [
@@ -87,6 +89,21 @@ export const TRUST: (Feature & { icon: 'hand' | 'receipt' | 'stop' | 'badge'; st
   { icon: 'hand', title: 'Approvals', status: 'now', body: 'Emails never leave without your yes: once, for the rest of a task or project, or for a day, and you can take it back. No coworker can spend money.' },
   { icon: 'receipt', title: 'Receipts', status: 'now', body: 'Nothing counts as sent without a receipt, and everything the team does is in an audit log, with Undo where it can be undone.' },
   { icon: 'stop', title: 'Everyone stop', status: 'now', body: 'One control halts every job and project at once, and holds any email that has not gone out until you resume.' },
+];
+
+/** Meetings: the team in a room, the Chief of Staff moderating. */
+export const MEETINGS: Feature[] = [
+  { title: 'Called in a sentence', status: 'now', body: '“Get the team together on a crystal subscription box.” Your Chief invites the people best placed and opens the meeting.' },
+  { title: 'Your Chief moderates', status: 'now', body: 'The first person invited chairs. Your Chief opens, keeps the floor moving and closes with the chair’s summary.' },
+  { title: 'Listen in, or speak up', status: 'now', body: 'Hear every line in each coworker’s own voice, take the floor, or whisper to one person. Read it later any time.' },
+  { title: 'The outcome comes to you', status: 'now', body: 'What they agreed lands in Talk, ready to become a project with one word.' },
+];
+
+/** Your own office: multi-tenant from the first sign-in. */
+export const OFFICE: Feature[] = [
+  { title: 'Start in a minute', status: 'now', body: 'Sign in with Google, name your office, pick your Chief of Staff and hire your first coworkers.' },
+  { title: 'Yours alone', status: 'now', body: 'Memory, the Handbook, files, projects and conversations stay in your office, apart from every other.' },
+  { title: 'Bring your people', status: 'now', body: 'Invite owners, contributors and readers by email. Everyone works in the same office.' },
 ];
 
 export interface Pack {
@@ -128,11 +145,15 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'What works today?',
-    a: 'Headcount is in early development. Today you can pick your Chief of Staff with a match quiz, talk by text or voice with a lip-synced face, hand off background jobs, ask how they are going, steer or stop them mid-flight, and browse the whole coworker directory. Staffed projects, meetings you can listen in on, the living-workforce small talk, approvals, receipts and industry packs are on the roadmap, and the page marks each one.',
+    a: `${BRAND.name} is in early access. Today you can start your own office, pick your Chief of Staff, hire coworkers, talk by text or voice, hand off background work, run team projects with a plan you approve, call meetings and listen in, make images, short videos and documents (Word, PowerPoint, Excel), and approve every email before it goes out. Industry packs and public pricing are still planned, and the page marks them.`,
+  },
+  {
+    q: 'Is my office private?',
+    a: 'Yes. Each office keeps its own memory, Handbook, files, projects and conversations, apart from every other office here. Only the people you invite can see it, and you choose what each of them can do.',
   },
   {
     q: 'Do I need API keys to try it?',
-    a: 'No. Headcount runs keyless on a built-in demo provider (its answers are clearly labeled placeholders) or on your local Ollama. Add a provider key when you want real answers: each key switches on one capability, and anything without a provider is hidden rather than shown broken.',
+    a: `No. Without a provider, ${BRAND.name} runs on a built-in demo provider (its answers are clearly labeled placeholders) or on your local Ollama. With keys set up, each one switches on a capability, and anything without a provider is hidden rather than shown broken.`,
   },
   {
     q: 'Where do my keys live?',
@@ -144,7 +165,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'What will it cost?',
-    a: 'The tiers above are planned pricing. They will be calibrated against real usage before public launch; until then, Headcount runs on design-partner plans.',
+    a: `The tiers above are planned pricing. They will be calibrated against real usage before public launch; until then, ${BRAND.name} runs on design-partner plans.`,
   },
 ];
 

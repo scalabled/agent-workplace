@@ -5,6 +5,7 @@
 //   page on any site could otherwise read the owner feed or talk as the owner (CSRF);
 // - DNS rebinding: a hostile name that resolves to 127.0.0.1 reaches the worker as "same origin", so the
 //   Host header must be a loopback name (or a host the owner allowed).
+import { BRAND } from '@headcount/protocol';
 import type { RouteId } from '@headcount/protocol';
 import { errorResponse } from './http';
 
@@ -53,7 +54,7 @@ export function hostName(host: string): string {
 export function guardHost(req: Request, url: URL, policy: OriginPolicy): Response | null {
   const header = req.headers.get('host');
   for (const name of [header ? hostName(header) : null, url.hostname.toLowerCase()]) {
-    if (name !== null && !policy.hosts.has(name)) return errorResponse('forbidden', 'This address is not Headcount. Open the app at its own address instead.');
+    if (name !== null && !policy.hosts.has(name)) return errorResponse('forbidden', `This address is not ${BRAND.name}. Open the app at its own address instead.`);
   }
   return null;
 }
@@ -70,11 +71,11 @@ export function guardRequest(req: Request, url: URL, route: RouteId | null, poli
   if (badHost) return badHost;
   const origin = req.headers.get('origin');
   if (origin !== null) {
-    if (!policy.origins.has(origin)) return errorResponse('forbidden', 'Requests from other sites are not allowed. Open Headcount itself, or add its address to ALLOWED_ORIGINS.');
+    if (!policy.origins.has(origin)) return errorResponse('forbidden', `Requests from other sites are not allowed. Open ${BRAND.name} itself, or add its address to ALLOWED_ORIGINS.`);
     return null;
   }
   const site = req.headers.get('sec-fetch-site');
   if (site && site !== 'same-origin' && site !== 'none') return errorResponse('forbidden', 'Requests from other sites are not allowed.');
-  if (route === 'ws') return errorResponse('forbidden', 'Open the feed from the Headcount app.');
+  if (route === 'ws') return errorResponse('forbidden', `Open the feed from the ${BRAND.name} app.`);
   return null;
 }

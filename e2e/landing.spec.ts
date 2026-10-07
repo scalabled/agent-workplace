@@ -42,7 +42,7 @@ test('the landing page: kinetic hero, the real cast, honest pricing, and no app 
   const sockets: string[] = [];
   page.on('websocket', (ws) => sockets.push(ws.url()));
   await page.goto('/');
-  await expect(page).toHaveTitle('Headcount — the AI Office');
+  await expect(page).toHaveTitle('Headcount — The AI Office');
   await expect(page.getByRole('heading', { level: 1, name: 'Hire a team in a sentence. Watch it work.' })).toHaveText('Hire a team in a sentence. Watch it work.');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 

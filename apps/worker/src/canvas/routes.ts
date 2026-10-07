@@ -6,6 +6,7 @@ import { CANVAS_BRIEF_MAX, type CanvasListResponse, type CanvasResponse, type Ca
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
 import { projectStub } from '../lib/stubs';
 import { APP_CSP, DOCUMENT_CSP, PRINT_CSP, PRINTER, REPORTER, documentPage, fileName, injectHead, page, documentViewCsp } from './render';
+import { BRAND } from '@headcount/protocol';
 
 const isCanvasId = (id: string | undefined): id is string => !!id && /^cnv_[a-f0-9]{16}$/.test(id);
 
@@ -77,7 +78,7 @@ async function content(env: Parameters<RouteHandler>[1]['env'], id: string | und
   return c;
 }
 
-const documentMeta = (c: CanvasSnapshot) => `${c.words ?? 0} words · made with Headcount · ${c.updatedAt.slice(0, 10)}`;
+const documentMeta = (c: CanvasSnapshot) => `${c.words ?? 0} words · made with ${BRAND.name} · ${c.updatedAt.slice(0, 10)}`;
 
 /** GET /api/canvas/:id/view[?preview=1] → the app (sandboxed, with the error reporter) or the rendered document. */
 export const handleViewCanvas: RouteHandler = async (_req, { env, params, url }) => {

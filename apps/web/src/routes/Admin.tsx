@@ -38,6 +38,7 @@ import { AuditSection, AutonomySection, EmailExtras } from '../admin/Trust';
 import { OrgCard, PlatformSection } from '../admin/Orgs';
 import './pages.css';
 import './admin.css';
+import { BRAND } from '@headcount/protocol';
 
 type Section = 'general' | 'people' | 'autonomy' | 'audit' | 'usage' | 'platform' | ConfigGroup;
 const SECTIONS: readonly { id: Section; title: string; icon: IconName }[] = [
@@ -794,7 +795,7 @@ function OptionRow({ option: o, value, draft, disabled, onDraft, onReset }: { op
           {value?.source === 'admin' && value.updatedBy && value.updatedBy !== 'owner' ? ` by ${value.updatedBy}` : ''}
           {o.kind === 'secret' && value ? (value.set ? ' · set' : ' · not set') : ''}
           {o.fallback && o.kind !== 'secret' && value?.source !== 'default' ? ` · default ${o.choices?.find((c) => c.value === o.fallback)?.label ?? o.fallback}` : ''}
-          {value?.locked ? ' · set by Headcount for every organization' : ''}
+          {value?.locked ? ` · set by ${BRAND.name} for every organization` : ''}
         </span>
       </div>
       <div class="admin-option-input">

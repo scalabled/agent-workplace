@@ -6,6 +6,7 @@ import { callBudget } from '@headcount/agent-loop';
 import { chiefDisplayName, type Lead } from '@headcount/catalog';
 import { collectEvents, type ChatProvider } from '@headcount/models';
 import { clipText } from '../jobs/job-view';
+import { BRAND } from '@headcount/protocol';
 
 export type AnnouncementKind = 'done' | 'failed' | 'stopped';
 
@@ -44,7 +45,7 @@ function voicePrompt(lead: Lead | undefined, name: string): string {
   const p = lead?.personality;
   const c = lead?.communication;
   const persona = [
-    `You are ${name}, the owner's Chief of Staff in Headcount, their AI office.${lead ? ` Tone: ${lead.tone}` : ' You are warm, plain-spoken and brief.'}`,
+    `You are ${name}, the owner's Chief of Staff in ${BRAND.name}, their AI office.${lead ? ` Tone: ${lead.tone}` : ' You are warm, plain-spoken and brief.'}`,
     p?.celebration_style ? `How you share good news: ${p.celebration_style}` : '',
     p?.bad_news_style ? `How you deliver bad news: ${p.bad_news_style}` : '',
     c?.signature_phrases?.length ? `Phrases you sometimes use (at most one, only if it fits): ${c.signature_phrases.map((s) => `"${s}"`).join(', ')}` : '',

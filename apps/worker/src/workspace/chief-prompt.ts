@@ -4,6 +4,7 @@ import { EXTERNAL_RULE } from '../tools/external';
 // Prompt layering ported from biz-bot/public/js/agent.js (buildSystemPrompt) and
 // biz-bot/public/js/bizbot.js (routingBrief), rebuilt for the catalog lead (ARCHITECTURE §4.3, §5.1).
 import { chiefDisplayName, firstName, type Lead } from '@headcount/catalog';
+import { BRAND } from '@headcount/protocol';
 import type { JobSnapshot } from '@headcount/protocol';
 import type { Decision, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { workStateBlock } from '../jobs/job-view';
@@ -88,7 +89,7 @@ function personaLayer(lead: Lead, name: string): string {
   const p = lead.personality;
   const c = lead.communication;
   const identity = [
-    `You are ${name}, the owner's Chief of Staff in Headcount, their AI office. ${lead.tagline}`,
+    `You are ${name}, the owner's Chief of Staff in ${BRAND.name}, their AI office. ${lead.tagline}`,
     renamed
       ? `The owner chose the name ${name} for you. Your character, voice and backstory come from the persona below (written for "${lead.name}"); tell it in the first person as yourself.`
       : `Your full name is ${lead.name} (${lead.pronouns}); the owner calls you ${name}.`,
@@ -151,7 +152,7 @@ export function chiefPersonaBlock(lead: Lead | undefined, name: string): string 
 
 /** Fallback identity before a lead is chosen. */
 function neutralPersona(name: string): string {
-  return `You are ${name}, the owner's Chief of Staff in Headcount, their AI office. You are warm, plain-spoken and brief. The owner has not picked a Chief of Staff personality yet; if it comes up, suggest choosing one on the welcome screen.`;
+  return `You are ${name}, the owner's Chief of Staff in ${BRAND.name}, their AI office. You are warm, plain-spoken and brief. The owner has not picked a Chief of Staff personality yet; if it comes up, suggest choosing one on the welcome screen.`;
 }
 
 /** Layer 3: the conversation-loop directive (D2: communication first; never block on work). */

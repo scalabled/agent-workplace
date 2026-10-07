@@ -3,7 +3,7 @@
 //   in force (take one back), emails waiting or held, and Everyone stop (resume it here).
 // - Audit log: everything that happened, newest first, each at its own link; Undo where it can be undone.
 // - Email (under the Email settings): the test mailbox, and a test email to yourself.
-import { CHIEF_ID } from '@headcount/protocol';
+import { BRAND, CHIEF_ID } from '@headcount/protocol';
 import { AUTONOMY_WORDS, type AuditEntry, type AuditKind, type Autonomy, type EffectView, type Grant, type TestMailbox, type TrustResponse } from '@headcount/protocol/ext/trust';
 import { useEffect, useState } from 'preact/hooks';
 import { api, ApiError } from '../api/client';
@@ -22,7 +22,7 @@ const when = (at?: string) => (at ? new Date(at).toLocaleString(undefined, { mon
 /** An agent id, "owner:<email>" or "system", in words. */
 export function actorName(actor: string): string {
   if (actor === CHIEF_ID || actor === 'chief') return chiefName.value;
-  if (actor === 'system') return 'Headcount';
+  if (actor === 'system') return BRAND.name;
   if (actor === 'owner' || actor === 'owner:owner') return 'You';
   if (actor.startsWith('owner:')) {
     const who = actor.slice(6);
@@ -424,7 +424,7 @@ export function EmailExtras() {
       <h2 id="adm-email-check" class="admin-card-title">
         Check it works
       </h2>
-      <p class="page-fine">{status ? (status.ready ? (status.provider === 'sink' ? 'Test mode: emails go to the test mailbox below and nothing leaves Headcount.' : `Ready: emails go out from ${status.from}.`) : (status.why ?? 'Email is off.')) : 'Loading…'}</p>
+      <p class="page-fine">{status ? (status.ready ? (status.provider === 'sink' ? `Test mode: emails go to the test mailbox below and nothing leaves ${BRAND.name}.` : `Ready: emails go out from ${status.from}.`) : (status.why ?? 'Email is off.')) : 'Loading…'}</p>
       {status?.ready && (
         <form class="admin-row" onSubmit={send}>
           <label class="visually-hidden" for="test-email-to">
