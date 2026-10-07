@@ -144,8 +144,9 @@ describe('keys and the catalog', () => {
     expect(connectorSecret({})).toBeTruthy();
   });
 
-  it('carries biz-bot’s eleven, all valid', () => {
-    expect(CONNECTOR_CATALOG).toHaveLength(11);
+  it('carries biz-bot’s eleven and Buffer (social posting), all valid', () => {
+    expect(CONNECTOR_CATALOG).toHaveLength(12);
+    expect(CONNECTOR_CATALOG.find((c) => c.id === 'buffer')).toMatchObject({ url: 'https://mcp.buffer.com/mcp', auth: 'token' });
     expect(validateCatalog([DEMO_CONNECTOR, ...CONNECTOR_CATALOG])).toEqual([]);
   });
 });
