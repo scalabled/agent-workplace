@@ -55,8 +55,8 @@ The next deploy covers these commits:
    One command applies both:
    `(cd apps/worker && npx wrangler d1 migrations apply headcount --remote -c wrangler.deploy.jsonc)`.
    Both only add tables, columns and an index. No new Durable Object classes, so there is no DO migration tag.
-2. **Who may start an office.** `wrangler.deploy.jsonc` has `SIGNUP_MODE: "open"`, `MAX_ORGS: "100"` and
-   `MAX_ORGS_PER_USER: "3"`.
+2. **Who may start an office.** `wrangler.deploy.jsonc` has `SIGNUP_MODE: "invite"` (the owner's choice for the
+   first test groups), `MAX_ORGS: "100"` and `MAX_ORGS_PER_USER: "3"`.
    - With `open`, anyone with a Google account can start their own office.
    - `invite` admits only people an owner invited.
    - `closed` admits nobody new.
