@@ -36,7 +36,7 @@ test('shell shows the places and the Chief of Staff bubble', async ({ page }) =>
   await pinDirectory(page);
   await page.goto('/app/floor');
   const nav = page.getByRole('navigation', { name: 'Places' });
-  for (const place of ['Talk', 'Floor', 'Meetings', 'Projects', 'Files', 'Inbox']) await expect(nav.getByRole('link', { name: place })).toBeVisible();
+  for (const place of ['Talk', /^Now/, 'Floor', 'Meetings', 'Projects', 'Files', 'Inbox']) await expect(nav.getByRole('link', { name: place })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Talk to / })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Floor' })).toBeVisible();
   await expect(page.getByText(/coworkers across \d+ departments/)).toBeVisible();

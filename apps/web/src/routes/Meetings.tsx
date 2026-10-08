@@ -1,7 +1,8 @@
 // Meetings: where the team talks things through, with the Chief of Staff moderating every one. Call a meeting (a topic
 // and people from your team, or a project's own team), see who is meeting now, and read or replay any meeting. A meeting
 // opens in its room: the table, who has the floor, every line as it is said, Listen in, and the floor for the owner.
-// When one called on its own ends, the Chief brings the outcome to Talk; from the room it can become a project.
+// When one called on its own ends, the people at the table get started on what they agreed (unless the owner said
+// not to), and the Chief brings the outcome to Talk; otherwise the room's Start the work does it in one tap.
 import { firstName, type PersonaSlim } from '@headcount/catalog';
 import { CHIEF_ID, coworkerAgentId } from '@headcount/protocol';
 import type { ChannelEntry, MeetingResponse, MeetingSummary, TeamMember } from '@headcount/protocol/ext/projects';
@@ -18,8 +19,7 @@ import { CopyLink, PageTitle } from '../links/CopyLink';
 import { listen, nowPlaying, stopListening } from '../meetings/listen';
 import { KIND, TakeTheFloor } from '../projects/Meetings';
 import { navigate, paths, queryParam } from '../router';
-import { liveMeetings, meetingsById, projectChannels, projectList, teamIds, upsertMeetings } from '../store';
-import { prefillComposer } from '../talk/draft';
+import { liveMeetings, meetingsById, projectChannels, projectList, teamIds, upsertMeetings, upsertProject } from '../store';
 import { accentFor } from '../lib/accent';
 import { takeVoice } from '../voice/handoff';
 import './pages.css';
@@ -99,6 +99,7 @@ function CallMeeting() {
   const [projectId, setProjectId] = useState(preset && projects.some((p) => p.projectId === preset) ? preset : '');
   const [kind, setKind] = useState<'discussion' | 'review'>('discussion');
   const [rounds, setRounds] = useState(1);
+  const [followUp, setFollowUp] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const project = projects.find((p) => p.projectId === projectId);
@@ -112,7 +113,7 @@ function CallMeeting() {
     setBusy(true);
     setError(null);
     try {
-      const r = await api.callMeeting(project ? { topic: topic.trim(), projectId: project.projectId, kind, rounds } : { topic: topic.trim(), people: picked, rounds });
+      const r = await api.callMeeting(project ? { topic: topic.trim(), projectId: project.projectId, kind, rounds } : { topic: topic.trim(), people: picked, rounds, followUp });
       upsertMeetings([r.meeting]);
       navigate(paths.meeting(r.meeting.meetingId));
     } catch (err) {
@@ -203,6 +204,12 @@ function CallMeeting() {
           <Icon name="meetings" size={16} /> {busy ? 'Starting…' : 'Start the meeting'}
         </button>
       </div>
+      {!project && (
+        <label class="grant-label call-meeting-follow">
+          <input type="checkbox" checked={followUp} onChange={(e) => setFollowUp(e.currentTarget.checked)} />
+          <span class="grant-name">When it ends, they get started on what they agree (the chair leads)</span>
+        </label>
+      )}
       {error && (
         <p class="form-error" role="alert">
           {error}
@@ -294,6 +301,7 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
   useEffect(() => void loadCatalog(), []);
   const [data, setData] = useState<MeetingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const known = meetingsById.value[meetingId];
   const projectId = data?.meeting.projectId ?? known?.projectId;
   const lines = projectId ? (projectChannels.value[projectId] ?? []).filter((e) => e.meetingId === meetingId).length : 0;
@@ -329,9 +337,18 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
     void listen(m.projectId, meetingId, { from: live ? 'live' : 'start', title: m.title ?? m.question }).catch((err) => setError(errorOf(err, 'That meeting could not be played.')));
   };
   const seats = [m.chairId, ...team.map((t) => t.personaId).filter((id) => id !== m.chairId)];
-  const asProject = () => {
-    prefillComposer(`Turn the meeting on “${m.title ?? m.question}” into a team project. What they agreed: ${m.summary ?? ''}`.slice(0, 1800));
-    navigate(paths.talk);
+  const startWork = async () => {
+    if (starting) return;
+    setStarting(true);
+    setError(null);
+    try {
+      const r = await api.meetingWork(meetingId);
+      upsertProject(r.project);
+      navigate(paths.project(r.project.projectId));
+    } catch (err) {
+      setError(errorOf(err, 'The work did not start. Try again.'));
+      setStarting(false);
+    }
   };
   return (
     <section class="page meeting-room" aria-labelledby="room-title">
@@ -399,16 +416,26 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
             What they agreed
           </h2>
           <p class="room-summary">{m.summary}</p>
+          {m.work && (
+            <p class="room-work" role="status">
+              <Icon name="projects" size={16} /> The team is on it: <Link href={paths.project(m.work.projectId)}>{m.work.title}</Link>
+            </p>
+          )}
           <div class="admin-row">
-            {m.standalone && mayContribute.value && (
-              <button type="button" class="button-primary" onClick={asProject}>
-                <Icon name="projects" size={16} /> Make it a project
+            {m.standalone && !m.work && mayContribute.value && (
+              <button type="button" class="button-primary" onClick={() => void startWork()} disabled={starting}>
+                <Icon name="projects" size={16} /> {starting ? 'Starting…' : 'Start the work'}
               </button>
             )}
             <Link href={paths.talk} class="button-quiet">
               Talk it over with {chief}
             </Link>
           </div>
+          {error && (
+            <p class="form-error" role="alert">
+              {error}
+            </p>
+          )}
         </section>
       )}
 

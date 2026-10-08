@@ -122,3 +122,24 @@
     height: 44px;
   }
 }
+
+/* Phones: the mic is a full-size target, and holding it never selects text or opens a callout. */
+.room-dock__mic {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+@media (pointer: coarse) {
+  .room-dock__form .room-dock__mic {
+    width: 44px;
+  }
+}
+
+/* While a room or a joined huddle is open, the Chief's bubble steps aside: on phones its corner is where the room's
+   mic and Send are, and talking there goes to the room anyway (the Chief can be invited to the table). */
+body:has(.hc-office[data-mode='conference']) .chief-bubble,
+body:has(.hc-o-hcard__input) .chief-bubble {
+  opacity: 0;
+  pointer-events: none;
+}

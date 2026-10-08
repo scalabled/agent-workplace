@@ -1,9 +1,10 @@
 # Workers Static Assets response headers (docs/DEPLOY.md §3.2). The CSP ships report-only for the first test
 # deploy: check the browser console for violations (MediaPipe landmark detection was not exercised), then switch
-# the header name to Content-Security-Policy. The sha256 covers the inline theme script in index.html; the
+# the header name to Content-Security-Policy. Speech recognition on the device (voice/local-stt.ts) loads its runtime
+# from jsDelivr and the Whisper model from the Hugging Face hub (huggingface.co, then its *.hf.co file hosts). The sha256 covers the inline theme script in index.html; the
 # preflight recomputes it after every build.
 /*
-  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'sha256-OsKpNGhg9WkjqfJVHuIqKhAOA95wDIsuhkUuCc5E7MA=' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net https://storage.googleapis.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'sha256-OsKpNGhg9WkjqfJVHuIqKhAOA95wDIsuhkUuCc5E7MA=' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://cdn.jsdelivr.net https://storage.googleapis.com https://huggingface.co https://*.huggingface.co https://*.hf.co; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: microphone=(self), camera=(self), display-capture=(self), geolocation=(), payment=(), usb=()

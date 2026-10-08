@@ -11,6 +11,12 @@ import { BRAND } from '@headcount/protocol';
 
 /** How long a cached copy is used before it is read again (other isolates pick up a change within this). */
 const TTL_MS = 5_000;
+/**
+ * The longest a request waits on a read another request (or a Durable Object's event) started. That read's I/O
+ * belongs to whoever started it and stops when they finish, so it may never settle; past this a fresh read starts.
+ * Without the bound, one cancelled read held every later API request forever.
+ */
+export const LOAD_WAIT_MS = 3_000;
 const RAW = Symbol('raw-env');
 
 interface Entry {
@@ -23,13 +29,15 @@ interface Cache {
   values: Map<string, Entry>;
   at: number;
   loading: Promise<void> | null;
+  /** When `loading` started. */
+  loadingAt: number;
 }
 
 const caches = new Map<string, Cache>();
 const wsOf = (env: Pick<Env, 'WORKSPACE_ID'>) => env.WORKSPACE_ID || 'local';
 const cacheOf = (ws: string): Cache => {
   let c = caches.get(ws);
-  if (!c) caches.set(ws, (c = { values: new Map(), at: 0, loading: null }));
+  if (!c) caches.set(ws, (c = { values: new Map(), at: 0, loading: null, loadingAt: 0 }));
   return c;
 };
 const aad = (key: string) => `config:${key}`;
@@ -41,8 +49,12 @@ export async function loadConfig(env: Env, force = false): Promise<void> {
   const raw = rawEnv(env);
   const c = cacheOf(wsOf(raw));
   if (!force && Date.now() - c.at < TTL_MS) return;
-  if (c.loading && !force) return c.loading;
-  const work = (async () => {
+  const age = Date.now() - c.loadingAt;
+  if (c.loading && !force && age < LOAD_WAIT_MS) return Promise.race([c.loading, delay(LOAD_WAIT_MS - age)]);
+  // The read starts after a tick, so `work` is set before it can finish.
+  let work: Promise<void> | undefined;
+  work = (async () => {
+    await null;
     try {
       const rows = (await raw.DB.prepare('SELECT key, value, sealed, updated_at, updated_by FROM settings_kv WHERE ws_id = ?').bind(wsOf(raw)).all<Row>()).results ?? [];
       const secret = connectorSecret(raw);
@@ -59,12 +71,19 @@ export async function loadConfig(env: Env, force = false): Promise<void> {
       // No table yet (an unmigrated database) or D1 unavailable: the deployment's values stand.
       c.at = Date.now();
     } finally {
-      c.loading = null;
+      // A newer read may have replaced a stuck one: only the current one clears the slot.
+      if (c.loading === work) c.loading = null;
     }
   })();
   c.loading = work;
+  c.loadingAt = Date.now();
   return work;
 }
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, Math.max(0, ms)));
+
+/** A read is under way and not yet given up on. */
+const reading = (c: Cache) => !!c.loading && Date.now() - c.loadingAt < LOAD_WAIT_MS;
 
 /** The environment as deployed, without the admin page's settings. */
 export function rawEnv<E extends Env>(env: E): E {
@@ -78,7 +97,7 @@ export function configured<E extends Env>(env: E): E {
   const override = (key: string | symbol): Entry | undefined => {
     if (typeof key !== 'string' || !EDITABLE_KEYS.has(key)) return undefined;
     const c = cacheOf(ws);
-    if (Date.now() - c.at >= TTL_MS && !c.loading) void loadConfig(env);
+    if (Date.now() - c.at >= TTL_MS && !reading(c)) void loadConfig(env);
     return c.values.get(key);
   };
   return new Proxy(env, {

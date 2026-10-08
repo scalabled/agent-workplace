@@ -2,6 +2,9 @@
 // other at machine speed (the client paces playback), each a fast-tier, tool-free reply of at most two short sentences
 // through the reply guard, or a catalog reflex line for a phatic message. Frames carry `surface: 'room'`, the room and
 // the meeting; `room.turn` tells clients who is next. A newer owner message or a cancel closes the turn at once.
+// A room is a working meeting: before anyone answers, the intake (rooms/intake.ts) starts the work the owner asked for
+// with the people here, or passes their direction on, and the replies are true to that: the Chief, when present, hands
+// it out first, then the lead says what they will tackle.
 import { callBudget, runTurn, type TurnResult } from '@headcount/agent-loop';
 import { chiefDisplayName } from '@headcount/catalog';
 import { fullIndex } from '@headcount/catalog/full';
@@ -21,12 +24,15 @@ import {
 } from '@headcount/protocol';
 import type { ExprCause, ExprIntentId } from '@headcount/protocol/ext/expressions';
 import { ROOM_REPLY_MAX_TOKENS, type FloorMode, type RoomId, type RoomTurnData } from '@headcount/protocol/ext/rooms';
-import { unstaffedLine } from '../desk/desk';
+import type { StaffingContext } from '@headcount/protocol/ext/projects';
+import type { Done } from '../desk/desk-tools';
+import { OFFER_LINE } from '../desk/desk';
 import type { Feed } from '../workspace/feed';
 import type { Ledger } from '../workspace/ledger';
 import { logError } from '../workspace/runtime';
 import { CHIEF_ROOM_WORK_LINE, FIGURE_LINES, ReplyGuard, ownerFigures } from './guard';
-import { buildRoomSystemPrompt, ownerLinesOf, projectionName, roomMember, roomProjection, type RoomMember } from './prompt';
+import { roomIntake, type IntakePerson } from './intake';
+import { buildRoomSystemPrompt, meetingLines, ownerLinesOf, placePhrase, projectionName, roomMember, roomProjection, type RoomMember, type RoomWork } from './prompt';
 
 /** One responder's reply as it streams. */
 export interface RoomReplyState {
@@ -53,6 +59,8 @@ export interface RoomTurnState {
   via: 'text' | 'voice';
   cues: AffectCues;
   ownerSeq: number;
+  /** The owner's words (the intake reads them; absent: no intake). */
+  ownerText?: string;
   /** Responders not yet finished. */
   remaining: AgentId[];
   current: RoomReplyState | null;
@@ -89,14 +97,24 @@ export interface RoomHost {
   markCurrent(turn: RoomTurnState): void;
   /** The office's own name (cleaned). */
   office?(): Promise<string>;
+  /** A coworker's part in the team projects under way ([] when none). */
+  staffing?(personaId: string): Promise<StaffingContext[]>;
+  /** Start the work the owner asked for here, with these people (persona ids, the lead first; none: the playbook's). */
+  startWork?(req: { goal: string; title: string; people: string[]; where: string; opId: string }): Promise<Done<{ projectId: string; title: string; team: { personaId: string; name: string; role: string }[] }>>;
+  /** The owner's direction for a project someone here is on. */
+  directWork?(req: { projectId: string; text: string; toId?: string; opId: string }): Promise<Done<{ title: string }>>;
   streamId: ExprCause['streamId'];
 }
 
-/** A reply that takes longer than this is cut (its sentences so far stand). */
-export const roomTiming = { replyDeadlineMs: 15_000 };
+/** A reply that takes longer than this is cut (its sentences so far stand); the intake gives up after `intakeMs`. */
+export const roomTiming = { replyDeadlineMs: 15_000, intakeMs: 12_000 };
 export const defaultRoomTiming = { ...roomTiming };
 
 export const ROOM_RATE_MESSAGE = 'That is a lot of room talk right now. Wait a minute and ask again.';
+/** Lines of the meeting the intake reads. */
+const INTAKE_LINES = 12;
+/** Most replies after work starts: the Chief (when here), the lead and one more. */
+const WORK_RESPONDERS = 3;
 export const ROOM_NO_PROVIDER_MESSAGE = 'Add a provider key or start Ollama to talk to the room.';
 
 const where = (t: Pick<RoomTurnState, 'roomId' | 'meetingId'>) => ({ surface: 'room' as const, roomId: t.roomId, meetingId: t.meetingId });
@@ -207,6 +225,32 @@ export async function runRoomTurn(host: RoomHost, t: RoomTurnState): Promise<voi
   };
   const cause: ExprCause = { streamId: host.streamId, seq: t.ownerSeq };
 
+  // Everyone's live work, so nobody says they are free when they are not (or busy when they are free).
+  const staffing = new Map<string, StaffingContext[]>();
+  if (host.staffing)
+    await Promise.all(
+      [...members.values()].filter((m) => !m.isChief && m.persona).map(async (m) => staffing.set(m.agentId, await host.staffing!(m.persona!.id).catch(() => []))),
+    );
+  if (!alive()) return;
+  // The intake shows the first planned responder thinking; if the turn ends or the work changes who answers, they
+  // are available again.
+  const firstPlanned = t.order[0];
+  const work = t.mode !== 'phatic' && t.ownerText?.trim() ? await takeWork(host, t, { members, staffing, chiefName }) : null;
+  if (!alive()) {
+    if (firstPlanned) feed.claim(firstPlanned, 'room', null);
+    return;
+  }
+  if (work) {
+    t.order = workOrder(t, work, members);
+    t.remaining = [...t.order];
+    t.chiefWrap = false;
+    if (firstPlanned && !t.order.includes(firstPlanned)) feed.claim(firstPlanned, 'room', null);
+    // Their live work changed: read it again for the people on it.
+    if (work.kind === 'started' && host.staffing)
+      await Promise.all(work.team.filter((m) => members.has(m.agentId)).map(async (m) => staffing.set(m.agentId, await host.staffing!(personaIdOf(m.agentId)).catch(() => staffing.get(m.agentId) ?? []))));
+    if (!alive()) return;
+  }
+
   for (let k = 0; k < t.order.length; k++) {
     if (!alive()) return;
     const agentId = t.order[k]!;
@@ -244,7 +288,7 @@ export async function runRoomTurn(host: RoomHost, t: RoomTurnState): Promise<voi
           feed.claim(agentId, 'room', null);
           return stop('limit', { code: 'rate_limited', message: chat.message });
         }
-        const outcome = await modelReply(host, t, reply, { member, members, wrapUp, chiefName, ownerFirst, nameOf, settings, ...(office ? { office } : {}) });
+        const outcome = await modelReply(host, t, reply, { member, members, wrapUp, chiefName, ownerFirst, nameOf, settings, staffing: staffing.get(agentId) ?? [], work, ...(office ? { office } : {}) });
         if (outcome === 'no_provider') return;
       }
     } catch (err) {
@@ -272,7 +316,18 @@ async function modelReply(
   host: RoomHost,
   t: RoomTurnState,
   reply: RoomReplyState,
-  c: { member: RoomMember; members: Map<string, RoomMember>; wrapUp: boolean; chiefName: string; ownerFirst: string | null; nameOf: (id: string) => string; settings: WorkspaceSettings; office?: string },
+  c: {
+    member: RoomMember;
+    members: Map<string, RoomMember>;
+    wrapUp: boolean;
+    chiefName: string;
+    ownerFirst: string | null;
+    nameOf: (id: string) => string;
+    settings: WorkspaceSettings;
+    office?: string;
+    staffing?: readonly StaffingContext[];
+    work?: RoomWork | null;
+  },
 ): Promise<'ok' | 'no_provider'> {
   const { feed } = host;
   let resolved;
@@ -294,13 +349,24 @@ async function modelReply(
   }
   const frames = host.ledger.recent(['talk.owner', 'talk.message'], 400);
   const others = t.participants.filter((id) => id !== reply.agentId).map((id) => c.members.get(id)).filter((m): m is RoomMember => !!m);
-  const system = buildRoomSystemPrompt({ roomId: t.roomId, label: t.label, self: c.member, others, ownerFirst: c.ownerFirst, chiefName: c.chiefName, wrapUp: c.wrapUp, ...(c.office ? { office: c.office } : {}) });
+  const system = buildRoomSystemPrompt({
+    roomId: t.roomId,
+    label: t.label,
+    self: c.member,
+    others,
+    ownerFirst: c.ownerFirst,
+    chiefName: c.chiefName,
+    wrapUp: c.wrapUp,
+    ...(c.office ? { office: c.office } : {}),
+    ...(c.staffing?.length ? { staffing: c.staffing } : {}),
+    ...(c.work ? { work: c.work } : {}),
+  });
   const messages = roomProjection(frames, t.meetingId, reply.agentId, c.nameOf);
   const ownerLines = ownerLinesOf(frames, t.meetingId);
   const guard = new ReplyGuard({
     allowedFigures: ownerFigures(ownerLines),
     ownerText: ownerLines,
-    workLine: c.member.isChief ? CHIEF_ROOM_WORK_LINE : unstaffedLine(c.chiefName),
+    workLine: c.member.isChief ? CHIEF_ROOM_WORK_LINE : OFFER_LINE,
     // Two responders in one turn never say the same honest line.
     figureLine: FIGURE_LINES[Math.max(0, t.order.indexOf(reply.agentId)) % FIGURE_LINES.length]!,
     maxSentences: 2,
@@ -308,6 +374,8 @@ async function modelReply(
     work: 'room',
     where: 'room.guard',
   });
+  // Work that really started (or is under way for them) may be talked about: only outside actions stay off limits.
+  if (onTheWork(c.member, c.work ?? null, c.staffing ?? [])) guard.allowWork();
   const say = (text: string) => {
     if (!text || reply.closed) return;
     reply.text += text;
@@ -341,4 +409,89 @@ async function modelReply(
   if (result.finish === 'error') logError('room.reply', result.error?.message ?? 'model error');
   closeRoomReply(feed, t, reply, finish, { usage });
   return 'ok';
+}
+
+/** "cw_<persona>" → "<persona>" (room members are agent ids). */
+const personaIdOf = (agentId: string) => agentId.replace(/^cw_/, '');
+
+/** May this responder say they are doing the work? The Chief and the team of work just started or directed, or anyone on a live project. */
+export function onTheWork(member: RoomMember, work: RoomWork | null, staffing: readonly StaffingContext[]): boolean {
+  if (work?.kind === 'started') return member.isChief || work.team.some((m) => m.agentId === member.agentId);
+  if (work?.kind === 'directed') return member.isChief || staffing.some((s) => s.projectId === work.projectId);
+  return staffing.some((s) => s.status === 'running' || s.status === 'planning' || s.status === 'paused');
+}
+
+/**
+ * Who answers once work started: the Chief first (they hand it out), then the lead, then another teammate here (at
+ * most three). Work that could not start: the Chief says why, else the first planned responder. Direction: the
+ * planned order, with whoever is on that project first.
+ */
+export function workOrder(t: Pick<RoomTurnState, 'order' | 'participants'>, work: RoomWork, members: Map<string, RoomMember>): AgentId[] {
+  const chief = members.has(CHIEF_ID) ? [CHIEF_ID as AgentId] : [];
+  const planned = t.order.filter((id) => id !== CHIEF_ID);
+  if (work.kind === 'failed') return chief.length ? chief : planned.slice(0, 1);
+  if (work.kind === 'directed') {
+    const to = work.toId ? (`cw_${work.toId}` as AgentId) : null;
+    const first = to && members.has(to) ? [to] : [];
+    return [...first, ...planned.filter((id) => !first.includes(id))].slice(0, 2);
+  }
+  const here = work.team.map((m) => m.agentId as AgentId).filter((id) => members.has(id) && id !== CHIEF_ID);
+  const lead = here.includes(work.leadId as AgentId) ? [work.leadId as AgentId] : here.slice(0, 1);
+  const rest = here.filter((id) => !lead.includes(id));
+  return [...chief, ...lead, ...rest].slice(0, WORK_RESPONDERS);
+}
+
+/**
+ * The intake (rooms/intake.ts): start the work the owner asked for with the people here, pass on their direction, or
+ * nothing. Never throws: a failed intake leaves the room talking as before.
+ */
+async function takeWork(host: RoomHost, t: RoomTurnState, c: { members: Map<string, RoomMember>; staffing: Map<string, StaffingContext[]>; chiefName: string }): Promise<RoomWork | null> {
+  if (!host.startWork) return null;
+  let resolved;
+  try {
+    resolved = host.registry().resolve('chat', { tier: 'fast', needs: ['tools'] });
+  } catch {
+    return null;
+  }
+  const coworkers = [...c.members.values()].filter((m) => !m.isChief && m.persona);
+  const people: IntakePerson[] = coworkers.map((m) => ({
+    personaId: m.persona!.id,
+    firstName: m.firstName,
+    title: m.title,
+    projects: (c.staffing.get(m.agentId) ?? []).filter((s) => !['done', 'partial', 'failed', 'cancelled'].includes(s.status)).map((s) => ({ projectId: s.projectId, title: s.title })),
+  }));
+  const frames = host.ledger.recent(['talk.owner', 'talk.message'], 400);
+  const lines = meetingLines(frames, t.meetingId)
+    .slice(-(INTAKE_LINES + 1), -1)
+    .map((f) => (f.type === 'talk.owner' ? `Owner: ${f.data.text}` : `${c.members.get(f.data.agentId)?.firstName ?? 'A colleague'}: ${f.data.text}`));
+  const first = t.order[0];
+  if (first) host.feed.claim(first, 'room', { state: 'thinking', label: 'Thinking', causeSeq: t.ownerSeq });
+  const deadline = deadlineSignal(roomTiming.intakeMs, t.controller.signal);
+  try {
+    const d = await roomIntake({ provider: resolved.provider, model: resolved.model, signal: deadline.signal }, { ownerText: t.ownerText ?? '', lines, people, chiefPresent: c.members.has(CHIEF_ID), chiefName: c.chiefName });
+    if (t.closed) return null;
+    // "in the Skyline room", "at Liban's desk", "on the office floor".
+    const place = placePhrase(t.roomId, t.label);
+    const where = place.startsWith('the ') ? `in ${place}` : place.replace(/^a quick (chat|huddle) /, '');
+    if (d.action === 'start') {
+      // Nobody named: the people the floor picked for it, else everyone here (none here but the Chief: the playbook's team).
+      const picked = d.people.length ? d.people : t.order.filter((id) => id !== CHIEF_ID).map(personaIdOf).filter((id) => people.some((p) => p.personaId === id));
+      const team = picked.length ? picked : people.map((p) => p.personaId);
+      const r = await host.startWork({ goal: d.goal, title: d.title, people: team.slice(0, 6), where, opId: `${t.opId}:work` });
+      if (!r.ok) return { kind: 'failed', message: r.message };
+      const roster = r.team.map((m) => ({ agentId: `cw_${m.personaId}`, firstName: m.name.split(' ')[0]! }));
+      const lead = r.team.find((m) => m.role === 'lead') ?? r.team[0];
+      return { kind: 'started', projectId: r.projectId, title: r.title, leadId: lead ? `cw_${lead.personaId}` : roster[0]?.agentId ?? '', team: roster };
+    }
+    if (d.action === 'direct' && host.directWork) {
+      const r = await host.directWork({ projectId: d.projectId, text: d.text, ...(d.toId ? { toId: d.toId } : {}), opId: `${t.opId}:direct` });
+      return r.ok ? { kind: 'directed', projectId: d.projectId, title: r.title, ...(d.toId ? { toId: d.toId } : {}) } : null;
+    }
+    return null;
+  } catch (err) {
+    logError('room.intake', err);
+    return null;
+  } finally {
+    deadline.dispose();
+  }
 }

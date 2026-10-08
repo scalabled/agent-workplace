@@ -4,6 +4,19 @@ import { defineConfig } from 'vite';
 import { landingData } from './landing-data.ts';
 import { BRAND } from '../../packages/protocol/src/brand.ts';
 
+/**
+ * On-device speech recognition (voice/whisper.worker.ts) runs onnxruntime-web, whose WebAssembly (about 26 MB) is
+ * fetched from jsDelivr at run time: Transformers.js points the runtime there before it loads. The copy Vite would
+ * bundle is never used and is over the 25 MiB per-file limit of Workers Static Assets, so it is left out.
+ */
+const dropOnnxWasm = () => ({
+  name: 'drop-onnx-wasm',
+  apply: 'build' as const,
+  generateBundle(_: unknown, bundle: Record<string, unknown>) {
+    for (const file of Object.keys(bundle)) if (/(^|\/)ort-wasm[^/]*\.wasm$/.test(file)) delete bundle[file];
+  },
+});
+
 // Ports come from scripts/dev.mjs (HEADCOUNT_WEB_PORT / HEADCOUNT_WORKER_PORT); defaults 5173 / 8787.
 const webPort = Number(process.env.HEADCOUNT_WEB_PORT ?? 5173);
 const workerPort = Number(process.env.HEADCOUNT_WORKER_PORT ?? 8787);
@@ -32,4 +45,6 @@ export default defineConfig({
   // Chunks: a tiny entry (router + theme), then the landing or the app, each lazy. The slim catalog is its own
   // lazy chunk (~230 kB gzip) that only the app loads; the landing carries its own ~15 kB cast.
   build: { target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 1000 },
+  // Speech recognition on the device runs in a module worker (voice/whisper.worker.ts), which loads its runtime lazily.
+  worker: { format: 'es', plugins: () => [dropOnnxWasm()] },
 });

@@ -1,5 +1,7 @@
 // Push-to-talk to the Chief of Staff: hold the bubble, the header face, the mic button or Space;
-// release to send. Provider STT when configured, else the browser's speech recognition (keyless).
+// release to send (or tap the mic, and tap again to send). Speech to text, most robust first: the office's provider
+// STT when configured; else Whisper on this device (voice/local-stt.ts, every modern browser), which also steps in
+// when the provider cannot be reached; the browser's own speech recognition only when neither can run.
 // Starting to talk is a barge-in: the Chief of Staff stops speaking at once. The recording lifecycle
 // (permission, too-short presses, dictation) is the audio package's createPushToTalk.
 // While an office room or a joined huddle is open, push-to-talk goes there instead (the target, OFFICE-PHASE2 §4.3):
@@ -15,6 +17,7 @@ import { showNotice } from '../ui/notice';
 import { bargeIn } from './chief-voice';
 import { stopLiveVoice } from './live';
 import { armAudio, audio, audioSupport } from './engine';
+import { localSttReady, localSttSupported, transcribeLocally, warmLocalStt } from './local-stt';
 
 export type PttPhase = 'idle' | 'starting' | 'listening' | 'transcribing';
 
@@ -24,9 +27,13 @@ export interface PttState {
   partial: string;
   /** 0–1 mic level while recording (provider STT path). */
   level: number;
+  /** While transcribing on this device: what is happening ("Getting speech recognition ready… 40%"). */
+  note?: string;
 }
 
 export const ptt = signal<PttState>({ phase: 'idle', partial: '', level: 0 });
+/** A tap opened the mic: it stays open until the next tap (mic buttons, components/useMicButton.ts). */
+export const pttLatched = signal(false);
 
 /** Where push-to-talk goes: the Chief of Staff (Talk), or an office room or joined huddle while one is open. */
 export type PttTarget =
@@ -63,11 +70,20 @@ export function setPttTarget(t: PttTarget): () => void {
 }
 
 /** How push-to-talk would capture right now, or null when nothing can (then its controls are hidden). */
-export function pttMode(): 'stt' | 'dictation' | null {
+export function pttMode(): 'stt' | 'local' | 'dictation' | null {
   const s = audioSupport();
   if (can('stt') && s.mic) return 'stt';
+  if (s.mic && localSttSupported()) return 'local';
   if (s.speechRecognition) return 'dictation';
   return null;
+}
+
+const lang = () => (typeof navigator !== 'undefined' ? navigator.language || 'en-US' : 'en-US');
+
+/** Transcribe on this device, saying what is happening (the first use downloads the model). */
+async function onDevice(blob: Blob): Promise<string> {
+  set({ note: localSttReady() ? 'Transcribing on this device…' : 'Getting speech recognition ready on this device (first time only)…' });
+  return transcribeLocally(blob, { lang: lang(), onProgress: (pct) => set({ note: `Getting speech recognition ready on this device (first time only)… ${pct}%` }) });
 }
 
 let controller: PushToTalk | null = null;
@@ -88,13 +104,22 @@ async function onResult(result: PushToTalkResult): Promise<void> {
   else {
     set({ phase: 'transcribing', level: 0 });
     try {
-      text = (await api.stt(result.blob)).text;
+      if (pttMode() === 'local') text = await onDevice(result.blob);
+      else {
+        try {
+          text = (await api.stt(result.blob)).text;
+        } catch (err) {
+          // The speech service could not be reached (or is used up for today): this device takes over.
+          if (!localSttSupported()) throw err;
+          text = await onDevice(result.blob);
+        }
+      }
     } catch (err) {
-      set({ phase: 'idle' });
+      set({ phase: 'idle', note: '' });
       showNotice(`${errorSentence(err)} Or type it instead.`, 'error');
       return;
     }
-    set({ phase: 'idle' });
+    set({ phase: 'idle', note: '' });
   }
   if (!text.trim()) {
     showNotice('I did not catch that. Hold to talk, release to send.');
@@ -117,7 +142,7 @@ function ptc(): PushToTalk {
   controller ??= createPushToTalk(audio(), {
     mode: 'hold',
     dictation: () => pttMode() === 'dictation',
-    lang: typeof navigator !== 'undefined' ? navigator.language || 'en-US' : 'en-US',
+    lang: lang(),
     onState: (s) => {
       const listening = s === 'starting' || s === 'recording';
       // The Chief's face listens only when the words go to the Chief (a room's people are not the Chief).
@@ -125,7 +150,10 @@ function ptc(): PushToTalk {
       clearInterval(poll);
       if (s === 'recording') poll = setInterval(() => set({ level: controller?.level() ?? 0 }), 100);
       // 'idle' comes before onResult; a recording then shows 'transcribing' while STT runs.
-      if (s === 'idle') set({ phase: 'idle', partial: '', level: 0 });
+      if (s === 'idle') {
+        pttLatched.value = false;
+        set({ phase: 'idle', partial: '', level: 0 });
+      }
       else set({ phase: s === 'starting' ? 'starting' : s === 'recording' ? 'listening' : 'transcribing', ...(s === 'starting' ? { partial: '' } : {}) });
     },
     onPartial: (partial) => set({ partial }),
@@ -161,6 +189,8 @@ export function startPtt(opts: { target?: PttTarget } = {}): void {
     }
   } else bargeIn();
   armAudio();
+  // On-device speech: the model loads while the owner talks.
+  if (pttMode() === 'local') warmLocalStt(lang());
   ptc().press();
 }
 
@@ -184,6 +214,7 @@ export function resetPtt(): void {
   controller = null;
   clearInterval(poll);
   ptt.value = { phase: 'idle', partial: '', level: 0 };
+  pttLatched.value = false;
   pressed.value = null;
   targets.value = [];
 }

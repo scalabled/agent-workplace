@@ -17,8 +17,8 @@ A coworker's desk chat now has tools (`apps/worker/src/desk/desk-tools.ts`):
 - **Prompt.** The desk prompt says "helpful first", and offers drafts or research in place of outside actions (send,
   book, pay, publish). It also tells coworkers to self-correct after a failed tool.
 - **Reply guard.** Once a tool has really started something, the guard allows the coworker to say so. Until then it
-  replaces unfounded work claims with an offer ("I can start that as research or propose it as a project…") rather
-  than a refusal.
+  replaces unfounded work claims with an offer ("Want me to get started on that?") rather than a refusal or a
+  hand-off. A project a coworker starts from their desk (`start_project`) has them leading and starts at once.
 
 ## The Chief of Staff
 

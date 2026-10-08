@@ -281,7 +281,8 @@ AI-generated video is never shown as if it were the product.
 3. In Talk: "Call a meeting about launching a monthly crystal subscription box." Listen in for 20 seconds, then show
    the summary arriving in Talk.
 4. "Make an image of our amethyst gift box on white linen." It appears in the thread.
-5. "Make it a project: a launch plan." Download the plan as PowerPoint.
+5. When the meeting ends, the team starts on what it agreed (the chair leads): open the work from the Chief's note
+   and download the plan as PowerPoint when it is done.
 
 **B. The bakery: a spring promotion, end to end**
 

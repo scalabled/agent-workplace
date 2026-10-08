@@ -2,7 +2,7 @@ import { ids, parseFrame, type Frame, type FrameType } from '@headcount/protocol
 import { describe, expect, it } from 'vitest';
 import type { ProjectDO } from '../src/jobs/project-do';
 import { handle } from '../src/index';
-import { assignVoices, forecastOf, forecastSentence, readySteps, recipesOf, scoreRecipe, shortlist, staffingNote, stepsFrom, teamFrom, titleFromGoal } from '../src/projects/staffing';
+import { assignVoices, forecastOf, forecastSentence, readySteps, recipesOf, scoreRecipe, shortlist, staffingNote, stepsFrom, teamFrom, teamWith, titleFromGoal } from '../src/projects/staffing';
 import { notesBlock } from '../src/projects/team-work';
 import { buildDeskSystemPrompt, isDirection, noteTargetOf } from '../src/desk/desk';
 import { sentenceHit } from '../src/rooms/guard';
@@ -56,6 +56,23 @@ describe('staffing (pure)', () => {
     const top = shortlist('Plan the launch of our new product line next month', recipes, 5);
     expect(top[0] && scoreRecipe('launch new product', top[0])).toBeGreaterThan(0);
     expect(top.some((r) => /launch/i.test(r.name))).toBe(true);
+  });
+
+  it('staffs the people the owner chose: the first leads; someone alone gets the playbook’s people so their work is reviewed', () => {
+    const recipe = shortlist('launch campaign for our spring menu', recipes, 1)[0]!;
+    const persona = (id: string) => fullIndex.persona(id);
+    const pair = teamWith(recipe, ['tech-lead', 'senior-copywriter', 'nobody-here', 'tech-lead'], persona);
+    expect(pair.map((m) => [m.personaId, m.role === 'lead'])).toEqual([
+      ['tech-lead', true],
+      ['senior-copywriter', false],
+    ]);
+    const alone = teamWith(recipe, ['tech-lead'], persona);
+    expect(alone[0]).toMatchObject({ personaId: 'tech-lead', role: 'lead' });
+    expect(alone.length).toBe(Math.min(3, 1 + recipe.composition.filter((c) => c.persona_id !== 'tech-lead' && persona(c.persona_id)).length));
+    expect(alone.filter((m) => m.role === 'lead')).toHaveLength(1);
+    // Steps stay on the chosen team; nobody chosen in the catalog: the playbook's team.
+    for (const st of stepsFrom(recipe, pair, 'x')) expect(['tech-lead', 'senior-copywriter']).toContain(st.ownerId);
+    expect(teamWith(recipe, ['nobody-here'], persona).map((m) => m.personaId)).toEqual(teamFrom(recipe, persona).map((m) => m.personaId));
   });
 
   it('builds a named team with one sceptic, a plan whose owners are on the team, and a one-sentence note', () => {
@@ -352,8 +369,8 @@ describe('steering a team project (notes, pause, desk chats)', () => {
     expect(prompt).toContain('“Spring menu launch” as lead: 1 of 4 steps done');
     expect(prompt).toContain('Your step: “Size the audience” (working on it now)');
     expect(prompt).toContain('You review: “Price it” (you review it later)');
-    expect(prompt).not.toContain('You are not on a team project right now');
-    expect(buildDeskSystemPrompt(persona, 'Eddie')).toContain('You are not on a team project right now');
+    expect(prompt).not.toContain('You are free to take things on');
+    expect(buildDeskSystemPrompt(persona, 'Eddie')).toContain('You are free to take things on');
 
     expect(isDirection("How's it going?")).toBe(false);
     expect(isDirection('Can you also cover pricing?')).toBe(true);

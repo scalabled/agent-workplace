@@ -1,11 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { onboarded, recordFrames, say, waitForFrame } from './helpers';
+import { onboarded, quietOffice, recordFrames, say, waitForFrame } from './helpers';
 
 // Inc 1, "Hire a team in a sentence": one sentence in Talk staffs a named team with a reviewed plan, the plan waits
 // as a raised hand in the Inbox, the owner approves it, the team works (owners and reviewers show it on their faces),
 // and the Chief of Staff announces the deliverable. Keyless: the Mock provider plays every role.
 test.beforeEach(async ({ request }) => {
   await onboarded(request);
+  await quietOffice(request);
 });
 
 test('staff a team in a sentence, approve the plan, watch it work, read the deliverable', async ({ page }) => {

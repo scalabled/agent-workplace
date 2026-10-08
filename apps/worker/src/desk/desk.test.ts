@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { exprSetup, isDesk, isTalk, useProviders } from '../../test/expr-kit';
 import { defaultRuntime, runtime } from '../workspace/runtime';
 import { historyFromFrames } from '../workspace/talk';
-import { HonestyGuard, buildDeskSystemPrompt, claimsWork, deskHistory, unstaffedLine } from './desk';
+import { HonestyGuard, OFFER_LINE, buildDeskSystemPrompt, claimsWork, deskHistory } from './desk';
 
 afterEach(() => Object.assign(runtime, defaultRuntime));
 
@@ -35,9 +35,9 @@ describe('POST /api/desk/:personaId/say', () => {
     expect(desk).toHaveLength(1);
     // Their desk tools: remember, ask a colleague, propose a project, start research (never a bare refusal), and propose a
     // change to how they work (Inc 6; the owner approves it). No email: it is off here.
-    expect((desk[0]!.tools ?? []).map((t) => t.name)).toEqual(['remember_this', 'ask_colleague', 'propose_project', 'start_research', 'change_how_i_work']);
-    expect(desk[0]!.system).toContain('You are not on a team project right now');
-    expect(desk[0]!.system).toContain('Helpful first: never answer with only a refusal');
+    expect((desk[0]!.tools ?? []).map((t) => t.name)).toEqual(['remember_this', 'ask_colleague', 'start_project', 'start_research', 'change_how_i_work']);
+    expect(desk[0]!.system).toContain('You are free to take things on');
+    expect(desk[0]!.system).toContain('Helpful first: you are a willing, flexible colleague');
     expect(desk[0]!.system).toContain(fullIndex.persona('tech-lead')!.name);
 
     const again = await s.api('POST', '/api/desk/tech-lead/say', { text: 'what do you do?', opId: 'op_desk_1' });
@@ -70,7 +70,7 @@ describe('POST /api/desk/:personaId/say', () => {
     await s.api('POST', '/api/desk/tech-lead/say', { text: 'can you help with the budget?', opId: 'op_d4' });
     await s.drain();
     const msg = (await s.ofType('talk.message')).at(-1)!;
-    expect(msg.data.text).toBe('I can start that as research or propose it as a project — say which, or Rosa can fit it in. Happy to help later.');
+    expect(msg.data.text).toBe('Want me to get started on that? Happy to help later.');
     const streamed = s.liveOf('talk.delta').map((d) => d.data.delta).join('');
     expect(streamed).not.toMatch(/working on|draft it/);
   });
@@ -143,10 +143,10 @@ describe('POST /api/desk/:personaId/say', () => {
 
 describe('the honesty guard', () => {
   it('releases whole sentences and rewrites work claims once', () => {
-    const g = new HonestyGuard(unstaffedLine('Rosa'));
+    const g = new HonestyGuard(OFFER_LINE);
     expect(g.push('Nice to meet you')).toBe('');
     expect(g.push('. I have been ')).toBe('Nice to meet you. ');
-    expect(g.push('looking into your CRM already. The pricing is 3.5 times')).toBe('I can start that as research or propose it as a project — say which, or Rosa can fit it in. ');
+    expect(g.push('looking into your CRM already. The pricing is 3.5 times')).toBe('Want me to get started on that? ');
     expect(g.push(' higher.')).toBe('');
     expect(g.flush()).toBe('The pricing is 3.5 times higher.');
     expect(g.rewrites).toBe(1);

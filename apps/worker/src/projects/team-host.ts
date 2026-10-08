@@ -50,7 +50,7 @@ import { DailyCounter, dailyLimit, limitMessage } from '../lib/limits';
 import { researchKitFactory } from '../tools/kit';
 import { mergeSources, type Source } from '../tools/web-search';
 import { logError, models, runtime } from '../workspace/runtime';
-import { MAX_EDITED_STEPS, assignVoices, forecastOf, forecastSentence, normalizePlan, ownersOf, readySteps, recipesOf, shortlist, staffingNote, stepEditError, stepsFrom, teamFrom, titleFromGoal, type Recipe } from './staffing';
+import { MAX_EDITED_STEPS, assignVoices, forecastOf, forecastSentence, normalizePlan, ownersOf, readySteps, recipesOf, shortlist, staffingNote, stepEditError, stepsFrom, teamFrom, teamWith, titleFromGoal, type Recipe } from './staffing';
 import { chooseRecipe, consultCoworker, discussionTurn, doStepWork, planProject, qaDeliverable, replyToOwner, reviewStep, reviseStep, writeDeliverable, type Captured, type DiscussionPhase, type ProjectBrief, type Worker } from './team-work';
 import { TeamChannel, mentionsIn } from './channel';
 import { stepImageTool } from '../workspace/media-tools';
@@ -92,6 +92,13 @@ export interface ProposeRequest {
   deliverableKind?: DeliverableKind;
   /** Started by an automation; autoStart skips the plan approval (the owner set that up). */
   automation?: { automationId: string; name: string; autoStart: boolean };
+  /** The people the owner chose (persona ids, the lead first): the people in the room, or the coworker at their desk. */
+  people?: string[];
+  /**
+   * The owner asked for this work directly (in a room, at a desk, after a meeting): the plan starts as soon as it is
+   * drafted, with no approval step. The text is the team channel's note.
+   */
+  startNow?: string;
 }
 
 export type ProjectRefusal = { accepted: false; code: 'not_found' | 'conflict' | 'bad_request' | 'rate_limited' | 'not_configured'; message: string };
@@ -178,6 +185,10 @@ type ProjectRow = {
   added_count: number | null;
   /** 'meeting': a meeting called on its own (no plan, never listed as a project); null: a team project. */
   kind: string | null;
+  /** Set when the owner asked for the work directly: the plan starts once drafted (the channel note). */
+  start_note: string | null;
+  /** A meeting called on its own: 1 when the team starts on what it agreed once it ends. */
+  follow_up: number | null;
 };
 type StepRow = {
   project_id: string;
@@ -274,6 +285,8 @@ const TEAM_MIGRATIONS = [
   'ALTER TABLE tprojects ADD COLUMN added_count INTEGER',
   'ALTER TABLE tnotes ADD COLUMN from_id TEXT',
   'ALTER TABLE tprojects ADD COLUMN kind TEXT',
+  'ALTER TABLE tprojects ADD COLUMN start_note TEXT',
+  'ALTER TABLE tprojects ADD COLUMN follow_up INTEGER',
 ];
 
 /** A discussion to hold: the kickoff (teams of three or more) or one the owner asked for. */
@@ -408,7 +421,8 @@ export class TeamProjects {
     }
     if (!recipe) return { accepted: false, code: 'not_found', message: 'No team playbook fits that goal yet.' };
     const lead = req.leadId ? this.index.lead(req.leadId) : undefined;
-    const team = teamFrom(recipe, (id) => this.index.persona(id), { lead, table: this.index.catalog.voices });
+    const voices = { lead, table: this.index.catalog.voices };
+    const team = req.people?.length ? teamWith(recipe, req.people, (id) => this.index.persona(id), voices) : teamFrom(recipe, (id) => this.index.persona(id), voices);
     if (team.length < 2) return { accepted: false, code: 'not_found', message: 'That playbook has no team in the catalog.' };
     const steps = stepsFrom(recipe, team, goal);
     title = (title || titleFromGoal(goal)).slice(0, 80);
@@ -422,6 +436,7 @@ export class TeamProjects {
       projectId, req.opId ?? null, title, goal, recipe.id, recipe.name, note, JSON.stringify(team), req.chiefName, at, at, now, req.deliverableKind ?? null, finisher, tokenBudget(this.p.env), req.leadId ?? null, req.automation ? JSON.stringify(req.automation) : null,
     );
     this.writeSteps(projectId, steps);
+    if (req.startNow) this.sql.exec('UPDATE tprojects SET start_note = ? WHERE project_id = ?', req.startNow.slice(0, 300), projectId);
     this.emit(projectId);
     await this.p.armAlarm(now + 10);
     void this.p.flush();
@@ -925,7 +940,7 @@ export class TeamProjects {
    * the Chief of Staff moderates, and the chair's summary goes to the owner in Talk. No plan, no steps; it is never
    * listed as a project. The owner can take the floor or whisper as in any meeting. At most two at once.
    */
-  async callMeeting(req: { topic: string; people: string[]; rounds?: number; chiefName: string; leadId?: string | null; context?: string; opener?: string }): Promise<{ accepted: true; meeting: MeetingSummary } | ProjectRefusal> {
+  async callMeeting(req: { topic: string; people: string[]; rounds?: number; chiefName: string; leadId?: string | null; context?: string; opener?: string; followUp?: boolean }): Promise<{ accepted: true; meeting: MeetingSummary } | ProjectRefusal> {
     const topic = req.topic.replace(/\s+/g, ' ').trim().slice(0, MEETING_TOPIC_MAX);
     if (topic.length < 3) return { accepted: false, code: 'bad_request', message: 'Say what the meeting is about.' };
     const ids = [...new Set(req.people)].filter((id) => !!this.persona(id));
@@ -948,9 +963,9 @@ export class TeamProjects {
     const at = iso();
     const goal = req.context ? `${topic}\n\nContext: ${clipText(req.context.trim(), 2000)}` : topic;
     this.sql.exec(
-      `INSERT INTO tprojects (project_id, title, goal, staffing_note, team, status, chief_name, created_at, updated_at, next_at, lead_id, kind)
-       VALUES (?, ?, ?, '', ?, 'meeting', ?, ?, ?, ?, ?, 'meeting')`,
-      projectId, clipText(topic, 80), goal, JSON.stringify(team), req.chiefName, at, at, now, req.leadId ?? null,
+      `INSERT INTO tprojects (project_id, title, goal, staffing_note, team, status, chief_name, created_at, updated_at, next_at, lead_id, kind, follow_up)
+       VALUES (?, ?, ?, '', ?, 'meeting', ?, ?, ?, ?, ?, 'meeting', ?)`,
+      projectId, clipText(topic, 80), goal, JSON.stringify(team), req.chiefName, at, at, now, req.leadId ?? null, req.followUp === false ? 0 : 1,
     );
     const meetingId = this.openMeeting(projectId, 'meeting', topic, team[0]!.personaId, r);
     this.sql.exec('UPDATE tprojects SET pending_discussion = ? WHERE project_id = ?', JSON.stringify({ question: topic, rounds: r, kind: 'meeting', meetingId } satisfies PendingDiscussion), projectId);
@@ -959,6 +974,40 @@ export class TeamProjects {
     await this.p.armAlarm(now + 10);
     void this.p.flush();
     return { accepted: true, meeting: this.toMeeting(this.meetingRow(meetingId)!) };
+  }
+
+  /**
+   * The people at a meeting's table start on what it agreed: a team project they staff (the chair leads), started as
+   * soon as its plan is drafted. Once per meeting (the op id); `summary` is the chair's, before the meeting is closed.
+   */
+  async meetingWork(meetingId: string, summary?: string): Promise<{ project: TeamProjectSnapshot } | ProjectRefusal> {
+    const m = this.meetingRow(meetingId);
+    const row = m ? this.row(m.project_id) : null;
+    if (!m || !row || row.kind !== 'meeting') return { accepted: false, code: 'not_found', message: 'No such meeting.' };
+    const agreed = (summary ?? m.summary ?? '').trim();
+    if (!agreed) return { accepted: false, code: 'conflict', message: 'The meeting has no outcome yet. Wait for the chair to sum up.' };
+    const team = JSON.parse(row.team) as TeamMember[];
+    const chairFirst = this.persona(m.chair_id)?.name.split(' ')[0] ?? 'the chair';
+    const said = this.channel
+      .meetingEntries(meetingId)
+      .filter((e) => e.kind === 'owner' || e.kind === 'whisper')
+      .map((e) => `- ${clipText(e.text, 400)}`)
+      .slice(-8);
+    const goal = [`Follow-up to the meeting about “${m.question}”: do the work it agreed on.`, `What the meeting agreed (${chairFirst}'s summary):\n${clipText(agreed, 2500)}`, said.length ? `What the owner said in the meeting:\n${said.join('\n')}` : '']
+      .filter(Boolean)
+      .join('\n\n');
+    const r = await this.propose({
+      goal,
+      title: clipText(row.title, 70),
+      opId: followUpOp(meetingId),
+      chiefName: row.chief_name,
+      leadId: row.lead_id,
+      people: [m.chair_id, ...team.map((x) => x.personaId).filter((id) => id !== m.chair_id)],
+      startNow: `The meeting on “${clipText(m.question, 80)}” agreed on it, so the team gets started.`,
+    });
+    if ('accepted' in r) return r;
+    this.emitMeeting(meetingId);
+    return { project: r.project };
   }
 
   /** Everyone stop: meetings called on their own end too (a project's end with its project). */
@@ -988,9 +1037,11 @@ export class TeamProjects {
     const team = p ? (JSON.parse(p.team) as TeamMember[]) : [];
     const state = m.status === 'live' ? json<{ meetingId?: string; speakerId?: string } | null>(p?.discussion_state, null) : null;
     const people = [m.chair_id, ...team.map((x) => x.personaId).filter((id) => id !== m.chair_id)];
+    const work = p?.kind === 'meeting' ? this.sql.exec<{ project_id: string; title: string }>('SELECT project_id, title FROM tprojects WHERE op_id = ?', followUpOp(m.meeting_id)).toArray()[0] : undefined;
     return {
       ...(p ? { title: p.title } : {}),
-      ...(p?.kind === 'meeting' ? { standalone: true } : {}),
+      ...(p?.kind === 'meeting' ? { standalone: true, followUp: p.follow_up === 1 } : {}),
+      ...(work ? { work: { projectId: work.project_id, title: work.title } } : {}),
       people,
       ...(state?.meetingId === m.meeting_id && state.speakerId ? { speakerId: state.speakerId } : {}),
       meetingId: m.meeting_id,
@@ -1150,12 +1201,21 @@ export class TeamProjects {
         this.channel.add(projectId, { kind: 'system', fromId: 'chief', meetingId, text: `${who.name.split(' ')[0]} could not take their turn.` });
       }
     }
+    // A meeting called on its own ends in work: the people at the table start on what they agreed, the chair leading.
+    const work = standalone && summary && row.follow_up === 1 ? await this.meetingWork(meetingId, summary).catch((err) => (logError(`meeting.work ${meetingId}`, err), null)) : null;
+    const started = work && 'project' in work ? work.project : null;
     this.channel.add(projectId, {
       kind: 'discussion',
       fromId: 'chief',
       phase: 'moderator',
       meetingId,
-      text: summary ? (standalone ? `Thank you, everyone. I'll take ${first(chair.personaId)}'s summary to the owner.` : `Thank you, everyone. ${first(chair.personaId)}'s summary goes to the team as direction for the next steps.`) : 'Thank you, everyone.',
+      text: summary
+        ? standalone
+          ? started
+            ? `Thank you, everyone. ${first(chair.personaId)}, over to you: the team starts on “${started.title}” now, and I'll tell the owner.`
+            : `Thank you, everyone. I'll take ${first(chair.personaId)}'s summary to the owner.`
+          : `Thank you, everyone. ${first(chair.personaId)}'s summary goes to the team as direction for the next steps.`
+        : 'Thank you, everyone.',
     });
     this.sql.exec('UPDATE tprojects SET discussion_state = NULL WHERE project_id = ?', projectId);
     this.closeMeeting(meetingId, 'done', summary ? clipText(summary, 2000) : undefined);
@@ -1331,8 +1391,14 @@ export class TeamProjects {
   private proposeReady(projectId: string): void {
     const row = this.row(projectId)!;
     const steps = this.snapshot(row).steps;
-    const decisionId = newId('dec');
     const at = iso();
+    // The owner asked for it directly (a room, a desk, after a meeting): it starts now, with no hand raised to ask again.
+    if (row.start_note && !row.automation) {
+      this.sql.exec(`UPDATE tprojects SET status = 'proposed', attempts = 0, updated_at = ? WHERE project_id = ?`, at, projectId);
+      void this.approve(projectId, row.start_note).catch((err) => logError('project.startnow', err));
+      return;
+    }
+    const decisionId = newId('dec');
     const body = `${row.staffing_note} ${steps.length} steps, each reviewed before it counts. ${forecastSentence(forecastOf(steps))}`;
     this.sql.exec(`INSERT INTO tdecisions (decision_id, kind, project_id, title, body, status, created_at) VALUES (?, 'plan_approval', ?, ?, ?, 'open', ?)`, decisionId, projectId, `Approve the plan for “${row.title}”?`, body, at);
     this.sql.exec(`UPDATE tprojects SET status = 'proposed', decision_id = ?, attempts = 0, updated_at = ? WHERE project_id = ?`, decisionId, at, projectId);
@@ -1984,6 +2050,7 @@ export class TeamProjects {
       title: r.title,
       goal: r.goal,
       ...(auto ? { automation: { automationId: auto.automationId, name: auto.name } } : {}),
+      ...(r.start_note ? { startsNow: true } : {}),
       recipeId: r.recipe_id,
       recipeName: r.recipe_name,
       staffingNote: r.staffing_note,
@@ -2029,3 +2096,6 @@ function effectBody(emails: EffectAsk['emails']): string {
 }
 
 export type { EmailMessage };
+
+/** The op id of the work a meeting started (once per meeting). */
+const followUpOp = (meetingId: string) => `meeting-work:${meetingId}`;

@@ -132,7 +132,7 @@ function StepCard({ step, project, index, onInspect }: { step: ProjectStep; proj
   );
 }
 
-const VIA_WORDS: Record<ProjectNote['via'], string> = { page: 'here', chief: 'to your Chief of Staff', desk: 'at their desk', channel: 'in the channel', teammate: 'from a teammate' };
+const VIA_WORDS: Record<ProjectNote['via'], string> = { page: 'here', chief: 'to your Chief of Staff', desk: 'at their desk', room: 'in a meeting room', channel: 'in the channel', teammate: 'from a teammate' };
 
 /** "Tell the team": direction that reaches the next step, and what became of each note. */
 function TeamNotes({ project }: { project: TeamProjectSnapshot }) {
@@ -298,7 +298,8 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
 
       {project.status === 'planning' && (
         <p class="panel project-planning" role="status">
-          {lead?.name.split(' ')[0] ?? 'The lead'} is drafting the plan from the {project.recipeName ? `“${project.recipeName}” playbook` : 'playbook'}. It will be here and in your Inbox in a moment.
+          {lead?.name.split(' ')[0] ?? 'The lead'} is drafting the plan from the {project.recipeName ? `“${project.recipeName}” playbook` : 'playbook'}.{' '}
+          {project.startsNow ? 'Work starts as soon as it is ready; you asked for it, so there is nothing to approve.' : 'It will be here and in your Inbox in a moment.'}
         </p>
       )}
 

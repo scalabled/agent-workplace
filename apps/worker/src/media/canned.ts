@@ -3,10 +3,11 @@
 // rendered once per voice and kept in R2 under `speech/canned/`, outside any office's prefix, so every organization
 // reuses it for free. Only text that EXACTLY matches this list is shared: nothing a person wrote, no names, no
 // numbers, so nothing personal can land in the shared space. Everything else stays per office (or is not cached).
+import { OFFER_LINE, STAFFED_WORK_LINE } from '../desk/desk';
 import { CHIEF_ROOM_WORK_LINE, EXPERIENCE_LINE, FIGURE_LINES } from '../rooms/guard';
 
 /** The office's own fixed lines (spoken through the speech route, not pre-voiced clips). */
-const FIXED_LINES: readonly string[] = [CHIEF_ROOM_WORK_LINE, EXPERIENCE_LINE, ...FIGURE_LINES, 'Thank you, everyone.'];
+const FIXED_LINES: readonly string[] = [CHIEF_ROOM_WORK_LINE, OFFER_LINE, STAFFED_WORK_LINE, EXPERIENCE_LINE, ...FIGURE_LINES, 'Thank you, everyone.'];
 
 /** Everyday acknowledgements, as a whole sentence (an optional end mark). */
 const EVERYDAY: readonly string[] = [

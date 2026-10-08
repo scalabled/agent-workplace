@@ -98,6 +98,44 @@ export function teamFrom(recipe: Recipe, persona: (id: string) => Persona | unde
   });
 }
 
+/**
+ * The team the owner chose (the people in the room, or the coworker they asked at their desk): the first leads, the
+ * rest keep their playbook role when the playbook has them (a second lead co-owns). Someone working alone gets the
+ * playbook's people up to three, so their work is still reviewed. Falls back to the playbook's team when nobody chosen
+ * is in the catalog.
+ */
+export function teamWith(recipe: Recipe, people: readonly string[], persona: (id: string) => Persona | undefined, voices?: { lead: Pick<Lead, 'voice'> | undefined; table: CatalogFull['voices'] }): TeamMember[] {
+  const seen = new Set<string>();
+  const own: Persona[] = [];
+  for (const id of people) {
+    const p = persona(id);
+    if (!p || seen.has(p.id)) continue;
+    seen.add(p.id);
+    own.push(p);
+  }
+  if (!own.length) return teamFrom(recipe, persona, voices);
+  const inRecipe = (id: string) => recipe.composition.find((c) => c.persona_id === id);
+  const picked: { persona: Persona; role: RecipeRole }[] = own.map((p, i) => {
+    const c = inRecipe(p.id);
+    const role = i === 0 ? 'lead' : c?.role === 'lead' ? 'co_owner' : (c?.role ?? 'specialist');
+    return { persona: p, role: { persona_id: p.id, role, why: c?.why ?? p.one_liner, ...(c?.voice_override ? { voice_override: c.voice_override } : {}) } };
+  });
+  if (picked.length === 1) {
+    for (const c of recipe.composition) {
+      if (picked.length >= 3) break;
+      const p = persona(c.persona_id);
+      if (!p || seen.has(p.id)) continue;
+      seen.add(p.id);
+      picked.push({ persona: p, role: { ...c, role: c.role === 'lead' ? 'co_owner' : c.role } });
+    }
+  }
+  const assigned = voices ? assignVoices(picked.map((x) => ({ persona: x.persona, ...(x.role.voice_override ? { override: x.role.voice_override } : {}) })), voices.lead, voices.table) : null;
+  return picked.map(({ persona: p, role: c }) => {
+    const voice = assigned?.get(p.id);
+    return { personaId: p.id, name: p.name, title: p.title, role: asRole(c.role), why: (c.why ?? p.one_liner).slice(0, 300), ...(voice ? { voice } : {}) };
+  });
+}
+
 /** "Femi leads, with Kavya and Kemar. Ruth is our sceptic, so we don't fool ourselves." */
 export function staffingNote(team: TeamMember[], recipeName: string | null): string {
   const lead = team.find((m) => m.role === 'lead') ?? team[0];

@@ -716,7 +716,8 @@ summary); the office package: docs/dev/OFFICE-PLAN.md §5.3, OFFICE-LIFE.md §8.
   this meeting, others' lines as `[Juno (Copy lead)]: …`. Room lines never enter Talk, the Chief's history or any desk
   history.
 - **The reply guard** (`rooms/guard.ts`, also on every desk quick-chat reply): whole sentences only; a work claim or
-  promise is replaced once (`unstaffedLine`; the Chief: "Bring it to me in Talk and it goes on my list."); a figure
+  promise nothing has started is replaced once with an offer (`OFFER_LINE`: "Want me to get started on that?"; the
+  Chief: "Want me to get the team started on that now?"), and work the room's intake started may be talked about; a figure
   the owner did not say, a metric moving ("went up nine points"), a recounted experience or a citation is replaced
   once with "I'd want the real numbers before I put a figure on it."; at most two sentences. Logged by kind only.
 - **Owner name** reaches server reflexes (`{owner_name}`), pre-voicing (a fill and the run fingerprint) and the

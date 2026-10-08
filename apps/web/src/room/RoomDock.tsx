@@ -1,13 +1,13 @@
 // The conference stage's dock (OFFICE-PHASE2 §4.4.3), rendered with Preact into scene.dock(): one field to message
-// the room (Enter sends; hold Space in the empty field, or hold the mic, to talk; Esc on an empty field leaves — the
-// scene handles that), the live words while push-to-talk listens, one line for errors, and a collapsed Transcript: the
+// the room (Enter sends; hold Space in the empty field, or hold the mic — or tap it, and tap again to send — to talk;
+// Esc on an empty field leaves — the scene handles that), the live words while push-to-talk listens, one line for errors, and a collapsed Transcript: the
 // accessible, non-live record of every line of the meeting, lines cut before they played marked "not heard".
 import { signal, type Signal } from '@preact/signals';
 import { render } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
-import { useHoldToTalk } from '../components/useHoldToTalk';
+import { useMicButton } from '../components/useMicButton';
 import { armAudio } from '../voice/engine';
-import { ptt, pttMode, pttPressTarget } from '../voice/ptt';
+import { ptt, pttLatched, pttMode, pttPressTarget } from '../voice/ptt';
 import { notice } from '../ui/notice';
 import type { RoomTranscriptLine } from './session';
 import './room.css';
@@ -48,10 +48,11 @@ export function RoomDock({ model }: { model: DockModel }) {
   const mode = pttMode();
   const press = pttPressTarget.value;
   const here = press?.kind === 'room' && press.roomId === model.roomId;
-  const { phase, partial } = ptt.value;
+  const { phase, partial, note } = ptt.value;
   const listening = here && phase !== 'idle';
   const pttNotice = here && phase === 'idle' ? notice.value : null;
-  const holdHandlers = useHoldToTalk({ canHold: mode !== null, onTap: () => input.current?.focus() });
+  const mic = useMicButton();
+  const latched = pttLatched.value;
 
   useEffect(() => {
     if (!mention || !input.current) return;
@@ -88,7 +89,7 @@ export function RoomDock({ model }: { model: DockModel }) {
       {listening && (
         <p class="room-dock__live" data-testid="room-dock-live">
           <span class="room-dock__dot" aria-hidden="true" />
-          {phase === 'transcribing' ? 'Sending…' : partial ? partial : `Listening. Release to send to the ${model.roomName}.`}
+          {phase === 'transcribing' ? note || 'Sending…' : partial ? partial : latched ? `Listening. Tap the mic to send to the ${model.roomName}.` : `Listening. Release to send to the ${model.roomName}.`}
         </p>
       )}
       {!listening && (err || pttNotice) && (
@@ -109,7 +110,14 @@ export function RoomDock({ model }: { model: DockModel }) {
           enterKeyHint="send"
         />
         {mode && (
-          <button type="button" class="hc-o-btn room-dock__mic" data-active={listening || undefined} aria-label={listening ? 'Listening. Release to send' : 'Hold to talk to the room'} title="Hold to talk" {...holdHandlers}>
+          <button
+            type="button"
+            class="hc-o-btn room-dock__mic"
+            data-active={listening || undefined}
+            aria-label={listening ? (latched ? 'Listening. Tap to send' : 'Listening. Release to send') : 'Talk to the room: tap, or hold'}
+            title="Tap to talk and tap again to send, or hold and let go"
+            {...mic}
+          >
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="9" y="3" width="6" height="11" rx="3" />
               <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />

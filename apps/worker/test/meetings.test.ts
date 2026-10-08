@@ -160,6 +160,56 @@ describe('meetings called on their own', () => {
     expect(frames.filter((f) => f.type === 'meeting.updated').at(-1)!.data).toMatchObject({ meeting: { meetingId: m0.meetingId, status: 'done' } });
   });
 
+  it('when a meeting called on its own ends, the people at the table start on what they agreed, the chair leading', async () => {
+    const s = await setup({ KICKOFF: 'off' });
+    const r = await s.api('POST', '/api/meetings', { topic: 'A spring crystal gift box: what goes in it and how we launch it', people: ['market-research-analyst', 'bookkeeper', 'social-media-manager'], rounds: 1 });
+    const m0 = r.body.meeting as MeetingSummary;
+    expect(m0.followUp).toBe(true);
+    await s.tick();
+    const m = (await s.api('GET', `/api/meetings/${m0.meetingId}`)).body as MeetingResponse;
+    expect(m.meeting.status).toBe('done');
+    expect(m.meeting.work).toBeTruthy();
+    const projectId = m.meeting.work!.projectId;
+    const p = (await s.api('GET', `/api/projects/${projectId}`)).body as TeamProjectSnapshot;
+    expect(p.team.map((x) => [x.personaId, x.role])).toEqual([
+      ['market-research-analyst', 'lead'],
+      ['bookkeeper', 'specialist'],
+      ['social-media-manager', 'specialist'],
+    ]);
+    expect(p.startsNow).toBe(true);
+    expect(p.goal).toContain('What the meeting agreed');
+    // The Chief hands over at the table, and tells the owner in Talk with the link.
+    expect(m.entries.filter((e) => e.kind === 'discussion').at(-1)!.text).toContain('the team starts on');
+    const note = (await s.ws.frames(0, 5000)).filter((f) => f.type === 'talk.message').map((f) => (f.data as { text: string }).text).find((t) => t.startsWith('The meeting on'));
+    expect(note).toContain(`/app/projects/${projectId}`);
+    // It starts once planned: no plan card waits in the Inbox.
+    for (let i = 0; i < 6 && ((await s.api('GET', `/api/projects/${projectId}`)).body as TeamProjectSnapshot).status === 'planning'; i++) await s.tick();
+    expect(((await s.api('GET', `/api/projects/${projectId}`)).body as TeamProjectSnapshot).status).toBe('running');
+    expect(((await s.api('GET', '/api/projects')).body.decisions as Decision[]).filter((d) => d.projectId === projectId && d.kind === 'plan_approval')).toEqual([]);
+    // Once per meeting: Start the work again is the same work.
+    const again = await s.api('POST', `/api/meetings/${m0.meetingId}/work`);
+    expect(again.status).toBe(202);
+    expect(again.body.project.projectId).toBe(projectId);
+  });
+
+  it('with the follow-up off, the work waits for Start the work', async () => {
+    const s = await setup({ KICKOFF: 'off' });
+    const r = await s.api('POST', '/api/meetings', { topic: 'Should we raise prices on our gift boxes this spring?', people: ['market-research-analyst', 'bookkeeper'], rounds: 1, followUp: false });
+    const m0 = r.body.meeting as MeetingSummary;
+    expect(m0.followUp).toBe(false);
+    await s.tick();
+    const m = (await s.api('GET', `/api/meetings/${m0.meetingId}`)).body as MeetingResponse;
+    expect(m.meeting.work).toBeUndefined();
+    expect(((await s.api('GET', '/api/projects')).body.projects as TeamProjectSnapshot[])).toEqual([]);
+    const note = (await s.ws.frames(0, 5000)).filter((f) => f.type === 'talk.message').map((f) => (f.data as { text: string }).text).find((t) => t.startsWith('The meeting on'));
+    expect(note).toContain('start the work in one tap');
+    const started = await s.api('POST', `/api/meetings/${m0.meetingId}/work`);
+    expect(started.status).toBe(202);
+    expect(started.body.project.team[0]).toMatchObject({ personaId: 'market-research-analyst', role: 'lead' });
+    expect(((await s.api('GET', `/api/meetings/${m0.meetingId}`)).body as MeetingResponse).meeting.work).toMatchObject({ projectId: started.body.project.projectId });
+    expect((await s.api('POST', '/api/meetings/mtg_nope/work')).status).toBe(404);
+  });
+
   it('only people on the team are invited; at most six; a topic is needed', async () => {
     const s = await setup();
     const out = await s.api('POST', '/api/meetings', { topic: 'Logo refresh', people: ['bookkeeper', 'brand-strategist'] });

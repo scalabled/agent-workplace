@@ -3,7 +3,7 @@
 Five parts turn Headcount into a service that many groups can use at once:
 - every business gets its own office;
 - an office starts with its Chief of Staff and hires its team;
-- the team meets in rooms, with the Chief moderating;
+- the team meets in rooms, with the Chief moderating, and what is asked for or agreed there starts as work;
 - the office makes real files: images, videos, Word, PowerPoint and Excel;
 - the product's name lives in one constant.
 
@@ -91,13 +91,17 @@ The owner can:
 - **Meetings called on their own:** from Talk ("call a meeting about…", the Chief's `call_meeting` tool) or the
   Meetings page.
   - The people come from the team. When nobody is named, the Chief invites those best placed for the topic.
-  - When the meeting ends, the Chief posts the chair's summary in Talk, offering to turn it into a project.
+  - When the meeting ends, the people at the table start on what they agreed: a team project they staff, the chair
+    leading, started as soon as its plan is drafted (`meetingWork`, once per meeting). The Chief posts the summary in
+    Talk with a link to the work. `followUp: false` on the call (the form's checkbox) leaves it to the room's
+    "Start the work" (`POST /api/meetings/:id/work`).
   - Limits: at most two at once. Each counts against the project daily limit. Everyone stop ends them.
 
 ### Where meetings show
 
 - **Meetings place** (`/app/meetings`): live and earlier meetings, and Call a meeting.
-- **Meeting room** (`/app/meetings/:id`): the table, who has the floor, the lines, the outcome, and Make it a project.
+- **Meeting room** (`/app/meetings/:id`): the table, who has the floor, the lines (type, or use the mic), the
+  outcome, and the work it started (or Start the work).
 - **Talk:** a "Meeting now" strip.
 - **The office:** the people at the table gather at the lounge, round the Chief.
 
@@ -105,6 +109,54 @@ Code:
 - `apps/worker/src/projects/team-host.ts`: `callMeeting`, `runDiscussion`. A meeting called on its own is a
   `tprojects` row with `kind = 'meeting'`, never listed as a project.
 - `apps/web/src/routes/Meetings.tsx`.
+
+## Rooms are working meetings
+
+Office rooms (Skyline, Garden) and joined huddles are where the owner talks with the people they brought together.
+Nobody there says they are "not on a project" or that "the Chief can bring them in":
+
+1. **Intake.** Before anyone answers, one fast call (`rooms/intake.ts`, a forced `room_decision` tool) reads the
+   owner's line with the meeting so far and decides:
+   - `start`: the owner asked for something. It starts at once as a team project staffed with the people in the room
+     (those the owner asked first, the first leading; someone alone gets the playbook's people so the work is
+     reviewed), with no plan approval (`startNow`). The Chief notes it in Talk with a link.
+   - `direct`: direction for a project someone in the room is on; it reaches their next step (a note, `via: 'room'`).
+   - `none`: talk.
+2. **Replies.** Once work started, the Chief (when present) answers first and hands it out, then the lead says what
+   they will tackle. Every responder's prompt carries their live work ("Your status") and what just started
+   ("Just now"); a promise of work nothing started is replaced with an offer ("Want me to get started on that?").
+
+The same "the owner asked, so it starts" rule covers a coworker's desk (`start_project`, they lead) and a hired
+coworker's first job. Talk keeps its plan approval for projects the Chief staffs.
+
+Code: `apps/worker/src/rooms/intake.ts`, `rooms/room-turn.ts` (`takeWork`, `workOrder`), `rooms/prompt.ts`
+(`workBlock`), `projects/staffing.ts` (`teamWith`), `projects/team-host.ts` (`people`, `startNow`, `meetingWork`).
+
+## Now: what is going on
+
+`/app/now` shows, at a glance: what needs the owner (the Inbox's raised hands), meetings going on, the work under way
+(each project's steps in progress and who is on them, and background jobs), what everyone on the team is doing (or
+that they are free), and what finished in the last day. Talk shows one line when the team is at work, linking there.
+On phones, Now takes the Inbox's tab (and its count); the Inbox is its first section and in More.
+
+Code: `apps/web/src/routes/Now.tsx`.
+
+## Talking by voice
+
+Mic buttons (Talk, a room's dock, a meeting's Take the floor) share `components/useMicButton.ts`: tap to start and tap
+again to send, or hold and let go. An interrupted press (the browser's microphone prompt takes the touch) keeps the
+mic open instead of discarding it. Speech to text, most robust first:
+1. the office's provider STT (`POST /api/speech/stt`) when a key is set;
+2. Whisper tiny on the device (`voice/local-stt.ts`, Transformers.js in a worker), which also steps in when the
+   provider fails. The model (about 40 MB) downloads once from the Hugging Face hub and stays in the browser cache;
+   the audio never leaves the device;
+3. the browser's own speech recognition, only when neither can run.
+
+The onnxruntime WebAssembly the model runs on comes from jsDelivr at run time (the CSP allows it, with the Hugging
+Face hosts); the build leaves out the copy Vite would bundle (`dropOnnxWasm` in `apps/web/vite.config.ts`), which is
+over the 25 MiB per-file limit of Workers Static Assets.
+
+While a room or a joined huddle is open, the Chief's bubble steps aside (on phones it covered the room's mic and Send).
 
 ## Files
 
@@ -139,7 +191,7 @@ Voice audio is kept in R2 in three ways. Only text that is the same for every of
   - Lines carrying an office's details stay under `ws/<org>/expr/`. Those details are the owner's name, a renamed Chief,
     a coworker, project, client or blocker.
 - **Canned speech** (`apps/worker/src/media/canned.ts`):
-  - What it is: the office's own fixed lines, such as "Bring it to me in Talk and it goes on my list.", the figure
+  - What it is: the office's own fixed lines, such as "Want me to get started on that?", the figure
     lines and "Thank you, everyone.", plus everyday acknowledgements ("On it.", "Got it.", "One moment.").
   - Its audio is kept under `speech/canned/` the first time any office hears it, and every office reuses it.
   - A shared hit makes no provider call and uses none of the daily voice budget. It is marked `x-tts-cache: shared`.

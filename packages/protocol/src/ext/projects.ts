@@ -93,9 +93,9 @@ export interface ProjectNote {
   text: string;
   /** The member it was said to (persona id); absent: the whole team. */
   toId?: string;
-  /** Where it came from: the owner on the project page, to the Chief of Staff, at a coworker's desk, in the team
-   * channel, or a teammate's hand-off. */
-  via: 'page' | 'chief' | 'desk' | 'channel' | 'teammate';
+  /** Where it came from: the owner on the project page, to the Chief of Staff, at a coworker's desk, in an office
+   * room, in the team channel, or a teammate's hand-off. */
+  via: 'page' | 'chief' | 'desk' | 'room' | 'channel' | 'teammate';
   /** A teammate's hand-off: who sent it (persona id). */
   fromId?: string;
   status: 'queued' | 'applied';
@@ -122,6 +122,8 @@ export interface TeamProjectSnapshot {
   goal: string;
   /** Started by an automation (stage 3b). */
   automation?: { automationId: string; name: string };
+  /** The owner asked for it directly (a room, a desk, after a meeting): it starts once the plan is drafted, with no OK asked. */
+  startsNow?: boolean;
   /** The catalog recipe the team and plan came from (null: formed without a recipe). */
   recipeId: string | null;
   recipeName: string | null;
@@ -327,6 +329,10 @@ export interface MeetingSummary {
   people?: string[];
   /** Live: who has the floor now. */
   speakerId?: string;
+  /** Called on its own: when it ends, the team gets started on what it agreed (the default). */
+  followUp?: boolean;
+  /** The work the team started from it (the chair leads), once it has. */
+  work?: { projectId: string; title: string };
 }
 
 export interface MeetingsResponse {
@@ -348,6 +354,13 @@ export interface CallMeetingRequest {
   projectId?: string;
   rounds?: number;
   kind?: 'discussion' | 'review';
+  /** Called on its own: when it ends, the team gets started on what it agreed. Default true. */
+  followUp?: boolean;
+}
+
+/** POST /api/meetings/:meetingId/work → 202: the people at the table start on what the meeting agreed (the chair leads). */
+export interface MeetingWorkResponse {
+  project: TeamProjectSnapshot;
 }
 export interface CallMeetingResponse {
   meeting: MeetingSummary;

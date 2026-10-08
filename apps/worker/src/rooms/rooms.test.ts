@@ -3,6 +3,7 @@
 // honesty, isolation from Talk and quick chats, restart recovery and the voice claim.
 import { createMockProvider, createRegistry, type ChatProvider, type ChatRequest, type ModelEvent } from '@headcount/models';
 import { CHIEF_ID, type Frame } from '@headcount/protocol';
+import type { TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { ROOM_TURNS_PER_MIN, newMeetingId } from '@headcount/protocol/ext/rooms';
 import { afterEach, describe, expect, it } from 'vitest';
 import { exprSetup, isTalk, type ExprSetup } from '../../test/expr-kit';
@@ -149,7 +150,7 @@ describe('POST /api/rooms/:roomId/say', () => {
     expect((await roomMessages(s)).map((m) => m.data.agentId)).toEqual([KEMAR, NINA, CHIEF_ID]);
     const wrap = rooms().at(-1)!;
     expect(wrap.system).toContain('## Chairing');
-    expect(wrap.system).toContain('in a room you advise');
+    expect(wrap.system).toContain('you run the room');
 
     silent = true;
     const two = await say(s, { text: 'What do you all think?', opId: 'op_w2', meetingId: newMeetingId(), participants });
@@ -433,5 +434,74 @@ describe('the owner’s name', () => {
     await s.talk('What should I focus on today?');
     expect(requests.filter(isTalk).at(-1)!.system).toContain("The owner's name is Greg. Use it rarely.");
     expect((await s.api('PUT', '/api/workspace', { ownerName: null })).body.ownerName).toBeNull();
+  });
+});
+
+describe('work in a room (rooms/intake.ts)', () => {
+  const projectsOf = async (s: ExprSetup) => (await s.api('GET', '/api/projects')).body.projects as TeamProjectSnapshot[];
+
+  it('starts what the owner asks for with the people here: the Chief hands it out first, then the lead says what they will tackle', async () => {
+    const { rooms } = useRoomChat((req) => (isRoom(req) ? text(`${who(req)}: on it.`) : null));
+    const s = await exprSetup(undefined, { chiefName: 'Rosa' });
+    const meetingId = newMeetingId();
+    const r = await say(s, { text: 'Nina, can you put together a plan for our new checkout page?', opId: 'op_work1', meetingId, participants: [CHIEF_ID, KEMAR, NINA] });
+    expect(r.status).toBe(202);
+    await s.drain();
+
+    const [p] = await projectsOf(s);
+    expect(p).toBeTruthy();
+    expect(p!.startsNow).toBe(true);
+    expect(p!.team[0]).toMatchObject({ personaId: 'tech-lead', role: 'lead' });
+    expect(p!.goal).toContain('new checkout page');
+    // The Chief delegates, then the lead; nobody is sent elsewhere.
+    expect((await roomMessages(s)).map((m) => m.data.agentId)).toEqual([CHIEF_ID, NINA]);
+    const [chief, lead] = rooms();
+    expect(chief!.system).toContain('## Just now');
+    expect(chief!.system).toContain('hand it out');
+    expect(lead!.system).toContain('You lead it');
+    expect(lead!.system).toContain(`“${p!.title}”`);
+    for (const q of rooms()) expect(q.system).not.toMatch(/not on any project|bring you onto a project|only from Talk|in a room you advise/);
+    // Talk keeps track: the Chief's note links the work.
+    const note = (await s.ofType('talk.message')).find((f) => f.data.kind === 'note' && f.data.projectId === p!.projectId);
+    expect(note?.data.text).toContain('in the Skyline room');
+    // It starts once planned, with no plan card to approve.
+    for (let i = 0; i < 6 && (await projectsOf(s))[0]!.status === 'planning'; i++) {
+      await s.project.alarm();
+      await s.drain();
+    }
+    const after = (await s.api('GET', '/api/projects')).body as { projects: TeamProjectSnapshot[]; decisions: { projectId?: string; kind: string }[] };
+    expect(after.projects[0]!.status).toBe('running');
+    expect(after.decisions.filter((d) => d.projectId === p!.projectId && d.kind === 'plan_approval')).toEqual([]);
+  });
+
+  it('without the Chief, the lead answers first; a question starts nothing', async () => {
+    useRoomChat((req) => (isRoom(req) ? text('Sure.') : null));
+    const s = await exprSetup();
+    await say(s, { text: 'What do you all think of a subscription box?', opId: 'op_q', meetingId: newMeetingId(), participants: [KEMAR, NINA] });
+    await s.drain();
+    expect(await projectsOf(s)).toEqual([]);
+    const meetingId = newMeetingId();
+    await say(s, { text: 'Andre, please write the launch email for the subscription box.', opId: 'op_w2', meetingId, participants: [NINA, KEMAR] });
+    await s.drain();
+    const [p] = await projectsOf(s);
+    expect(p!.team[0]).toMatchObject({ personaId: 'senior-copywriter', role: 'lead' });
+    expect((await roomMessages(s)).filter((m) => m.data.meetingId === meetingId).map((m) => m.data.agentId)[0]).toBe(KEMAR);
+  });
+
+  it("passes the owner's direction to the project someone here is on", async () => {
+    const { rooms } = useRoomChat((req) => (isRoom(req) ? text('Will do.') : null));
+    const s = await exprSetup();
+    await say(s, { text: 'Nina, can you put together a plan for our new checkout page?', opId: 'op_d1', meetingId: newMeetingId(), participants: [KEMAR, NINA] });
+    await s.drain();
+    const [p] = await projectsOf(s);
+    await say(s, { text: 'Nina, make sure the checkout plan covers Apple Pay.', opId: 'op_d2', meetingId: newMeetingId(), participants: [KEMAR, NINA] });
+    await s.drain();
+    const got = (await s.api('GET', `/api/projects/${p!.projectId}`)).body as TeamProjectSnapshot;
+    expect((got.notes ?? []).map((n) => [n.via, n.text, n.toId])).toContainEqual(['room', 'Nina, make sure the checkout plan covers Apple Pay.', 'tech-lead']);
+    expect((await projectsOf(s)).length).toBe(1);
+    const last = rooms().at(-1)!;
+    expect(last.system).toContain("The owner's direction went to the project");
+    // On the project now, their status is their live work.
+    expect(last.system).toContain('## Your status (live; the only work you may mention)');
   });
 });

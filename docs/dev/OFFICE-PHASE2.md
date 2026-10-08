@@ -1019,8 +1019,10 @@ hold Space to barge in → Esc → Talk shows the meeting line. At 23:10: two pe
 
 - **Room fillers.** Phase 2 shows a face cue while a responder thinks; a voiced "hm, good question" is left out to keep
   the one-voice and budget rules simple. First audio is about 2.5 s after sending with keys.
-- **Chief in rooms has no tools.** "Look into it" in a room gets "Bring it to me in Talk and it goes on my list."
-  Starting work from a room is Inc 2 (RoomDO with tools).
+- **Chief in rooms has no tools.** Superseded in release 0.7: rooms are working meetings. Before anyone answers, the
+  intake (`rooms/intake.ts`, one forced tool call) starts the work the owner asked for as a team project staffed with
+  the people in the room, or passes direction to a project someone there is on; the Chief, when present, hands it
+  out first. See docs/dev/PLATFORM.md, "Rooms are working meetings".
 - **Notes are not in the Chief's model memory** (they would read as the Chief's own words). If the owner wants the
   Chief to remember meetings, add a system context line in Inc 1.
 - **Guard false positives.** A sentence with an unmentioned figure is replaced even when harmless ("a 2x2 grid");

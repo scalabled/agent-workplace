@@ -236,6 +236,16 @@ export async function staffOffice(request: APIRequestContext): Promise<void> {
   if (!res.ok()) throw new Error(`staffing the office failed: ${res.status()}`);
 }
 
+/**
+ * Stop the team projects earlier tests left under way (work the owner asks for in a room, at a desk or after a
+ * meeting starts by itself and can raise hands later), so a test that counts the Inbox starts from nothing.
+ */
+export async function quietOffice(request: APIRequestContext): Promise<void> {
+  const r = (await (await request.get('/api/projects')).json()) as { projects: { projectId: string; status: string }[] };
+  const active = r.projects.filter((p) => ['planning', 'proposed', 'running', 'paused', 'needs_review'].includes(p.status));
+  for (const p of active) await request.post(`/api/projects/${p.projectId}/cancel`, { data: {} });
+}
+
 /** The home office's everyday starter team (what the Team page specs expect). */
 export const STARTER_IDS = ['knowledge-librarian', 'bookkeeper', 'social-media-manager', 'senior-copywriter', 'head-of-support', 'operations-director', 'account-executive', 'market-research-analyst'];
 export async function starterTeam(request: APIRequestContext): Promise<void> {

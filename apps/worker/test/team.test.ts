@@ -99,7 +99,7 @@ describe('your team', () => {
     expect(prompt.text).toContain(`${fullIndex.persona('bookkeeper')!.name}, Bookkeeper (/app/desk/bookkeeper/profile)`);
   });
 
-  it('first jobs start as research or a proposed project, and are remembered as started', async () => {
+  it('first jobs start as research or a project they lead (no second ask), and are remembered as started', async () => {
     const s = await setup();
     const job = await s.api('POST', '/api/team/bookkeeper/start');
     expect(job.status).toBe(202);
@@ -107,7 +107,10 @@ describe('your team', () => {
     expect(job.body.jobId).toMatch(/^job_/);
     const proj = await s.api('POST', '/api/team/social-media-manager/start');
     expect(proj.body).toMatchObject({ kind: 'project' });
-    expect(proj.body.say).toContain('in your Inbox for your OK');
+    expect(proj.body.say).toMatch(/has started “/);
+    const started = (await s.api('GET', `/api/projects/${proj.body.projectId}`)).body;
+    expect(started).toMatchObject({ startsNow: true });
+    expect(started.team[0]).toMatchObject({ personaId: 'social-media-manager', role: 'lead' });
     const team = (await s.api('GET', '/api/team')).body;
     expect(team.members.find((m: { personaId: string }) => m.personaId === 'bookkeeper').started.jobId).toBe(job.body.jobId);
     expect((await s.api('POST', '/api/team/tech-lead/start')).status).toBe(404); // not on the team

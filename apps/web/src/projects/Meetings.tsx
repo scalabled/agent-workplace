@@ -12,6 +12,8 @@ import { Link } from '../components/Link';
 import { listen, nowPlaying, stopListening } from '../meetings/listen';
 import { projectChannels, upsertProject } from '../store';
 import { takeVoice } from '../voice/handoff';
+import { useMicButton } from '../components/useMicButton';
+import { ptt, pttLatched, pttMode, pttPressTarget, setPttTarget } from '../voice/ptt';
 import { linkTarget, paths } from '../router';
 
 export const KIND: Record<MeetingSummary['kind'], string> = { kickoff: 'Kickoff', review: 'Review', discussion: 'Discussion', meeting: 'Meeting' };
@@ -209,6 +211,26 @@ export function TakeTheFloor({ projectId, team, meetingId }: { projectId: string
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
+  // Talking in the meeting: while it is open, the mic (and holding Space) speaks to it, with the same To and Whisper.
+  useEffect(
+    () =>
+      setPttTarget({
+        kind: 'room',
+        roomId: meetingId,
+        label: 'the meeting',
+        onStart: () => undefined,
+        send: async (said) => {
+          await api.meetingSay(projectId, meetingId, { text: said, ...(to ? { toId: to } : {}), ...(whisper && to ? { whisper: true } : {}) });
+          const name = to ? team.find((m) => m.personaId === to)?.name.split(' ')[0] : null;
+          setSent(`You said: “${said}”. ${whisper && name ? `Only ${name} hears it.` : name ? `${name} answers next.` : 'The chair answers next.'}`);
+        },
+      }),
+    [projectId, meetingId, to, whisper],
+  );
+  const mic = useMicButton();
+  const mode = pttMode();
+  const press = pttPressTarget.value;
+  const listening = press?.kind === 'room' && press.roomId === meetingId && ptt.value.phase !== 'idle';
   const send = async (e: Event) => {
     e.preventDefault();
     const t = text.trim();
@@ -247,10 +269,27 @@ export function TakeTheFloor({ projectId, team, meetingId }: { projectId: string
         <input type="checkbox" checked={whisper} disabled={!to} onChange={(e) => setWhisper((e.target as HTMLInputElement).checked)} />
         <span class="grant-name">Whisper</span>
       </label>
+      {mode && (
+        <button
+          type="button"
+          class="icon-button meeting-mic"
+          data-active={listening || undefined}
+          aria-label={listening ? (pttLatched.value ? 'Listening. Tap to send' : 'Listening. Release to send') : 'Talk to the meeting: tap, or hold'}
+          title="Tap to talk and tap again to send, or hold and let go"
+          {...mic}
+        >
+          <Icon name="mic" />
+        </button>
+      )}
       <button type="submit" class="button-primary button-small" disabled={busy || !text.trim()}>
         {whisper && to ? 'Whisper' : 'Say it'}
       </button>
-      {sent && !error && <p class="page-fine meeting-sent">{sent}</p>}
+      {listening && (
+        <p class="page-fine meeting-sent" role="status">
+          {ptt.value.phase === 'transcribing' ? ptt.value.note || 'Sending…' : ptt.value.partial || (pttLatched.value ? 'Listening. Tap the mic to send.' : 'Listening. Let go to send.')}
+        </p>
+      )}
+      {sent && !error && !listening && <p class="page-fine meeting-sent">{sent}</p>}
       {error && (
         <p class="form-error" role="alert">
           {error}

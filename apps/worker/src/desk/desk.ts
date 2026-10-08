@@ -45,10 +45,11 @@ export function claimsWork(sentence: string): boolean {
   return WORK_CLAIM_RE.test(s) || WORK_PROMISE_RE.test(s);
 }
 
-/** What replaces a work claim, in the coworker's words. */
-export function unstaffedLine(chief: string): string {
-  return `I can start that as research or propose it as a project — say which, or ${chief} can fit it in.`;
-}
+/**
+ * What replaces a promise of work that has not started, in the coworker's words: an offer, never a hand-off. A yes
+ * from the owner starts it (a desk tool, or the room's intake).
+ */
+export const OFFER_LINE = 'Want me to get started on that?';
 
 /**
  * Releases a streamed reply one complete sentence at a time and rewrites any sentence that claims work. The
@@ -159,7 +160,7 @@ export const STAFFED_WORK_LINE = "I can't send or book anything from here; that 
 const STEP_WORDS: Record<string, string> = { waiting: 'not started', working: 'working on it now', reviewing: 'in review', revising: 'revising after review', done: 'done', failed: 'failed' };
 
 /** "## Your status" for a coworker on team projects: their steps as they stand, true to the live state. */
-export function staffingStatus(staffing: readonly StaffingContext[], chief: string): string {
+export function staffingStatus(staffing: readonly StaffingContext[]): string {
   const lines = ['## Your status (live; the only work you may mention)'];
   for (const s of staffing) {
     const state = s.status === 'proposed' ? `the plan is waiting for the owner's OK, so nobody has started` : s.status === 'paused' ? `paused by the owner (${s.stepsDone} of ${s.stepsTotal} steps done)` : `${s.stepsDone} of ${s.stepsTotal} steps done`;
@@ -173,7 +174,7 @@ export function staffingStatus(staffing: readonly StaffingContext[], chief: stri
   lines.push(
     'You may talk about this work truthfully: what you are doing, your approach, your open questions. Never claim a step is further along than listed.',
     'When the owner gives you direction or context, acknowledge it in a few words: it reaches your next piece of work on this project. Nothing you already handed in changes.',
-    `You still cannot send, book, pay, publish or contact anyone. For anything outside this project, ${chief} can bring you in.`,
+    'You cannot send, book, pay, publish or contact anyone outside the office. Anything new the owner asks you for, you take on too: start it with your tools.',
   );
   return lines.join('\n');
 }
@@ -185,7 +186,7 @@ export function buildDeskSystemPrompt(persona: Persona, chief: string, ownerFirs
     [
       '## Platform rules (these override everything below)',
       `- You are an AI coworker at ${officeLabel(office, BRAND.name)}. Your backstory is character lore, not a record of real events. If the owner sincerely asks whether you are an AI, answer plainly.`,
-      `- Helpful first: never answer with only a refusal. When the owner asks for something, do the part you can: start_research for anything that needs looking into, propose_project for work with several steps, ask_colleague when it is someone else's expertise, remember_this for something they want kept. If none fits, say who can (${chief} for anything else) and offer the nearest thing you can do.`,
+      `- Helpful first: you are a willing, flexible colleague, and the owner never has to go elsewhere to get something done. When they ask for something, start it yourself: start_research for anything that needs looking into or a single write-up, start_project for work with several steps (you lead it, and it starts at once), ask_colleague when it is someone else's expertise, remember_this for something they want kept. If none fits, do the nearest thing you can and say what it is.`,
       '- You cannot send, book, pay, publish or contact anyone outside the office, and you never say you did; offer to draft it instead, or to research it.',
       '- If a tool fails, read why, fix what you sent and try once more, or take another route; then say plainly what happened.',
       '- When you are unsure of a fact, say so briefly instead of guessing.',
@@ -196,11 +197,11 @@ export function buildDeskSystemPrompt(persona: Persona, chief: string, ownerFirs
       .join('\n'),
     personaBlock(persona),
     staffing.length
-      ? staffingStatus(staffing, chief)
+      ? staffingStatus(staffing)
       : [
           '## Your status',
-          `You are not on a team project right now. Never claim work you have not started; when the owner asks for work, start it with your tools (research, or a proposed project) instead of pointing them elsewhere.`,
-          `${chief} is the owner's Chief of Staff: they staff projects and keep track of all the work.`,
+          `You are free to take things on. Never claim work you have not started; when the owner asks for work, start it with your tools (research, or a project you lead) instead of pointing them elsewhere.`,
+          `${chief} is the owner's Chief of Staff: they keep track of all the work.`,
         ].join('\n'),
     [
       '## Style',
@@ -309,7 +310,7 @@ export async function runDeskTurn(host: DeskHost, spec: { persona: Persona; owne
     const guard = new ReplyGuard({
       allowedFigures: ownerFigures([...ownerLines, ...staffing.map((s) => s.latest ?? ''), known]),
       ownerText: ownerLines,
-      workLine: staffing.length ? STAFFED_WORK_LINE : unstaffedLine(chief),
+      workLine: staffing.length ? STAFFED_WORK_LINE : OFFER_LINE,
       ...(staffing.length ? { work: 'staffed' as const } : {}),
       figureLine: FIGURE_LINE,
       maxSentences: 3,

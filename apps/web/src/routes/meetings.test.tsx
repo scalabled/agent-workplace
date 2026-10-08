@@ -52,6 +52,7 @@ beforeEach(() => {
       if (url === '/api/meetings' && call.method === 'GET') return json({ meetings: [] });
       if (url === '/api/meetings' && call.method === 'POST') return json({ meeting: live }, 202);
       if (url === `/api/meetings/${live.meetingId}`) return json(room);
+      if (url === `/api/meetings/${live.meetingId}/work` && call.method === 'POST') return json({ project: { projectId: 'prj_01j000000000000000000000bb', title: 'Crystal box launch', goal: 'x', team, steps: [], status: 'planning', createdAt: live.startedAt, updatedAt: live.startedAt, staffingNote: '', recipeId: null, recipeName: null, startsNow: true } }, 202);
       return json({});
     }),
   );
@@ -88,7 +89,8 @@ describe('Meetings', () => {
     expect(chip('Mateo').textContent).toContain('chairs');
     await act(() => button('Start the meeting')!.click());
     await flush();
-    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ topic: 'Should we launch a crystal subscription box?', people: ['market-research-analyst', 'bookkeeper'], rounds: 1 });
+    // By default the people get started on what they agree once it ends.
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ topic: 'Should we launch a crystal subscription box?', people: ['market-research-analyst', 'bookkeeper'], rounds: 1, followUp: true });
     expect(path.value).toBe(paths.meeting(live.meetingId));
     expect(liveMeetings.value.map((m) => m.meetingId)).toEqual([live.meetingId]);
   });
@@ -103,14 +105,15 @@ describe('Meetings', () => {
     expect(host.querySelector('.room-seat[data-speaking]')?.textContent).toContain('Mateo');
     expect(host.querySelectorAll('.room-line')).toHaveLength(3); // two lines and "Mateo is speaking…"
     expect(host.querySelector('.meeting-floor')).not.toBeNull();
-    // It ends (a frame): the outcome shows, and becomes a project through Talk.
+    // It ends (a frame): the outcome shows, and Start the work starts it with the people at the table.
     room = { ...room, meeting: { ...live, status: 'done', speakerId: undefined, summary: 'Launch a 3-month box at $39; Trisha checks margins first.' } as MeetingSummary };
     await act(() => void applyFrame({ type: 'meeting.updated', streamId: 'ws:local', seq: 9, ts: live.startedAt, data: { meeting: room.meeting } } as never));
     await flush();
     expect(host.textContent).toContain('What they agreed');
     expect(host.querySelector('.meeting-floor')).toBeNull();
-    await act(() => button('Make it a project')!.click());
-    expect(draft.value).toContain('Launch a 3-month box at $39');
-    expect(path.value).toBe(paths.talk);
+    await act(() => button('Start the work')!.click());
+    await flush();
+    expect(calls.some((c) => c.method === 'POST' && c.url === `/api/meetings/${live.meetingId}/work`)).toBe(true);
+    expect(path.value).toBe(paths.project('prj_01j000000000000000000000bb'));
   });
 });

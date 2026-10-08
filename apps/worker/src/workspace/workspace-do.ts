@@ -1244,6 +1244,7 @@ export class WorkspaceDO extends DurableObject<Env> {
       via,
       cues,
       ownerSeq: owner.seq!,
+      ownerText: req.text,
     });
     this.room = turn;
     const done = (async () => {
@@ -1471,11 +1472,14 @@ export class WorkspaceDO extends DurableObject<Env> {
     const m = frame.data.meeting;
     if (!m.standalone || m.status !== 'done' || !m.summary) return null;
     const chair = fullIndex.persona(m.chairId)?.name.split(' ')[0] ?? 'The chair';
-    const text = `The meeting on “${m.title ?? m.question}” is over. ${chair}'s summary:\n\n${clipText(m.summary, 900)}\n\n[Read the meeting](/app/meetings/${m.meetingId}) · Say the word and I'll turn it into a project.`;
+    const topic = m.title ?? m.question;
+    const text = m.work
+      ? `The meeting on “${topic}” is over, and the team is getting started on it: ${chair} leads [${m.work.title}](/app/projects/${m.work.projectId}). ${chair}'s summary:\n\n${clipText(m.summary, 900)}\n\n[Read the meeting](/app/meetings/${m.meetingId})`
+      : `The meeting on “${topic}” is over. ${chair}'s summary:\n\n${clipText(m.summary, 900)}\n\n[Read the meeting](/app/meetings/${m.meetingId}), where you can start the work in one tap.`;
     // The owner called the meeting: the outcome is the Chief's own message, not an interruption.
     return {
       type: 'talk.message',
-      data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text, kind: 'announcement' },
+      data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text, kind: 'announcement', ...(m.work ? { projectId: m.work.projectId } : {}) },
       actor: CHIEF_ID,
       cause: { streamId: frame.streamId as StreamId, seq: frame.seq! },
     };
@@ -1705,7 +1709,7 @@ export class WorkspaceDO extends DurableObject<Env> {
    * A meeting called on its own (the Meetings page, or the Chief from Talk): the people come from the team; the Chief
    * of Staff moderates and brings the outcome back to Talk.
    */
-  async callMeeting(req: { topic: string; people: string[]; rounds?: number; context?: string; opener?: string }): Promise<{ accepted: true; meeting: MeetingSummary } | { accepted: false; code: 'bad_request' | 'conflict' | 'not_found' | 'rate_limited' | 'not_configured'; message: string }> {
+  async callMeeting(req: { topic: string; people: string[]; rounds?: number; context?: string; opener?: string; followUp?: boolean }): Promise<{ accepted: true; meeting: MeetingSummary } | { accepted: false; code: 'bad_request' | 'conflict' | 'not_found' | 'rate_limited' | 'not_configured'; message: string }> {
     const team = new Set(await this.teamIds());
     const outside = req.people.filter((id) => !team.has(id));
     if (outside.length) {
@@ -1921,10 +1925,11 @@ export class WorkspaceDO extends DurableObject<Env> {
       return { personaId, kind: 'second-brain', report, say: `${first} tidied the second brain. ${report.summary}` };
     }
     if (m.firstTask.kind === 'project') {
-      const r = (await projectStub(this.env).proposeProject({ goal: m.firstTask.brief, title: m.firstTask.title, opId: ids.op(), chiefName: chief, leadId: settings.leadId })) as unknown as { project: TeamProjectSnapshot } | { accepted: false; code: string; message: string };
+      // The owner pressed Start: it starts once planned, with them leading (no second ask).
+      const r = (await projectStub(this.env).proposeProject({ goal: m.firstTask.brief, title: m.firstTask.title, opId: ids.op(), chiefName: chief, leadId: settings.leadId, people: [personaId], startNow: `The owner started ${first}'s first job. Work starts as soon as the plan is ready.` })) as unknown as { project: TeamProjectSnapshot } | { accepted: false; code: string; message: string };
       if (!('project' in r)) return { error: r.message, code: r.code === 'rate_limited' ? 'rate_limited' : 'conflict' };
       await record({ projectId: r.project.projectId });
-      return { personaId, kind: 'project', projectId: r.project.projectId, say: `${first}'s project “${r.project.title}” is proposed; the plan is in your Inbox for your OK.` };
+      return { personaId, kind: 'project', projectId: r.project.projectId, say: `${first} has started “${r.project.title}” with ${r.project.team.length > 1 ? 'a small team' : 'the team'}; ${chief} will tell you when it is ready.` };
     }
     const r = (await projectStub(this.env).startJob({ title: m.firstTask.title, brief: `${m.firstTask.brief}\n\n(Asked of ${p.name}, ${p.title}.)`, opId: ids.op(), leadId: settings.leadId, chiefName: settings.chiefName })) as unknown as JobSnapshot | { accepted: false; code: string; message: string };
     if (!('jobId' in r)) return { error: r.message, code: r.code === 'rate_limited' ? 'rate_limited' : 'conflict' };
@@ -1973,6 +1978,41 @@ export class WorkspaceDO extends DurableObject<Env> {
   // ── the team working together (desk tools, the Chief's ask/hand tools) ─────────────
 
   /** What a coworker can do from their desk. */
+  /**
+   * Work the owner asked for directly (in a room, at a desk, after a meeting): a team project staffed with the people
+   * they chose (the first leads), started as soon as its plan is drafted, with no approval card. The Chief notes it
+   * in Talk with a link, so the owner can keep track from there.
+   */
+  private async startOwnerWork(req: { goal: string; title?: string; people: string[]; opId: string; note: string; where: string }): Promise<{ ok: true; project: TeamProjectSnapshot } | { ok: false; message: string }> {
+    const settings = await this.getSettings();
+    const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
+    let r: { project: TeamProjectSnapshot } | { accepted: false; message: string };
+    try {
+      r = (await projectStub(this.env).proposeProject({
+        goal: req.goal,
+        ...(req.title ? { title: req.title } : {}),
+        opId: req.opId,
+        chiefName: chiefDisplayName(lead, settings.chiefName),
+        leadId: settings.leadId,
+        people: req.people,
+        startNow: req.note,
+      })) as unknown as typeof r;
+    } catch (err) {
+      logError('work.start', err);
+      return { ok: false, message: 'The project store did not answer. Try again in a moment.' };
+    }
+    if (!('project' in r)) return { ok: false, message: r.message };
+    const p = r.project;
+    this.feed.append({
+      type: 'talk.message',
+      data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text: `Started “${p.title}” ${req.where}. ${p.staffingNote}`, kind: 'note', projectId: p.projectId },
+      actor: CHIEF_ID,
+      opId: `${req.opId}:note`,
+    });
+    this.scheduleRollup();
+    return { ok: true, project: p };
+  }
+
   private deskActions(persona: Persona): DeskActions {
     return {
       startResearch: async (title, brief) => {
@@ -1980,11 +2020,9 @@ export class WorkspaceDO extends DurableObject<Env> {
         const r = (await projectStub(this.env).startJob({ title, brief, opId: ids.op(), leadId: settings.leadId, chiefName: settings.chiefName })) as unknown as JobSnapshot | { accepted: false; message: string };
         return 'jobId' in r ? { ok: true, jobId: r.jobId, title: r.title } : { ok: false, message: r.message };
       },
-      proposeProject: async (goal, title) => {
-        const settings = await this.getSettings();
-        const lead = settings.leadId ? fullIndex.lead(settings.leadId) : undefined;
-        const r = (await projectStub(this.env).proposeProject({ goal, ...(title ? { title } : {}), opId: ids.op(), chiefName: chiefDisplayName(lead, settings.chiefName), leadId: settings.leadId })) as unknown as { project: TeamProjectSnapshot } | { accepted: false; message: string };
-        return 'project' in r ? { ok: true, projectId: r.project.projectId, title: r.project.title } : { ok: false, message: r.message };
+      startProject: async (goal, title) => {
+        const r = await this.startOwnerWork({ goal, ...(title ? { title } : {}), people: [persona.id], opId: ids.op(), note: `The owner asked ${persona.name.split(' ')[0]} for it at their desk. Work starts as soon as the plan is ready.`, where: `at ${persona.name.split(' ')[0]}'s desk` });
+        return r.ok ? { ok: true, projectId: r.project.projectId, title: r.project.title, staffingNote: r.project.staffingNote } : { ok: false, message: r.message };
       },
       askColleague: (who, question, signal) => this.consult(who, question, { name: persona.name, title: persona.title }, signal, persona.id),
       remember: (text, kind) => {
@@ -2186,6 +2224,20 @@ export class WorkspaceDO extends DurableObject<Env> {
     const limit = dailyLimit(this.env, 'chat');
     return {
       office: () => officeName(this.env),
+      staffing: (personaId) => this.staffingOf(personaId),
+      startWork: async (req) => {
+        const r = await this.startOwnerWork({ goal: req.goal, ...(req.title ? { title: req.title } : {}), people: req.people, opId: req.opId, note: `The owner asked for it ${req.where}. Work starts as soon as the plan is ready.`, where: req.where });
+        return r.ok ? { ok: true, projectId: r.project.projectId, title: r.project.title, team: r.project.team.map((m) => ({ personaId: m.personaId, name: m.name, role: m.role })) } : r;
+      },
+      directWork: async (req) => {
+        try {
+          const r = (await projectStub(this.env).noteProject(req.projectId, { text: req.text, ...(req.toId ? { toId: req.toId } : {}), via: 'room', opId: req.opId })) as unknown as { accepted: true; project: TeamProjectSnapshot } | { accepted: false; message: string };
+          return r.accepted ? { ok: true, title: r.project.title } : { ok: false, message: r.message };
+        } catch (err) {
+          logError('room.direct', err);
+          return { ok: false, message: 'The project store did not answer. Try again in a moment.' };
+        }
+      },
       feed: this.feed,
       ledger: this.ledger,
       streamId: this.ledger.streamId,

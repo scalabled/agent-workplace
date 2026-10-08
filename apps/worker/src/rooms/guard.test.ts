@@ -4,13 +4,13 @@ import type { ModelEvent } from '@headcount/models';
 import { afterEach, describe, expect, it } from 'vitest';
 import { exprSetup, isDesk, useProviders } from '../../test/expr-kit';
 import { defaultRuntime, runtime } from '../workspace/runtime';
-import { unstaffedLine } from '../desk/desk';
+import { OFFER_LINE } from '../desk/desk';
 import { CHIEF_ROOM_WORK_LINE, EXPERIENCE_LINE, FIGURE_LINE, ReplyGuard, figuresIn, ownerContext, ownerFigures, sentenceHit } from './guard';
 
 afterEach(() => Object.assign(runtime, defaultRuntime));
 
 const guard = (owner: string[] = [], maxSentences = 2, work: 'strict' | 'room' = 'strict') =>
-  new ReplyGuard({ allowedFigures: ownerFigures(owner), ownerText: owner, workLine: unstaffedLine('Rosa'), figureLine: FIGURE_LINE, maxSentences, work });
+  new ReplyGuard({ allowedFigures: ownerFigures(owner), ownerText: owner, workLine: OFFER_LINE, figureLine: FIGURE_LINE, maxSentences, work });
 /** What a room (or huddle) guard says about one sentence, given the owner's lines. */
 const roomHit = (line: string, owner: string[] = []) => sentenceHit(line, ownerFigures(owner), { owner: ownerContext(owner), work: 'room' });
 const run = (g: ReplyGuard, text: string) => g.push(text) + g.flush();
@@ -76,7 +76,7 @@ describe('ReplyGuard', () => {
     const g = guard(['Should we lead with brand love or sell-through?']);
     const out = run(g, line);
     expect(out).not.toContain(line);
-    expect([FIGURE_LINE, EXPERIENCE_LINE, unstaffedLine('Rosa')]).toContain(out.trim());
+    expect([FIGURE_LINE, EXPERIENCE_LINE, OFFER_LINE]).toContain(out.trim());
     expect(g.rewrites).toBe(1);
   });
 
@@ -164,7 +164,7 @@ describe('ReplyGuard', () => {
   it('replaces a work claim once, drops other offenders silently, and stops at two sentences', () => {
     const g = guard();
     const out = run(g, 'Our churn is 4% right now. Sales grew 30% last year. I finished the grid. We shipped it yesterday. Plain advice here.');
-    expect(out).toBe(`${unstaffedLine('Rosa')} Plain advice here.`);
+    expect(out).toBe(`${OFFER_LINE} Plain advice here.`);
     expect(g.rewrites).toBe(4);
     const three = guard();
     expect(run(three, 'One thought. Another thought. A third thought.')).toBe('One thought. Another thought. ');

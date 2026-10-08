@@ -3,7 +3,7 @@
 // the composer, and the conversation never waits on them (D2).
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { renameLine } from '@headcount/catalog';
-import { CHIEF_ID, type JobSnapshot } from '@headcount/protocol';
+import { CHIEF_ID, coworkerAgentId, type JobSnapshot } from '@headcount/protocol';
 import type { Recalled } from '@headcount/protocol/ext/memory';
 import { chiefName, currentLead } from '../chief';
 import { catalog, loadCatalog } from '../catalog';
@@ -19,7 +19,8 @@ import { VoiceElsewhere } from '../components/VoiceElsewhere';
 import { ago, now } from '../lib/time';
 import { bubbles, liveCaptions } from '../living/captions';
 import { linkTarget, linkTo, navigate, paths } from '../router';
-import { activeJobs, can, canvases, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, liveMeetings, onboarded, settings, teamIds, teamProjects, thread, trustStop, type ThreadItem } from '../store';
+import { activeJobs, can, canvases, chiefPresence, connection, decisionList, dismissThreadItem, jobList, jobs, liveMeetings, onboarded, presenceFor, settings, teamIds, teamProjects, thread, trustStop, type ThreadItem } from '../store';
+import { workCounts } from './Now';
 import { retryOwnerMessage, sendOwnerMessage, setVoiceOn } from '../talk/actions';
 import { draft, focusComposer, greetedThisSession, greetOnArrival, prefillComposer } from '../talk/draft';
 import { notice, showNotice } from '../ui/notice';
@@ -33,7 +34,8 @@ import { CopyLink, PageTitle } from '../links/CopyLink';
 import { bargeIn, chiefIsSpeaking, chiefSpeaker } from '../voice/chief-voice';
 import { armAudio, audioSupport } from '../voice/engine';
 import { mayVoice } from '../voice/owner';
-import { cancelPtt, endPtt, ptt, pttMode, startPtt } from '../voice/ptt';
+import { ptt, pttLatched, pttMode } from '../voice/ptt';
+import { useMicButton } from '../components/useMicButton';
 import { liveVoice, startLiveVoice, stopLiveVoice } from '../voice/live';
 import './talk.css';
 
@@ -42,8 +44,6 @@ const DELEGATE_STARTER = 'Look into three packaging suppliers near me';
 const DEFAULT_STARTERS = [DELEGATE_STARTER, 'What can you take off my plate this week?', 'How do you like to work?'];
 /** Finished rows sweep after 2 minutes; failures stay until dismissed (EXPERIENCE §2.2). */
 const SWEEP_MS = 2 * 60_000;
-/** A mic press shorter than this latches the mic open until the next tap. */
-const LATCH_MS = 300;
 
 export function Talk() {
   useEffect(() => void loadCatalog(), []);
@@ -127,6 +127,7 @@ export function Talk() {
       <div class="talk-dock" ref={dock}>
         <LiveMeetings />
         <ChiefAsks />
+        <TeamAtWork />
         <Activity />
         {mayContribute.value ? (
           <Composer name={name} />
@@ -137,6 +138,25 @@ export function Talk() {
         )}
       </div>
     </section>
+  );
+}
+
+/** The team at work on projects: one line, linking to Now (what's going on, who is doing what). */
+function TeamAtWork() {
+  const c = workCounts();
+  if (!c.projects.length) return null;
+  const names = [...new Set(c.projects.flatMap((p) => p.team.filter((m) => presenceFor(coworkerAgentId(m.personaId)).state !== 'idle').map((m) => m.name.split(' ')[0]!)))];
+  const who = names.length ? `${names.slice(0, 3).join(', ')}${names.length > 3 ? ` and ${names.length - 3} more` : ''} at work` : 'The team is at work';
+  return (
+    <p class="talk-now" role="status">
+      <Icon name="activity" size={16} />
+      <span class="talk-now-text">
+        {who} on {c.projects.length === 1 ? `“${c.projects[0]!.title}”` : `${c.projects.length} projects`}
+      </span>
+      <Link href={paths.now} class="button-quiet button-small">
+        What’s going on
+      </Link>
+    </p>
   );
 }
 
@@ -626,35 +646,7 @@ function Composer({ name }: { name: string }) {
   };
 
   // The mic: hold to talk, or tap to open it and tap again to send (a tap is easier for many people).
-  const latched = useRef(false);
-  const pressedAt = useRef(0);
-  const swallowUp = useRef(false);
-  const micDown = (e: Event) => {
-    e.preventDefault();
-    if (latched.current) {
-      latched.current = false;
-      swallowUp.current = true;
-      endPtt();
-      return;
-    }
-    pressedAt.current = Date.now();
-    armAudio();
-    startPtt();
-  };
-  const micUp = () => {
-    if (swallowUp.current) {
-      swallowUp.current = false;
-      return;
-    }
-    if (Date.now() - pressedAt.current < LATCH_MS && ptt.value.phase !== 'idle') {
-      latched.current = true;
-      return;
-    }
-    endPtt();
-  };
-  useEffect(() => {
-    if (phase === 'idle') latched.current = false;
-  }, [phase]);
+  const mic = useMicButton();
 
   return (
     <form
@@ -749,27 +741,9 @@ function Composer({ name }: { name: string }) {
             type="button"
             class="icon-button composer-mic"
             data-active={phase !== 'idle' || undefined}
-            aria-label={phase === 'listening' ? 'Listening. Release or tap to send' : 'Talk: hold, or tap to start and tap again to send'}
+            aria-label={phase === 'listening' ? (pttLatched.value ? 'Listening. Tap to send' : 'Listening. Release or tap to send') : 'Talk: hold, or tap to start and tap again to send'}
             title="Hold to talk, or tap to start and tap again to send"
-            onPointerDown={(e) => {
-              if (e.button !== 0) return;
-              try {
-                e.currentTarget.setPointerCapture(e.pointerId);
-              } catch {
-                /* synthetic */
-              }
-              micDown(e);
-            }}
-            onPointerUp={micUp}
-            onPointerCancel={() => cancelPtt()}
-            onContextMenu={(e) => e.preventDefault()}
-            onKeyDown={(e) => {
-              if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) micDown(e);
-            }}
-            onKeyUp={(e) => {
-              if (e.key === ' ' || e.key === 'Enter') micUp();
-            }}
-            onClick={(e) => e.preventDefault()}
+            {...mic}
           >
             <Icon name="mic" />
           </button>

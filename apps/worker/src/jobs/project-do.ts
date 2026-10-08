@@ -495,11 +495,17 @@ export class ProjectDO extends DurableObject<Env> {
     return this.team.findMeeting(meetingId);
   }
 
-  async callMeeting(req: { topic: string; people: string[]; rounds?: number; chiefName?: string; leadId?: string | null; context?: string; opener?: string }) {
+  async callMeeting(req: { topic: string; people: string[]; rounds?: number; chiefName?: string; leadId?: string | null; context?: string; opener?: string; followUp?: boolean }) {
     if (this.stopState()) return { accepted: false as const, code: 'conflict' as const, message: 'Everyone stop is on. An owner resumes work in Admin → Autonomy first.' };
     const who = req.chiefName ? { leadId: req.leadId ?? null, chiefName: req.chiefName } : await this.chiefIdentity();
     const lead = who.leadId ? fullIndex.lead(who.leadId) : undefined;
     return this.team.callMeeting({ ...req, chiefName: req.chiefName ?? chiefDisplayName(lead, who.chiefName), leadId: who.leadId });
+  }
+
+  /** The people at a meeting's table start on what it agreed (the chair leads); once per meeting. */
+  async meetingWork(meetingId: string) {
+    if (this.stopState()) return { accepted: false as const, code: 'conflict' as const, message: 'Everyone stop is on. An owner resumes work in Admin → Autonomy first.' };
+    return this.team.meetingWork(meetingId);
   }
 
   /** Open raised hands (the Chief can relay the owner's answer). */

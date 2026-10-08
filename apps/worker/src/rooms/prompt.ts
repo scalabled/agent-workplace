@@ -6,7 +6,8 @@ import { catalogFull, fullIndex } from '@headcount/catalog/full';
 import type { ChatMessage } from '@headcount/models';
 import { CHIEF_ID, personaIdFromAgentId, type Frame, type WorkspaceSettings } from '@headcount/protocol';
 import { ROOM_PROJECTION_LINES, roomKindOf, type RoomId } from '@headcount/protocol/ext/rooms';
-import { ownerNameLine, personaBlock } from '../desk/desk';
+import type { StaffingContext } from '@headcount/protocol/ext/projects';
+import { ownerNameLine, personaBlock, staffingStatus } from '../desk/desk';
 import { chiefPersonaBlock, honestyPolicyText } from '../workspace/chief-prompt';
 import { officeLabel } from '@headcount/protocol/ext/orgs';
 import { BRAND } from '@headcount/protocol';
@@ -81,6 +82,36 @@ export interface RoomPromptInput {
   chiefName: string;
   /** This responder is the Chief's wrap-up. */
   wrapUp?: boolean;
+  /** This responder's part in the team projects under way (live), so they talk about their real work. */
+  staffing?: readonly StaffingContext[];
+  /** What the owner's latest line set going (rooms/intake.ts), so every reply is true to it. */
+  work?: RoomWork | null;
+}
+
+/** What the owner's latest line set going in the room. */
+export type RoomWork =
+  | { kind: 'started'; projectId: string; title: string; leadId: string; team: { agentId: string; firstName: string }[] }
+  | { kind: 'directed'; projectId: string; title: string; toId?: string }
+  | { kind: 'failed'; message: string };
+
+/** "## Just now" for one responder: the work the owner's line started, directed, or could not start. */
+export function workBlock(work: RoomWork, self: RoomMember): string {
+  if (work.kind === 'failed')
+    return ['## Just now', `The owner asked for work, but it could not start: ${work.message}`, 'Say so plainly in one sentence, with what would fix it. Do not pretend it started.'].join('\n');
+  if (work.kind === 'directed') {
+    const mine = !self.isChief && (!work.toId || work.toId === self.persona?.id);
+    return ['## Just now', `The owner's direction went to the project “${work.title}”; it reaches the next piece of work on it.`, mine ? 'Acknowledge it in a few words and say how you will apply it.' : 'Acknowledge it in a few words.'].join('\n');
+  }
+  const names = work.team.map((m) => m.firstName);
+  const lead = work.team.find((m) => m.agentId === work.leadId)?.firstName ?? names[0] ?? 'The lead';
+  const rest = names.filter((n) => n !== lead);
+  const crew = rest.length ? `${lead} leads, with ${listNames(rest)}` : `${lead} has it`;
+  const lines = ['## Just now', `The owner asked for this, and it has started as the project “${work.title}”: ${crew}. The plan is being drafted and work begins as soon as it is ready; the owner can follow it on the Projects page.`];
+  if (self.isChief) lines.push('You run the room: hand it out in one or two sentences (who leads, who helps) and say it is under way. Do not repeat the brief.');
+  else if (self.agentId === work.leadId) lines.push('You lead it: say you are on it and the first thing you will tackle, in a sentence or two.');
+  else if (work.team.some((m) => m.agentId === self.agentId)) lines.push('You are on it: say what you will take on, in a sentence.');
+  else lines.push('You are not on this one: wish them well or add one useful thought, briefly.');
+  return lines.join('\n');
 }
 
 /** The system prompt of one responder (§4.2.5). */
@@ -93,9 +124,10 @@ export function buildRoomSystemPrompt(i: RoomPromptInput): string {
   const platform = [
     '## Platform rules (these override everything below)',
     `- You are an AI coworker at ${officeLabel(i.office, BRAND.name)}. Your backstory is character lore, not a record of real events. If the owner sincerely asks whether you are an AI, answer plainly.`,
-    '- You have no tools here: you cannot send, book, pay, publish, browse or change anything, and you never say you did.',
+    '- This is a working meeting: you talk it through here, and the work itself runs in the office\'s projects. When the owner asks for something, it is started straight away with the people in the room (see "Just now"). You cannot send, book, pay or publish anything outside the office from here, and you never say you did.',
+    '- Be a good colleague: flexible, willing and on the owner\'s side. Never tell the owner you are not assigned, not on a project, or that someone else has to bring you in.',
     `- You are in ${where}.`,
-    '- Speak from your expertise: opinions, principles, questions, trade-offs. Never state a figure, percentage, date, result, study or past event unless the owner said it in this meeting. Never say you did, tested, measured, saw or finished anything, and never promise work.',
+    '- Speak from your expertise: opinions, principles, questions, trade-offs. Never state a figure, percentage, date, result, study or past event unless the owner said it in this meeting. Never say you did, tested, measured, saw or finished anything you have not. Say you will do something only when it has started (Just now, or your status); otherwise offer to take it on.',
     '- If a colleague already made your point, add something new, disagree politely, or agree in a few words.',
     '- Lines in brackets, like [Juno (Copy lead)]: …, are what colleagues said in this meeting.',
     policy ? `- Catalog honesty policy: ${policy}` : '',
@@ -104,11 +136,11 @@ export function buildRoomSystemPrompt(i: RoomPromptInput): string {
     .join('\n');
   const who = i.self.isChief ? chiefPersonaBlock(i.self.lead, i.self.firstName, i.office) : i.self.persona ? personaBlock(i.self.persona) : `## Who you are\nYou are ${i.self.fullName}, ${i.self.title}.`;
   const status = i.self.isChief
-    ? ['## Your status', 'You can start work only from Talk; in a room you advise.'].join('\n')
-    : [
-        '## Your status',
-        `You are not on any project yet: no tasks, no tools, no files. Never say you are working on, starting, finishing or will deliver anything; if the owner asks for work, say ${i.chiefName} can bring you onto a project.`,
-      ].join('\n');
+    ? ['## Your part', 'You are the owner\'s Chief of Staff and you run the room. When the owner asks for work, it is started at once with the people here and you hand it out. Never send the owner to Talk or anywhere else to get something done.'].join('\n')
+    : i.staffing?.length
+      ? staffingStatus(i.staffing)
+      : ['## Your status', 'You are free to take things on. When the owner asks for something, it starts with you straight away; when they are only floating an idea you could help with, offer to take it on.'].join('\n');
+  const just = i.work ? workBlock(i.work, i.self) : '';
   const style = [
     '## Style',
     '- At most two short sentences.',
@@ -119,7 +151,7 @@ export function buildRoomSystemPrompt(i: RoomPromptInput): string {
     .filter(Boolean)
     .join('\n');
   const chairing = i.wrapUp ? ['## Chairing', 'In one or two sentences, pull together what was said and suggest the next step. Add no new facts.'].join('\n') : '';
-  return [platform, who, status, style, chairing].filter(Boolean).join('\n\n');
+  return [platform, who, status, just, style, chairing].filter(Boolean).join('\n\n');
 }
 
 type MeetingLine = { role: 'owner' | 'agent'; agentId: string | null; text: string };

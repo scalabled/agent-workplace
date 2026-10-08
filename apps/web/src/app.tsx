@@ -28,6 +28,7 @@ import { Team } from './routes/Team';
 import { Hire } from './routes/Hire';
 import { MeetingRoom, Meetings } from './routes/Meetings';
 import { Files } from './routes/Files';
+import { Now } from './routes/Now';
 import { BRAND } from '@headcount/protocol';
 import { actualRole, auth, currentOrg, loadOrgs, role, viewAs } from './auth/session';
 import { revealLinked } from './links/links';
@@ -296,6 +297,8 @@ function Screen() {
       return <Onboarding />;
     case 'talk':
       return <Talk />;
+    case 'now':
+      return <Now />;
     case 'floor':
       return <Floor />;
     case 'coworker':

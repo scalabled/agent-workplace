@@ -1,5 +1,5 @@
 // What a coworker can do from their desk (a quick chat), so a request is never just turned away: start research (a
-// background job the Chief of Staff tracks), propose a team project (the owner approves the plan), ask a colleague who
+// background job the Chief of Staff tracks), start a team project they lead (it starts at once: the owner asked), ask a colleague who
 // knows, remember what the owner tells them, send an email (Inc 6: exactly once, with the owner's OK), and propose a
 // change to how they work (their own instructions; the owner approves it). Booking, paying and publishing stay the owner's.
 import type { AgentTool, ToolOutcome } from '@headcount/agent-loop';
@@ -11,7 +11,8 @@ export type Done<T> = ({ ok: true } & T) | { ok: false; message: string };
 
 export interface DeskActions {
   startResearch(title: string, brief: string): Promise<Done<{ jobId: string; title: string }>>;
-  proposeProject(goal: string, title?: string): Promise<Done<{ projectId: string; title: string }>>;
+  /** A team project this coworker leads, started at once (the owner asked them for it). */
+  startProject(goal: string, title?: string): Promise<Done<{ projectId: string; title: string; staffingNote: string }>>;
   /** A colleague by name or role ("Maya", "the bookkeeper"): their answer, or who could not be found. */
   askColleague(who: string, question: string, signal: AbortSignal): Promise<Done<{ name: string; personaId: string; answer: string }>>;
   remember(text: string, kind: MemoryKind): { memoryId: string };
@@ -62,7 +63,7 @@ const titleOf = (text: string) => {
 /** Mock hints (keyless tests): which words start which tool. */
 export const DESK_TRIGGERS = {
   research: [String.raw`\b(look into|research|find out|dig into|compare|check (out|on))\b`],
-  project: [String.raw`\b(set up|start|propose|kick off|run) (a |the )?(team )?project\b`, String.raw`\bcan you (take|handle|run) (this|that|it) on\b`],
+  project: [String.raw`\b(set up|start|propose|kick off|run) (a |the )?(team )?project\b`, String.raw`\bcan you (take|handle|run) (this|that|it) on\b`, String.raw`\b(put together|plan out|build) (a |an |the |our )\w+`],
   ask: [String.raw`\bask (?!me\b|you\b|about\b|for\b|if\b|whether\b)(the \w+|our \w+|[a-z]+) (about|what|whether|if|how|why|for|to)\b`],
   remember: [String.raw`^\s*(please )?remember (that )?`],
 };
@@ -83,25 +84,25 @@ export function deskTools(a: DeskActions, me: { name: string }, chief: string, o
       const brief = str(args.brief);
       if (brief.length < 8) return fail('The brief is too short to start.', 'Say what to find or write, with the owner’s details.');
       const r = await a.startResearch(str(args.title) || titleOf(brief), brief.slice(0, 4000));
-      if (!r.ok) return fail(r.message, 'Tell the owner plainly, and offer to propose it as a project or ask again later.');
+      if (!r.ok) return fail(r.message, 'Tell the owner plainly, and offer to start it as a project instead, or try again later.');
       onWork();
       return ok({ jobId: r.jobId, title: r.title, say: `I've started “${r.title}”; ${chief} will tell you when it's done, and you can follow it on the Projects page.` }, `Started “${r.title}”`);
     },
   };
   const project: AgentTool<{ goal?: unknown; title?: unknown }> = {
     spec: {
-      name: 'propose_project',
-      description: 'Propose a team project for work with several steps or disciplines (a launch, a campaign, a plan, a proposal). The right team is picked, a plan is drafted, and the owner approves it in the Inbox before anything starts.',
+      name: 'start_project',
+      description: 'Start a team project you lead, for work with several steps or disciplines (a launch, a campaign, a plan, a proposal, a set of product pages). Colleagues who fit join you, the plan is drafted, and work starts straight away: the owner asked you, so there is nothing for them to approve.',
       parameters: { type: 'object', properties: { goal: { type: 'string', description: "The outcome, in the owner's words, with every constraint." }, title: { type: 'string' } }, required: ['goal'], additionalProperties: false },
       mock: { triggers: DESK_TRIGGERS.project, args: (text: string) => ({ goal: text }), reply: sayOf },
     },
     async execute(args) {
       const goal = str(args.goal);
       if (goal.length < 8) return fail('The goal is too short to plan.', 'Say what the team should deliver.');
-      const r = await a.proposeProject(goal.slice(0, 4000), str(args.title) || undefined);
+      const r = await a.startProject(goal.slice(0, 4000), str(args.title) || undefined);
       if (!r.ok) return fail(r.message, 'Tell the owner plainly; offer research instead if it fits.');
       onWork();
-      return ok({ projectId: r.projectId, title: r.title, say: `I've proposed “${r.title}” as a team project; the plan is in your Inbox for your OK.` }, `Proposed “${r.title}”`);
+      return ok({ projectId: r.projectId, title: r.title, team: r.staffingNote, link: `/app/projects/${r.projectId}`, say: `I'm on it: “${r.title}” has started. ${r.staffingNote} You can follow it on the Projects page.` }, `Started “${r.title}”`);
     },
   };
   const ask: AgentTool<{ who?: unknown; question?: unknown }> = {

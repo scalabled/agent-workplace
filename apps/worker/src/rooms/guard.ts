@@ -384,7 +384,8 @@ export const FIGURE_LINE = "I'd want the real numbers before I put a figure on i
 /** Alternatives, so two responders in one turn do not say the same line. */
 export const FIGURE_LINES = [FIGURE_LINE, "I'd rather see the real numbers before I guess at a figure.", "Without the real numbers I won't put a figure on it."] as const;
 export const EXPERIENCE_LINE = "I can't speak to that firsthand; I'd go by what you've seen.";
-export const CHIEF_ROOM_WORK_LINE = 'Bring it to me in Talk and it goes on my list.';
+/** The Chief's offer when a reply promised work nothing started: a yes from the owner starts it (rooms/intake.ts). */
+export const CHIEF_ROOM_WORK_LINE = 'Want me to get the team started on that now?';
 
 /**
  * Releases a streamed reply one complete sentence at a time (the HonestyGuard splitter: an end mark followed by

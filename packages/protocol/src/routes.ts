@@ -67,6 +67,7 @@ export const ROUTES = {
   listMeetings: { method: 'GET', path: '/api/meetings', auth: 'reader' },
   callMeeting: { method: 'POST', path: '/api/meetings', auth: 'contributor', body: 'json', bodyCap: 8 * 1024 },
   findMeeting: { method: 'GET', path: '/api/meetings/:meetingId', auth: 'reader' },
+  meetingWork: { method: 'POST', path: '/api/meetings/:meetingId/work', auth: 'contributor', bodyCap: 1024 },
   // Files (ext/files.ts): images and videos made here, per organization; Markdown documents as Word, Excel or PowerPoint.
   listFiles: { method: 'GET', path: '/api/files', auth: 'reader' },
   getFile: { method: 'GET', path: '/api/files/:fileName', auth: 'reader' },

@@ -83,9 +83,15 @@ export const GUIDE: GuideEntry[] = [
     area: 'talk',
     title: 'Talk by text or voice',
     what: 'Your Chief of Staff answers at once, while work carries on in the background. Replies can be spoken in their own voice, with a face that moves with what is playing.',
-    steps: ['Type in the message field and press Enter.', 'To talk, hold Space (with the field empty) or hold the mic button; let go to send.', 'Interrupt any time: start talking, or press Esc, and they stop.', 'Turn spoken replies on or off from ⌘K → “Turn voice on/off”.'],
+    steps: [
+      'Type in the message field and press Enter.',
+      'To talk, tap the mic, speak, and tap it again to send. Or hold the mic (or Space, with the field empty) and let go to send.',
+      'It works on any phone or browser: when there is no speech service, what you say is recognized on your device (the first time takes a moment to get ready).',
+      'Interrupt any time: start talking, or press Esc, and they stop.',
+      'Turn spoken replies on or off from ⌘K → “Turn voice on/off”.',
+    ],
     open: { label: 'Open Talk', href: '/app/talk' },
-    since: '0.1',
+    since: '0.7',
   },
   {
     id: 'talk-delegate',
@@ -128,10 +134,10 @@ export const GUIDE: GuideEntry[] = [
     id: 'team-desks',
     area: 'team',
     title: 'Talk to a coworker at their desk',
-    what: 'Each coworker has a desk where you can ask them anything in their field. They answer there and can start the work themselves.',
-    steps: ['Open a coworker’s profile from the Team page or the Floor and talk at their desk.', 'Or ask your Chief to “ask the bookkeeper about…” or “pass this to the copywriter”: they bring the answer back or hand it over.', 'See and edit how a coworker works on their profile (their instructions and skills).'],
+    what: 'Each coworker has a desk where you can ask them anything in their field. Ask for something and they take it on: research or a write-up, or a project they lead, started straight away.',
+    steps: ['Open a coworker’s profile from the Team page or the Floor and talk at their desk.', 'Ask for what you need (“Andre, can you write descriptions for our new amethyst clusters?”); they start it and tell you where to follow it.', 'Or ask your Chief to “ask the bookkeeper about…” or “pass this to the copywriter”: they bring the answer back or hand it over.', 'See and edit how a coworker works on their profile (their instructions and skills).'],
     open: { label: 'Meet the team', href: '/app/team' },
-    since: '0.2',
+    since: '0.7',
   },
 
   // ── projects and meetings ──
@@ -148,10 +154,17 @@ export const GUIDE: GuideEntry[] = [
     id: 'meetings',
     area: 'projects',
     title: 'Meetings, with your Chief moderating',
-    what: 'Put the right people in a room to talk something through. They take turns, the first person invited chairs and sums up, your Chief keeps it moving, and the outcome comes back to you.',
-    steps: ['In Talk, say “call a meeting about a monthly crystal subscription box”; your Chief invites the people best placed.', 'Or open Meetings, write the question, pick who comes (the first chairs) and press “Start the meeting”.', 'Press “Listen in” to hear each line in the speaker’s voice; take the floor, or whisper to one person.', 'When it ends, your Chief posts what they agreed in Talk; press “Make it a project” to act on it.', 'Projects hold their own kickoffs and reviews; they are on the Meetings page too.'],
+    what: 'Put the right people in a room to talk something through. They take turns, the first person invited chairs and sums up, your Chief keeps it moving, and then they get on with it.',
+    steps: [
+      'In Talk, say “call a meeting about a monthly crystal subscription box”; your Chief invites the people best placed.',
+      'Or open Meetings, write the question, pick who comes (the first chairs) and press “Start the meeting”.',
+      'Press “Listen in” to hear each line in the speaker’s voice; take the floor by typing or with the mic, or whisper to one person.',
+      'When it ends, the people at the table start on what they agreed, with the chair leading, and your Chief posts the outcome and a link to the work in Talk.',
+      'Just talking it over? Untick “When it ends, they get started…” when you call it; “Start the work” in the meeting’s room does it later in one tap.',
+      'Projects hold their own kickoffs and reviews; they are on the Meetings page too.',
+    ],
     open: { label: 'Open Meetings', href: '/app/meetings' },
-    since: '0.4',
+    since: '0.7',
   },
   {
     id: 'inbox',
@@ -201,6 +214,30 @@ export const GUIDE: GuideEntry[] = [
     steps: ['Open the Floor. Switch between the Office and the Directory with the toggle.', 'Rest on a face to see what they are working on; click to chat in place.', 'People in a meeting gather around your Chief.', 'Choose how lively the office is (Quiet, Lively, Buzzing) in ⌘K.'],
     open: { label: 'Open the Floor', href: '/app/floor' },
     since: '0.1',
+  },
+  {
+    id: 'office-rooms',
+    area: 'office',
+    title: 'Work in a room',
+    what: 'Bring people into the Skyline or Garden room (or join a huddle) and talk it through. When you ask for something, it starts right away with the people in the room; if your Chief is there, they hand it out.',
+    steps: [
+      'On the Floor’s Office view, drag people into a room (your Chief too, if you like), then open it.',
+      'Talk by typing or with the mic: tap it, speak, and tap again to send.',
+      'Ask for what you need (“Nina, can you put together a plan for our new checkout page?”). It starts as a project: the person you asked leads, with the others in the room.',
+      'Give direction to work someone in the room is already doing (“make sure it covers Apple Pay”); it reaches their next step.',
+      'Your Chief notes what started in Talk, and it shows on the Now page.',
+    ],
+    open: { label: 'Open the Floor', href: '/app/floor' },
+    since: '0.7',
+  },
+  {
+    id: 'now',
+    area: 'office',
+    title: 'What’s going on, at a glance',
+    what: 'One page for what is happening right now: what needs you, the meetings going on, the work under way with who is on which step, what everyone is doing, and what finished lately.',
+    steps: ['Open Now in the sidebar (or the bottom tabs on a phone).', 'Follow any line to the project, meeting or person.', 'Talk shows a line when the team is at work; tap “What’s going on” to see the rest.', 'Prefer to ask? “Ask for an update” puts the question to your Chief in Talk.'],
+    open: { label: 'Open Now', href: '/app/now' },
+    since: '0.7',
   },
   {
     id: 'office-directory',
@@ -339,6 +376,22 @@ export const GUIDE: GuideEntry[] = [
 
 /** Newest first. Each change links to its guide entry where there is one. */
 export const RELEASES: Release[] = [
+  {
+    version: '0.7',
+    date: '2026-10-08',
+    title: 'Working together',
+    summary: 'Ask anyone for something and it starts: in a room, at a desk or after a meeting. See who is doing what on the new Now page, and talk by voice on any phone or browser.',
+    changes: [
+      { text: 'Rooms are working meetings: ask for something and it starts right away with the people in the room. Your Chief, when there, hands it out.', guide: 'office-rooms' },
+      { text: 'When a meeting ends, the people at the table get started on what they agreed, with the chair leading.', guide: 'meetings' },
+      { text: 'Coworkers take things on themselves: ask at their desk and they start the research, or a project they lead.', guide: 'team-desks' },
+      { text: 'Now: what needs you, the work under way, who is doing what and what finished lately, in one place.', guide: 'now' },
+      { text: 'Talk by voice on any phone or browser: tap the mic to start and again to send, or hold it. With no speech service, it is recognized on your device.', guide: 'talk-basics' },
+      { text: 'A mic in meetings, next to “Say it”.', guide: 'meetings' },
+      { text: 'On a phone, the room’s mic and Send are no longer covered by your Chief’s button.' },
+      { text: 'Fixed a rare stall where the office could stop answering for a while.' },
+    ],
+  },
   {
     version: '0.6',
     date: '2026-10-07',
