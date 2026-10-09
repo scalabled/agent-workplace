@@ -377,6 +377,19 @@ export const GUIDE: GuideEntry[] = [
 /** Newest first. Each change links to its guide entry where there is one. */
 export const RELEASES: Release[] = [
   {
+    version: '0.9',
+    date: '2026-10-09',
+    title: 'Clear writing',
+    summary: 'The team writes shorter, clearer work: the result first, in short sentences. Briefs and meeting notes show as formatted text, and wide content stays inside a phone screen.',
+    changes: [
+      { text: 'Every coworker, your Chief and background jobs follow one writing standard: the result first, short sentences, plain words.' },
+      { text: 'Deliverables are shorter: the result, the key outputs, and next steps with who does each.', guide: 'projects-start' },
+      { text: 'Meeting summaries list the decision, who does what, and what is open.', guide: 'meetings' },
+      { text: 'Project briefs, meeting notes, the team channel and Inbox requests show as formatted text. A long brief shows two lines until you open it.' },
+      { text: 'On a phone, a wide table or a long code word no longer pushes the bottom tabs off the screen.' },
+    ],
+  },
+  {
     version: '0.8',
     date: '2026-10-09',
     title: 'One thing at a time',

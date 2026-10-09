@@ -9,6 +9,7 @@ import { api, ApiError } from '../api/client';
 import { MemberFace } from '../components/ProjectCard';
 import { mergeChannel, projectChannels } from '../store';
 import { CopyLink } from '../links/CopyLink';
+import { Markdown } from '../components/Markdown';
 
 const KIND: Record<ChannelEntry['kind'], string> = {
   owner: 'You',
@@ -107,7 +108,7 @@ export function TeamChannel({ project }: { project: TeamProjectSnapshot }) {
                   <CopyLink page={paths.project(id)} at={`ch-${e.seq}`} label="Copy link to this line" what="Link to this line" class="channel-link" />
                   {e.kind !== 'owner' && <span class="channel-kind">{e.kind === 'discussion' && e.phase ? (e.phase === 'moderator' || e.phase === 'reply' ? PHASE[e.phase] : `${PHASE[e.phase]} · round ${e.round ?? 1}`) : KIND[e.kind]}</span>}
                 </p>
-                <p class="channel-text">{e.text}</p>
+                <Markdown text={e.text} class="channel-text" />
               </div>
             </li>
           );

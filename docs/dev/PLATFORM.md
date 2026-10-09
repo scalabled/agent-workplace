@@ -158,6 +158,20 @@ over the 25 MiB per-file limit of Workers Static Assets.
 
 While a room or a joined huddle is open, the Chief's bubble steps aside (on phones it covered the room's mic and Send).
 
+## Writing standard
+
+Everything the team writes for the owner follows one standard, after ASD-STE100 Simplified Technical English:
+`apps/worker/src/agents/writing.ts`.
+
+- `WRITING_STANDARD` (the full rules) is in every coworker's work prompt (section `writing`), background jobs and
+  canvas documents.
+- `WRITING_SHORT` is in review prompts and the Chief's replies.
+- Size limits: a step is under 300 words; a project deliverable is under 700; a job write-up is under 500; a meeting's
+  close is under 150, as Decision, Who does what, Open, From the owner.
+
+The web renders model text as Markdown (`components/Markdown.tsx`); list rows use `plainText` (`lib/markdown.ts`).
+`.main` clips horizontal overflow, so wide content never widens the page on a phone.
+
 ## Files
 
 - **Images:** OpenAI or xAI. Ask the Chief in Talk (`make_image`), or describe one on the Files page.

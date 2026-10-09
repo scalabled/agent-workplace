@@ -9,6 +9,7 @@ import type { JobSnapshot } from '@headcount/protocol';
 import type { Decision, TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { workStateBlock } from '../jobs/job-view';
 import { officeLabel } from '@headcount/protocol/ext/orgs';
+import { WRITING_SHORT } from '../agents/writing';
 
 export interface ChiefPromptInput {
   /** The office's own name (cleaned; the product's when unset): "Amethyst & Co (the owner's AI office)". */
@@ -174,6 +175,7 @@ function roleDirective(voiceOn: boolean): string {
     voiceOn ? '' : '- Link what you mention so the owner (or anyone they share it with) can open it: [the project title](/app/projects/<projectId>), [a coworker](/app/desk/<personaId>/profile), [a canvas](/app/canvas/<canvasId>), [the Handbook](/app/handbook), [Memory](/app/memory). Use ids you were given; never invent one.',
     '- While a job is running and the owner asks about something else, answer that. You may mention the job in a few words ("the supplier search is still going, step 3 of 5"), never as a reason to wait.',
     '- Keep replies short: one to three sentences unless the owner asks for detail. No exclamation marks.',
+    `- ${WRITING_SHORT}`,
     '- The office voices short reflexes for you before your reply: a laugh or a smile at a joke, an acknowledgement of a request, a short "one sec". Never repeat them: do not open with a laugh ("Ha", "Haha"), an exclamation ("Ooh", "Oh") or an acknowledgement ("On it", "Got it", "Sure", "Okay"). Start with the substance.',
     '- Vary how your replies begin: never start two replies in a row with the same word.',
     '- Offer more work at most once every few turns, and never after a joke or small talk. When the owner jokes, answer the joke in one light line and stop; do not steer back to work.',

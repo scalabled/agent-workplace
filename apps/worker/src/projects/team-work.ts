@@ -350,7 +350,7 @@ function submitWorkTool(trigger: string, mock: () => { markdown: string; summary
       parameters: {
         type: 'object',
         properties: {
-          markdown: { type: 'string', description: 'The work itself in Markdown (under 400 words): headings, bullets, drafts, tables where useful.' },
+          markdown: { type: 'string', description: 'The work itself in Markdown, under 300 words: the result first, then the details (bullets, drafts, a table where facts compare).' },
           summary: { type: 'string', description: 'One sentence for the team: what you produced.' },
         },
         required: ['markdown', 'summary'],
@@ -456,7 +456,7 @@ export async function reviewStep(w: Worker, brief: ProjectBrief, step: ProjectSt
 // ── the deliverable, and its QA ─────────────────────────────────────────────────────
 
 const KIND_RULE: Record<DeliverableKind, string> = {
-  document: 'The deliverable is ONE Markdown document for the owner: a title, an executive summary, the key outputs, and next steps (under 1,200 words). Cut working notes.',
+  document: 'The deliverable is ONE Markdown document for the owner, under 700 words: a title; the result in two or three sentences; the key outputs as bullets or a table; numbered next steps, each with who does it; open questions, if any. Cut working notes, process and repetition.',
   web: 'The deliverable is ONE complete, self-contained HTML file: inline CSS and JavaScript, no external scripts, fonts or images, and it must work when opened from a local file. Put the whole file in `content` (no Markdown fences).',
   code: 'The deliverable is ONE file that runs or compiles as-is, with brief usage instructions in a comment at the top. Put the whole file in `content` (no Markdown fences) and name it in `filename`.',
 };
@@ -613,7 +613,7 @@ export const DISCUSSION_DIRECTIVE: Record<DiscussionPhase, string> = {
   debate:
     'Name at least one thing said so far that you disagree with and why, answer anything addressed to you, and add only what is new. Do not repeat yourself or agree with everyone. Under 100 words.',
   synthesis:
-    'You chair. Close the discussion: 1) your recommendation in at most three sentences; 2) who does what next (owners from this team); 3) what the team disagreed on or left open; 4) what you need from the owner, if anything. Credit members by name and do not manufacture agreement. Under 180 words.',
+    'You chair. Close the discussion in plain Markdown, under 150 words, in this order: **Decision** (one or two sentences); **Who does what** (a bullet per person: name, task); **Open** (what the team disagreed on or left open, if anything); **From the owner** (what you need, if anything). Short sentences. Credit members by name and do not manufacture agreement.',
   reply: 'You have been given the floor because you were addressed. Answer that directly, from your discipline, in under 80 words, then stop.',
 };
 

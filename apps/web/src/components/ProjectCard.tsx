@@ -4,6 +4,7 @@ import { catalog } from '../catalog';
 import { navigate, paths } from '../router';
 import { presenceFor } from '../store';
 import { Face, personaSubject } from './Face';
+import { plainText } from '../lib/markdown';
 
 export const PROJECT_STATUS_WORDS: Record<TeamProjectSnapshot['status'], string> = {
   planning: 'Drafting the plan',
@@ -102,7 +103,7 @@ export function ProjectCard({ project }: { project: TeamProjectSnapshot }) {
           <span style={{ width: `${Math.max(4, pct)}%` }} />
         </span>
       )}
-      <span class="project-card-note">{project.status === 'done' && project.summary ? project.summary : project.staffingNote}</span>
+      <span class="project-card-note">{project.status === 'done' && project.summary ? plainText(project.summary) : project.staffingNote}</span>
     </button>
   );
 }

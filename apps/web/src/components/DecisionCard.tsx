@@ -26,6 +26,7 @@ const KIND_LABEL: Record<Decision['kind'], string> = {
 };
 
 import { CopyLink } from '../links/CopyLink';
+import { Markdown } from './Markdown';
 export function DecisionCard({ decision: d, showProject = true }: { decision: Decision; showProject?: boolean }) {
   const [text, setText] = useState('');
   const [grant, setGrant] = useState<GrantKind>('once');
@@ -103,7 +104,7 @@ export function DecisionCard({ decision: d, showProject = true }: { decision: De
             )}
           </>
         ) : (
-          <p class="decision-text">{d.body}</p>
+          <Markdown text={d.body} class="decision-text" />
         )}
         {d.kind === 'plan_approval' && project && (
           <>

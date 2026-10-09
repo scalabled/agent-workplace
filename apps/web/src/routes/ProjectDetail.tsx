@@ -11,6 +11,7 @@ import { DecisionCard } from '../components/DecisionCard';
 import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
 import { Markdown } from '../components/Markdown';
+import { plainText } from '../lib/markdown';
 import { Sources } from '../components/Sources';
 import { MemberFace, PROJECT_STATUS_WORDS, STEP_STATUS_WORDS, progressOf, projectGlyph, stepGlyph } from '../components/ProjectCard';
 import { cancelProject, editPlan, loadProject, noteProject, pauseProject, projectBusy, projectError, resumeProject } from '../projects/actions';
@@ -129,6 +130,28 @@ function StepCard({ step, project, index, onInspect }: { step: ProjectStep; proj
         </div>
       )}
     </li>
+  );
+}
+
+/** A preview this long or shorter is the whole brief. */
+const BRIEF_PREVIEW = 240;
+
+/**
+ * The owner's brief: short ones in full; a long one (a meeting's outcome, a pasted spec) as a two-line preview that
+ * opens to the rendered Markdown.
+ */
+function ProjectBrief({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const flat = plainText(text);
+  const long = flat.length > BRIEF_PREVIEW || /\n\s*\n|\n\s*(?:[-*+]|\d+[.)])\s/.test(text);
+  if (!long) return <Markdown text={text} class="page-lede project-brief" />;
+  return (
+    <div class="project-brief">
+      {open ? <Markdown text={text} class="project-brief-full" /> : <p class="page-lede project-brief-preview">{flat}</p>}
+      <button type="button" class="link-button" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open ? 'Show less' : 'Show the full brief'}
+      </button>
+    </div>
   );
 }
 
@@ -288,7 +311,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
             </button>
           )}
         </p>
-        <p class="page-lede">{project.goal}</p>
+        <ProjectBrief text={project.goal} />
         {project.automation && (
           <p class="page-fine">
             Started by the automation “{project.automation.name}”. <Link href={paths.automations}>Automations</Link>

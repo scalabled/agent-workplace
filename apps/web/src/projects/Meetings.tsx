@@ -21,6 +21,8 @@ const errorOf = (err: unknown, fallback: string) => (err instanceof ApiError ? e
 const when = (at: string) => new Date(at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 import { CopyLink } from '../links/CopyLink';
+import { Markdown } from '../components/Markdown';
+import { plainText } from '../lib/markdown';
 export function Meetings({ project }: { project: TeamProjectSnapshot }) {
   const [list, setList] = useState<MeetingSummary[] | null>(null);
   const [calling, setCalling] = useState(false);
@@ -192,13 +194,14 @@ function MeetingRow({ project, meeting: m, onListen }: { project: TeamProjectSna
             <li key={e.seq} data-kind={e.kind} data-phase={e.phase}>
               <strong>{first(e.fromId)}</strong>
               {e.kind === 'whisper' && <span class="connector-meta"> (whispered to {first(e.toId ?? '')})</span>}
-              {e.kind === 'owner' && e.toId && <span class="connector-meta"> → {first(e.toId)}</span>}: {e.text}
+              {e.kind === 'owner' && e.toId && <span class="connector-meta"> → {first(e.toId)}</span>}
+              <Markdown text={e.text} class="meeting-transcript-text" />
             </li>
           ))}
           {detail && !detail.entries.length && <li class="page-fine">Nothing said yet.</li>}
         </ol>
       )}
-      {!live && m.summary && !open && <p class="meeting-summary">{m.summary}</p>}
+      {!live && m.summary && !open && <p class="meeting-summary">{plainText(m.summary)}</p>}
     </li>
   );
 }

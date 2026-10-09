@@ -8,6 +8,7 @@ import type { TeamMember } from '@headcount/protocol/ext/projects';
 import { clipText } from '../jobs/job-view';
 import { EXTERNAL_RULE } from '../tools/external';
 import { skillsIndex } from './skills';
+import { WRITING_SHORT, WRITING_STANDARD } from './writing';
 import { officeLabel } from '@headcount/protocol/ext/orgs';
 import { BRAND } from '@headcount/protocol';
 
@@ -53,6 +54,7 @@ export function coworkerSections(i: CoworkerPromptInput, surface: 'work' | 'revi
   const index = skillsIndex(i.skills);
   if (index) sections.push({ id: 'skills', title: 'Skills', origin: 'skills', text: index });
   if (i.research || i.collaborate) sections.push({ id: 'tools', title: 'Tools', origin: 'tools', text: [i.research, i.collaborate].filter(Boolean).join('\n') });
+  sections.push({ id: 'writing', title: 'How they write', origin: 'platform', text: surface === 'review' ? `${WRITING_SHORT} Review notes: what to change and why, as bullets.` : WRITING_STANDARD });
   sections.push({
     id: 'rules',
     title: 'Platform rules',

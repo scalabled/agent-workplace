@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { filterItems, type PaletteItem } from '../components/Palette';
-import { renderMarkdown } from './markdown';
+import { plainText, renderMarkdown } from './markdown';
 import { ago, elapsed } from './time';
 
 describe('renderMarkdown', () => {
@@ -52,5 +52,12 @@ describe('time', () => {
     expect(elapsed('2026-09-28T11:59:40Z', now)).toBe('just now');
     expect(ago('2026-09-28T11:56:00Z', now)).toBe('4 min ago');
     expect(elapsed('2026-09-28T09:00:00Z', now)).toBe('3 h');
+  });
+});
+
+describe('plainText', () => {
+  it('turns Markdown into one plain line for previews', () => {
+    expect(plainText("**Decision:** Launch the `activation_first_job_done` event.\n\n- **Leilani:** three hooks\n- Me: the [scorecard](/app/files)\n\n## Open\nNothing.")).toBe('Decision: Launch the activation_first_job_done event. Leilani: three hooks Me: the scorecard Open Nothing.');
+    expect(plainText('A *quiet* _launch_ in 2_000 steps')).toBe('A quiet launch in 2_000 steps');
   });
 });

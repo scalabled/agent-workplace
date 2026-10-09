@@ -24,6 +24,8 @@ import { accentFor } from '../lib/accent';
 import { takeVoice } from '../voice/handoff';
 import './pages.css';
 import './meetings.css';
+import { Markdown } from '../components/Markdown';
+import { plainText } from '../lib/markdown';
 
 const errorOf = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
 /** The face's own light (its accent) on whatever holds it. */
@@ -290,7 +292,7 @@ function MeetingRowLink({ meeting: m }: { meeting: MeetingSummary }) {
           {m.status === 'stopped' ? 'Stopped' : 'Held'} {when(m.startedAt)} · chaired by {nameOf(m.chairId)}
           {!m.standalone && m.title ? ` · ${m.title}` : ''}
         </span>
-        {m.summary && <span class="meeting-row-summary">{m.summary}</span>}
+        {m.summary && <span class="meeting-row-summary">{plainText(m.summary)}</span>}
       </Link>
       <Faces people={m.people ?? [m.chairId]} />
     </li>
@@ -420,7 +422,7 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
           <h2 id="outcome-title" class="admin-card-title">
             What they agreed
           </h2>
-          <p class="room-summary">{m.summary}</p>
+          <Markdown text={m.summary} class="room-summary" />
           {m.work && (
             <p class="room-work" role="status">
               <Icon name="projects" size={16} /> The team is on it: <Link href={paths.project(m.work.projectId)}>{m.work.title}</Link>
@@ -476,7 +478,7 @@ function RoomLine({ entry: e, name, to }: { entry: ChannelEntry; name: string; t
           {e.kind === 'whisper' && <span class="page-fine"> · whispered to {to}</span>}
           {e.kind === 'owner' && to && <span class="page-fine"> → {to}</span>}
         </p>
-        <p class="room-line-text">{e.text}</p>
+        <Markdown text={e.text} class="room-line-text" />
       </div>
     </li>
   );
