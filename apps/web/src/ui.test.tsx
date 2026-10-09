@@ -76,9 +76,12 @@ describe('Onboarding', () => {
     const second = slimIndex.catalog.leads[1]!;
     await click(host.querySelectorAll('.gallery-card')[1]);
     expect(host.querySelector('.stage-name')?.textContent).toBe(second.name);
-    await typeInto(host.querySelector('.stage-choose .stage-name-field input'), 'Robin');
-    const choose = [...host.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Choose '));
-    await act(() => void choose!.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    // Choose opens a short dialog: the optional names, then Start.
+    await click([...host.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Choose ')));
+    const dialog = document.querySelector('.dialog')!;
+    expect(dialog.querySelector('#dialog-title')?.textContent).toBe(`Start with ${second.name.split(' ')[0]}`);
+    await typeInto(dialog.querySelectorAll('input')[1], 'Robin');
+    await act(() => void dialog.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
     await flush();
     expect(calls.find((c) => c.method === 'PUT')?.body).toEqual({ leadId: second.id, chiefName: 'Robin' });
     expect(settings.value?.leadId).toBe(second.id);
@@ -242,11 +245,12 @@ describe('renamed Chief of Staff', () => {
     expect(host.querySelector('.starter')?.textContent).toMatch(/^Look into/);
   });
 
-  it('labels Choose with the typed name', async () => {
+  it('labels Start with the typed name', async () => {
     navigate(paths.onboarding);
     await mount(<Onboarding />);
-    await typeInto(host.querySelector('.stage-choose .stage-name-field input'), 'Robin');
-    expect([...host.querySelectorAll('button')].some((b) => b.textContent === 'Choose Robin')).toBe(true);
+    await click([...host.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Choose ')));
+    await typeInto(document.querySelector('.dialog')!.querySelectorAll('input')[1], 'Robin');
+    expect([...document.querySelectorAll('.dialog button')].some((b) => b.textContent === 'Start with Robin')).toBe(true);
   });
 });
 

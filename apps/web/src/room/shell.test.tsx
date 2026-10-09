@@ -222,12 +222,16 @@ describe('palette', () => {
 });
 
 describe('onboarding: the owner’s name', () => {
-  const choose = async () => {
+  // Choose opens the Start dialog; its first field is what the office calls the owner.
+  const open = async () => {
     const btn = [...host.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Choose '))!;
-    await act(() => void btn.closest('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    await act(() => void btn.click());
+  };
+  const choose = async () => {
+    await act(() => void document.querySelector('.dialog form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
     await flush();
   };
-  const ownerField = () => host.querySelector<HTMLInputElement>('.stage-owner-field input')!;
+  const ownerField = () => document.querySelector<HTMLInputElement>('.dialog input')!;
 
   beforeEach(() => {
     settings.value = { workspaceId: 'local', leadId: null, chiefName: null, voiceOn: true, updatedAt: '' };
@@ -237,9 +241,10 @@ describe('onboarding: the owner’s name', () => {
 
   it('is optional: skipping sends no name', async () => {
     await mount(<Onboarding />);
+    await open();
     expect(ownerField().getAttribute('autocomplete')).toBe('given-name');
     expect(ownerField().maxLength).toBe(40);
-    expect(host.querySelector('.stage-owner-field')?.textContent).toContain('Optional. Used in greetings.');
+    expect(ownerField().closest('.field')?.textContent).toContain('Optional. Used in greetings.');
     await choose();
     expect(calls.find((c) => c.method === 'PUT')?.body).not.toHaveProperty('ownerName');
     expect(path.value).toBe(paths.talk);
@@ -247,6 +252,7 @@ describe('onboarding: the owner’s name', () => {
 
   it('a name typed there rides on the same save', async () => {
     await mount(<Onboarding />);
+    await open();
     await act(() => {
       ownerField().value = 'Greg';
       ownerField().dispatchEvent(new Event('input', { bubbles: true }));
@@ -257,12 +263,13 @@ describe('onboarding: the owner’s name', () => {
 
   it('a name the worker would refuse is caught before the save', async () => {
     await mount(<Onboarding />);
+    await open();
     await act(() => {
       ownerField().value = '{Greg}';
       ownerField().dispatchEvent(new Event('input', { bubbles: true }));
     });
     await choose();
     expect(calls.filter((c) => c.method === 'PUT')).toEqual([]);
-    expect(host.querySelector('.stage-owner-field [role="alert"]')?.textContent).toBe('Use letters for your name.');
+    expect(ownerField().closest('.field')?.querySelector('[role="alert"]')?.textContent).toBe('Use letters for your name.');
   });
 });

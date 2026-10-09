@@ -46,6 +46,7 @@ test('choosing a Chief of Staff lands in Talk', async ({ page, request }) => {
   await request.put('/api/workspace', { data: { leadId: null, chiefName: null } });
   await page.goto('/app/welcome');
   await page.getByRole('button', { name: /^Choose / }).first().click();
+  await page.getByRole('dialog').getByRole('button', { name: /^Start with / }).click();
   await expect(page).toHaveURL(/\/talk$/);
 });
 

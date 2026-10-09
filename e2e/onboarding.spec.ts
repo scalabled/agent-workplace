@@ -17,7 +17,8 @@ test('the gallery shows all twelve leads with faces, a story teaser and fit', as
   await expect(page.locator('.gallery canvas')).toHaveCount(12);
   await expect.poll(() => faceDrawn(page, '.gallery-card canvas')).toBe(true);
   await expect.poll(() => faceDrawn(page, '.stage-face canvas')).toBe(true);
-  // The stage: archetype, name, tagline, backstory teaser, best-for, honesty line, name field, one primary action.
+  // The stage: archetype, name, tagline, backstory teaser, best-for, honesty line, one primary action (Choose opens a
+  // short dialog with the two optional names).
   const stage = page.locator('article.stage');
   await expect(stage.locator('.stage-arch')).not.toBeEmpty();
   await expect(stage.locator('.stage-name')).not.toBeEmpty();
@@ -65,13 +66,16 @@ test('the match quiz suggests a top three and explains why', async ({ page }) =>
 test('naming the choice saves it and lands in Talk under that name', async ({ page, request }) => {
   await page.goto('/app/welcome');
   const stage = page.locator('article.stage');
-  const field = stage.getByRole('textbox', { name: /^Call / });
-  await field.fill('Juniper');
-  // The owner's own name is one optional field (Office Phase 2: greetings by name).
-  const owner = stage.getByRole('textbox', { name: 'What should the office call you?' });
+  // Choose opens "Start with …": what the Chief calls the owner (optional), and what the owner calls the Chief.
+  await stage.getByRole('button', { name: /^Choose / }).click();
+  const dialog = page.getByRole('dialog', { name: /^Start with / });
+  await expect(dialog).toBeVisible();
+  const owner = dialog.getByRole('textbox', { name: /^What should .+ call you\?$/ });
+  await expect(owner).toBeFocused();
   await expect(owner).toHaveAttribute('autocomplete', 'given-name');
   await owner.fill('Dana');
-  await stage.getByRole('button', { name: /^Choose / }).click();
+  await dialog.getByRole('textbox', { name: /^Call / }).fill('Juniper');
+  await dialog.getByRole('button', { name: 'Start with Juniper' }).click();
   await expect(page).toHaveURL(/\/talk$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Juniper' })).toBeVisible();
   const saved = await (await request.get('/api/workspace')).json();

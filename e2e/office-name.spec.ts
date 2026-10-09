@@ -10,9 +10,14 @@ test.beforeEach(async ({ request }) => {
 
 test('rename the office: its name is at the top of the app and in the tab', async ({ page, request }) => {
   await page.goto('/app/admin?at=organization');
-  const field = page.getByLabel(/Office name/);
+  // Rename opens a dialog with the one field; nothing else on the page competes with it.
+  await page.locator('#organization').getByRole('button', { name: 'Rename' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Rename this office' });
+  const field = dialog.getByRole('textbox', { name: 'Office name' });
+  await expect(field).toBeFocused();
   await field.fill('Amethyst & Co');
-  await page.getByRole('button', { name: 'Rename' }).click();
+  await dialog.getByRole('button', { name: 'Rename' }).click();
+  await expect(dialog).toHaveCount(0);
   await expect(page.getByRole('status').filter({ hasText: 'Renamed' })).toBeVisible();
   await expect(page.locator('.nav .nav-brand-name')).toHaveText('Amethyst & Co');
   await expect(page).toHaveTitle('Amethyst & Co');

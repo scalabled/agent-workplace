@@ -26,11 +26,13 @@ import {
 import { useEffect, useMemo, useState } from 'preact/hooks';
 import { api, ApiError } from '../api/client';
 import { actualRole, auth, isOwner, role, viewAs, isPlatform } from '../auth/session';
-import { chiefName } from '../chief';
+import { chiefName, currentLead } from '../chief';
+import { TextDialog } from '../components/Dialog';
+import { Face, leadSubject } from '../components/Face';
 import { Icon, type IconName } from '../components/Icon';
 import { Link } from '../components/Link';
 import { setTheme, theme, type ThemeChoice } from '../lib/theme';
-import { paths } from '../router';
+import { navigate, paths } from '../router';
 import { settings } from '../store';
 import { setAmbience, setOwnerName, setVoiceOn, updateSettings } from '../talk/actions';
 import { CopyLink, PageTitle } from '../links/CopyLink';
@@ -38,7 +40,7 @@ import { AuditSection, AutonomySection, EmailExtras } from '../admin/Trust';
 import { OrgCard, PlatformSection } from '../admin/Orgs';
 import './pages.css';
 import './admin.css';
-import { BRAND } from '@headcount/protocol';
+import { BRAND, CHIEF_ID } from '@headcount/protocol';
 
 type Section = 'general' | 'people' | 'autonomy' | 'audit' | 'usage' | 'platform' | ConfigGroup;
 const SECTIONS: readonly { id: Section; title: string; icon: IconName }[] = [
@@ -119,21 +121,9 @@ function ViewAsBar() {
 
 function General() {
   const s = settings.value;
-  const [chief, setChief] = useState(s?.chiefName ?? '');
-  const [owner, setOwner] = useState(s?.ownerName ?? '');
-  const [note, setNote] = useState<string | null>(null);
-  useEffect(() => {
-    setChief(s?.chiefName ?? '');
-    setOwner(s?.ownerName ?? '');
-  }, [s?.chiefName, s?.ownerName]);
-  const saveNames = async (e: Event) => {
-    e.preventDefault();
-    setNote(null);
-    const problem = await setOwnerName(owner);
-    if (problem) return setNote(problem);
-    if ((chief.trim() || null) !== (s?.chiefName ?? null) && !(await updateSettings({ chiefName: chief.trim() || null }))) return;
-    setNote('Saved.');
-  };
+  const [editing, setEditing] = useState<'chief' | 'owner' | null>(null);
+  const lead = currentLead.value;
+  const leadFirst = lead ? lead.name.split(' ')[0]! : '';
   const signedIn = auth.value.status === 'signed-in';
   return (
     <div class="admin-stack">
@@ -142,30 +132,71 @@ function General() {
         <h2 id="adm-office" class="admin-card-title">
           Your office
         </h2>
-        <form class="admin-form" onSubmit={saveNames}>
-          <label class="field">
-            <span class="field-label">Your Chief of Staff’s name</span>
-            <input class="field-input" value={chief} maxLength={40} placeholder={chiefName.value} onInput={(e) => setChief(e.currentTarget.value)} />
-          </label>
-          <label class="field">
-            <span class="field-label">What the team calls you</span>
-            <input class="field-input" value={owner} maxLength={40} placeholder="Your first name" onInput={(e) => setOwner(e.currentTarget.value)} />
-          </label>
-          <div class="admin-row">
-            <button type="submit" class="button-primary">
-              Save
-            </button>
-            <Link href={paths.onboarding} class="link-button">
-              Choose a different Chief of Staff
-            </Link>
-            {note && (
-              <span class="page-fine" role="status">
-                {note}
+        <ul class="setting-rows">
+          <li class="setting-row">
+            {lead && <Face subject={leadSubject(lead, chiefName.value)} tier="token" agentId={CHIEF_ID} decorative />}
+            <div class="setting-text">
+              <span class="setting-label">Your Chief of Staff</span>
+              <span class="setting-value">
+                {chiefName.value}
+                {lead && chiefName.value !== leadFirst ? <span class="setting-hint"> ({lead.name})</span> : null}
               </span>
-            )}
-          </div>
-        </form>
+            </div>
+            <div class="setting-actions">
+              <button type="button" class="button-quiet" onClick={() => setEditing('chief')}>
+                Rename
+              </button>
+              <button type="button" class="button-quiet" onClick={() => navigate(paths.onboarding)}>
+                Choose someone else
+              </button>
+            </div>
+          </li>
+          <li class="setting-row">
+            <div class="setting-text">
+              <span class="setting-label">What the team calls you</span>
+              <span class="setting-value">{s?.ownerName || <span class="setting-unset">Not set</span>}</span>
+              <span class="setting-hint">Used in greetings, now and then.</span>
+            </div>
+            <button type="button" class="button-quiet" onClick={() => setEditing('owner')}>
+              Change
+            </button>
+          </li>
+        </ul>
       </section>
+      {editing === 'chief' && (
+        <TextDialog
+          title="Rename your Chief of Staff"
+          lede={lead ? `${lead.name} keeps their face, voice and way of working; only the name they go by changes.` : undefined}
+          label="Their name"
+          hint={leadFirst ? `Leave it blank to call them ${leadFirst}.` : undefined}
+          value={s?.chiefName ?? ''}
+          placeholder={leadFirst}
+          maxLength={40}
+          min={0}
+          action="Save"
+          save={async (v) => {
+            const next = v && v !== leadFirst ? v : null;
+            if (next === (s?.chiefName ?? null)) return null;
+            return (await updateSettings({ chiefName: next })) ? null : 'Not saved. Try again.';
+          }}
+          onClose={() => setEditing(null)}
+        />
+      )}
+      {editing === 'owner' && (
+        <TextDialog
+          title="What should the team call you?"
+          lede="Your first name, or whatever you like to be called. Leave it blank and they won’t use a name."
+          label="Your name"
+          value={s?.ownerName ?? ''}
+          placeholder="Your first name"
+          maxLength={40}
+          min={0}
+          action="Save"
+          autoComplete="given-name"
+          save={(v) => setOwnerName(v)}
+          onClose={() => setEditing(null)}
+        />
+      )}
       <section class="panel admin-card" aria-labelledby="adm-feel">
         <h2 id="adm-feel" class="admin-card-title">
           Sound and look

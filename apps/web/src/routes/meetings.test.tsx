@@ -77,7 +77,7 @@ describe('Meetings', () => {
     await act(() => render(<Meetings />, host));
     await flush();
     expect(host.textContent).toContain('No one is meeting right now.');
-    expect(host.textContent).toContain('Eddiemoderates');
+    expect(host.textContent).toContain('EddieChief of StaffModerates');
     const topic = host.querySelector<HTMLTextAreaElement>('.call-meeting textarea')!;
     await act(() => {
       topic.value = 'Should we launch a crystal subscription box?';
@@ -86,7 +86,9 @@ describe('Meetings', () => {
     const chip = (name: string) => [...host.querySelectorAll<HTMLButtonElement>('button.seat-chip')].find((b) => b.textContent?.includes(name))!;
     await act(() => chip('Mateo').click());
     await act(() => chip('Trisha').click());
-    expect(chip('Mateo').textContent).toContain('chairs');
+    // The first picked chairs: a tag beside their title, never in place of it.
+    expect(chip('Mateo').textContent).toBe('MCMateoMarket research analystChairs');
+    expect(chip('Trisha').textContent).toBe('TMTrishaBookkeeper');
     await act(() => button('Start the meeting')!.click());
     await flush();
     // By default the people get started on what they agree once it ends.
@@ -101,7 +103,7 @@ describe('Meetings', () => {
     await flush();
     expect(host.querySelector('h1')?.textContent).toBe('Should we launch a crystal subscription box?');
     expect(host.querySelector('.page-lede')?.textContent).toContain('Mateo has the floor.');
-    expect([...host.querySelectorAll('.room-seat figcaption')].map((f) => f.textContent)).toEqual(['Eddiemoderates', 'Mateochairs', 'TrishaBookkeeper']);
+    expect([...host.querySelectorAll('.room-seat figcaption')].map((f) => f.textContent)).toEqual(['EddieChief of StaffModerates', 'MateoMarket research analystChairs', 'TrishaBookkeeper']);
     expect(host.querySelector('.room-seat[data-speaking]')?.textContent).toContain('Mateo');
     expect(host.querySelectorAll('.room-line')).toHaveLength(3); // two lines and "Mateo is speaking…"
     expect(host.querySelector('.meeting-floor')).not.toBeNull();

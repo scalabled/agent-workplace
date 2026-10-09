@@ -54,7 +54,7 @@ export const GUIDE: GuideEntry[] = [
     area: 'start',
     title: 'Start your office',
     what: 'Every business gets its own office: its own Chief of Staff, team, memory, files and conversations, kept apart from every other office.',
-    steps: ['Sign in with Google.', 'If someone invited you, their office is there when you sign in.', 'If you are not in an office yet, name yours and say in a line what it is for. (While sign-up is invite-only, ask someone to invite you first.)', 'To switch offices or start another, click your office’s name at the top of the sidebar. On a phone, use More (or ⌘K) → “Switch to …” or “Start another office”.'],
+    steps: ['Sign in with Google.', 'If someone invited you, their office is there when you sign in.', 'If you are not in an office yet, name yours and say in a line what it is for. (While sign-up is invite-only, ask someone to invite you first.)', 'To switch offices, click your office’s name at the top of the sidebar. “Start another office” there opens a short dialog: name it and press Start the office. On a phone, use More (or ⌘K) → “Switch to …” or “Start another office”.'],
     open: { label: 'Enter the office', href: '/app' },
     since: '0.4',
   },
@@ -63,7 +63,7 @@ export const GUIDE: GuideEntry[] = [
     area: 'start',
     title: 'Choose your Chief of Staff',
     what: 'The one agent you talk to. Each has a name, a face, a voice and a way of working; you can switch any time without losing anything.',
-    steps: ['On first run, take the short match quiz or browse the Chiefs of Staff and hear each one.', 'Pick one; they greet you in Talk.', 'To switch later, press ⌘K (More on a phone) and choose “Switch Chief of Staff”.'],
+    steps: ['On first run, take the short match quiz or browse the Chiefs of Staff and hear each one.', 'Press Choose. Say what they should call you (optional), keep their name or give them another, and press Start; they greet you in Talk.', 'To switch later, press ⌘K (More on a phone) and choose “Switch Chief of Staff”. Rename them, or change what they call you, under Admin → General.'],
     open: { label: 'Choose', href: '/app/welcome' },
     since: '0.1',
   },
@@ -342,9 +342,9 @@ export const GUIDE: GuideEntry[] = [
     area: 'admin',
     title: 'Your office’s own name',
     what: 'The app shows your business’s name at the top and in the browser tab, in place of Headcount, and your Chief of Staff and coworkers call the office by it.',
-    steps: ['Open Admin → General (or click your office’s name at the top of the sidebar → “Rename this office”).', 'Type the name under Organization and press Rename. Owners can rename it any time.'],
+    steps: ['Click your office’s name at the top of the sidebar and choose “Rename this office” (or ⌘K → “Rename this office”, or Rename under Admin → General → Organization).', 'Type the name in the dialog and press Rename. Owners can rename it any time.'],
     open: { label: 'Name your office', href: '/app/admin' },
-    since: '0.5',
+    since: '0.8',
   },
   {
     id: 'admin-people',
@@ -376,6 +376,19 @@ export const GUIDE: GuideEntry[] = [
 
 /** Newest first. Each change links to its guide entry where there is one. */
 export const RELEASES: Release[] = [
+  {
+    version: '0.8',
+    date: '2026-10-09',
+    title: 'One thing at a time',
+    summary: 'Renaming your office, starting another and naming your Chief of Staff each open a short dialog, settings read as clear rows, and a meeting’s chair keeps their job title.',
+    changes: [
+      { text: 'Rename this office and Start another office open a short dialog right where you are, from the sidebar, ⌘K or Admin.', guide: 'admin-name' },
+      { text: 'Admin → General shows each setting as a row with its value and one button to change it.', guide: 'admin-name' },
+      { text: 'Choosing your Chief of Staff: one Choose button, then a short dialog for the two optional names.', guide: 'start-chief' },
+      { text: 'Calling a meeting: the person who chairs keeps their job title, with a “Chairs” tag beside it.', guide: 'meetings' },
+      { text: 'Form fields have a clearer outline, so they stand out from the cards around them.' },
+    ],
+  },
   {
     version: '0.7',
     date: '2026-10-08',

@@ -29,6 +29,7 @@ import { Hire } from './routes/Hire';
 import { MeetingRoom, Meetings } from './routes/Meetings';
 import { Files } from './routes/Files';
 import { Now } from './routes/Now';
+import { OfficeDialogs } from './admin/OfficeDialogs';
 import { BRAND } from '@headcount/protocol';
 import { actualRole, auth, currentOrg, loadOrgs, role, viewAs } from './auth/session';
 import { revealLinked } from './links/links';
@@ -389,6 +390,7 @@ export function App() {
       <Announcer />
       <Toast />
       <Palette />
+      <OfficeDialogs />
     </div>
   );
 }

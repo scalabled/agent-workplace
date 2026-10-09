@@ -1137,9 +1137,20 @@
   padding: var(--space-2) var(--space-3);
   color: var(--ink);
   background: var(--surface-sunken);
-  border: 1px solid var(--line);
+  /* Clearly a field, never blended into the card around it. */
+  border: 1px solid var(--field-line);
   border-radius: var(--radius-control);
   font: inherit;
+}
+.field-input:hover:not(:focus-visible):not(:disabled) {
+  border-color: var(--field-line-hover);
+}
+.field-input[aria-invalid='true'] {
+  border-color: var(--blocked);
+}
+.field-hint {
+  color: var(--faint);
+  font-size: var(--text-xs);
 }
 .field-inline .field-input {
   width: auto;
@@ -1519,4 +1530,156 @@ video.md-media {
 .export-menu-item:hover,
 .export-menu-item:focus-visible {
   background: var(--surface-sunken);
+}
+
+/* ── dialogs (components/Dialog.tsx): one change at a time ──────────────── */
+.dialog-layer {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-sheet);
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+}
+.dialog-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  animation: fade-in var(--dur-state) var(--ease-out);
+}
+.dialog {
+  position: relative;
+  width: min(460px, 100%);
+  max-height: calc(100dvh - var(--space-7));
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-6) var(--space-6);
+  border-radius: var(--radius-stage);
+  background: var(--panel-raised);
+  box-shadow: var(--shadow-float);
+  animation: rise var(--dur-hero) var(--ease-out);
+}
+.dialog:focus {
+  outline: none;
+}
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.dialog-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+.dialog-lede {
+  margin: var(--space-2) 0 var(--space-5);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.dialog-form {
+  display: grid;
+  gap: var(--space-2);
+}
+.dialog-form > .field:first-child {
+  margin-top: var(--space-1);
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+@media (max-width: 767px) {
+  .dialog-layer {
+    place-items: end stretch;
+    padding: 0;
+  }
+  .dialog {
+    width: 100%;
+    border-radius: var(--radius-stage) var(--radius-stage) 0 0;
+    padding: var(--space-4) var(--space-5) calc(var(--space-6) + env(safe-area-inset-bottom));
+  }
+  .dialog-actions > * {
+    flex: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog,
+  .dialog-scrim {
+    animation: none;
+  }
+}
+
+/* ── settings as rows: what it is, its value, and the one action that changes it (in a dialog) ── */
+.setting-rows {
+  list-style: none;
+  margin: var(--space-3) 0;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-card);
+}
+.setting-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3) var(--space-4);
+}
+.setting-row + .setting-row {
+  border-top: 1px solid var(--line-strong);
+}
+.setting-row[data-current] {
+  background: color-mix(in srgb, var(--lamp) 6%, transparent);
+}
+.setting-row > .face {
+  flex: none;
+  width: 40px;
+  height: 40px;
+}
+.setting-text {
+  display: grid;
+  gap: 2px;
+  /* The words keep a readable width; when the row is narrow the buttons move under them. */
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.setting-label {
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+}
+.setting-value {
+  color: var(--ink);
+  font-weight: var(--weight-medium);
+  overflow-wrap: anywhere;
+}
+.setting-hint {
+  color: var(--faint);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+}
+.setting-unset {
+  color: var(--faint);
+  font-weight: var(--weight-regular);
+}
+.setting-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.setting-here {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--lamp);
+  font-size: var(--text-sm);
+}
+.setting-group {
+  margin: var(--space-5) 0 0;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
 }

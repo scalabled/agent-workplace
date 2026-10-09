@@ -1,22 +1,20 @@
-// Organizations on the Admin page: this office's name (owners rename it), the other offices you belong to (switch to
-// one), starting another; and for the deployment's owners, every organization on the platform.
+// Organizations on the Admin page: this office's name (owners rename it in a dialog), the offices you belong to (switch
+// to one), starting another (a dialog); and for the deployment's owners, every organization on the platform.
 import type { OrgsResponse, PlatformResponse } from '@headcount/protocol/ext/orgs';
 import { useEffect, useState } from 'preact/hooks';
 import { api, ApiError } from '../api/client';
 import { BRAND } from '@headcount/protocol';
-import { auth, canCreateOrg, createOrg, currentOrg, isOwner, myOrgs, switchOrg } from '../auth/session';
+import { auth, canCreateOrg, currentOrg, isOwner, myOrgs, switchOrg } from '../auth/session';
+import { Icon } from '../components/Icon';
 import { CopyLink } from '../links/CopyLink';
 import { paths } from '../router';
-import { ORG_NAME_MAX } from '@headcount/protocol/ext/orgs';
+import { openOfficeDialog } from './OfficeDialogs';
 
 const ROLE: Record<string, string> = { owner: 'Owner', contributor: 'Contributor', reader: 'Reader' };
 const when = (at?: string) => (at ? new Date(at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '');
 
 export function OrgCard() {
   const [data, setData] = useState<OrgsResponse | null>(null);
-  const [name, setName] = useState(currentOrg.value?.name ?? '');
-  const [fresh, setFresh] = useState('');
-  const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (auth.value.status !== 'signed-in') return;
@@ -31,24 +29,8 @@ export function OrgCard() {
   const signedIn = auth.value.status === 'signed-in';
   // This computer (sign-in off): one office, which its owner can still name.
   if (!signedIn && auth.value.status !== 'open') return null;
-  const rename = async (e: Event) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      const r = await api.renameOrg(name.trim());
-      currentOrg.value = r.org;
-      setName(r.org.name);
-      myOrgs.value = myOrgs.value?.map((o) => (o.orgId === r.org.orgId ? { ...o, name: r.org.name } : o)) ?? null;
-      setNote('Renamed. The new name is at the top of the app.');
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Not renamed. Try again.');
-    }
-  };
-  const start = async (e: Event) => {
-    e.preventDefault();
-    setError(await createOrg(fresh.trim()));
-  };
-  const others = (data?.orgs ?? []).filter((o) => o.orgId !== currentOrg.value?.orgId);
+  const here = currentOrg.value;
+  const orgs = data?.orgs ?? myOrgs.value ?? (here ? [{ orgId: here.orgId, name: here.name, role: 'owner' as const }] : []);
   return (
     <section class="panel admin-card" aria-labelledby="adm-org" id="organization">
       <div class="page-title-row">
@@ -58,53 +40,53 @@ export function OrgCard() {
         <CopyLink page={paths.admin()} at="organization" label="Copy link to the organization" what="Link to it" />
       </div>
       <p class="page-fine">This office’s team, memory and files belong to it alone. Invite people on the People page.</p>
-      {isOwner.value ? (
-        <form class="org-rename" onSubmit={rename}>
-          <label class="field-label" for="org-rename">
-            Office name <span class="page-fine">(shown at the top of the app, in place of {BRAND.name})</span>
-          </label>
-          <div class="admin-row">
-            <input id="org-rename" class="field-input" maxLength={ORG_NAME_MAX} value={name} placeholder="Your business’s name" onInput={(e) => setName((e.target as HTMLInputElement).value)} />
-            <button type="submit" class="button-quiet" disabled={name.trim().length < 2 || name.trim() === currentOrg.value?.name}>
+      <ul class="setting-rows">
+        <li class="setting-row">
+          <div class="setting-text">
+            <span class="setting-label">Office name</span>
+            <span class="setting-value">{here?.name ?? BRAND.name}</span>
+            <span class="setting-hint">Shown at the top of the app in place of {BRAND.name}, and the name your team uses.</span>
+          </div>
+          {isOwner.value && (
+            <button type="button" class="button-quiet" onClick={() => openOfficeDialog('rename')}>
               Rename
             </button>
-            {note && (
-              <span class="page-fine" role="status">
-                {note}
-              </span>
-            )}
-          </div>
-        </form>
-      ) : (
-        <p class="trust-class-name">{currentOrg.value?.name}</p>
-      )}
-      {others.length > 0 && (
+          )}
+        </li>
+      </ul>
+      {signedIn && orgs.length > 0 && (
         <>
-          <h3 class="trust-class-name">Your other offices</h3>
-          <ul class="trust-grants">
-            {others.map((o) => (
-              <li key={o.orgId} class="trust-grant">
-                <span>
-                  {o.name} <span class="page-fine">· {ROLE[o.role]}</span>
-                </span>
-                <button type="button" class="button-quiet" onClick={() => void switchOrg(o.orgId).then(setError)}>
-                  Switch to it
-                </button>
-              </li>
-            ))}
+          <h3 class="setting-group">Your offices</h3>
+          <ul class="setting-rows">
+            {orgs.map((o) => {
+              const current = o.orgId === here?.orgId;
+              return (
+                <li key={o.orgId} class="setting-row" data-current={current || undefined}>
+                  <div class="setting-text">
+                    <span class="setting-value">{o.name}</span>
+                    <span class="setting-hint">{ROLE[o.role]}</span>
+                  </div>
+                  {current ? (
+                    <span class="setting-here">
+                      <Icon name="check" size={14} /> You’re here
+                    </span>
+                  ) : (
+                    <button type="button" class="button-quiet" onClick={() => void switchOrg(o.orgId).then(setError)}>
+                      Switch to it
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </>
       )}
       {canCreateOrg.value && (
-        <form class="admin-row" onSubmit={start}>
-          <label class="visually-hidden" for="org-new">
-            Start another office
-          </label>
-          <input id="org-new" class="field-input" maxLength={ORG_NAME_MAX} placeholder="Start another office: its name" value={fresh} onInput={(e) => setFresh((e.target as HTMLInputElement).value)} />
-          <button type="submit" class="button-quiet" disabled={fresh.trim().length < 2}>
-            Start it
+        <div class="admin-row">
+          <button type="button" class="button-quiet" onClick={() => openOfficeDialog('new')}>
+            <Icon name="plus" size={16} /> Start another office
           </button>
-        </form>
+        </div>
       )}
       {error && (
         <p class="form-error" role="alert">

@@ -6,6 +6,7 @@ import { api } from '../api/client';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { firstName, leadVoiceRef, type Lead, type MatchQuiz, type QuizAnswers } from '@headcount/catalog';
 import { catalog, loadCatalog } from '../catalog';
+import { Dialog, DialogField } from '../components/Dialog';
 import { Face, leadSubject } from '../components/Face';
 import { Icon } from '../components/Icon';
 import { useSampleSpeaker, VoiceSample } from '../components/VoiceSample';
@@ -154,6 +155,8 @@ function Stage({ lead, match, previewLine }: { lead: Lead; match: Match | undefi
   const [ownerError, setOwnerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [more, setMore] = useState(false);
+  // Choose opens a short dialog: the two optional names, then Start (a change made in one place, not among the bio).
+  const [confirming, setConfirming] = useState(false);
   const speaker = useSampleSpeaker(`sample:${lead.id}`, leadVoiceRef(lead));
   const speaking = Boolean(localPresence.value[speaker.speakerId]?.speaking);
   const pronoun = lead.pronouns === 'she/her' ? 'her' : lead.pronouns === 'he/him' ? 'him' : 'them';
@@ -161,6 +164,7 @@ function Stage({ lead, match, previewLine }: { lead: Lead; match: Match | undefi
   useEffect(() => {
     setName(settings.value?.leadId === lead.id && settings.value.chiefName ? settings.value.chiefName : first);
     setMore(false);
+    setConfirming(false);
   }, [lead.id]);
 
   const choose = async (e: Event) => {
@@ -223,35 +227,54 @@ function Stage({ lead, match, previewLine }: { lead: Lead; match: Match | undefi
           </ul>
         </div>
         <p class="stage-honesty">{first} is an AI coworker. The backstory is character lore, not real events.</p>
-        {/* Above Choose, so the owner meets it before the primary action; outside the form's box (pinned to the bottom
-            on phones), still part of it: Enter here chooses too. */}
-        <label class="stage-name-field stage-owner-field">
-          <span>What should the office call you?</span>
-          <input
-            form="stage-choose"
-            value={ownerName}
-            maxLength={40}
-            autoComplete="given-name"
-            aria-describedby="stage-owner-hint"
-            aria-invalid={ownerError ? 'true' : undefined}
-            onInput={(e) => {
-              setOwnerName(e.currentTarget.value);
-              if (ownerError) setOwnerError(null);
+        {/* Pinned to the bottom on phones, so the next step is always in reach. */}
+        <div class="stage-choose">
+          <button
+            type="button"
+            class="button-primary"
+            onClick={() => {
+              armAudio(); // the choice is the gesture that lets the greeting play
+              setConfirming(true);
             }}
-          />
-          <span id="stage-owner-hint" class="stage-owner-hint" role={ownerError ? 'alert' : undefined}>
-            {ownerError ?? 'Optional. Used in greetings.'}
-          </span>
-        </label>
-        <form class="stage-choose" id="stage-choose" onSubmit={choose}>
-          <label class="stage-name-field">
-            <span>Call {pronoun}</span>
-            <input value={name} maxLength={40} autoComplete="off" onInput={(e) => setName(e.currentTarget.value)} />
-          </label>
-          <button type="submit" class="button-primary" disabled={busy}>
-            {`Choose ${name.trim().slice(0, 40) || first}`}
+          >
+            {`Choose ${first}`}
           </button>
-        </form>
+        </div>
+        {confirming && (
+          <Dialog title={`Start with ${first}`} lede={`${first} greets you in Talk. You can change both names any time in Admin.`} onClose={() => !busy && setConfirming(false)}>
+            <form class="dialog-form" onSubmit={choose}>
+              <DialogField label={`What should ${name.trim().slice(0, 40) || first} call you?`} hint="Optional. Used in greetings." error={ownerError}>
+                {({ id, describedBy }) => (
+                  <input
+                    id={id}
+                    class="field-input"
+                    value={ownerName}
+                    maxLength={40}
+                    autoComplete="given-name"
+                    placeholder="Your first name"
+                    aria-describedby={describedBy}
+                    aria-invalid={ownerError ? 'true' : undefined}
+                    onInput={(e) => {
+                      setOwnerName(e.currentTarget.value);
+                      if (ownerError) setOwnerError(null);
+                    }}
+                  />
+                )}
+              </DialogField>
+              <DialogField label={`Call ${pronoun}`} hint={`Keep ${first}, or give ${pronoun} another name.`}>
+                {({ id, describedBy }) => <input id={id} class="field-input" value={name} maxLength={40} autoComplete="off" placeholder={first} aria-describedby={describedBy} onInput={(e) => setName(e.currentTarget.value)} />}
+              </DialogField>
+              <div class="dialog-actions">
+                <button type="button" class="button-quiet" disabled={busy} onClick={() => setConfirming(false)}>
+                  Cancel
+                </button>
+                <button type="submit" class="button-primary" disabled={busy}>
+                  {busy ? 'Starting…' : `Start with ${name.trim().slice(0, 40) || first}`}
+                </button>
+              </div>
+            </form>
+          </Dialog>
+        )}
       </div>
     </article>
   );

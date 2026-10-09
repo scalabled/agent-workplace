@@ -168,7 +168,8 @@ function CallMeeting() {
             <li class="seat-chip" data-on style={tint(lead)}>
               <Face subject={leadSubject(lead, chief)} tier="token" agentId={CHIEF_ID} decorative lazy />
               <span>{chief}</span>
-              <span class="seat-role">moderates</span>
+              <span class="seat-role">Chief of Staff</span>
+              <span class="seat-badge">Moderates</span>
             </li>
           )}
           {project
@@ -180,7 +181,8 @@ function CallMeeting() {
                     <button type="button" class="seat-chip" data-on={at >= 0 || undefined} aria-pressed={at >= 0} style={tint(p)} onClick={() => toggle(p.id)}>
                       <Face subject={personaSubject(p)} tier="token" agentId={coworkerAgentId(p.id)} decorative lazy />
                       <span>{firstName(p.name)}</span>
-                      <span class="seat-role">{at === 0 ? 'chairs' : p.title}</span>
+                      <span class="seat-role">{p.title}</span>
+                      {at === 0 && <span class="seat-badge">Chairs</span>}
                     </button>
                   </li>
                 );
@@ -225,7 +227,8 @@ function TeamSeat({ member: m }: { member: TeamMember }) {
     <li class="seat-chip" data-on style={tint(p)}>
       {p && <Face subject={personaSubject(p)} tier="token" agentId={coworkerAgentId(p.id)} decorative lazy />}
       <span>{firstName(m.name)}</span>
-      <span class="seat-role">{m.role === 'lead' ? 'chairs' : m.title}</span>
+      <span class="seat-role">{m.title}</span>
+      {m.role === 'lead' && <span class="seat-badge">Chairs</span>}
     </li>
   );
 }
@@ -377,7 +380,8 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
             <Face subject={leadSubject(lead, chief)} tier="tile" agentId={CHIEF_ID} label={`${chief}, Chief of Staff`} />
             <figcaption>
               {chief}
-              <span class="seat-role">moderates</span>
+              <span class="seat-role">Chief of Staff</span>
+              <span class="seat-badge">Moderates</span>
             </figcaption>
           </figure>
         )}
@@ -388,7 +392,8 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
               <Face subject={personaSubject(p)} tier="tile" state={live && m.speakerId === id ? 'thinking' : 'idle'} agentId={coworkerAgentId(id)} label={`${p.name}, ${p.title}`} />
               <figcaption>
                 {firstName(p.name)}
-                <span class="seat-role">{id === m.chairId ? 'chairs' : p.title}</span>
+                <span class="seat-role">{p.title}</span>
+                {id === m.chairId && <span class="seat-badge">Chairs</span>}
               </figcaption>
             </figure>
           ) : null;

@@ -17,7 +17,7 @@ test('call a meeting, follow it in its room, and the Chief brings the outcome to
   await page.getByRole('button', { name: 'Start the meeting' }).click();
   await expect(page).toHaveURL(/\/app\/meetings\/mtg_/);
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Should we launch a monthly crystal subscription box?');
-  await expect(page.locator('.room-seat figcaption').first()).toContainText('moderates');
+  await expect(page.locator('.room-seat figcaption').first()).toContainText('Moderates');
   // Mock turns are quick: the meeting runs and ends with the chair's summary.
   await expect(page.getByRole('heading', { name: 'What they agreed' })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('.room-line[data-phase="synthesis"]')).toHaveCount(1);

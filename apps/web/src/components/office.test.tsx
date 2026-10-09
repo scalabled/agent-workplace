@@ -4,11 +4,12 @@ import { render } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { auth, canCreateOrg, currentOrg, myOrgs, role } from '../auth/session';
+import { officeDialog, OfficeDialogs } from '../admin/OfficeDialogs';
 import { Admin } from '../routes/Admin';
 import { OfficeSwitcher } from './OfficeSwitcher';
 
 let host: HTMLElement;
-let calls: { url: string; method: string }[] = [];
+let calls: { url: string; method: string; body?: unknown }[] = [];
 const flush = () => act(async () => void (await new Promise((r) => setTimeout(r, 0))));
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 const ORGS = [
@@ -21,8 +22,10 @@ beforeEach(() => {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init: RequestInit = {}) => {
-      calls.push({ url, method: init.method ?? 'GET' });
+      calls.push({ url, method: init.method ?? 'GET', ...(typeof init.body === 'string' ? { body: JSON.parse(init.body) } : {}) });
+      if (url === '/api/orgs' && init.method === 'POST') return json({ error: { code: 'conflict', message: 'You have started as many offices as you can.' } }, 409);
       if (url === '/api/orgs') return json({ orgs: ORGS, current: 'local', canCreate: true });
+      if (url === '/api/org' && init.method === 'PUT') return json({ org: { orgId: 'local', name: JSON.parse(String(init.body)).name } });
       if (url.endsWith('/switch')) return json({ error: { code: 'forbidden', message: 'You are no longer in that office.' } }, 403);
       return json({});
     }),
@@ -37,6 +40,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   render(null, host);
+  officeDialog.value = null;
   host.remove();
   vi.unstubAllGlobals();
   auth.value = { status: 'checking' };
@@ -72,15 +76,72 @@ describe('the office at the top of the app', () => {
   });
 });
 
+describe('renaming and starting an office: a dialog where you are', () => {
+  const type = (input: HTMLInputElement, value: string) =>
+    act(() => {
+      input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  const submit = () => act(() => void document.querySelector('.dialog form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+
+  it('Rename this office opens a dialog with the name; saving renames it and closes', async () => {
+    await act(() => render(
+      <>
+        <OfficeSwitcher />
+        <OfficeDialogs />
+      </>,
+      host,
+    ));
+    await act(() => host.querySelector<HTMLButtonElement>('.nav-brand-button')!.click());
+    await act(() => [...host.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((b) => b.textContent?.includes('Rename'))!.click());
+    expect(host.querySelector('[role="menu"]')).toBeNull();
+    const dialog = document.querySelector('.dialog')!;
+    expect(dialog.querySelector('#dialog-title')?.textContent).toBe('Rename this office');
+    const input = dialog.querySelector<HTMLInputElement>('input')!;
+    expect(input.value).toBe('Amethyst & Co');
+    await type(input, 'Amethyst & Co Crystals');
+    await submit();
+    await flush();
+    expect(calls.find((c) => c.url === '/api/org')?.body).toEqual({ name: 'Amethyst & Co Crystals' });
+    expect(currentOrg.value?.name).toBe('Amethyst & Co Crystals');
+    expect(document.querySelector('.dialog')).toBeNull();
+  });
+
+  it('Start another office opens a dialog; a refusal shows under the field and it stays open', async () => {
+    await act(() => render(
+      <>
+        <OfficeSwitcher />
+        <OfficeDialogs />
+      </>,
+      host,
+    ));
+    await act(() => host.querySelector<HTMLButtonElement>('.nav-brand-button')!.click());
+    await act(() => [...host.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find((b) => b.textContent?.includes('Start another'))!.click());
+    const dialog = document.querySelector('.dialog')!;
+    expect(dialog.querySelector('#dialog-title')?.textContent).toBe('Start another office');
+    const start = [...dialog.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === 'Start the office')!;
+    expect(start.disabled).toBe(true);
+    await type(dialog.querySelector<HTMLInputElement>('input')!, 'Lune Bakery');
+    expect(start.disabled).toBe(false);
+    await submit();
+    await flush();
+    expect(calls.find((c) => c.url === '/api/orgs' && c.method === 'POST')?.body).toEqual({ name: 'Lune Bakery' });
+    expect(document.querySelector('.dialog [role="alert"]')?.textContent).toBe('You have started as many offices as you can.');
+  });
+});
+
 describe('Admin for someone who is not an owner', () => {
   it('says only owners change settings, and still lets them switch or start an office', async () => {
     role.value = 'contributor';
     await act(() => render(<Admin />, host));
     await flush();
     expect(host.textContent).toContain('Only owners can change the office’s settings');
-    expect(host.querySelector('#org-rename')).toBeNull();
-    expect(host.textContent).toContain('Your other offices');
-    expect(host.textContent).toContain('The Pottery Barn Loft');
-    expect(host.querySelector('#org-new')).not.toBeNull();
+    const org = host.querySelector('#organization')!;
+    expect([...org.querySelectorAll('button')].some((b) => b.textContent === 'Rename')).toBe(false);
+    expect(org.textContent).toContain('Your offices');
+    expect(org.textContent).toContain('The Pottery Barn Loft');
+    expect(org.textContent).toContain('You’re here');
+    expect([...org.querySelectorAll('button')].some((b) => b.textContent?.includes('Start another office'))).toBe(true);
+    expect(org.querySelector('input')).toBeNull();
   });
 });

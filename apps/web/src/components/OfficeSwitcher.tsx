@@ -1,16 +1,14 @@
 // The top of the sidebar: this office's own name (owners rename it, so the app reads as theirs), and, for people who
-// sign in with Google, a switcher between the offices they belong to and a way to start another. On phones and
-// tablets the sidebar's name is hidden; ⌘K (More) has the same switches.
+// sign in with Google, a switcher between the offices they belong to and a way to start another. Rename and Start
+// open their own small dialog (admin/OfficeDialogs.tsx) right here. On phones and tablets the sidebar's name is
+// hidden; ⌘K (More) has the same switches.
 import { BRAND } from '@headcount/protocol';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { auth, canCreateOrg, currentOrg, isOwner, loadOrgs, myOrgs, switchOrg } from '../auth/session';
-import { navigate, paths } from '../router';
+import { openOfficeDialog } from '../admin/OfficeDialogs';
 import { Icon } from './Icon';
 
 const ROLE: Record<string, string> = { owner: 'Owner', contributor: 'Contributor', reader: 'Reader' };
-
-/** Where an office is named, renamed and started: Admin → General → Organization. */
-export const ORG_SETTINGS = `${paths.admin()}?at=organization`;
 
 export function OfficeSwitcher() {
   const name = currentOrg.value?.name ?? BRAND.name;
@@ -41,9 +39,9 @@ export function OfficeSwitcher() {
         <span class="nav-brand-name">{name}</span>
       </div>
     );
-  const go = (href: string) => {
+  const dialog = (which: 'rename' | 'new') => {
     setOpen(false);
-    navigate(href);
+    openOfficeDialog(which);
   };
   const orgs = myOrgs.value ?? (currentOrg.value ? [{ orgId: currentOrg.value.orgId, name: currentOrg.value.name, role: 'owner' as const }] : []);
   return (
@@ -74,12 +72,12 @@ export function OfficeSwitcher() {
           })}
           <div class="office-menu-sep" role="separator" />
           {isOwner.value && (
-            <button type="button" role="menuitem" class="office-menu-item" onClick={() => go(ORG_SETTINGS)}>
+            <button type="button" role="menuitem" class="office-menu-item" onClick={() => dialog('rename')}>
               <span class="office-menu-name">Rename this office</span>
             </button>
           )}
           {canCreateOrg.value && (
-            <button type="button" role="menuitem" class="office-menu-item" onClick={() => go(ORG_SETTINGS)}>
+            <button type="button" role="menuitem" class="office-menu-item" onClick={() => dialog('new')}>
               <span class="office-menu-name">
                 <Icon name="plus" size={14} /> Start another office
               </span>
