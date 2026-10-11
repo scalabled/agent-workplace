@@ -74,6 +74,7 @@ export const ROUTES = {
   makeImage: { method: 'POST', path: '/api/files/image', auth: 'contributor', body: 'json', bodyCap: 8 * 1024 },
   makeVideo: { method: 'POST', path: '/api/files/video', auth: 'contributor', body: 'json', bodyCap: 8 * 1024 },
   removeFile: { method: 'DELETE', path: '/api/files/:fileName', auth: 'contributor' },
+  editFile: { method: 'POST', path: '/api/files/:fileName/edit', auth: 'contributor', body: 'json', bodyCap: 8 * 1024 },
   exportDocument: { method: 'POST', path: '/api/export', auth: 'reader', body: 'json', bodyCap: 512 * 1024 },
   // Parity stage 5: MCP connectors (ext/connectors.ts).
   listConnectors: { method: 'GET', path: '/api/connectors', auth: 'reader' },

@@ -182,9 +182,14 @@ export const GUIDE: GuideEntry[] = [
     area: 'files',
     title: 'Images and short videos',
     what: 'Product shots, social graphics, banners and clips up to 15 seconds, made from a description and kept in Files.',
-    steps: ['Ask in Talk: “make an image of our amethyst gift box on white linen” or “make a short video teaser for the spring sale”. It is posted in the thread when ready.', 'Or open Files, choose Image or Video, describe it, pick a shape and press Make.', 'Download or remove anything from Files. Project teams can add images to their deliverables too.'],
+    steps: [
+      'Ask in Talk: “make an image of our amethyst gift box on white linen” or “make a short video teaser for the spring sale”. It is posted in the thread when ready.',
+      'Or open Files, choose Image or Video, describe it, pick a shape and press Make.',
+      'To change an image, press Edit on it in Files (or “Edit it” under the image in Talk), say what should change, and press Make the change. The new version keeps the rest of the design; the original stays.',
+      'Download or remove anything from Files. Project teams can add images to their deliverables too.',
+    ],
     open: { label: 'Open Files', href: '/app/files' },
-    since: '0.4',
+    since: '0.10',
   },
   {
     id: 'files-documents',
@@ -200,7 +205,7 @@ export const GUIDE: GuideEntry[] = [
     area: 'files',
     title: 'Apps and pages',
     what: 'Small apps and documents built for you: a calculator, a tracker, a price list, a one-page plan. Each can be downloaded or exported to PDF.',
-    steps: ['Ask your Chief: “make me a shipping cost calculator”, or describe it on the Canvas page.', 'Try it right there; ask for changes and a new version is made.'],
+    steps: ['Ask your Chief: “make me a shipping cost calculator”, or describe it on the Canvas page.', 'Try it right there. To change it, press Edit at the top, say what should change, and a new version is made. Every version is kept.'],
     open: { label: 'Open the Canvas', href: '/app/canvas' },
     since: '0.2',
   },
@@ -376,6 +381,17 @@ export const GUIDE: GuideEntry[] = [
 
 /** Newest first. Each change links to its guide entry where there is one. */
 export const RELEASES: Release[] = [
+  {
+    version: '0.10',
+    date: '2026-10-10',
+    title: 'Edit in place',
+    summary: 'Change a flyer, an image, a document or an app right where it is: press Edit and say what should change.',
+    changes: [
+      { text: 'Images in Files have an Edit button. Say what should change; a new version keeps the rest of the design, and the original stays.', guide: 'files-images' },
+      { text: 'An image the Chief posts in Talk has an “Edit it” link that opens the same Edit.', guide: 'files-images' },
+      { text: 'Documents and apps on the Canvas have an Edit button at the top.', guide: 'files-canvas' },
+    ],
+  },
   {
     version: '0.9',
     date: '2026-10-09',

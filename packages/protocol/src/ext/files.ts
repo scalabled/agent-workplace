@@ -37,6 +37,8 @@ export interface FileView {
   error?: string;
   /** Made by the placeholder (no image or video provider here); fine for trying things out. */
   placeholder?: boolean;
+  /** An edited version: the image it was made from (fileId). The original is kept. */
+  editOf?: string;
 }
 
 export interface FilesResponse {
@@ -57,6 +59,13 @@ export interface MakeVideoRequest {
 }
 export interface MakeFileResponse {
   file: FileView;
+}
+
+/** POST /api/files/:fileName/edit: a new version of an image with one change; the original is kept. */
+export const FILE_CHANGE_MAX = 1000;
+export interface EditImageRequest {
+  /** What should change, in the owner's words ("make the headline bigger", "change the date to Saturday"). */
+  change: string;
 }
 
 /** POST /api/export: a Markdown document as Word, Excel (its tables) or PowerPoint (a slide per section). */

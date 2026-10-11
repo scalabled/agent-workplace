@@ -34,10 +34,12 @@ test('build an app on the canvas, use it, download it, print it, change it', asy
   await expect(printed.locator('h1')).toHaveText('Tip calculator that splits the bill between friends');
   await printed.close();
 
-  // Change it: a new version, with the first one still in the versions menu.
+  // Edit it: a new version, with the first one still in the versions menu.
   const first = page.url();
-  await page.getByLabel('What should change?').fill('Add a dark mode toggle');
-  await page.getByRole('button', { name: 'Make the change' }).click();
+  await page.locator('.canvas-actions').getByRole('button', { name: 'Edit' }).click();
+  const dialog = page.getByRole('dialog', { name: /^Edit “/ });
+  await dialog.getByLabel('What should change?').fill('Add a dark mode toggle');
+  await dialog.getByRole('button', { name: 'Make the change' }).click();
   await expect(page).not.toHaveURL(first);
   await expect(status).toContainText('lines · interactive', { timeout: 30_000 });
   await expect(page.locator('.canvas-versions option')).toHaveCount(2);

@@ -94,6 +94,8 @@ export function TextDialog(p: {
   /** Fewest characters the action needs (0: blank is allowed, for clearing). */
   min?: number;
   autoComplete?: string;
+  /** A few lines to write in (a change to make) instead of one. */
+  multiline?: boolean;
   save(value: string): Promise<string | null>;
   onClose(): void;
 }) {
@@ -117,22 +119,36 @@ export function TextDialog(p: {
     <Dialog title={p.title} lede={p.lede} onClose={p.onClose}>
       <form class="dialog-form" onSubmit={submit}>
         <DialogField label={p.label} hint={p.hint} error={error}>
-          {({ id, describedBy }) => (
-            <input
-              id={id}
-              class="field-input"
-              value={value}
-              maxLength={p.maxLength}
-              placeholder={p.placeholder}
-              autoComplete={p.autoComplete ?? 'off'}
-              aria-describedby={describedBy}
-              aria-invalid={error ? 'true' : undefined}
-              onInput={(e) => {
-                setValue(e.currentTarget.value);
+          {({ id, describedBy }) => {
+            const field = {
+              id,
+              class: 'field-input',
+              value,
+              maxLength: p.maxLength,
+              placeholder: p.placeholder,
+              'aria-describedby': describedBy,
+              'aria-invalid': error ? ('true' as const) : undefined,
+              onInput: (e: Event) => {
+                setValue((e.currentTarget as HTMLInputElement | HTMLTextAreaElement).value);
                 if (error) setError(null);
-              }}
-            />
-          )}
+              },
+            };
+            return p.multiline ? (
+              <textarea
+                {...field}
+                rows={3}
+                onKeyDown={(e) => {
+                  // Enter sends; Shift+Enter starts a new line.
+                  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+                    e.preventDefault();
+                    (e.currentTarget as HTMLTextAreaElement).form?.requestSubmit();
+                  }
+                }}
+              />
+            ) : (
+              <input {...field} autoComplete={p.autoComplete ?? 'off'} />
+            );
+          }}
         </DialogField>
         <div class="dialog-actions">
           <button type="button" class="button-quiet" onClick={p.onClose}>

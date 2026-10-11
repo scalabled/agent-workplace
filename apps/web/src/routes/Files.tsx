@@ -1,6 +1,8 @@
 // Files: everything the office makes, in one place. What was made comes first: images and videos, the documents the
 // projects delivered (each downloadable as Word, PowerPoint or Excel), the apps and pages built on the canvas. Making a
 // new image or short video (or asking the Chief in Talk) comes last, so a phone opens on the files themselves.
+// An image's Edit makes a new version with one change, from the image itself; the original is kept. Talk's image
+// messages link here with ?edit=<fileId>, which opens that image's Edit at once.
 import { IMAGE_ASPECTS, VIDEO_ASPECTS, VIDEO_SECONDS_MAX, type FileView, type ImageAspect, type VideoAspect } from '@headcount/protocol/ext/files';
 import type { TeamProjectSnapshot } from '@headcount/protocol/ext/projects';
 import { useEffect, useState } from 'preact/hooks';
@@ -12,7 +14,10 @@ import { ExportMenu } from '../components/ExportMenu';
 import { Icon } from '../components/Icon';
 import { Link } from '../components/Link';
 import { PageTitle } from '../links/CopyLink';
-import { paths } from '../router';
+import { paths, queryParam } from '../router';
+import { TextDialog } from '../components/Dialog';
+import { showToast } from '../links/links';
+import { FILE_CHANGE_MAX } from '@headcount/protocol/ext/files';
 import { canvasList, fileList, projectList, upsertCanvas, upsertFiles } from '../store';
 import './pages.css';
 import './files.css';
@@ -40,6 +45,14 @@ export function Files() {
       .catch(() => undefined);
   }, []);
   const media = fileList.value;
+  // ?edit=<fileId> (from Talk's "Edit it"): open that image's Edit once it is loaded.
+  const [editing, setEditing] = useState<FileView | null>(null);
+  const asked = queryParam('edit');
+  useEffect(() => {
+    if (!asked || editing) return;
+    const f = media.find((x) => x.fileId === asked);
+    if (f && f.kind === 'image' && f.status === 'ready' && mayContribute.value) setEditing(f);
+  }, [asked, media.length]);
   // While something is being made, check now and then too (an update can land before the live feed connects).
   const working = media.some((f) => f.status === 'working');
   useEffect(() => {
@@ -56,6 +69,7 @@ export function Files() {
   const apps = canvasList.value.filter((c) => c.status === 'ready');
   return (
     <section class="page files-page" aria-labelledby="files-title">
+      {editing && <EditImage file={editing} onClose={() => setEditing(null)} />}
       <header class="page-head">
         <PageTitle id="files-title">Files</PageTitle>
         <p class="page-lede">Everything your office makes: images and videos, the documents your projects deliver, and the apps and pages built for you. Download any document as Word, PowerPoint or Excel.</p>
@@ -243,8 +257,37 @@ function madeByWords(by: string): string {
   return catalog.value?.persona(by)?.name.split(' ')[0] ?? 'a coworker';
 }
 
+/** Edit an image: say what should change; a new version is made from the image itself. */
+function EditImage({ file: f, onClose }: { file: FileView; onClose: () => void }) {
+  return (
+    <TextDialog
+      title={`Edit “${f.title}”`}
+      lede="Say what should change. A new version is made from this image, keeping everything else; the original stays in Files."
+      label="What should change?"
+      placeholder="e.g. Change the date to Saturday and make the headline bigger"
+      value=""
+      maxLength={FILE_CHANGE_MAX}
+      min={3}
+      multiline
+      action="Make the change"
+      save={async (change) => {
+        try {
+          const r = await api.editFile(`${f.fileId}`, change);
+          upsertFiles([r.file]);
+          showToast('Making the new version. It appears first in Files.');
+          return null;
+        } catch (err) {
+          return errorOf(err, 'That did not start. Try again.');
+        }
+      }}
+      onClose={onClose}
+    />
+  );
+}
+
 function MediaTile({ file: f }: { file: FileView }) {
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
   const remove = async () => {
     setBusy(true);
     try {
@@ -280,12 +323,18 @@ function MediaTile({ file: f }: { file: FileView }) {
         </p>
         <p class="page-fine">
           {f.kind === 'video' ? `Video${f.seconds ? ` · ${f.seconds}s` : ''}` : 'Image'} · by {madeByWords(f.madeBy)} · {day(f.createdAt)}
+          {f.editOf ? ' · edited version' : ''}
           {f.placeholder ? ' · placeholder' : ''}
         </p>
         <div class="media-actions">
+          {f.kind === 'image' && f.status === 'ready' && mayContribute.value && (
+            <button type="button" class="button-quiet button-small" onClick={() => setEditing(true)}>
+              <Icon name="edit" size={14} /> Edit
+            </button>
+          )}
           {f.status === 'ready' && f.url && (
-            <a class="button-quiet button-small" href={f.url} download={name}>
-              <Icon name="download" size={14} /> Download
+            <a class="icon-button" href={f.url} download={name} aria-label={`Download “${f.title}”`} title="Download">
+              <Icon name="download" size={16} />
             </a>
           )}
           {mayContribute.value && f.status !== 'working' && (
@@ -295,6 +344,7 @@ function MediaTile({ file: f }: { file: FileView }) {
           )}
         </div>
       </div>
+      {editing && <EditImage file={f} onClose={() => setEditing(false)} />}
     </li>
   );
 }

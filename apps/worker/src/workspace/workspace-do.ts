@@ -1839,6 +1839,11 @@ export class WorkspaceDO extends DurableObject<Env> {
     return this.files.makeVideo(req);
   }
 
+  /** A new version of an image with one change (the original is kept). */
+  async editImage(req: { fileId: string; change: string; madeBy: string }) {
+    return this.files.editImage(req);
+  }
+
   async removeFile(fileName: string, by: string): Promise<boolean> {
     const f = this.files.get(fileName.split('.')[0] ?? '');
     const removed = await this.files.remove(fileName);
@@ -1864,7 +1869,7 @@ export class WorkspaceDO extends DurableObject<Env> {
     const what = file.kind === 'video' ? 'video' : 'image';
     const text =
       file.status === 'ready'
-        ? `Here's the ${what}: “${file.title}”.${file.placeholder ? ` (A placeholder: there is no ${file.kind === 'video' ? 'video' : 'image'} service set up here.)` : ''}\n\n![${file.title.replace(/[[\]]/g, '')}](${file.url})\n\nIt's kept in [Files](/app/files).`
+        ? `Here's the ${what}: “${file.title}”.${file.placeholder ? ` (A placeholder: there is no ${file.kind === 'video' ? 'video' : 'image'} service set up here.)` : ''}\n\n![${file.title.replace(/[[\]]/g, '')}](${file.url})\n\nIt's kept in [Files](/app/files).${file.kind === 'image' ? ` [Edit it](/app/files?edit=${file.fileId})` : ''}`
         : `The ${what} “${file.title}” could not be made: ${file.error ?? 'try again'}`;
     // The owner asked for it: the Chief brings it as their own message (spoken without the picture's address).
     this.feed.append({ type: 'talk.message', data: { turnId: null, messageId: ids.message(), agentId: CHIEF_ID, text, kind: 'announcement' }, actor: CHIEF_ID });

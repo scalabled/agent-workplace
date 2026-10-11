@@ -34,7 +34,7 @@ import type {
 import { PORTRAIT_HEADERS, type PutLandmarksRequestWithVersion } from '@headcount/protocol/ext/media';
 import type { ExprHuddleRenderRequest, OfficePeopleResponse, RoomCancelRequest, RoomCancelResponse, RoomId, RoomSayAccepted, RoomSayRequest } from '@headcount/protocol/ext/rooms';
 import { noteUnauthenticated } from '../auth/session';
-import type { ExportRequest, FilesResponse, MakeFileResponse, MakeImageRequest, MakeVideoRequest } from '@headcount/protocol/ext/files';
+import type { EditImageRequest, ExportRequest, FilesResponse, MakeFileResponse, MakeImageRequest, MakeVideoRequest } from '@headcount/protocol/ext/files';
 import type { CallMeetingRequest, CallMeetingResponse, ChannelEntry, ChannelResponse, DecisionAccepted, DecisionAnswer, MeetingResponse, MeetingSay, MeetingWorkResponse, MeetingsResponse, PlanEdit, ProjectActionAccepted, ProjectResponse, ProjectsResponse, StepEdit, StopAllResponse } from '@headcount/protocol/ext/projects';
 import type { CanvasCreate, CanvasListResponse, CanvasResponse } from '@headcount/protocol/ext/canvas';
 import type { ConfigResponse, MemberPut, MembersResponse, ModelPrice, UsageResponse } from '@headcount/protocol/ext/admin';
@@ -209,6 +209,7 @@ export const api = {
   makeImage: (req: MakeImageRequest) => request<MakeFileResponse>(routePath('makeImage'), jsonInit('POST', req)),
   makeVideo: (req: MakeVideoRequest) => request<MakeFileResponse>(routePath('makeVideo'), jsonInit('POST', req)),
   removeFile: (fileName: string) => request<{ removed: true }>(routePath('removeFile', { fileName }), { method: 'DELETE' }),
+  editFile: (fileName: string, change: string) => request<MakeFileResponse>(routePath('editFile', { fileName }), jsonInit('POST', { change } satisfies EditImageRequest)),
   /** A Markdown document as a Word, Excel or PowerPoint file (a Blob to save). */
   exportDocument: async (req: ExportRequest): Promise<Blob> => {
     const res = await fetch(routePath('exportDocument'), jsonInit('POST', req));

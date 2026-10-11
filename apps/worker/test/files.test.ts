@@ -96,6 +96,44 @@ describe('files', () => {
     expect(s.t.r2.objects.has(`ws/local/files/${f!.fileId}.mp4`)).toBe(true);
   });
 
+  it('Edit makes a new version from the image itself, keeps the original, and refuses what it cannot edit', async () => {
+    const s = await setup({ XAI_API_KEY: 'xai-test' } as Partial<Env>);
+    const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const edits: { prompt: string; image: string }[] = [];
+    const real = globalThis.fetch;
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (url === 'https://api.x.ai/v1/images/generations') return Response.json({ data: [{ b64_json: PNG }] });
+      if (url === 'https://api.x.ai/v1/images/edits') {
+        const body = JSON.parse(String(init?.body)) as { prompt: string; image: { url: string } };
+        edits.push({ prompt: body.prompt, image: body.image.url });
+        return Response.json({ data: [{ b64_json: PNG }] });
+      }
+      return real(input, init);
+    });
+    await s.api('POST', '/api/files/image', { prompt: "A flyer for Oscar's Coffee Shop: open mic night on Friday", aspect: '3:4' });
+    await s.t.ctx.drain();
+    const [original] = await s.files();
+    expect(original).toMatchObject({ status: 'ready', mime: 'image/png' });
+
+    const r = await s.api('POST', `${original!.url}/edit`, { change: 'Change the day to Saturday' });
+    expect(r.status).toBe(202);
+    expect(r.body.file).toMatchObject({ kind: 'image', status: 'working', title: original!.title, editOf: original!.fileId, aspect: '3:4', madeBy: 'owner', source: { kind: 'files', ref: original!.fileId } });
+    await s.t.ctx.drain();
+    // The provider edited the picture itself: the original's bytes went with the change.
+    expect(edits).toHaveLength(1);
+    expect(edits[0]!.prompt).toContain('Change: Change the day to Saturday.');
+    expect(edits[0]!.prompt).toContain('Keep everything else as it is');
+    expect(edits[0]!.image).toBe(`data:image/png;base64,${PNG}`);
+    const all = await s.files();
+    expect(all).toHaveLength(2);
+    expect(all.find((f) => f.fileId === r.body.file.fileId)).toMatchObject({ status: 'ready', editOf: original!.fileId });
+    expect(all.find((f) => f.fileId === original!.fileId)).toMatchObject({ status: 'ready' });
+
+    expect((await s.api('POST', `${original!.url}/edit`, { change: 'x' })).status).toBe(400);
+    expect((await s.api('POST', '/api/files/fil_00000000000000000000.png/edit', { change: 'Make it blue' })).status).toBe(404);
+  });
+
   it('the Chief makes an image from Talk and posts it to the thread when it is ready', async () => {
     const s = await setup();
     await s.api('POST', '/api/talk', { text: 'Make an image of our crystal shop logo on a dark background', opId: ids.op() });
@@ -105,6 +143,8 @@ describe('files', () => {
     expect(texts.some((t) => t.startsWith("I'm making it now"))).toBe(true);
     const posted = texts.find((t) => t.startsWith("Here's the image"));
     expect(posted).toMatch(/!\[[^\]]+\]\(\/api\/files\/fil_[a-f0-9]{20}\.svg\)/);
+    // One tap from Talk to edit it.
+    expect(posted).toMatch(/\[Edit it\]\(\/app\/files\?edit=fil_[a-f0-9]{20}\)/);
     const [f] = await s.files();
     expect(f).toMatchObject({ madeBy: 'chief', source: { kind: 'talk' }, status: 'ready' });
     expect(frames.some((x) => x.type === 'file.updated' && (x.data as { file: FileView }).file.status === 'ready')).toBe(true);

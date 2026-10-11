@@ -6,6 +6,7 @@
 import type { Registry } from '@headcount/models';
 import { MissingProviderError, ProviderError } from '@headcount/models';
 import {
+  FILE_CHANGE_MAX,
   FILE_PROMPT_MAX,
   IMAGE_ASPECTS,
   VIDEO_ASPECTS,
@@ -31,6 +32,9 @@ export const FILES_SCHEMA = [
   `CREATE INDEX IF NOT EXISTS files_created ON files (created_at)`,
 ];
 
+/** Columns added after the table first shipped (each runs once; "duplicate column" means it already ran). */
+const FILES_MIGRATIONS = ['ALTER TABLE files ADD COLUMN edit_of TEXT'];
+
 type Row = {
   file_id: string;
   kind: string;
@@ -49,6 +53,7 @@ type Row = {
   error: string | null;
   job: string | null;
   placeholder: number | null;
+  edit_of: string | null;
 };
 
 export const VIDEO_DAILY_LIMIT_DEFAULT = 10;
@@ -91,7 +96,7 @@ export interface FilesPorts {
   fetch?: typeof fetch;
 }
 
-export type Made = { ok: true; file: FileView } | { ok: false; code: 'bad_request' | 'not_configured' | 'rate_limited'; message: string; missingKeys?: string[] };
+export type Made = { ok: true; file: FileView } | { ok: false; code: 'bad_request' | 'not_configured' | 'rate_limited' | 'not_found' | 'conflict'; message: string; missingKeys?: string[] };
 
 const hex = (n: number) => [...crypto.getRandomValues(new Uint8Array(n))].map((b) => b.toString(16).padStart(2, '0')).join('');
 const titleOf = (prompt: string) => {
@@ -102,6 +107,13 @@ const titleOf = (prompt: string) => {
 export class Files {
   constructor(private readonly p: FilesPorts) {
     for (const stmt of FILES_SCHEMA) p.sql.exec(stmt);
+    for (const stmt of FILES_MIGRATIONS) {
+      try {
+        p.sql.exec(stmt);
+      } catch {
+        /* already added */
+      }
+    }
   }
 
   /** What can be made here now: a provider, or the placeholder (Mock on). */
@@ -154,6 +166,34 @@ export class Files {
       return { ok: true, file: this.get(file.fileId) ?? file };
     }
     this.p.background(work);
+    return { ok: true, file };
+  }
+
+  /**
+   * A new version of an image with one change, made from the image itself (the provider's edit, so the layout,
+   * wording and style carry over). Answers "working" at once, like making one; the original is kept.
+   */
+  async editImage(req: { fileId: string; change: string; madeBy: string }): Promise<Made> {
+    const original = this.row(req.fileId);
+    if (!original || original.kind !== 'image') return { ok: false, code: 'not_found', message: 'No such image.' };
+    if (original.status !== 'ready' || !original.ext) return { ok: false, code: 'conflict', message: 'That image is not ready yet. Edit it once it is.' };
+    const change = req.change.replace(/\s+/g, ' ').trim().slice(0, FILE_CHANGE_MAX);
+    if (change.length < 3) return { ok: false, code: 'bad_request', message: 'Say what should change, in a few words.' };
+    const mode = this.imageMode();
+    if (!mode) return { ok: false, code: 'not_configured', message: 'Images need an OpenAI or xAI key. An owner adds one in Admin → Provider keys.', missingKeys: ['OPENAI_API_KEY', 'XAI_API_KEY'] };
+    const stored = await this.p.blobs.get(this.key(original.file_id, original.ext));
+    if (!stored) return { ok: false, code: 'not_found', message: 'The original image is gone. Make a new one instead.' };
+    const bytes = await stored.arrayBuffer();
+    const limit = portraitDailyLimit(this.p.env);
+    const use = await consumeDaily(this.p.env.DB, this.p.workspaceId, IMAGE_USAGE_KIND, limit);
+    if (!use.allowed) return { ok: false, code: 'rate_limited', message: `Image making is paused until tomorrow (UTC): today's ${limit} are used.` };
+    const aspect: ImageAspect = (IMAGE_ASPECTS as readonly string[]).includes(original.aspect ?? '') ? (original.aspect as ImageAspect) : '1:1';
+    const prompt = clipText(`${original.prompt} Changed: ${change}`, FILE_PROMPT_MAX);
+    const file = this.insert({ kind: 'image', prompt, aspect, madeBy: req.madeBy, source: { kind: 'files', ref: original.file_id }, title: original.title, editOf: original.file_id });
+    // The provider edits the picture itself; a placeholder original (no provider) is simply made again.
+    const source = original.mime && original.mime !== 'image/svg+xml' && mode !== 'mock' ? { data: bytes, mime: original.mime } : undefined;
+    const instruction = source ? `Edit this image. Change: ${change}. Keep everything else as it is: the layout, the wording, the colors and the style. It was made from this description: ${original.prompt}` : prompt;
+    this.p.background(this.renderImage(file.fileId, instruction, aspect, mode === 'mock', use.day, source));
     return { ok: true, file };
   }
 
@@ -235,10 +275,10 @@ export class Files {
     return this.p.env.ENABLE_MOCK === 'true' ? 'mock' : null;
   }
 
-  private async renderImage(fileId: string, prompt: string, aspect: ImageAspect, mock: boolean, day: string): Promise<void> {
+  private async renderImage(fileId: string, prompt: string, aspect: ImageAspect, mock: boolean, day: string, source?: { data: ArrayBuffer; mime: string }): Promise<void> {
     try {
       const resolved = this.p.registry().resolve('image', mock ? {} : { allowMock: false });
-      const result = await resolved.provider.generate({ prompt, aspect, signal: AbortSignal.timeout(180_000) });
+      const result = await resolved.provider.generate({ prompt, aspect, ...(source ? { source } : {}), signal: AbortSignal.timeout(180_000) });
       if (result.mime === 'image/svg+xml') {
         await this.storeReady(fileId, new Uint8Array(result.image), 'image/svg+xml', 'svg', true);
         return;
@@ -267,12 +307,12 @@ export class Files {
     if (f) this.p.changed(f);
   }
 
-  private insert(f: { kind: 'image' | 'video'; prompt: string; aspect: string; seconds?: number; madeBy: string; source?: FileView['source'] }): FileView {
+  private insert(f: { kind: 'image' | 'video'; prompt: string; aspect: string; seconds?: number; madeBy: string; source?: FileView['source']; title?: string; editOf?: string }): FileView {
     const fileId = `fil_${hex(10)}`;
     const at = this.iso();
     this.p.sql.exec(
-      `INSERT INTO files (file_id, kind, title, prompt, status, aspect, seconds, made_by, source, created_at, updated_at) VALUES (?, ?, ?, ?, 'working', ?, ?, ?, ?, ?, ?)`,
-      fileId, f.kind, titleOf(f.prompt), f.prompt, f.aspect, f.seconds ?? null, f.madeBy, f.source ? JSON.stringify(f.source) : null, at, at,
+      `INSERT INTO files (file_id, kind, title, prompt, status, aspect, seconds, made_by, source, created_at, updated_at, edit_of) VALUES (?, ?, ?, ?, 'working', ?, ?, ?, ?, ?, ?, ?)`,
+      fileId, f.kind, f.title ?? titleOf(f.prompt), f.prompt, f.aspect, f.seconds ?? null, f.madeBy, f.source ? JSON.stringify(f.source) : null, at, at, f.editOf ?? null,
     );
     const view = this.get(fileId)!;
     this.p.changed(view);
@@ -308,6 +348,7 @@ export class Files {
       createdAt: r.created_at,
       ...(r.error ? { error: r.error } : {}),
       ...(r.placeholder ? { placeholder: true } : {}),
+      ...(r.edit_of ? { editOf: r.edit_of } : {}),
     };
   }
 }

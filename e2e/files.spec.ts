@@ -15,6 +15,15 @@ test('make an image and a video; both show in Files and play or display', async 
   const image = page.locator('.media-tile[data-kind="image"]').first();
   await expect(image.locator('img')).toBeVisible({ timeout: 15_000 });
   expect(await image.locator('img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+  // Edit it: a new version is made from it, and the original stays.
+  await image.getByRole('button', { name: 'Edit' }).click();
+  const dialog = page.getByRole('dialog', { name: /^Edit “/ });
+  await dialog.getByLabel('What should change?').fill('Add a sprig of lavender in the corner');
+  await dialog.getByRole('button', { name: 'Make the change' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('.media-tile[data-kind="image"]')).toHaveCount(2);
+  await expect(page.locator('.media-tile[data-kind="image"]').first()).toContainText('edited version', { timeout: 15_000 });
+  await expect(page.locator('.media-tile[data-kind="image"]').first().locator('img')).toBeVisible({ timeout: 15_000 });
   await page.getByRole('radio', { name: 'Video' }).click();
   await page.getByLabel('Describe it').fill('A slow pan across a shelf of glowing crystals');
   await page.getByRole('button', { name: 'Make the video' }).click();
@@ -29,6 +38,10 @@ test('ask the Chief for an image: it lands in the thread', async ({ page }) => {
   // The Chief brings it as their own message, with the picture.
   await expect(img).toBeVisible({ timeout: 20_000 });
   await expect(img).toHaveAttribute('src', /^\/api\/files\/fil_[a-f0-9]{20}\.svg$/);
+  // "Edit it" opens that image's Edit in Files.
+  await page.locator('.msg-chief .msg-body').last().getByRole('link', { name: 'Edit it' }).click();
+  await expect(page).toHaveURL(/\/app\/files\?edit=fil_[a-f0-9]{20}$/);
+  await expect(page.getByRole('dialog', { name: /^Edit “/ })).toBeVisible();
 });
 
 test('a delivered document downloads as Word and PowerPoint', async ({ page, request }) => {

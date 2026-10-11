@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { api, ApiError } from '../api/client';
 import { chiefName } from '../chief';
 import { Icon } from '../components/Icon';
+import { TextDialog } from '../components/Dialog';
 import { linkTarget, navigate, paths } from '../router';
 import { DocThreads, SelectionBar, type Selected } from '../docs/DocAsk';
 import { canvases, dropCanvas, upsertCanvas } from '../store';
@@ -57,6 +58,8 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
   const [change, setChange] = useState('');
   const [source, setSource] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
+  // Edit: say what should change; a new version is built and the current one stays on screen meanwhile.
+  const [editing, setEditing] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
   const [frameKey, setFrameKey] = useState(0);
 
@@ -155,6 +158,9 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
           </div>
         </div>
         <div class="canvas-actions">
+          <button type="button" class="button-primary button-small needs-contributor" disabled={!ready || busy} onClick={() => setEditing(true)}>
+            <Icon name="edit" size={15} /> Edit
+          </button>
           {versions.length > 1 && (
             <label class="canvas-versions">
               <span class="visually-hidden">Versions</span>
@@ -207,6 +213,21 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
           </button>
         </div>
       </header>
+      {editing && (
+        <TextDialog
+          title={`Edit “${c.title}”`}
+          lede={`Say what should change. ${chiefName.value} builds a new version; this one stays on screen until it is ready, and every version is kept.`}
+          label="What should change?"
+          placeholder={c.kind === 'app' ? 'e.g. Add a dark mode, and split the bill by percentage too' : 'e.g. Change the date to Saturday and put the prices in a table'}
+          value=""
+          maxLength={4000}
+          min={3}
+          multiline
+          action="Make the change"
+          save={async (change) => ((await run(() => api.reviseCanvas(c.canvasId, change), 'That did not start.')) ? null : 'That did not start. Try again.')}
+          onClose={() => setEditing(false)}
+        />
+      )}
 
       <div class="canvas-body" ref={body} data-link-host={c.kind === 'document' || undefined}>
         {frameSel && ready && c.kind === 'document' && <SelectionBar sel={frameSel} doc={docRef} page={paths.canvasItem(c.canvasId)} agent={chiefName.value} onDone={() => setFrameSel(null)} />}

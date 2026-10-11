@@ -1,7 +1,7 @@
 // Files routes (ext/files.ts): the organization's images and videos (list, make, serve, remove) and Markdown documents
 // exported as Word, Excel or PowerPoint. Bytes come from R2 under the organization's own prefix, found through its
 // WorkspaceDO, so one organization can never read another's file by guessing a name.
-import { EXPORT_MARKDOWN_MAX, FILE_NAME_RE, FILE_PROMPT_MAX, type ExportRequest, type FilesResponse, type MakeFileResponse, type MakeImageRequest, type MakeVideoRequest } from '@headcount/protocol/ext/files';
+import { EXPORT_MARKDOWN_MAX, FILE_CHANGE_MAX, FILE_NAME_RE, FILE_PROMPT_MAX, type EditImageRequest, type ExportRequest, type FilesResponse, type MakeFileResponse, type MakeImageRequest, type MakeVideoRequest } from '@headcount/protocol/ext/files';
 import { HttpError, json, readJson, type RouteHandler } from '../lib/http';
 import { workspaceStub } from '../lib/stubs';
 import { whoOf } from '../trust/routes';
@@ -71,6 +71,16 @@ export const handleMakeVideo: RouteHandler = async (req, rc) => {
   return made(
     (await workspaceStub(rc.env).makeVideo({ prompt, ...(typeof b?.aspect === 'string' ? { aspect: b.aspect } : {}), ...(typeof b?.seconds === 'number' ? { seconds: b.seconds } : {}), madeBy: 'owner', source: { kind: 'files' } })) as unknown as Made,
   );
+};
+
+/** POST /api/files/:fileName/edit {change} → 202 {file}: a new version of the image with the change (the original is kept). */
+export const handleEditFile: RouteHandler = async (req, rc) => {
+  const fileId = /^fil_[a-f0-9]{20}/.exec(rc.params.fileName ?? '')?.[0];
+  if (!fileId) throw new HttpError('not_found', 'No such file.');
+  const b = await readJson<Partial<EditImageRequest>>(req);
+  if (!b || typeof b.change !== 'string' || b.change.trim().length < 3) throw new HttpError('bad_request', 'Say what should change, in a few words.');
+  if (b.change.length > FILE_CHANGE_MAX) throw new HttpError('bad_request', `Keep the change under ${FILE_CHANGE_MAX} characters.`);
+  return made((await workspaceStub(rc.env).editImage({ fileId, change: b.change.trim(), madeBy: 'owner' })) as unknown as Made);
 };
 
 export const handleRemoveFile: RouteHandler = async (_req, rc) => {
