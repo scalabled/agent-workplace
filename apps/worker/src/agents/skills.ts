@@ -24,6 +24,8 @@ export function allSkillIds(): string[] {
   return [...SKILLS.keys()];
 }
 
+const lowerFirst = (s: string) => (s ? s[0]!.toLowerCase() + s.slice(1) : s);
+
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 
 export function skillView(id: string, override?: SkillOverride): SkillView | null {
@@ -74,8 +76,8 @@ export function skillsIndex(skills: readonly AgentSkill[]): string {
   const on = skills.filter((s) => s.enabled);
   if (!on.length) return '';
   return [
-    'Skills you have (call use_skill to load a skill’s full method before doing that kind of work):',
-    ...on.map((s) => `- ${s.id}${s.version > 1 ? ` v${s.version}` : ''}: ${s.name} — use when ${s.when || s.one_liner}`),
+    'Your skills (call use_skill to load a skill’s full method before you do that kind of work):',
+    ...on.map((s) => `- ${s.id}${s.version > 1 ? ` v${s.version}` : ''}: ${s.name}. Use when ${lowerFirst(s.when || s.one_liner).replace(/[\s.]*$/, '.')}`),
   ].join('\n');
 }
 
@@ -86,7 +88,7 @@ export function skillMethod(s: SkillView): string {
     s.instructions,
     s.quality_checks.length ? `\nQuality checks before you hand it in:\n${s.quality_checks.map((q) => `- ${q}`).join('\n')}` : '',
     s.outputs.length ? `\nTypical outputs: ${s.outputs.map((o) => `${o.name}${o.format ? ` (${o.format})` : ''}`).join('; ')}.` : '',
-    '\nSteps that need tools you do not have (sending, publishing, connectors) become drafts or a request to the owner.',
+    '\nA step that needs a tool you do not have (sending, publishing, a connector) becomes a draft or a request to the owner.',
   ]
     .filter(Boolean)
     .join('\n');
@@ -100,8 +102,8 @@ export function useSkillTool(skills: readonly AgentSkill[], onUse?: (id: string)
   return {
     spec: {
       name: 'use_skill',
-      description: 'Load the full method of one of your skills (steps, quality checks, typical outputs). Use it before doing that kind of work.',
-      parameters: { type: 'object', properties: { skill: { type: 'string', enum: on.map((s) => s.id), description: 'The skill id from your skills list' } }, required: ['skill'], additionalProperties: false },
+      description: 'Load the full method of one of your skills: its steps, quality checks and typical outputs. Call it before you do that kind of work. Fails for a skill that is not on your list.',
+      parameters: { type: 'object', properties: { skill: { type: 'string', enum: on.map((s) => s.id), description: 'The skill id from your skills list.' } }, required: ['skill'], additionalProperties: false },
     },
     async execute(args) {
       const s = typeof args.skill === 'string' ? byId.get(args.skill) : undefined;

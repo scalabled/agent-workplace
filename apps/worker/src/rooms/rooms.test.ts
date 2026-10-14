@@ -60,6 +60,15 @@ function useRoomChat(script: (req: ChatRequest) => Step[] | null) {
   return { requests, rooms: () => requests.filter(isRoom) };
 }
 
+/** Waits for a state the DO reaches on its own. A time bound, not a tick count: a loaded test run is slow. */
+async function until(cond: () => boolean, what: string, ms = 5000): Promise<void> {
+  const end = Date.now() + ms;
+  while (!cond()) {
+    if (Date.now() > end) throw new Error(`Timed out waiting for ${what}`);
+    await new Promise((r) => setTimeout(r, 5));
+  }
+}
+
 const gate = () => {
   let open!: () => void;
   const opened = new Promise<void>((r) => (open = r));
@@ -175,7 +184,7 @@ describe('POST /api/rooms/:roomId/say', () => {
     const s = await exprSetup();
     const meetingId = newMeetingId();
     const a = await say(s, { text: 'first question, everyone?', opId: 'op_c1', meetingId, participants: TABLE });
-    for (let i = 0; i < 500 && !s.liveOf('talk.delta').length; i++) await new Promise((r) => setTimeout(r, 0));
+    await until(() => s.liveOf('talk.delta').length > 0, 'the first reply to stream');
     const b = await say(s, { text: 'Actually, Jane: is the contract fine?', opId: 'op_c2', meetingId, participants: TABLE });
     held.open();
     await s.drain();
@@ -321,12 +330,13 @@ describe('POST /api/rooms/:roomId/say', () => {
 describe('POST /api/rooms/:roomId/cancel', () => {
   it('cancels the running turn (push-to-talk), and cancelling nothing is a no-op', async () => {
     const held = gate();
-    useRoomChat((req) => (isRoom(req) ? [() => held.opened, ...text('Late.')] : null));
+    const { rooms } = useRoomChat((req) => (isRoom(req) ? [() => held.opened, ...text('Late.')] : null));
     const s = await exprSetup();
     const meetingId = newMeetingId();
     expect((await cancel(s, { opId: 'op_x0', meetingId })).body).toEqual({ cancelled: false, noteId: null });
     const a = await say(s, { text: 'What do you all think?', opId: 'op_x1', meetingId, participants: TABLE });
-    for (let i = 0; i < 500 && !s.liveOf('presence').some((p) => p.data.agentId === KEMAR); i++) await new Promise((r) => setTimeout(r, 0));
+    // The intake shows Andre thinking before his reply opens; cancel only once his reply's model call is under way.
+    await until(() => rooms().length > 0, "Andre's reply to start");
     const c = await cancel(s, { opId: 'op_x2', meetingId, clientId: 'tab_barge_in' });
     expect(c).toMatchObject({ status: 200, body: { cancelled: true, noteId: null } });
     held.open();

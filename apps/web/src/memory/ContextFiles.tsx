@@ -33,7 +33,7 @@ export function ContextFiles({ scope, all = false, title = 'Files', hint }: { sc
     api
       .listCards(all ? undefined : scope)
       .then((r) => setCards(r.cards))
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the files.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the files. Reload the page to try again.'));
   useEffect(() => {
     void load();
     return () => clearTimeout(recheck.current);

@@ -145,7 +145,7 @@ test.describe('theme: dark by default everywhere', () => {
     expect(await bodyLuminance(page)).toBeGreaterThan(0.8);
     // The public landing page is always dark, and the app keeps the owner's choice after it.
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Hire a team in a sentence.');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Hire an AI team.');
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     expect(await bodyLuminance(page)).toBeLessThan(0.05);
     await page.goto('/app/floor');

@@ -174,7 +174,7 @@ describe('talk (conversation loop)', () => {
     expect(system).toContain('James Owusu');
     expect(system).toContain('Profitable on paper');
     expect(system).toContain('LIVE WORK STATE');
-    expect(system).toContain('“Office chairs under $500” — running, planning; now: Making a plan for “Office chairs under $500”');
+    expect(system).toContain('“Office chairs under $500”: running, planning; now: Making a plan for “Office chairs under $500”');
   });
 
   it('lets a newer owner message spoken over a reply pre-empt it while it is still streaming (barge-in)', async () => {

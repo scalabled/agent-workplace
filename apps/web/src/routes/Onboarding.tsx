@@ -6,7 +6,7 @@ import { api } from '../api/client';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { firstName, leadVoiceRef, type Lead, type MatchQuiz, type QuizAnswers } from '@headcount/catalog';
 import { catalog, loadCatalog } from '../catalog';
-import { Dialog, DialogField } from '../components/Dialog';
+import { Dialog, DialogField, trapTab } from '../components/Dialog';
 import { Face, leadSubject } from '../components/Face';
 import { Icon } from '../components/Icon';
 import { useSampleSpeaker, VoiceSample } from '../components/VoiceSample';
@@ -226,7 +226,7 @@ function Stage({ lead, match, previewLine }: { lead: Lead; match: Match | undefi
             ))}
           </ul>
         </div>
-        <p class="stage-honesty">{first} is an AI coworker. The backstory is character lore, not real events.</p>
+        <p class="stage-honesty">{first} is an AI coworker. This backstory is fiction.</p>
         {/* Pinned to the bottom on phones, so the next step is always in reach. */}
         <div class="stage-choose">
           <button
@@ -399,21 +399,6 @@ function QuizDialog({ quiz, canHear, onClose, onDone }: { quiz: MatchQuiz; canHe
       </div>
     </div>
   );
-}
-
-/** Keep Tab inside a modal dialog. */
-function trapTab(e: KeyboardEvent, root: HTMLElement) {
-  const items = [...root.querySelectorAll<HTMLElement>('button, input, [href], [tabindex]:not([tabindex="-1"])')].filter((el) => !el.hasAttribute('disabled'));
-  if (!items.length) return;
-  const first = items[0]!;
-  const last = items[items.length - 1]!;
-  if (e.shiftKey && document.activeElement === first) {
-    e.preventDefault();
-    last.focus();
-  } else if (!e.shiftKey && document.activeElement === last) {
-    e.preventDefault();
-    first.focus();
-  }
 }
 
 type Question = MatchQuiz['questions'][number];

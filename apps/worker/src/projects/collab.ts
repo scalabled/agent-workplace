@@ -41,12 +41,12 @@ export function collabTools(host: CollabHost, selfId: string, opts: { depth: num
     tools.push({
       spec: {
         name: 'ask_coworker',
-        description: `Ask a teammate a question and wait for their answer (they see the team channel, not your draft). Make it self-contained. Teammates: ${roster}.`,
+        description: `Ask a teammate a question and wait for their answer. They see the team channel but not your draft, so make the question self-contained. Use it at most ${MAX_ASKS_PER_TURN} times per piece of work. Returns their answer. Teammates: ${roster}.`,
         parameters: {
           type: 'object',
           properties: {
-            to: { type: 'string', enum: others().map((m) => m.personaId), description: 'The teammate’s id' },
-            question: { type: 'string', description: 'The question, self-contained, with the context they need' },
+            to: { type: 'string', enum: others().map((m) => m.personaId), description: 'The teammate’s id.' },
+            question: { type: 'string', description: 'The question, self-contained, with the context they need.' },
           },
           required: ['to', 'question'],
           additionalProperties: false,
@@ -72,12 +72,12 @@ export function collabTools(host: CollabHost, selfId: string, opts: { depth: num
   tools.push({
     spec: {
       name: 'message_coworker',
-      description: 'Hand something to a teammate without waiting: it reaches their next piece of work on this project. Use it for a finding, a warning or a request they should act on.',
+      description: 'Hand something to a teammate without waiting: a finding, a warning or a request they should act on. It reaches their next piece of work on this project and shows in the team channel.',
       parameters: {
         type: 'object',
         properties: {
-          to: { type: 'string', enum: others().map((m) => m.personaId) },
-          message: { type: 'string', description: 'What they should know or do' },
+          to: { type: 'string', enum: others().map((m) => m.personaId), description: 'The teammate’s id.' },
+          message: { type: 'string', description: 'What they should know or do.' },
         },
         required: ['to', 'message'],
         additionalProperties: false,
@@ -97,8 +97,8 @@ export function collabTools(host: CollabHost, selfId: string, opts: { depth: num
     tools.push({
       spec: {
         name: 'find_specialists',
-        description: 'Find coworkers in the office (not yet on the team) with a discipline the project is missing.',
-        parameters: { type: 'object', properties: { need: { type: 'string', description: 'The discipline or skill missing, in a few words' } }, required: ['need'], additionalProperties: false },
+        description: 'Find coworkers in the office, not yet on the team, with a discipline the project is missing. Returns candidates with their ids; bring one in with add_specialist.',
+        parameters: { type: 'object', properties: { need: { type: 'string', description: 'The missing discipline or skill, in a few words.' } }, required: ['need'], additionalProperties: false },
       },
       async execute(args: { need?: unknown }) {
         const need = str(args.need);
@@ -109,10 +109,10 @@ export function collabTools(host: CollabHost, selfId: string, opts: { depth: num
     tools.push({
       spec: {
         name: 'add_specialist',
-        description: `Bring a specialist from find_specialists onto the team (at most ${MAX_ADDED_SPECIALISTS}; the team stays under ${MAX_TEAM + 1}). Then ask_coworker can reach them. The owner sees it in the channel.`,
+        description: `Bring a specialist from find_specialists onto the team, so ask_coworker can reach them. The owner sees it in the team channel. Fails after ${MAX_ADDED_SPECIALISTS} additions or when the team has ${MAX_TEAM} members.`,
         parameters: {
           type: 'object',
-          properties: { personaId: { type: 'string' }, why: { type: 'string', description: 'One sentence: what they bring' } },
+          properties: { personaId: { type: 'string', description: 'The id from find_specialists.' }, why: { type: 'string', description: 'One sentence: what they bring.' } },
           required: ['personaId', 'why'],
           additionalProperties: false,
         },
@@ -131,5 +131,5 @@ export function collabTools(host: CollabHost, selfId: string, opts: { depth: num
   ]
     .filter(Boolean)
     .join(', ');
-  return { tools, describe: `${describe}. Keep consultations few and specific; never delegate your whole task.` };
+  return { tools, describe: `${describe}. Ask few, specific questions, and do your own task yourself.` };
 }

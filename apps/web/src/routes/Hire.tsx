@@ -46,7 +46,7 @@ export function Hire() {
       // The recommended few start picked on a first visit with nothing chosen yet.
       setPicked((p) => (p.length ? p : first ? r.candidates.filter((x) => x.recommended).map((x) => x.personaId) : p));
     } catch (err) {
-      setError(errorOf(err, 'Could not load suggestions.'));
+      setError(errorOf(err, 'Could not load suggestions. Reload the page to try again.'));
     }
   };
   useEffect(() => void suggest(), []);
@@ -110,7 +110,7 @@ export function Hire() {
         <label class="field-label" for="hire-about">
           What does {org} do?
         </label>
-        <textarea id="hire-about" class="note-input" rows={3} maxLength={1000} placeholder="e.g. An online crystal shop selling healing crystals and gemstones on Shopify and Etsy" value={about} onInput={(e) => setAbout((e.target as HTMLTextAreaElement).value)} />
+        <textarea id="hire-about" class="note-input" rows={3} maxLength={1000} placeholder="For example: An online crystal shop selling healing crystals and gemstones on Shopify and Etsy" value={about} onInput={(e) => setAbout((e.target as HTMLTextAreaElement).value)} />
         <div class="admin-row">
           <button type="submit" class="button-quiet">
             <Icon name="sparkle" size={16} /> Suggest people for this
@@ -175,7 +175,7 @@ export function Hire() {
         {first ? (
           <button
             type="button"
-            class="link-button"
+            class="link-button link-button-hit"
             onClick={() => {
               greetOnArrival.value = true;
               navigate(paths.talk);
@@ -184,7 +184,7 @@ export function Hire() {
             Not now
           </button>
         ) : (
-          <Link href={paths.team} class="link-button">
+          <Link href={paths.team} class="link-button link-button-hit">
             Back to your team
           </Link>
         )}

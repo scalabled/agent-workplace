@@ -38,8 +38,8 @@ const toolViews = (tools: readonly AgentTool<any>[], hosted: readonly { type: st
   ...hosted.map((h) => ({ name: h.type, description: h.type === 'web_search' ? 'Built-in web search run by the model provider; its sources come back with the answer.' : 'Built-in search of posts on X.', kind: 'hosted' as const })),
 ];
 
-const SUBMIT_WORK: ToolView = { name: 'submit_work', description: 'Submit your finished work for this step.', kind: 'function', parameters: { type: 'object', properties: { markdown: { type: 'string' }, summary: { type: 'string' } }, required: ['markdown', 'summary'] } };
-const SUBMIT_REVIEW: ToolView = { name: 'submit_review', description: 'Submit your verdict: approved, or the specific changes needed.', kind: 'function', parameters: { type: 'object', properties: { approved: { type: 'boolean' }, notes: { type: 'string' } }, required: ['approved', 'notes'] } };
+const SUBMIT_WORK: ToolView = { name: 'submit_work', description: 'Submit your finished work for this step. Call it once, with the complete work.', kind: 'function', parameters: { type: 'object', properties: { markdown: { type: 'string' }, summary: { type: 'string' } }, required: ['markdown', 'summary'] } };
+const SUBMIT_REVIEW: ToolView = { name: 'submit_review', description: 'Submit your verdict on the work: approved, or the specific changes it needs. Call it once.', kind: 'function', parameters: { type: 'object', properties: { approved: { type: 'boolean' }, notes: { type: 'string' } }, required: ['approved', 'notes'] } };
 const ASK_OWNER: ToolView = {
   name: 'request_owner_input',
   description: 'Pause this step for a decision, missing input or permission only the owner can give. Other steps continue.',

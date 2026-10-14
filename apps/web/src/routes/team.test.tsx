@@ -67,4 +67,23 @@ describe('Your team', () => {
     expect(steward.querySelector('.team-task-label')?.textContent).toBe('Every week');
     expect([...steward.querySelectorAll('button')].some((b) => b.textContent === 'Tidy now')).toBe(true);
   });
+
+  it('asks before letting someone go, and Keep leaves them on the team', async () => {
+    respond = (c) => (c.method === 'DELETE' ? json({ ...team(), members: team().members.filter((m) => m.personaId !== 'bookkeeper') }) : json(team()));
+    await act(() => render(<Team />, host));
+    await flush();
+    const card = () => host.querySelector('#bookkeeper');
+    const first = slimIndex.persona('bookkeeper')!.name.split(' ')[0]!;
+    const buttons = () => [...card()!.querySelectorAll('button')];
+    await act(() => buttons().find((b) => b.getAttribute('aria-label') === `Let ${first} go`)!.click());
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
+    expect(document.activeElement?.textContent).toBe(`Keep ${first}`);
+    await act(() => buttons().find((b) => b.textContent === `Keep ${first}`)!.click());
+    expect(buttons().some((b) => b.textContent === `Let ${first} go`)).toBe(false);
+    await act(() => buttons().find((b) => b.getAttribute('aria-label') === `Let ${first} go`)!.click());
+    await act(() => buttons().find((b) => b.textContent === `Let ${first} go`)!.click());
+    await flush();
+    expect(calls.find((c) => c.method === 'DELETE')?.url).toBe('/api/team/bookkeeper');
+    expect(card()).toBeNull();
+  });
 });

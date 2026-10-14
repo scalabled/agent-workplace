@@ -7,7 +7,7 @@ import { AppLink, EnterLink } from '../landing/links';
 import { AREAS, GUIDE, LATEST, longDate, RELEASES, type GuideEntry } from './content';
 import './releases.css';
 
-const TITLE = `Releases — ${BRAND.name}`;
+const TITLE = `Releases · ${BRAND.name}`;
 
 export function Releases() {
   const [query, setQuery] = useState('');
@@ -43,7 +43,7 @@ export function Releases() {
         <section class="rl-hero" aria-labelledby="rl-title">
           <p class="rl-eyebrow">Releases</p>
           <h1 id="rl-title">What’s new in {BRAND.name}</h1>
-          <p class="rl-lede">Every feature, and how to use it. This page grows with every release.</p>
+          <p class="rl-lede">Every feature, and how to use it.</p>
         </section>
 
         <section id="latest" class="rl-latest" aria-labelledby="rl-latest-title">
@@ -83,7 +83,7 @@ export function Releases() {
               ))}
             </nav>
           )}
-          {terms.length > 0 && shown.length === 0 && <p class="rl-empty">Nothing matches “{query.trim()}”. Try a plainer word, or ask your Chief of Staff in Talk.</p>}
+          {terms.length > 0 && shown.length === 0 && <p class="rl-empty">Nothing matches “{query.trim()}”. Try another word, or ask your Chief of Staff in Talk.</p>}
           {AREAS.map((a) => {
             const entries = shown.filter((g) => g.area === a.id);
             if (!entries.length) return null;
@@ -127,7 +127,7 @@ export function Releases() {
           <span class="rl-lamp" aria-hidden="true" />
           {BRAND.name}
         </span>
-        <span>Every coworker is an AI, and says so.</span>
+        <span>Every coworker is an AI and says so.</span>
         <a href="/">Home</a>
       </footer>
     </div>

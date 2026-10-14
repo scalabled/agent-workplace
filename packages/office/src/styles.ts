@@ -530,6 +530,11 @@ const CSS = `
 .hc-office[data-rm] *,.hc-office[data-rm] *::before,.hc-office[data-rm] *::after{transition:none!important;animation:none!important}
 .hc-o-find__btn{display:none;width:32px;padding:0;justify-content:center}
 .hc-o-find__btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
+/* Tablets and narrow windows: the centered Desks | Conference switch and the right-hand tools share one row. */
+@media (min-width:641px) and (max-width:1099px){
+  .hc-o-tools .hc-o-btn kbd{display:none}
+  .hc-o-find .hc-o-input{width:150px}
+}
 /* Phones: one HUD row. Desks | Conference on the left, Walk to and a Find icon that expands on the right. */
 @media (max-width:640px){
   .hc-o-seg{top:10px;left:10px;transform:none}

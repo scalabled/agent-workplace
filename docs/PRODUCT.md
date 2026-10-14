@@ -23,7 +23,7 @@
 
 **Name:** **Headcount** · **Category:** *the AI Office*
 
-**Tagline:** ***Hire a team in a sentence. Watch it work. Walk in anytime.***
+**Tagline:** ***Hire an AI team. Watch it work.***
 
 > Chat gave you an answer. Builders gave you a flowchart. Avatars gave you a face. **Headcount gives you staff.**
 

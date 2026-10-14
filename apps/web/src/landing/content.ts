@@ -1,11 +1,12 @@
 // Landing page copy (PRODUCT.md §1–§3, §7, §9, §10; OWNER-DIRECTIVES D2, D3, D5). Honest by rule: no
 // testimonials, customer logos, customer counts or invented metrics. Every capability says whether it works today
 // (INC0 §4), is in the works, or is planned, and the present tense is kept for what works today. Prices are
-// labelled planned. Coworker names never appear here: they come from the catalog at build time. Examples follow one
-// business (an online crystal shop) so the page reads as one story.
+// labeled planned. Coworker names never appear here: they come from the catalog at build time. Examples follow one
+// business (an online crystal shop) so the page reads as one story. Copy follows the writing standard
+// (apps/worker/src/agents/writing.ts): short sentences, plain words, no em dashes.
 import { BRAND } from '@headcount/protocol';
 
-export const TAGLINE = ['Hire a team in a sentence.', 'Watch it work.'] as const;
+export const TAGLINE = ['Hire an AI team.', 'Watch it work.'] as const;
 
 export type Status = 'now' | 'next' | 'planned';
 export const STATUS_LABEL: Record<Status, string> = { now: 'Works today', next: 'In the works', planned: 'Planned' };
@@ -19,10 +20,10 @@ export interface Step {
 }
 
 export const STEPS: Step[] = [
-  { n: '01', title: 'Delegate', icon: 'talk', status: 'now', body: 'Say what you need in one sentence: typed, spoken or held on the mic. Your Chief of Staff takes it and starts it in the background.' },
-  { n: '02', title: 'Hire your team', icon: 'team', status: 'now', body: 'Your office starts with your Chief of Staff. Say what your business does and they suggest who to hire, why, and the first job each will do.' },
-  { n: '03', title: 'Meet and steer', icon: 'eye', status: 'now', body: 'Put the right people in a room to talk it through, with your Chief moderating. Listen in, take the floor, or ask how the work is going: it never pauses.' },
-  { n: '04', title: 'Approve', icon: 'check', status: 'now', body: 'Anything that leaves the building waits for your yes: an email shows on a card, word for word, and goes out once, with a receipt.' },
+  { n: '01', title: 'Hire your team', icon: 'team', status: 'now', body: 'Your office starts with your Chief of Staff. Describe your business, and they suggest who to hire and a first job for each.' },
+  { n: '02', title: 'Delegate', icon: 'talk', status: 'now', body: 'Type or say what you need. Your Chief of Staff starts it in the background and keeps talking with you.' },
+  { n: '03', title: 'Watch and steer', icon: 'eye', status: 'now', body: 'The Now page shows each job, its step and who is on it. Change direction or stop a job at any time.' },
+  { n: '04', title: 'Approve', icon: 'check', status: 'now', body: 'Emails wait for your approval. You see each one word for word, and it goes out once, with a receipt.' },
 ];
 
 export interface Feature {
@@ -33,32 +34,26 @@ export interface Feature {
 
 /** D5, the living workforce: reflexes, passing-by chat, side-talk and mood, grounded in real work. */
 export const LIVING: Feature[] = [
-  { title: 'Reflexes', status: 'now', body: 'A quick “mm-hm”, a “good question, one sec”, a laugh in the right place: short lines pre-voiced in each coworker’s own voice, so they land instantly.' },
-  { title: 'Passing-by chat', status: 'now', body: 'Walk past a desk on the Floor and a coworker may look up with a line about what they are really working on. Answer inline, no meeting needed.' },
-  { title: 'Side-talk', status: 'now', body: 'Coworkers trade quick notes on real hand-offs, asks and results: bubbles on the Floor, voiced only if you are listening.' },
-  { title: 'Mood and ambience', status: 'now', body: 'Wins lift the mood and blockers weigh on it. One setting, Quiet, Lively or Buzzing, decides how chatty the office gets.' },
+  { title: 'Reflexes', status: 'now', body: 'Short replies such as “mm-hm” and “one sec” play at once, in the coworker’s own voice.' },
+  { title: 'Passing-by chat', status: 'now', body: 'On the Floor, a coworker you pass can tell you what they are working on. Reply in place.' },
+  { title: 'Side-talk', status: 'now', body: 'Coworkers trade short notes about real hand-offs and results. You see them as bubbles on the Floor.' },
+  { title: 'Mood and ambience', status: 'now', body: 'Finished work lifts the mood, and blockers lower it. Set the office to Quiet, Lively or Buzzing.' },
 ];
 
-export const SPEEDS: { name: string; body: string; status: Status }[] = [
-  { name: 'Reflex', status: 'now', body: 'Instant, pre-voiced micro-lines. No model call.' },
-  { name: 'Conversation', status: 'now', body: 'A fast model answers you while work continues.' },
-  { name: 'Work', status: 'now', body: 'Background jobs that run for minutes, and keep running.' },
-];
-
-/** An illustration of the Talk screen (clearly labelled as one on the page). */
+/** An illustration of the Talk screen (labeled as one on the page). */
 export const TALK_DEMO: { from: 'you' | 'chief'; text: string; kind?: 'status' | 'job' }[] = [
   { from: 'you', text: 'Find three wholesale suppliers of ethically sourced amethyst.' },
-  { from: 'chief', text: 'On it. I started that in the background. Keep talking to me meanwhile.' },
+  { from: 'chief', text: 'On it. That runs in the background, so keep talking.' },
   { from: 'you', text: 'How’s it going?' },
   { from: 'chief', text: 'Step 2 of 5: comparing minimum orders and shipping times.', kind: 'status' },
   { from: 'you', text: 'Also check which ones can show where the stones are mined.' },
-  { from: 'chief', text: 'Got it. I’ll fold that in at the next checkpoint.' },
+  { from: 'chief', text: 'Got it. I’ll add that at the next checkpoint.' },
 ];
 
 export const TALK_POINTS: Feature[] = [
-  { title: 'Always reachable', status: 'now', body: 'Talking to your Chief of Staff never waits for the work to finish. Status comes from the live job, not from pausing it.' },
-  { title: 'Steer mid-flight', status: 'now', body: 'Redirect, add context or stop. Your note lands at the next safe checkpoint while everything else keeps running.' },
-  { title: 'Text, push-to-talk or voice', status: 'now', body: 'Hold Space or the mic and talk. Interrupt any time: they stop mid-sentence.' },
+  { title: 'Ask how it is going', status: 'now', body: 'Your Chief of Staff reads the status from the live job. The job keeps running while they answer.' },
+  { title: 'Change direction', status: 'now', body: 'Add a detail, change the goal or stop the job. The job takes your note at its next checkpoint.' },
+  { title: 'Type or talk', status: 'now', body: 'Type, or tap the mic and talk, on any phone or browser. To interrupt, start talking.' },
 ];
 
 export interface Provider {
@@ -77,33 +72,33 @@ export const PROVIDERS: Provider[] = [
 ];
 
 export const MODALITIES: (Feature & { icon: 'voice' | 'image' | 'eye' | 'video' | 'doc'; status: Status })[] = [
-  { icon: 'voice', title: 'Voice', status: 'now', body: 'Talk and listen in your Chief of Staff’s own voice, with a face that lip-syncs to what is actually playing.' },
-  { icon: 'image', title: 'Images', status: 'now', body: 'Product shots, social graphics and banners from a sentence. Ask in Talk and it lands in the thread, and in Files.' },
-  { icon: 'eye', title: 'Vision', status: 'now', body: 'Show a receipt, a shelf or your screen, or take a photo, and ask about it.' },
-  { icon: 'video', title: 'Video', status: 'now', body: 'Teasers and social clips up to 15 seconds, made in the background while you keep working.' },
-  { icon: 'doc', title: 'Documents', status: 'now', body: 'Show the team PDFs and spreadsheets. Every project’s document downloads as Word, PowerPoint or Excel.' },
+  { icon: 'voice', title: 'Voice', status: 'now', body: 'Your Chief of Staff speaks in their own voice. Their face moves with the words.' },
+  { icon: 'image', title: 'Images', status: 'now', body: 'Ask for a product shot or a banner. To change one, press Edit and say what to change.' },
+  { icon: 'eye', title: 'Vision', status: 'now', body: 'Show a product photo, a price list or your screen, and ask about it.' },
+  { icon: 'video', title: 'Video', status: 'now', body: 'Clips up to 15 seconds for social posts, made in the background.' },
+  { icon: 'doc', title: 'Documents', status: 'now', body: 'Share PDFs and spreadsheets. Download any project document as Word, PowerPoint or Excel.' },
 ];
 
 export const TRUST: (Feature & { icon: 'hand' | 'receipt' | 'stop' | 'badge'; status: Status })[] = [
-  { icon: 'badge', title: 'Honest AI', status: 'now', body: 'Every coworker is labeled as AI and says so when sincerely asked. Backstories are character lore, never claimed as real events.' },
-  { icon: 'hand', title: 'Approvals', status: 'now', body: 'Emails never leave without your yes: once, for the rest of a task or project, or for a day, and you can take it back. No coworker can spend money.' },
-  { icon: 'receipt', title: 'Receipts', status: 'now', body: 'Nothing counts as sent without a receipt, and everything the team does is in an audit log, with Undo where it can be undone.' },
-  { icon: 'stop', title: 'Everyone stop', status: 'now', body: 'One control halts every job and project at once, and holds any email that has not gone out until you resume.' },
+  { icon: 'badge', title: 'Honest AI', status: 'now', body: 'Every coworker is labeled as an AI and says so when you sincerely ask. Backstories are fiction.' },
+  { icon: 'hand', title: 'Approvals', status: 'now', body: 'Approve emails one at a time, or for the rest of a task, a project or a day. Take back a standing approval at any time. Coworkers cannot spend money.' },
+  { icon: 'receipt', title: 'Receipts', status: 'now', body: 'Every sent email has a receipt. The audit log records each change the team makes, with Undo where possible.' },
+  { icon: 'stop', title: 'Everyone stop', status: 'now', body: 'One command stops every job and project at once. Unsent emails wait until an owner resumes work.' },
 ];
 
 /** Meetings: the team in a room, the Chief of Staff moderating. */
 export const MEETINGS: Feature[] = [
-  { title: 'Called in a sentence', status: 'now', body: '“Get the team together on a crystal subscription box.” Your Chief invites the people best placed and opens the meeting.' },
-  { title: 'Your Chief moderates', status: 'now', body: 'The first person invited chairs. Your Chief opens, keeps the floor moving and closes with the chair’s summary.' },
-  { title: 'Listen in, or speak up', status: 'now', body: 'Hear every line in each coworker’s own voice, take the floor, or whisper to one person. Read it later any time.' },
-  { title: 'The outcome comes to you', status: 'now', body: 'What they agreed lands in Talk, ready to become a project with one word.' },
+  { title: 'Call a meeting', status: 'now', body: 'Say “Call a meeting about a monthly crystal box.” Your Chief of Staff invites the right coworkers.' },
+  { title: 'A chair and a moderator', status: 'now', body: 'The first coworker invited chairs and sums up. Your Chief of Staff moderates.' },
+  { title: 'Listen and speak', status: 'now', body: 'Press Listen in to hear each line in the speaker’s voice. To speak, type or use the mic.' },
+  { title: 'Then the work starts', status: 'now', body: 'When the meeting ends, the coworkers start what they agreed. In a room on the Floor, work starts when you ask.' },
 ];
 
 /** Your own office: multi-tenant from the first sign-in. */
 export const OFFICE: Feature[] = [
-  { title: 'Start in a minute', status: 'now', body: 'Sign in with Google, name your office, pick your Chief of Staff and hire your first coworkers.' },
-  { title: 'Yours alone', status: 'now', body: 'Memory, the Handbook, files, projects and conversations stay in your office, apart from every other.' },
-  { title: 'Bring your people', status: 'now', body: 'Invite owners, contributors and readers by email. Everyone works in the same office.' },
+  { title: 'Sign in with Google', status: 'now', body: 'Name your office, choose your Chief of Staff and hire your first coworkers.' },
+  { title: 'Private to your office', status: 'now', body: 'Memory, the Handbook, files, projects and conversations stay in your office. Only the people you invite can see them.' },
+  { title: 'Bring your people', status: 'now', body: 'Invite people by email as owners, contributors or readers.' },
 ];
 
 export interface Pack {
@@ -114,7 +109,7 @@ export interface Pack {
 
 /** Industry packs, in the order they are planned. None is built yet. */
 export const PACKS: Pack[] = [
-  { name: 'Agency', roles: 'Account strategist, performance analyst, copywriter, deck designer', skeptic: 'the client’s CFO' },
+  { name: 'Agency', roles: 'Account strategist, performance analyst, copywriter, deck designer', skeptic: 'the client’s finance chief' },
   { name: 'Practice', roles: 'Intake, close coordinator, reviewer, client liaison', skeptic: 'the auditor' },
   { name: 'E-commerce', roles: 'Merchandiser, ads analyst, operations, content maker', skeptic: 'the returning customer' },
   { name: 'Home services', roles: 'Lead concierge, scheduler, listing writer', skeptic: 'the first-time buyer' },
@@ -126,46 +121,65 @@ export interface Tier {
   price: string;
   for: string;
   rows: string[];
-  /** An honest label for the emphasised card (never "most popular": there are no customers to count). */
+  /** An honest label for the emphasized card (never "most popular": there are no customers to count). */
   note?: string;
 }
 
 export const TIERS: Tier[] = [
-  { name: 'Solo', price: '$49', for: 'The owner, running lean', rows: ['You, the owner', '6 active coworkers', '3 active projects', '$20 of usage included', 'Email sends with approval', '1 front door'] },
-  { name: 'Team', price: '$199', for: 'A small team that delegates daily', note: 'Built for small teams', rows: ['Owner + 2 seats (+$29 each)', '20 active coworkers', 'Unlimited projects', '$100 of usage included', 'Standing grants; calendar, CRM, publish', '10 front doors · removable branding'] },
-  { name: 'Business', price: '$799', for: 'A studio with clients to protect', rows: ['Owner + 9 seats, SSO', '60 active coworkers', 'Unlimited projects', '$400 of usage included', 'Audit export, custom retention', 'Unlimited front doors on your domain'] },
+  { name: 'Solo', price: '$49', for: 'For an owner who works alone', rows: ['You, the owner', '6 active coworkers', '3 active projects', '$20 of usage included', 'Emails sent with your approval', '1 guest link for your customers'] },
+  { name: 'Team', price: '$199', for: 'For a small team', note: 'Built for small teams', rows: ['Owner + 2 seats (+$29 each)', '20 active coworkers', 'Unlimited projects', '$100 of usage included', 'Standing approvals; calendar, customer records, publishing', '10 guest links · removable branding'] },
+  { name: 'Business', price: '$799', for: 'For a studio with client work', rows: ['Owner + 9 seats, single sign-on', '60 active coworkers', 'Unlimited projects', '$400 of usage included', 'Audit log export, custom data retention', 'Unlimited guest links on your domain'] },
 ];
 
-export const PRICING_PRINCIPLES = ['Humans pay for seats. Coworkers are not seats.', 'One usage balance, in dollars. No credits.', 'Voice costs money only when someone listens.'];
+export const PRICING_PRINCIPLES = ['Only people need seats.', 'Usage comes from one balance, in dollars.', 'Voice costs money only when someone listens.'];
 
-export const FAQ: { q: string; a: string }[] = [
+export interface Answer {
+  q: string;
+  a: string;
+  /** Bullet points after the answer. */
+  list?: string[];
+  /** A closing sentence after the list. */
+  more?: string;
+}
+
+export const FAQ: Answer[] = [
   {
     q: 'Are the coworkers real people?',
-    a: 'No. Every coworker is an AI, labeled as one, and says so when sincerely asked. Their backstories are character lore that keeps each personality consistent; they never claim real-world actions they did not take.',
+    a: 'No. Every coworker is an AI and is labeled as one. They say so when you sincerely ask. Their backstories are fiction, and they report only work they did.',
   },
   {
     q: 'What works today?',
-    a: `${BRAND.name} is in early access. Today you can start your own office, pick your Chief of Staff, hire coworkers, talk by text or voice, hand off background work, run team projects with a plan you approve, call meetings and listen in, make images, short videos and documents (Word, PowerPoint, Excel), and approve every email before it goes out. Industry packs and public pricing are still planned, and the page marks them.`,
+    a: `${BRAND.name} is in early access. These features work today:`,
+    list: [
+      'Your own office, Chief of Staff and coworkers',
+      'Talk by text or voice, on any phone or browser',
+      'Background jobs you can check, steer and stop',
+      'Projects with a plan you approve',
+      'Meetings you can listen to and join',
+      'Images, short videos, documents and small apps, each with Edit',
+      'Your approval for every email, with a receipt',
+    ],
+    more: 'Industry packs and public pricing are planned. The Releases page lists every feature and how to use it.',
+  },
+  {
+    q: 'How do I get in?',
+    a: 'Early access is invite-only. Sign in with Google, using the email address that was invited.',
   },
   {
     q: 'Is my office private?',
-    a: 'Yes. Each office keeps its own memory, Handbook, files, projects and conversations, apart from every other office here. Only the people you invite can see it, and you choose what each of them can do.',
+    a: 'Yes. Each office keeps its own memory, Handbook, files, projects and conversations. Only the people you invite can see it, and you set the role of each one.',
   },
   {
-    q: 'Do I need API keys to try it?',
-    a: `No. Without a provider, ${BRAND.name} runs on a built-in demo provider (its answers are clearly labeled placeholders) or on your local Ollama. With keys set up, each one switches on a capability, and anything without a provider is hidden rather than shown broken.`,
-  },
-  {
-    q: 'Where do my keys live?',
-    a: 'Only on the server, in the worker’s environment. They never reach the browser, logs or error messages, and a local-only run never fails over to a cloud provider.',
+    q: 'Do I need my own AI keys?',
+    a: 'No. You can start without keys. To use your own AI provider, an owner adds its key in Admin. Keys are stored encrypted and never reach the browser, logs or error messages.',
   },
   {
     q: 'Can I switch my Chief of Staff later?',
-    a: 'Any time. Switching changes the personality, face and voice, never your work, projects or coworkers.',
+    a: 'Yes, at any time. Switching changes the personality, face and voice. Your work, projects and coworkers stay.',
   },
   {
     q: 'What will it cost?',
-    a: `The tiers above are planned pricing. They will be calibrated against real usage before public launch; until then, ${BRAND.name} runs on design-partner plans.`,
+    a: 'Early access is free, with daily usage limits for each office. The prices above are planned. Real usage will set the final prices before public launch.',
   },
 ];
 

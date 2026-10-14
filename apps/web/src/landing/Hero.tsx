@@ -1,6 +1,6 @@
 // The hero: the tagline rises in word by word next to a cluster of the real cast (their portraits, with the
 // state rings the app uses: speaking, working, listening), over a darkened generated office and an aurora of the
-// brand spectrum. The cluster is labelled as an illustration and its one side-talk bubble as a demo. On phones the
+// brand spectrum. The cluster is labeled as an illustration and its one side-talk bubble as a demo. On phones the
 // faces become a strip above the headline. All motion is transform/opacity, runs while the hero is on screen, and
 // stops entirely under prefers-reduced-motion.
 import { Fragment } from 'preact';
@@ -172,7 +172,7 @@ export function Hero() {
           <p class="lp-kicker">
             <span class="lp-lamp" aria-hidden="true" />
             <span>
-              The AI Office<span class="lp-kicker-more"> for owner-led businesses</span>
+              {BRAND.tagline}<span class="lp-kicker-more"> for small businesses</span>
             </span>
           </p>
           {/* The words animate one by one; the heading's name is the whole sentence (screen readers never read it word by word). */}
@@ -195,7 +195,7 @@ export function Hero() {
             ))}
           </h1>
           <p class="lp-lede">
-            <strong>{BRAND.name} gives you staff:</strong> a Chief of Staff you talk to, and a team with faces and voices that does the work while you watch.
+            <strong>Tell your Chief of Staff what you need.</strong> They hand it to your coworkers and report back. Nothing goes out until you approve it.
           </p>
           <div class="lp-cta-row">
             <EnterLink class="lp-btn lp-btn-primary lp-btn-lg" hero>
@@ -205,7 +205,7 @@ export function Hero() {
               See how it works
             </a>
           </div>
-          <p class="lp-fineprint">Sign in with Google to start your own office. Every coworker is an AI, and says so.</p>
+          <p class="lp-fineprint">Early access is invite-only. If you have an invitation, sign in with Google.</p>
         </div>
         <HeroCast />
       </div>

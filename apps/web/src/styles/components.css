@@ -13,6 +13,7 @@
   background: var(--lamp);
   color: var(--lamp-ink);
   font-weight: var(--weight-medium);
+  text-decoration: none;
   white-space: nowrap;
   box-shadow: var(--primary-glow);
   transition:
@@ -44,6 +45,7 @@
   background: var(--panel);
   color: var(--ink);
   font-weight: var(--weight-medium);
+  text-decoration: none;
   white-space: nowrap;
   transition:
     border-color var(--dur-state) var(--ease-out),
@@ -57,13 +59,6 @@
 
 .button-stop {
   color: var(--blocked);
-}
-
-/* A text control that still meets the 44 px touch target (EXPERIENCE §9.2). */
-.link-button-hit {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--hit);
 }
 
 .link-button {
@@ -80,6 +75,13 @@
 
 .link-button:hover {
   text-decoration-color: currentColor;
+}
+
+/* A text control that still meets the 44 px touch target (EXPERIENCE §9.2). After .link-button, which it overrides. */
+.link-button-hit {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--hit);
 }
 
 .icon-button {
@@ -190,7 +192,16 @@
   color: var(--muted);
 }
 
-.empty .button-primary {
+.empty > .button-primary {
+  margin-top: var(--space-3);
+}
+
+/* Two or more ways forward from an empty or failed page. */
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
   margin-top: var(--space-3);
 }
 
@@ -540,6 +551,21 @@
   font-size: var(--text-lg);
   color: var(--ink);
   outline: none;
+}
+
+/* Touch screens have no Esc key: a Close button takes its place. */
+.palette-close {
+  display: none;
+  margin-inline-end: calc(-1 * var(--space-3));
+}
+
+@media (pointer: coarse) {
+  .palette-esc {
+    display: none;
+  }
+  .palette-close {
+    display: inline-grid;
+  }
 }
 
 .palette-list {
@@ -1109,6 +1135,17 @@
   padding: 0 var(--space-3);
   font-size: var(--text-sm);
 }
+/* Touch screens: a small button keeps a 44 px hit area without growing. :where() lets a positioned button stay put. */
+@media (pointer: coarse) {
+  :where(.button-small) {
+    position: relative;
+  }
+  .button-small::after {
+    content: '';
+    position: absolute;
+    inset: -6px 0;
+  }
+}
 .button-danger {
   color: var(--blocked);
 }
@@ -1208,6 +1245,19 @@
   z-index: 0;
   background: var(--scrim);
 }
+/*
+ * A scrim that holds its own sheet (the match quiz, a job's details) is the layer: fixed over the page and the places.
+ * Its sheet is the centered dialog above (a bottom sheet on phones), not the side sheet.
+ */
+.sheet-scrim:not(.sheet-layer > *) {
+  position: fixed;
+  z-index: var(--z-sheet);
+}
+.sheet-scrim:not(.sheet-layer > *) > .sheet {
+  position: relative;
+  inset: auto;
+  width: min(520px, 100%);
+}
 .sheet {
   position: absolute;
   z-index: 1;
@@ -1238,6 +1288,37 @@
 }
 
 /* ── the run inspector ─────────────────────────────────────────────────────────── */
+.run-totals-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.run-totals {
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.run-totals th,
+.run-totals td {
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.run-totals th:first-child {
+  padding-left: 0;
+  text-align: left;
+}
+.run-totals thead th {
+  color: var(--muted);
+  font-weight: var(--weight-medium);
+}
+.run-totals tbody th {
+  font-weight: var(--weight-regular);
+}
+.run-totals tfoot th,
+.run-totals tfoot td {
+  border-bottom: 0;
+  font-weight: var(--weight-semibold);
+}
 .run-list {
   list-style: none;
   margin: var(--space-3) 0 0;
@@ -1413,6 +1494,16 @@
 }
 .grant-label input {
   margin-top: 0.3rem;
+}
+/* Touch screens: checkbox rows and segmented choices reach the 44 px target. */
+@media (pointer: coarse) {
+  .grant-label {
+    padding-block: 10px;
+  }
+  .segmented-item,
+  .field-input {
+    min-height: var(--hit);
+  }
 }
 .grant-name {
   display: block;

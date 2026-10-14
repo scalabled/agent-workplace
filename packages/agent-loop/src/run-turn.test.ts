@@ -1,6 +1,6 @@
 import { createMockProvider, type ChatProvider, type ChatRequest, type ModelEvent } from '@headcount/models';
 import { describe, expect, it } from 'vitest';
-import { callBudget, lowerEffort, REASONING_ALLOWANCE, runTurn, type AgentTool, type LoopEvent } from './index';
+import { callBudget, clipToolOutput, lowerEffort, REASONING_ALLOWANCE, runTurn, STUCK_ROUND_LIMIT, TOOL_OUTPUT_LIMIT, type AgentTool, type LoopEvent } from './index';
 
 /** A provider that answers each call with the next scripted event list (and records the requests). */
 function scripted(script: ((req: ChatRequest) => ModelEvent[])[]): ChatProvider & { requests: ChatRequest[] } {
@@ -121,6 +121,80 @@ describe('runTurn (scripted provider)', () => {
     const last = p.requests[3]!.messages.at(-1) as { content: string };
     expect(last.content).toContain('already failed twice');
     expect(r.text).toBe('giving up');
+  });
+
+  it('answers a third identical call with the earlier result and a note, without running the tool again', async () => {
+    let n = 0;
+    const a = tool('a', () => ({ ok: true, content: `result ${++n}` }));
+    const events: LoopEvent[] = [];
+    const p = scripted([() => tools(call('a', { q: 'x' }, '1')), () => tools(call('a', { q: 'x' }, '2')), () => tools(call('a', { q: 'x' }, '3'), call('a', { q: 'y' }, '4')), () => say('done')]);
+    const r = await runTurn({ provider: p, system: 's', messages: [{ role: 'user', content: 'go' }], tools: [a], onEvent: (e) => events.push(e) });
+    expect(a.calls).toEqual([{ q: 'x' }, { q: 'x' }, { q: 'y' }]);
+    const third = p.requests[3]!.messages.filter((m) => m.role === 'tool').at(-2) as { content: string; isError?: boolean };
+    expect(third.content).toMatch(/^\[You already called a with these arguments.*Use it, or try something different\.\]\n\nresult 2$/);
+    expect(third.isError).toBeUndefined();
+    expect(events.filter((e) => e.type === 'tool_end' && e.summary === 'repeated call')).toHaveLength(1);
+    expect(r).toMatchObject({ finish: 'stop', text: 'done', toolCalls: 4 });
+  });
+
+  it(`ends the turn as stuck after ${STUCK_ROUND_LIMIT} failed tool rounds in a row, with one tool-free wrap-up call`, async () => {
+    const a = tool('a', () => ({ ok: false, error: 'boom' }));
+    const rounds = Array.from({ length: STUCK_ROUND_LIMIT }, (_, i) => () => tools(call('a', { q: `try ${i}` }, `c${i}`), call('zzz', {}, `z${i}`)));
+    const p = scripted([...rounds, () => say('The tool kept failing, so I stopped.')]);
+    const events: LoopEvent[] = [];
+    const r = await runTurn({
+      provider: p,
+      system: 's',
+      messages: [{ role: 'user', content: 'go' }],
+      tools: [a],
+      onEvent: (e) => events.push(e),
+      checkpoint: (info) => (info.step === STUCK_ROUND_LIMIT ? { inject: ['Owner steering: try the other source'] } : undefined),
+    });
+    expect(r).toMatchObject({ finish: 'stuck', text: 'The tool kept failing, so I stopped.', steps: STUCK_ROUND_LIMIT + 1 });
+    expect(a.calls).toHaveLength(STUCK_ROUND_LIMIT);
+    const wrapUp = p.requests.at(-1)!;
+    expect(wrapUp.toolChoice).toBe('none');
+    expect(events.filter((e) => e.type === 'step').at(-1)).toMatchObject({ wrapUp: true });
+    // The steering and the stuck note arrive as one user message.
+    const last = wrapUp.messages.at(-1) as { role: string; content: string };
+    expect(last.role).toBe('user');
+    expect(last.content).toMatch(/^Owner steering: try the other source\n\nYour last \d+ rounds of tool calls all failed\./);
+    expect(wrapUp.messages.filter((m) => m.role === 'user')).toHaveLength(2);
+  });
+
+  it('a round with one successful call resets the failure streak', async () => {
+    const a = tool('a', (args: { q: string }) => (args.q === 'good' ? { ok: true, content: 'A' } : { ok: false, error: 'boom' }));
+    const fail = (i: number) => () => tools(call('a', { q: `bad ${i}` }, `f${i}`));
+    const p = scripted([fail(1), fail(2), fail(3), () => tools(call('a', { q: 'good' }, 'g'), call('a', { q: 'bad 4' }, 'f4')), fail(5), fail(6), fail(7), () => say('done')]);
+    const r = await runTurn({ provider: p, system: 's', messages: [{ role: 'user', content: 'go' }], tools: [a] });
+    expect(r).toMatchObject({ finish: 'stop', text: 'done', steps: 8 });
+    expect(p.requests.every((q) => q.toolChoice === undefined)).toBe(true);
+  });
+
+  it('keeps the start and the end of long tool output, with a stub that says what was left out', async () => {
+    const lines = Array.from({ length: 3000 }, (_, i) => `line ${String(i).padStart(4, '0')} ${'x'.repeat(20)}`);
+    const long = lines.join('\n');
+    const a = tool('a', () => ({ ok: true, content: long }));
+    const p = scripted([() => tools(call('a', {})), () => say('ok')]);
+    await runTurn({ provider: p, system: 's', messages: [{ role: 'user', content: 'go' }], tools: [a] });
+    const sent = (p.requests[1]!.messages.find((m) => m.role === 'tool') as { content: string }).content;
+    expect(sent.length).toBeLessThanOrEqual(TOOL_OUTPUT_LIMIT + 120);
+    expect(sent.startsWith('line 0000 ')).toBe(true);
+    expect(sent.endsWith(lines.at(-1)!)).toBe(true);
+    const stub = sent.split('\n').find((l) => l.startsWith('[tool output elided'))!;
+    const [, n, chars] = stub.match(/^\[tool output elided: (\d+) lines \/ (\d+) chars\. .+\]$/)!;
+    // Whole lines on both sides: what is shown plus what the stub counts is everything.
+    const shown = sent.split('\n').filter((l) => l !== stub);
+    expect(shown.every((l) => lines.includes(l))).toBe(true);
+    expect(shown.length + Number(n)).toBe(lines.length);
+    expect(sent.length - stub.length - 2 + Number(chars)).toBe(long.length);
+  });
+
+  it('clips a single long line in the middle and leaves short output alone', () => {
+    expect(clipToolOutput('short')).toBe('short');
+    const blob = 'a'.repeat(700) + 'b'.repeat(600) + 'c'.repeat(300);
+    const out = clipToolOutput(blob, 1000);
+    expect(out).toBe(`${'a'.repeat(700)}\n[tool output elided: 1 line / 600 chars. Narrow the call to see that part.]\n${'c'.repeat(300)}`);
   });
 
   it('ends the turn when a tool outcome says endTurn', async () => {

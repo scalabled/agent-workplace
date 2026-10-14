@@ -1,6 +1,6 @@
 // Coworker profile (from the Floor): hero face, intro line, story, signature methods, voice sample — and, for the
 // owner, how they work (instructions, tools, model, skills) and the exact prompts they run on.
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import type { AgentView } from '@headcount/protocol/ext/agents';
 import { api, ApiError } from '../api/client';
 import { AgentSettings } from '../agents/AgentSettings';
@@ -17,6 +17,7 @@ import { SideThread } from '../components/SideThread';
 import { isOwner } from '../auth/session';
 import { ContextFiles } from '../memory/ContextFiles';
 import { PageTitle } from '../links/CopyLink';
+import { showToast } from '../links/links';
 import { useSampleSpeaker, VoiceSample } from '../components/VoiceSample';
 import { navigate, paths, linkTarget, queryParam, setQuery, linkTo } from '../router';
 import { localPresence, onboarded, teamIds } from '../store';
@@ -130,6 +131,11 @@ function Profile({ persona: p }: { persona: PersonaSlim }) {
 /** On your team or not: owners add the coworkers they work with most (they stay in the directory either way). */
 function TeamToggle({ personaId, first }: { personaId: string; first: string }) {
   const [members, setMembers] = useState<string[] | null>(null);
+  const [asking, setAsking] = useState(false);
+  const keep = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (asking) keep.current?.focus();
+  }, [asking]);
   useEffect(() => {
     api
       .getTeam()
@@ -139,18 +145,36 @@ function TeamToggle({ personaId, first }: { personaId: string; first: string }) 
   if (!members) return null;
   const on = members.includes(personaId);
   if (!isOwner.value) return on ? <Link href={linkTo(paths.team, personaId)} class="connector-tag">On your team</Link> : null;
+  const change = async (hire: boolean) => {
+    try {
+      const t = hire ? (await api.hire([personaId])).team : await api.letGo(personaId);
+      const ids = t.members.map((m) => m.personaId);
+      setMembers(ids);
+      teamIds.value = ids;
+      setAsking(false);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'That did not go through. Try again.', 5000);
+    }
+  };
+  // Letting someone go asks first: the button reads as a status, so one tap must not undo the hire.
+  if (on && asking)
+    return (
+      <span class="profile-confirm" role="group" aria-label={`Let ${first} go?`}>
+        <button type="button" class="button-quiet button-danger" onClick={() => void change(false)}>
+          Let {first} go
+        </button>
+        <button type="button" class="button-quiet" ref={keep} onClick={() => setAsking(false)}>
+          Keep {first}
+        </button>
+      </span>
+    );
   return (
     <button
       type="button"
       class={on ? 'button-quiet' : 'button-primary'}
       aria-pressed={on}
       title={on ? `Let ${first} go (you can hire them again)` : `Hire ${first} onto your team`}
-      onClick={async () => {
-        const t = on ? await api.letGo(personaId) : (await api.hire([personaId])).team;
-        const ids = t.members.map((m) => m.personaId);
-        setMembers(ids);
-        teamIds.value = ids;
-      }}
+      onClick={() => (on ? setAsking(true) : void change(true))}
     >
       <Icon name={on ? 'check' : 'plus'} size={16} /> {on ? `${first} is on your team` : `Hire ${first}`}
     </button>
@@ -166,7 +190,7 @@ function AgentPanel({ personaId, tab, first }: { personaId: string; tab: 'work' 
     api
       .getAgent(personaId)
       .then((v) => live && setView(v))
-      .catch((err) => live && setError(err instanceof ApiError ? err.message : 'Could not load how they work.'));
+      .catch((err) => live && setError(err instanceof ApiError ? err.message : 'Could not load how they work. Reload the page to try again.'));
     return () => void (live = false);
   }, [personaId]);
   if (error)
@@ -195,7 +219,7 @@ function About({ persona: p, primary, secondary, first }: { persona: PersonaSlim
         <h2 id="story-title">Story</h2>
         <p class="profile-story">{p.backstory}</p>
         <p class="profile-note">
-          {first} is an AI coworker. The story is character lore, not real events.
+          {first} is an AI coworker. This story is fiction.
         </p>
       </section>
 

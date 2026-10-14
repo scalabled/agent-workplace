@@ -136,7 +136,7 @@ export function teamWith(recipe: Recipe, people: readonly string[], persona: (id
   });
 }
 
-/** "Femi leads, with Kavya and Kemar. Ruth is our sceptic, so we don't fool ourselves." */
+/** "Femi leads, with Kavya and Kemar. Ruth is our skeptic and checks our claims." */
 export function staffingNote(team: TeamMember[], recipeName: string | null): string {
   const lead = team.find((m) => m.role === 'lead') ?? team[0];
   const sceptic = team.find((m) => m.role === 'sceptic');
@@ -144,7 +144,7 @@ export function staffingNote(team: TeamMember[], recipeName: string | null): str
   if (!lead) return 'I could not staff this one.';
   const list = rest.length > 1 ? `${rest.slice(0, -1).join(', ')} and ${rest[rest.length - 1]}` : rest[0];
   const with_ = list ? `, with ${list}` : '';
-  const scep = sceptic ? ` ${firstName(sceptic.name)} is our sceptic, so we don't fool ourselves.` : '';
+  const scep = sceptic ? ` ${firstName(sceptic.name)} is our skeptic and checks our claims.` : '';
   const how = recipeName ? ` (our “${recipeName}” playbook)` : '';
   return `${firstName(lead.name)} leads${with_}${how}.${scep}`;
 }

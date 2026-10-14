@@ -30,7 +30,7 @@ export function Handbook() {
     api
       .getHandbook()
       .then((r) => live && setHb(r))
-      .catch((err) => live && setError(errorOf(err, 'Could not load the Handbook.')));
+      .catch((err) => live && setError(errorOf(err, 'Could not load the Handbook. Reload the page to try again.')));
     return () => void (live = false);
   }, [chiefSaid]);
 

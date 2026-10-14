@@ -83,7 +83,7 @@ export function revealLinked(): void {
       // A document in a frame (the canvas) takes the reader to the spot itself.
       if (document.querySelector('[data-link-host]')) return;
       if (Date.now() - started < REVEAL_WAIT_MS) setTimeout(tick, 120);
-      else showToast('That item is not here any more (it may have been removed).', 4000);
+      else showToast('That item is gone. Someone may have removed it.', 4000);
       return;
     }
     for (let p: HTMLElement | null = el.parentElement; p; p = p.parentElement) if (p instanceof HTMLDetailsElement) p.open = true;

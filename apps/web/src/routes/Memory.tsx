@@ -35,7 +35,7 @@ export function Memory() {
         api
           .listMemory({ q: q.trim(), kind: kind || undefined })
           .then((r) => live && (setList(r.memories), setError(null)))
-          .catch((err) => live && setError(errorOf(err, 'Could not load the memory.'))),
+          .catch((err) => live && setError(errorOf(err, 'Could not load the memory. Reload the page to try again.'))),
       q.trim() ? SEARCH_DEBOUNCE_MS : 0,
     );
     return () => {
@@ -105,7 +105,7 @@ export function Memory() {
       )}
       {!list && !error && <p class="page-fine">Loading…</p>}
       {list && list.length === 0 && (
-        <p class="panel empty-text memory-empty">{searching ? 'Nothing remembered matches that.' : `Nothing remembered yet. Tell ${chiefName.value} “remember that…”, or just talk: what lasts is kept.`}</p>
+        <p class="panel empty-text memory-empty">{searching ? 'Nothing remembered matches that.' : `Nothing remembered yet. Tell ${chiefName.value} “remember that…”, or keep talking: the team keeps what lasts.`}</p>
       )}
       {list && list.length > 0 && (
         <ul class="memory-list" aria-label={searching ? 'Found' : 'Remembered'}>

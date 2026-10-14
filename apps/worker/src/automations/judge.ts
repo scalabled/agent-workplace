@@ -1,12 +1,12 @@
 // "Only when it matters" (biz-bot triggers.js gate, quiet): a short model call decides whether a routine automation
-// run is worth interrupting the owner for — a material change, a decision they must make, or a failure.
+// run is worth interrupting the owner for: a material change, a decision they must make, or a failure.
 import { callBudget, runTurn, type AgentTool } from '@headcount/agent-loop';
 import { deadlineSignal } from '@headcount/models';
 import type { Env } from '../env';
 import { models } from '../workspace/runtime';
 
-const JUDGE_SYSTEM =
-  'You decide whether a finished background run is worth interrupting a small-business owner for. Interrupt only for a material change, a decision the owner must make, or a failure; routine "nothing new" results are not worth it. Call submit_verdict.';
+export const JUDGE_SYSTEM =
+  'You decide whether a finished background run is worth interrupting a small-business owner for. Interrupt only for a material change, a decision the owner must make, or a failure. A routine "nothing new" result does not qualify. Call submit_verdict.';
 
 export async function judgeRun(env: Env, name: string, result: string): Promise<{ matters: boolean; reason: string }> {
   const resolved = models(env, { surface: 'automation' }).resolve('chat', { tier: 'fast', needs: ['tools'] });
@@ -14,10 +14,10 @@ export async function judgeRun(env: Env, name: string, result: string): Promise<
   const tool: AgentTool<{ matters?: unknown; reason?: unknown }> = {
     spec: {
       name: 'submit_verdict',
-      description: 'Say whether the owner should hear about this run now, and why in one short sentence.',
+      description: 'Say whether the owner should hear about this run now, and why, in one short sentence. Call it once.',
       parameters: {
         type: 'object',
-        properties: { matters: { type: 'boolean' }, reason: { type: 'string', description: 'One short sentence' } },
+        properties: { matters: { type: 'boolean' }, reason: { type: 'string', description: 'One short sentence.' } },
         required: ['matters', 'reason'],
         additionalProperties: false,
       },

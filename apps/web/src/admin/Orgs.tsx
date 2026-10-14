@@ -6,6 +6,7 @@ import { api, ApiError } from '../api/client';
 import { BRAND } from '@headcount/protocol';
 import { auth, canCreateOrg, currentOrg, isOwner, myOrgs, switchOrg } from '../auth/session';
 import { Icon } from '../components/Icon';
+import { Link } from '../components/Link';
 import { CopyLink } from '../links/CopyLink';
 import { paths } from '../router';
 import { openOfficeDialog } from './OfficeDialogs';
@@ -39,7 +40,9 @@ export function OrgCard() {
         </h2>
         <CopyLink page={paths.admin()} at="organization" label="Copy link to the organization" what="Link to it" />
       </div>
-      <p class="page-fine">This office’s team, memory and files belong to it alone. Invite people on the People page.</p>
+      <p class="page-fine">
+        This office’s team, memory and files belong to it alone. Invite people in <Link href={paths.admin('people')}>People and roles</Link>.
+      </p>
       <ul class="setting-rows">
         <li class="setting-row">
           <div class="setting-text">
@@ -104,7 +107,7 @@ export function PlatformSection() {
     void api
       .platformOrgs()
       .then(setData)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the organizations.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the organizations. Reload the page to try again.'));
   }, []);
   return (
     <section class="panel admin-card" aria-labelledby="adm-platform">

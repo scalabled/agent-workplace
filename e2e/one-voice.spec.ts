@@ -430,6 +430,12 @@ test('one tab: every voice path plays each line exactly once, and a reload never
   expectOnce(floor, 'the Floor');
 });
 
+/**
+ * The first sentence of the Chief's answer has streamed in. With email set up, the receipt guard streams whole
+ * sentences, so a delta can end right at the full stop with the space in the next delta.
+ */
+const SENTENCE_END = /[.!?]["'”’)\]]*(\s|$)/;
+
 test('a socket that drops mid-answer and comes back after the answer finished: the rest is never said, the job-done announcement is', async ({ browser, baseURL }) => {
   test.setTimeout(120_000);
   const { ctx, page } = await tab(browser, baseURL!);
@@ -451,7 +457,7 @@ test('a socket that drops mid-answer and comes back after the answer finished: t
       ws.send(m);
       if (feed.cut && f?.type === 'talk.delta' && f.data?.agentId === 'cw_chief') {
         text += f.data.delta ?? '';
-        if (/[.!?]["'”’)\]]*\s/.test(text)) feed.holding = true;
+        if (SENTENCE_END.test(text)) feed.holding = true;
       }
     });
   });
@@ -529,7 +535,7 @@ test('a socket that comes back while the answer still streams: the answer ends w
       ws.send(m);
       if (feed.cut && f?.type === 'talk.delta' && f.data?.agentId === 'cw_chief') {
         text += f.data.delta ?? '';
-        if (/[.!?]["'”’)\]]*\s/.test(text)) feed.holding = true;
+        if (SENTENCE_END.test(text)) feed.holding = true;
       }
     });
   });

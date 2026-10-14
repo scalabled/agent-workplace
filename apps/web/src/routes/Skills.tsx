@@ -18,7 +18,7 @@ export function Skills() {
     api
       .listSkills()
       .then(setData)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the skills.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the skills. Reload the page to try again.'));
   }, []);
   const groups = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -81,7 +81,7 @@ export function SkillPage({ skillId }: { skillId: string }) {
     api
       .getSkill(skillId)
       .then(setSkill)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the skill.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the skill. Reload the page to try again.'));
   }, [skillId]);
   const run = async (call: () => Promise<SkillDetail>) => {
     setBusy(true);
@@ -90,7 +90,7 @@ export function SkillPage({ skillId }: { skillId: string }) {
       setSkill(await call());
       setEditing(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'That did not save.');
+      setError(err instanceof ApiError ? err.message : 'That did not save. Try again.');
     } finally {
       setBusy(false);
     }

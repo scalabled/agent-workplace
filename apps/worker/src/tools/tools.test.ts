@@ -127,7 +127,7 @@ describe('the research kit', () => {
 describe('evidence', () => {
   it('numbers sources for prompts and appends the ones a deliverable left out', () => {
     const s = [{ url: 'https://a.example.org/x', title: 'A' }, { url: 'https://b.example.org/y' }];
-    expect(sourcesBlock(s)).toBe('<sources>\n[1] A — https://a.example.org/x\n[2] https://b.example.org/y\n</sources>');
+    expect(sourcesBlock(s)).toBe('<sources>\n[1] A (https://a.example.org/x)\n[2] https://b.example.org/y\n</sources>');
     const md = withSources('# Plan\n\nText citing https://a.example.org/x', s);
     expect(md).toContain('## Sources\n\n- [b.example.org](https://b.example.org/y)');
     expect(md).not.toContain('[A](https://a.example.org/x)');

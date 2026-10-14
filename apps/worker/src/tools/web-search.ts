@@ -64,7 +64,7 @@ export async function searchWeb(registry: Registry, query: string, opts: { mode?
     provider: r.provider,
     model: r.model,
     system:
-      'You are a research assistant. Search the web and answer the query with current information in a concise, factual summary (under 200 words). Name the sources you relied on. If the results disagree, say so. Never invent a fact the results do not support.',
+      'You are a research assistant. Search the web and answer the query with current facts, in under 200 words. Lead with the answer. Give the numbers, dates and names the results contain, and name the source of each. If sources disagree, say where. State only what the results support.',
     messages: [{ role: 'user', content: q }],
     hostedTools: [{ type: kind }],
     maxSteps: 1,
@@ -79,7 +79,7 @@ export async function searchWeb(registry: Registry, query: string, opts: { mode?
 /** Sources as a numbered list for a prompt (the writer cites them as [n]). */
 export function sourcesBlock(sources: readonly Source[]): string {
   if (!sources.length) return '';
-  return `<sources>\n${sources.map((s, i) => `[${i + 1}] ${s.title ? `${s.title} — ` : ''}${s.url}`).join('\n')}\n</sources>`;
+  return `<sources>\n${sources.map((s, i) => `[${i + 1}] ${s.title ? `${s.title} (${s.url})` : s.url}`).join('\n')}\n</sources>`;
 }
 
 /**

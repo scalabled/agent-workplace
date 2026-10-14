@@ -60,7 +60,7 @@ export function DecisionCard({ decision: d, showProject = true }: { decision: De
           <h2 id={`dec-${d.decisionId}`} class="decision-title">
             {d.title}
           </h2>
-          <CopyLink page={paths.inbox} at={d.decisionId} label="Copy link to this" what="Link to it" />
+          <CopyLink page={paths.inbox} at={d.decisionId} label="Copy link to this decision" what="Link to this decision" />
         </div>
         {d.effect ? (
           <>

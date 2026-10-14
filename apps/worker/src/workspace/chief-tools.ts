@@ -192,11 +192,11 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
     spec: {
       name: 'start_background_job',
       description:
-        'Start background work in the Everyday project: research, comparisons, drafts, anything that needs more than a quick answer. Returns at once; the work runs while you keep talking, and you will announce the result when it is done.',
+        'Start background work: research, a comparison, a draft, anything that needs more than a quick answer. Returns at once with the job id; the work runs while you keep talking, and you announce the result when it is done. Fails when too many jobs are running or the daily limit is reached; then tell the owner.',
       parameters: {
         type: 'object',
         properties: {
-          title: { type: 'string', description: 'Short title, 2 to 6 words, e.g. "Office chairs under $500".' },
+          title: { type: 'string', description: 'A short title, 2 to 6 words, such as "Office chairs under $500".' },
           brief: { type: 'string', description: "What to find out or produce, in the owner's words, with every constraint they gave." },
         },
         required: ['title', 'brief'],
@@ -211,7 +211,7 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
       const job = await project.startJob({ title, brief: brief || title, opId: `${deps.turnId}:${ctx.callId}`, leadId: deps.leadId, chiefName: deps.chiefName });
       // Refused (too many running, or today's limit): say so honestly instead of promising work.
       if ('accepted' in job) return fail(job.message);
-      const say = `On it. I started “${job.title}” in the background and will tell you when it is done. Keep talking to me meanwhile.`;
+      const say = `I started “${job.title}” in the background. I'll tell you when it's done; keep talking to me meanwhile.`;
       log.note('delegate', say, job.jobId);
       try {
         deps.onDelegated?.(job.jobId);
@@ -225,7 +225,7 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
   const jobStatus: AgentTool<{ jobId?: unknown }> = {
     spec: {
       name: 'job_status',
-      description: 'Read the live state of background jobs (step, percent, running sentence, latest finding, pending steering). Instant; never waits for the work.',
+      description: 'Read the live state of background jobs: step, percent, running label, latest finding and pending steering. Returns at once; it never waits for the work.',
       parameters: { type: 'object', properties: { jobId: { type: 'string', description: 'A job id; omit for all recent jobs.' } }, additionalProperties: false },
       mock: { triggers: TRIGGERS.status, args: () => ({}), reply: sayOf },
     },
@@ -242,11 +242,11 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
   const steerJob: AgentTool<{ jobId?: unknown; instruction?: unknown }> = {
     spec: {
       name: 'steer_job',
-      description: "Redirect a running job: add something to check, change focus, add context. It is applied at the job's next checkpoint (between steps or tool calls); the job keeps running.",
+      description: "Redirect a running job: add something to check, change its focus, or add context. It applies at the job's next checkpoint (between steps or tool calls), and the job keeps running. Fails when no job is running, or several are and the id is missing; then ask which.",
       parameters: {
         type: 'object',
         properties: {
-          jobId: { type: 'string', description: 'Id of the running job (from LIVE WORK STATE).' },
+          jobId: { type: 'string', description: 'The id of the running job, from LIVE WORK STATE.' },
           instruction: { type: 'string', description: "The owner's steering, in their words." },
         },
         required: ['jobId', 'instruction'],
@@ -261,7 +261,7 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
       if ('refused' in target) return fail(target.refused);
       const r = await project.steerJob(target.jobId, instruction, `${deps.turnId}:${ctx.callId}`);
       if (!r.accepted) return fail(r.message);
-      const say = `Got it. I will fold that into “${target.title}” at its next checkpoint.`;
+      const say = `I'll fold that into “${target.title}” at its next checkpoint.`;
       log.note('steer', say, target.jobId);
       return ok({ jobId: target.jobId, steerId: r.steerId, status: 'queued', say }, `Steered “${target.title}”`);
     },
@@ -270,8 +270,8 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
   const cancelJob: AgentTool<{ jobId?: unknown }> = {
     spec: {
       name: 'cancel_job',
-      description: 'Stop a running job for good. Use only when the owner asks to stop or cancel it.',
-      parameters: { type: 'object', properties: { jobId: { type: 'string', description: 'Id of the running job.' } }, required: ['jobId'], additionalProperties: false },
+      description: 'Stop a running job for good. Use it only when the owner asks to stop or cancel it. Fails when the job is not running.',
+      parameters: { type: 'object', properties: { jobId: { type: 'string', description: 'The id of the running job.' } }, required: ['jobId'], additionalProperties: false },
       mock: { triggers: TRIGGERS.cancel, args: () => ({ jobId: newestActive?.jobId ?? '' }), reply: sayOf },
     },
     async execute(args) {
@@ -294,7 +294,7 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
     spec: {
       name: 'start_team_project',
       description:
-        'Staff a team of specialist coworkers for a multi-step outcome that needs several disciplines (a launch, a campaign, a proposal, a hiring pack, a plan). A playbook picks the team (a lead, reviewers and a sceptic) and a plan of reviewed steps; the plan goes to the owner as a raised hand in the Inbox and starts only once they approve. For a quick lookup or a single draft use start_background_job instead.',
+        'Staff a team of specialist coworkers for an outcome that needs several disciplines: a launch, a campaign, a proposal, a hiring pack, a plan. A playbook picks the team (a lead, reviewers and a sceptic) and a plan of reviewed steps. The plan goes to the owner in the Inbox and starts only after they approve it. Returns the project id, team and steps. For a quick lookup or a single draft, use start_background_job.',
       parameters: {
         type: 'object',
         properties: {
@@ -326,8 +326,8 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
   const approveProject: AgentTool<{ projectId?: unknown }> = {
     spec: {
       name: 'approve_team_project',
-      description: "Approve a proposed team project's plan so the team starts working. Use ONLY when the owner's latest message clearly approves it (\"go ahead\", \"approved\", \"yes, start it\"). Never approve on your own initiative.",
-      parameters: { type: 'object', properties: { projectId: { type: 'string', description: 'Id of the proposed project (from LIVE TEAM PROJECTS).' } }, required: ['projectId'], additionalProperties: false },
+      description: "Approve a proposed team project's plan so the team starts work. Use it only when the owner's latest message approves the plan (\"go ahead\", \"approved\", \"yes, start it\"). Never approve on your own. Fails when no plan is waiting, or several are and the id is missing.",
+      parameters: { type: 'object', properties: { projectId: { type: 'string', description: 'The id of the proposed project, from LIVE TEAM PROJECTS.' } }, required: ['projectId'], additionalProperties: false },
       mock: { triggers: TRIGGERS.approve, args: () => ({ projectId: proposed[proposed.length - 1]?.projectId ?? '' }), reply: sayOf },
     },
     async execute(args) {
@@ -346,7 +346,7 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
   const projectStatus: AgentTool<Record<string, never>> = {
     spec: {
       name: 'team_project_status',
-      description: 'Read the live state of team projects: who is on them, which steps are done, what is being worked on or reviewed now. Instant.',
+      description: 'Read the live state of team projects: who is on them, which steps are done, and what is being worked on or reviewed now. Returns at once.',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
       mock: { triggers: [String.raw`\b(team|project)\b.{0,30}\b(status|going|progress|update)\b`], args: () => ({}), reply: sayOf },
     },
@@ -364,8 +364,8 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
   const cancelProject: AgentTool<{ projectId?: unknown }> = {
     spec: {
       name: 'cancel_team_project',
-      description: 'Stop a team project (or decline a proposed plan). Use only when the owner asks to stop, cancel or not do it.',
-      parameters: { type: 'object', properties: { projectId: { type: 'string', description: 'Id of the project.' } }, required: ['projectId'], additionalProperties: false },
+      description: 'Stop a team project, or decline a proposed plan. Use it only when the owner asks to stop, cancel or drop it.',
+      parameters: { type: 'object', properties: { projectId: { type: 'string', description: 'The id of the project.' } }, required: ['projectId'], additionalProperties: false },
       mock: { triggers: [String.raw`\b(cancel|stop|scrap|drop)\b.{0,20}\b(project|team|plan)\b`], args: () => ({ projectId: newestProject?.projectId ?? '' }), reply: sayOf },
     },
     async execute(args) {
@@ -395,11 +395,11 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
     spec: {
       name: 'steer_team_project',
       description:
-        "Give a running team project direction or context from the owner (\"focus on Instagram\", \"the budget is now $2k\"). It reaches the next step that starts; steps already under way finish as they are and nobody stops. Pass toPersonaId to direct it at one member only.",
+        "Give a running team project direction or context from the owner (\"focus on Instagram\", \"the budget is now $2k\"). It reaches the next step that starts; steps under way finish as they are, and nobody stops. Pass toPersonaId to direct it at one member. Fails when no project is under way, or several are and the id is missing.",
       parameters: {
         type: 'object',
         properties: {
-          projectId: { type: 'string', description: 'Id of the project (from LIVE TEAM PROJECTS).' },
+          projectId: { type: 'string', description: 'The id of the project, from LIVE TEAM PROJECTS.' },
           instruction: { type: 'string', description: "The owner's direction, in their words." },
           toPersonaId: { type: 'string', description: 'Optional: the persona id of the one member it is for.' },
         },
@@ -427,11 +427,11 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
   const pauseProject: AgentTool<{ projectId?: unknown; action?: unknown }> = {
     spec: {
       name: 'pause_team_project',
-      description: 'Pause a running team project (steps under way finish, nothing new starts) or resume a paused one. Use when the owner asks to pause, hold, resume or carry on.',
+      description: 'Pause a running team project (steps under way finish, and nothing new starts), or resume a paused one. Use it only when the owner asks to pause, hold, resume or carry on.',
       parameters: {
         type: 'object',
         properties: {
-          projectId: { type: 'string', description: 'Id of the project.' },
+          projectId: { type: 'string', description: 'The id of the project.' },
           action: { type: 'string', enum: ['pause', 'resume'] },
         },
         required: ['projectId', 'action'],
@@ -457,13 +457,13 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
     spec: {
       name: 'answer_team_question',
       description:
-        "Relay the owner's answer to a team member's open question (or their direction on review issues) from OPEN QUESTIONS. Use only when the owner's latest message clearly answers it. accept=true accepts review issues as they are.",
+        "Relay the owner's answer to a team member's open question, or their direction on review issues, from OPEN QUESTIONS. Use it only when the owner's latest message answers the question. Set accept to true to accept the review issues as they are.",
       parameters: {
         type: 'object',
         properties: {
-          decisionId: { type: 'string', description: 'Id from OPEN QUESTIONS' },
-          answer: { type: 'string', description: "The owner's answer or direction, in their words" },
-          accept: { type: 'boolean', description: 'Accept the remaining review issues as they are (review and deliverable hands only)' },
+          decisionId: { type: 'string', description: 'The id from OPEN QUESTIONS.' },
+          answer: { type: 'string', description: "The owner's answer or direction, in their words." },
+          accept: { type: 'boolean', description: 'Accept the remaining review issues as they are. For review and deliverable questions only.' },
         },
         required: ['decisionId'],
         additionalProperties: false,
@@ -491,13 +491,13 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
     spec: {
       name: 'team_discussion',
       description:
-        'Call a project team meeting the owner asked for: a discussion of their question, or a review of the work so far (you open it, the lead chairs, each member speaks, the lead sums up and the summary guides their next steps). It starts in a minute or two; the owner can listen in and take the floor from the project page.',
+        'Call a project team meeting the owner asked for: a discussion of their question, or a review of the work so far. You open it, the lead chairs, each member speaks, and the lead sums up; the summary guides the next steps. It starts in a minute or two, and the owner can listen in and take the floor from the project page.',
       parameters: {
         type: 'object',
         properties: {
-          projectId: { type: 'string' },
-          question: { type: 'string', description: "The question, in the owner's words (a review may leave it empty)" },
-          kind: { type: 'string', enum: ['discussion', 'review'], description: 'review: the team reviews the work so far' },
+          projectId: { type: 'string', description: 'The id of the project, from LIVE TEAM PROJECTS.' },
+          question: { type: 'string', description: "The question, in the owner's words. A review may leave it empty." },
+          kind: { type: 'string', enum: ['discussion', 'review'], description: 'review: the team reviews the work so far.' },
         },
         required: ['projectId'],
         additionalProperties: false,
@@ -525,7 +525,7 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
   const stopAll: AgentTool<Record<string, never>> = {
     spec: {
       name: 'stop_all_work',
-      description: 'Everyone stop: halt every running background job and team project at once. Use only when the owner asks for all work to stop ("everyone stop", "stop everything"). Plans waiting for approval stay in the Inbox.',
+      description: 'Everyone stop: halt every running background job and team project at once. Use it only when the owner asks for all work to stop ("everyone stop", "stop everything"). Plans waiting for approval stay in the Inbox.',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
       mock: { triggers: TRIGGERS.stopAll, args: () => ({}), reply: sayOf },
     },
@@ -554,7 +554,7 @@ export function createChiefTools(deps: ChiefToolDeps): AgentTool<any>[] {
     spec: {
       name: 'create_canvas',
       description:
-        "Build something the owner will use or keep, on their canvas: an interactive HTML app (a calculator, tracker, planner, dashboard, quiz, tool or game) or a written Markdown document (a plan, report, proposal, one-pager, checklist, policy or guide). Or change the one on the canvas when they ask (revise: true). Write a specific brief: what it is, who it is for, what it must include and how it should look or read. An app's first version plays in about 20 seconds and the full one in a minute or two; they can download it as HTML or export it to PDF. Research goes to a background job instead.",
+        "Build something the owner will use or keep, on their canvas: an interactive HTML app (a calculator, tracker, planner, dashboard, quiz, tool or game) or a written Markdown document (a plan, report, proposal, one-pager, checklist, policy or guide). Set revise to true to change the latest one when they ask. Write a specific brief: what it is, who it is for, what it must include, and how it should look or read. An app's first version plays in about 20 seconds and the full one in a minute or two; the owner can download it as HTML or export it to PDF. For research, use start_background_job. Fails when there is nothing on the canvas to revise.",
       parameters: {
         type: 'object',
         properties: {

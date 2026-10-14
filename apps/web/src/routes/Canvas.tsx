@@ -25,7 +25,7 @@ export function Canvas() {
         for (const c of r.canvases) upsertCanvas(c);
         setLoaded(true);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'The canvas could not be loaded.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'The canvas could not be loaded. Reload the page to try again.'));
   }, []);
   // Only the latest version of each piece is listed (its page has the others).
   const all = canvasList.value;
@@ -36,7 +36,7 @@ export function Canvas() {
       <header class="page-head">
         <PageTitle id="canvas-page-title">Canvas</PageTitle>
         <p class="page-lede">
-          Apps and documents made for you: a calculator, a tracker, a planner, a proposal, a one-page plan. Ask {chiefName.value} in <Link href={paths.talk}>Talk</Link>, or describe it here. Each one can be downloaded as HTML or exported to PDF.
+          Apps and documents made for you: a calculator, a tracker, a planner, a proposal, a one-page plan. Ask {chiefName.value} in <Link href={paths.talk}>Talk</Link>, or describe one here. Download any of them as HTML or PDF.
         </p>
       </header>
       <MakeSomething />
@@ -45,7 +45,7 @@ export function Canvas() {
           {error}
         </p>
       )}
-      {loaded && !latest.length && <p class="page-fine">Nothing on the canvas yet.</p>}
+      {loaded && !latest.length && <p class="page-fine">Nothing on the canvas yet. Describe an app or a document above to start.</p>}
       <ul class="canvas-list">
         {latest.map((c) => (
           <CanvasCard key={c.canvasId} canvas={c} />

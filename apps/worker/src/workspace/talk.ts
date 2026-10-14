@@ -29,6 +29,11 @@ import { logError } from './runtime';
 /** Recent conversation the Chief of Staff sees (ARCHITECTURE §4.3 layer 7: recent turns, ~6k tokens). */
 export const HISTORY_MESSAGES = 40;
 export const HISTORY_CHARS = 24_000;
+/** The newest messages always stay word for word; only older ones are shortened or dropped. */
+export const HISTORY_VERBATIM = 6;
+/** Over budget, an older message longer than this keeps its first `HISTORY_SHORT_CHARS` and a stub. */
+export const HISTORY_BULKY_CHARS = 800;
+export const HISTORY_SHORT_CHARS = 400;
 /** Conversation turns are short; the talk loop is the fast tier (D2). */
 export const TALK_MAX_STEPS = 4;
 /** Visible output per call; reasoning models get room to think on top (`callBudget`), so a reply is never all thinking. */
@@ -181,13 +186,6 @@ export function isChiefConversation(f: Frame): boolean {
   return false;
 }
 
-/**
- * Owner and Chief of Staff messages from the ledger → a provider transcript (starts with user, roles
- * alternate). A reply is placed right after the owner message of its own turn, so the transcript always
- * ends with what the owner said last even if a reply was persisted late. Announcements (no turn) keep
- * ledger order. Floor quick-chats with coworkers (`surface: 'floor'`), office rooms and huddles (`surface: 'room'`),
- * office notes and other agents' messages are not the Chief's conversation and are left out.
- */
 /** Files the owner showed with the message this turn answers. */
 export interface ShownFiles {
   images: { name: string; image: ImagePart; description: string }[];
@@ -209,6 +207,16 @@ export function withShown(messages: ChatMessage[], shown: ShownFiles, vision: bo
   return [...messages.slice(0, at), next, ...messages.slice(at + 1)];
 }
 
+/**
+ * Owner and Chief of Staff messages from the ledger → a provider transcript (starts with user, roles
+ * alternate). A reply is placed right after the owner message of its own turn, so the transcript always
+ * ends with what the owner said last even if a reply was persisted late. Announcements (no turn) keep
+ * ledger order. Floor quick-chats with coworkers (`surface: 'floor'`), office rooms and huddles (`surface: 'room'`),
+ * office notes and other agents' messages are not the Chief's conversation and are left out.
+ *
+ * Over `maxChars`, the budget is met in stages: bulky older messages are shortened first (oldest first), then the
+ * oldest messages are dropped. The last `HISTORY_VERBATIM` messages are never shortened; the newest is never dropped.
+ */
 export function historyFromFrames(frames: Frame[], maxChars = HISTORY_CHARS): ChatMessage[] {
   const raw: { role: 'user' | 'assistant'; content: string; turnId: string | null }[] = [];
   for (const f of frames) {
@@ -225,10 +233,14 @@ export function historyFromFrames(frames: Frame[], maxChars = HISTORY_CHARS): Ch
       }
     }
   }
-  let budget = maxChars;
-  let start = raw.length;
-  while (start > 0 && budget - raw[start - 1]!.content.length >= 0) budget -= raw[--start]!.content.length;
-  if (start === raw.length && raw.length) start = raw.length - 1; // always keep the newest message
+  let total = raw.reduce((n, m) => n + m.content.length, 0);
+  for (let i = 0; i < raw.length - HISTORY_VERBATIM && total > maxChars; i++) {
+    const short = shortenOld(raw[i]!.content);
+    total -= raw[i]!.content.length - short.length;
+    raw[i]!.content = short;
+  }
+  let start = 0;
+  while (start < raw.length - 1 && total > maxChars) total -= raw[start++]!.content.length;
   const merged: { role: 'user' | 'assistant'; content: string }[] = [];
   for (const m of raw.slice(start)) {
     const last = merged[merged.length - 1];
@@ -237,6 +249,15 @@ export function historyFromFrames(frames: Frame[], maxChars = HISTORY_CHARS): Ch
   }
   while (merged.length && merged[0]!.role !== 'user') merged.shift();
   return merged;
+}
+
+/** A bulky older message cut to its start, at a word break when one is close. The stub says how much is gone. */
+function shortenOld(text: string): string {
+  if (text.length <= HISTORY_BULKY_CHARS) return text;
+  let cut = HISTORY_SHORT_CHARS;
+  const space = text.slice(0, cut).search(/\s\S*$/);
+  if (space > cut * 0.8) cut = space;
+  return `${text.slice(0, cut).trimEnd()} … [older message shortened: ${text.length - cut} chars left out]`;
 }
 
 function talkFinish(r: TurnResult, text: string): TalkFinish {

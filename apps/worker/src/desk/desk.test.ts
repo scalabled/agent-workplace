@@ -165,7 +165,7 @@ describe('the honesty guard', () => {
     const prompt = buildDeskSystemPrompt(p, 'Rosa');
     expect(prompt).toContain(`You are ${p.name}`);
     expect(prompt).toContain('Rosa is the owner');
-    expect(prompt).toContain('two or three short sentences');
+    expect(prompt).toContain('one to three short sentences');
     expect(prompt).toContain('no exclamation marks');
     const f = (type: 'talk.owner' | 'talk.message', agentId: string, text: string, surface?: 'floor'): Frame =>
       ({ v: 1, streamId: 'ws:local', seq: 1, ts: '', type, data: type === 'talk.owner' ? { turnId: 'turn_1', messageId: 'msg_1', text, via: 'text', agentId, ...(surface ? { surface } : {}) } : { turnId: 'turn_1', messageId: 'msg_2', agentId, text, kind: 'reply', ...(surface ? { surface } : {}) } }) as Frame;

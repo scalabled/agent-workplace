@@ -44,7 +44,7 @@ import {
 import { agentOf, resolveAgentModel } from '../agents/agent';
 import type { AgentSetup } from '../agents/store';
 import type { Env } from '../env';
-import { clipText } from '../jobs/job-view';
+import { clipBlock, clipText } from '../jobs/job-view';
 import { WorkCancelled, WorkError } from '../jobs/work-loop';
 import { DailyCounter, dailyLimit, limitMessage } from '../lib/limits';
 import { researchKitFactory } from '../tools/kit';
@@ -611,7 +611,7 @@ export class TeamProjects {
     const describe = describeSpec(spec);
     this.sql.exec(
       `INSERT INTO tdecisions (decision_id, kind, project_id, title, body, status, created_at, meta) VALUES (?, 'automation', '', ?, ?, 'open', ?, ?)`,
-      decisionId, clipText(title, 300), clipText(`${describe}.\n\n${spec.action.goal}`, 4000), iso(), JSON.stringify({ ...spec, describe }),
+      decisionId, clipText(title, 300), clipBlock(`${describe}.\n\n${spec.action.goal}`, 4000), iso(), JSON.stringify({ ...spec, describe }),
     );
     const d = this.decision(decisionId)!;
     this.p.append({ type: 'decision.opened', data: { decision: d } });
@@ -961,7 +961,7 @@ export class TeamProjects {
     const r = Math.min(3, Math.max(1, Math.floor(req.rounds ?? 2) || 2));
     const projectId = newId('prj');
     const at = iso();
-    const goal = req.context ? `${topic}\n\nContext: ${clipText(req.context.trim(), 2000)}` : topic;
+    const goal = req.context ? `${topic}\n\nContext: ${clipBlock(req.context.trim(), 2000)}` : topic;
     this.sql.exec(
       `INSERT INTO tprojects (project_id, title, goal, staffing_note, team, status, chief_name, created_at, updated_at, next_at, lead_id, kind, follow_up)
        VALUES (?, ?, ?, '', ?, 'meeting', ?, ?, ?, ?, ?, 'meeting', ?)`,
@@ -993,7 +993,7 @@ export class TeamProjects {
       .filter((e) => e.kind === 'owner' || e.kind === 'whisper')
       .map((e) => `- ${clipText(e.text, 400)}`)
       .slice(-8);
-    const goal = [`Follow-up to the meeting about “${m.question}”: do the work it agreed on.`, `What the meeting agreed (${chairFirst}'s summary):\n${clipText(agreed, 2500)}`, said.length ? `What the owner said in the meeting:\n${said.join('\n')}` : '']
+    const goal = [`Follow-up to the meeting about “${m.question}”: do the work it agreed on.`, `What the meeting agreed (${chairFirst}'s summary):\n${clipBlock(agreed, 2500)}`, said.length ? `What the owner said in the meeting:\n${said.join('\n')}` : '']
       .filter(Boolean)
       .join('\n\n');
     const r = await this.propose({
@@ -1218,13 +1218,13 @@ export class TeamProjects {
         : 'Thank you, everyone.',
     });
     this.sql.exec('UPDATE tprojects SET discussion_state = NULL WHERE project_id = ?', projectId);
-    this.closeMeeting(meetingId, 'done', summary ? clipText(summary, 2000) : undefined);
+    this.closeMeeting(meetingId, 'done', summary ? clipBlock(summary, 2000) : undefined);
     if (summary && this.p.distillMeeting)
-      void this.p.distillMeeting({ text: `MEETING (${kindWord}) on “${row.title}”: ${d.question}\nSUMMARY BY THE CHAIR: ${clipText(summary, 2500)}`, scope: standalone ? 'workspace' : `project:${projectId}`, sourceLabel: `${kindWord}: ${row.title}`, sourceRef: meetingId }).catch((err) => logError('project.memory', err));
+      void this.p.distillMeeting({ text: `MEETING (${kindWord}) on “${row.title}”: ${d.question}\nSUMMARY BY THE CHAIR: ${clipBlock(summary, 2500)}`, scope: standalone ? 'workspace' : `project:${projectId}`, sourceLabel: `${kindWord}: ${row.title}`, sourceRef: meetingId }).catch((err) => logError('project.memory', err));
     if (standalone) return;
     const kickoff = d.kind === 'kickoff';
     this.sql.exec(`UPDATE tprojects SET discussion_state = NULL${kickoff ? ", kickoff = 'done'" : ''}, updated_at = ? WHERE project_id = ?`, iso(), projectId);
-    if (summary) this.note(projectId, { text: `${kickoff ? 'Kickoff agreement' : d.kind === 'review' ? 'Review outcome' : 'Discussion outcome'} (${chair.name.split(' ')[0]} chairing): ${clipText(summary, 900)}`, via: 'channel' });
+    if (summary) this.note(projectId, { text: `${kickoff ? 'Kickoff agreement' : d.kind === 'review' ? 'Review outcome' : 'Discussion outcome'} (${chair.name.split(' ')[0]} chairing): ${clipBlock(summary, 900)}`, via: 'channel' });
     this.emit(projectId);
   }
 
@@ -1718,7 +1718,7 @@ export class TeamProjects {
     const decisionId = newId('dec');
     this.sql.exec(
       `INSERT INTO tdecisions (decision_id, kind, project_id, title, body, status, created_at, meta) VALUES (?, 'connector', '', ?, ?, 'open', ?, ?)`,
-      decisionId, clipText(title, 300), clipText(`With these details:\n${ask.args}`, 4000), at, JSON.stringify(ask),
+      decisionId, clipText(title, 300), clipBlock(`With these details:\n${ask.args}`, 4000), at, JSON.stringify(ask),
     );
     const d = this.decision(decisionId)!;
     this.p.append({ type: 'decision.opened', data: { decision: d } });
@@ -1734,7 +1734,7 @@ export class TeamProjects {
     const at = iso();
     this.sql.exec(
       `INSERT INTO tdecisions (decision_id, kind, project_id, title, body, status, created_at, step_id, from_id, meta) VALUES (?, ?, ?, ?, ?, 'open', ?, ?, ?, ?)`,
-      decisionId, kind, projectId, clipText(d.title, 300), clipText(d.body, 4000), at, d.stepId ?? null, d.fromId ?? null, d.connector ? JSON.stringify(d.connector) : null,
+      decisionId, kind, projectId, clipText(d.title, 300), clipBlock(d.body, 4000), at, d.stepId ?? null, d.fromId ?? null, d.connector ? JSON.stringify(d.connector) : null,
     );
     this.sql.exec('UPDATE tprojects SET updated_at = ? WHERE project_id = ?', at, projectId);
     this.p.append({ type: 'decision.opened', data: { decision: this.decision(decisionId)! } });
@@ -1760,7 +1760,7 @@ export class TeamProjects {
       const meta = JSON.parse(open.meta ?? '{}') as EffectAsk & { taskId: string };
       const emails = [...meta.emails.filter((e) => !r.emails.some((x) => x.key === e.key)), ...r.emails];
       const next: EffectAsk & { taskId: string } = { ...meta, keys: emails.map((e) => e.key), emails };
-      this.sql.exec(`UPDATE tdecisions SET title = ?, body = ?, meta = ? WHERE decision_id = ?`, clipText(effectTitle(who, emails), 300), clipText(effectBody(emails), 4000), JSON.stringify(next), open.decision_id);
+      this.sql.exec(`UPDATE tdecisions SET title = ?, body = ?, meta = ? WHERE decision_id = ?`, clipText(effectTitle(who, emails), 300), clipBlock(effectBody(emails), 4000), JSON.stringify(next), open.decision_id);
       const d = this.decision(open.decision_id)!;
       this.p.append({ type: 'decision.opened', data: { decision: d } });
       return d;
@@ -1769,7 +1769,7 @@ export class TeamProjects {
     const meta: EffectAsk & { taskId: string } = { keys: r.emails.map((e) => e.key), emails: r.emails, allowedGrants: r.allowedGrants, ...(r.unknown ? { unknown: true } : {}), taskId: r.taskId };
     this.sql.exec(
       `INSERT INTO tdecisions (decision_id, kind, project_id, title, body, status, created_at, step_id, from_id, meta) VALUES (?, 'effect', ?, ?, ?, 'open', ?, ?, ?, ?)`,
-      decisionId, r.projectId, clipText(r.unknown ? `Send again? ${who}'s email may not have gone out` : effectTitle(who, r.emails), 300), clipText(r.unknown ? `It is not certain whether this went out (the email provider can no longer tell).\n\n${effectBody(r.emails)}` : effectBody(r.emails), 4000), at, r.stepId ?? null, r.fromId, JSON.stringify(meta),
+      decisionId, r.projectId, clipText(r.unknown ? `Send again? ${who}'s email may not have gone out` : effectTitle(who, r.emails), 300), clipBlock(r.unknown ? `It is not certain whether this went out (the email provider can no longer tell).\n\n${effectBody(r.emails)}` : effectBody(r.emails), 4000), at, r.stepId ?? null, r.fromId, JSON.stringify(meta),
     );
     if (r.projectId) this.sql.exec('UPDATE tprojects SET updated_at = ? WHERE project_id = ?', at, r.projectId);
     const d = this.decision(decisionId)!;
@@ -1789,7 +1789,7 @@ export class TeamProjects {
     const decisionId = newId('dec');
     this.sql.exec(
       `INSERT INTO tdecisions (decision_id, kind, project_id, title, body, status, created_at, from_id, meta) VALUES (?, 'change', '', ?, ?, 'open', ?, ?, ?)`,
-      decisionId, clipText(title, 300), clipText(ask.why || 'A change for your OK.', 4000), at, fromId, JSON.stringify(ask),
+      decisionId, clipText(title, 300), clipBlock(ask.why || 'A change for your OK.', 4000), at, fromId, JSON.stringify(ask),
     );
     const d = this.decision(decisionId)!;
     this.p.append({ type: 'decision.opened', data: { decision: d } });
@@ -1861,7 +1861,7 @@ export class TeamProjects {
       if (m.role !== 'assistant' || !m.toolCalls) continue;
       for (const tc of m.toolCalls) {
         const res = results.get(tc.id);
-        calls.push({ name: tc.name, args: clipText(tc.arguments, 2000), result: clipText(res?.content ?? '', 3000), ok: res?.ok ?? false });
+        calls.push({ name: tc.name, args: clipBlock(tc.arguments, 2000), result: clipBlock(res?.content ?? '', 3000), ok: res?.ok ?? false });
       }
     }
     const trace: RunTrace = {
@@ -1872,10 +1872,10 @@ export class TeamProjects {
       personaId: w.agent.persona.id,
       provider: w.providerId,
       model: w.model,
-      system: clipText(c.system, 20_000),
-      prompt: clipText(c.prompt, 30_000),
+      system: clipBlock(c.system, 20_000),
+      prompt: clipBlock(c.prompt, 30_000),
       calls: calls.slice(0, 40),
-      text: clipText(r.fullText, 12_000),
+      text: clipBlock(r.fullText, 12_000),
       sources: [...sources].slice(0, 40),
       usage: r.usage,
       steps: r.steps,
@@ -1979,8 +1979,8 @@ export class TeamProjects {
   private clip(p: TeamProjectSnapshot): TeamProjectSnapshot {
     return {
       ...p,
-      steps: p.steps.map((s) => (s.output ? { ...s, output: clipText(s.output, OUTPUT_FRAME_MAX) } : s)),
-      ...(p.deliverable ? { deliverable: clipText(p.deliverable, OUTPUT_FRAME_MAX * 4) } : {}),
+      steps: p.steps.map((s) => (s.output ? { ...s, output: clipBlock(s.output, OUTPUT_FRAME_MAX) } : s)),
+      ...(p.deliverable ? { deliverable: clipBlock(p.deliverable, OUTPUT_FRAME_MAX * 4) } : {}),
     };
   }
 

@@ -40,7 +40,7 @@ export function Meetings() {
     api
       .listMeetings()
       .then((r) => upsertMeetings(r.meetings))
-      .catch((err) => setError(errorOf(err, 'Meetings could not be loaded.')));
+      .catch((err) => setError(errorOf(err, 'Meetings could not be loaded. Reload the page to try again.')));
   }, []);
   const all = Object.values(meetingsById.value).sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1));
   const live = liveMeetings.value;
@@ -132,10 +132,10 @@ function CallMeeting() {
         <span class="field-label">{project && kind === 'review' ? 'Anything in particular? (optional)' : 'What should they talk through?'}</span>
         <textarea
           class="note-input"
-          rows={2}
+          rows={3}
           maxLength={MEETING_TOPIC_MAX}
           value={topic}
-          placeholder={project && kind === 'review' ? 'The pricing section' : 'e.g. Should we launch a monthly crystal subscription box, and at what price?'}
+          placeholder={project && kind === 'review' ? 'The pricing section' : 'For example: Should we launch a monthly crystal box, and at what price?'}
           onInput={(e) => setTopic((e.target as HTMLTextAreaElement).value)}
         />
       </label>
@@ -164,7 +164,7 @@ function CallMeeting() {
         </div>
       )}
       <fieldset class="call-meeting-people">
-        <legend class="field-label">{project ? `At the table: the project's team` : 'Who comes? The first you pick chairs.'}</legend>
+        <legend class="field-label">{project ? `At the table: the project's team` : 'Who comes? The first person you pick chairs the meeting.'}</legend>
         <ul class="seat-chips">
           {lead && (
             <li class="seat-chip" data-on style={tint(lead)}>
@@ -204,14 +204,19 @@ function CallMeeting() {
             <option value={2}>Longer: with a debate</option>
           </select>
         </label>
-        <button type="submit" class="button-primary" disabled={!ready || busy}>
+        <button type="submit" class="button-primary" disabled={!ready || busy} aria-describedby={ready ? undefined : 'call-needs'}>
           <Icon name="meetings" size={16} /> {busy ? 'Starting…' : 'Start the meeting'}
         </button>
       </div>
+      {!ready && (
+        <p class="field-hint" id="call-needs">
+          {project ? 'Write what they should talk through.' : topic.trim().length >= 3 ? 'Pick at least one person.' : picked.length ? 'Write what they should talk through.' : 'Write what they should talk through, and pick who comes.'}
+        </p>
+      )}
       {!project && (
         <label class="grant-label call-meeting-follow">
           <input type="checkbox" checked={followUp} onChange={(e) => setFollowUp(e.currentTarget.checked)} />
-          <span class="grant-name">When it ends, they get started on what they agree (the chair leads)</span>
+          <span class="grant-name">When it ends, the chair leads the work they agree on</span>
         </label>
       )}
       {error && (
@@ -329,7 +334,12 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
         <Link href={paths.meetings}>All meetings</Link>
       </section>
     );
-  if (!data) return <section class="page" aria-busy="true" />;
+  if (!data)
+    return (
+      <section class="page" aria-busy="true">
+        <p class="page-fine">Loading the meeting…</p>
+      </section>
+    );
   const m = { ...data.meeting, ...(known && known.meetingId === meetingId ? known : {}) };
   const live = m.status === 'live';
   const team = data.team;
@@ -358,7 +368,7 @@ export function MeetingRoom({ meetingId }: { meetingId: string }) {
   return (
     <section class="page meeting-room" aria-labelledby="room-title">
       <header class="page-head">
-        <Link href={paths.meetings} class="link-button room-back">
+        <Link href={paths.meetings} class="link-button link-button-hit room-back">
           <Icon name="chevronLeft" size={16} /> Meetings
         </Link>
         <div class="room-head">

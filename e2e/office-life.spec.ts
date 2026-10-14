@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { daytimeZone, frames, onboarded, recordFrames, setWorkspace, waitForFrame, OFFICE_SEATS, staffOffice } from './helpers';
+import { frames, onboarded, recordFrames, setWorkspace, waitForFrame, OFFICE_SEATS, staffOffice, zoneAtHour } from './helpers';
 import { deskLight, frameHuddle, openOffice, OWNER, restOn, seatedInView, skipOfficeHint } from './office-helpers';
 
 // The office runs itself (OWNER-DIRECTIVES D3, D5; OFFICE-PHASE2 §7.4 office-life): a fixed office clock (`?at=10:35`,
@@ -7,7 +7,8 @@ import { deskLight, frameHuddle, openOffice, OWNER, restOn, seatedInView, skipOf
 // bubbles, a hover opens the huddle's card, Join greets the owner by name and becomes a group chat on the rooms
 // endpoint, leaving writes one quiet line in Talk; walkers stop when clicked; Follow keeps someone in view; the pill
 // counts the floor; reduced motion fades; Pause freezes; real work brings the Chief of Staff back to their desk.
-test.use({ viewport: { width: 1440, height: 900 }, timezoneId: daytimeZone() });
+// The browser runs in a zone where it is 10:xx now, so real local time matches the office clock (never lunchtime).
+test.use({ viewport: { width: 1440, height: 900 }, timezoneId: zoneAtHour(10) });
 
 test.beforeEach(async ({ request, page }) => {
   await staffOffice(request);

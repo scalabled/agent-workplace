@@ -98,7 +98,8 @@ export interface TurnResult {
   text: string;
   /** Every assistant text of the turn, joined with blank lines (what a streaming UI showed). */
   fullText: string;
-  finish: FinishReason | 'error';
+  /** `stuck`: `STUCK_ROUND_LIMIT` tool rounds in a row failed, and the turn ended after one tool-free wrap-up call. */
+  finish: FinishReason | 'error' | 'stuck';
   /** Transcript entries produced during this turn (assistant/tool/injected user messages), in order. */
   messages: ChatMessage[];
   usage: { input: number; output: number; usd: number | null };

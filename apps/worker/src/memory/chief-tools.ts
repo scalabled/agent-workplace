@@ -33,7 +33,7 @@ export function memoryTools(host: MemoryToolHost): AgentTool<any>[] {
     spec: {
       name: 'handbook_interview',
       description:
-        "Start the Handbook interview (the owner asks you to learn about the business, or agrees to it): you then ask about one missing section at a time and write each up with update_handbook. Or finish it (everything is covered, or the owner wants to stop).",
+        "Start or finish the Handbook interview. Start it when the owner asks you to learn about the business, or agrees to it; then ask about one missing section at a time and write each up with update_handbook. Finish it when every section is covered or the owner wants to stop. Returns the next topic to ask about.",
       parameters: { type: 'object', properties: { action: { type: 'string', enum: ['start', 'finish'] } }, required: ['action'], additionalProperties: false },
       mock: {
         triggers: [String.raw`\binterview me\b`, String.raw`\b(write|start|do) (my|our|the) handbook\b`, String.raw`\b(stop|finish|end) the interview\b`],
@@ -57,13 +57,13 @@ export function memoryTools(host: MemoryToolHost): AgentTool<any>[] {
     spec: {
       name: 'update_handbook',
       description:
-        "Write a section of the owner's Handbook (the description of the business every coworker works from): during the interview, after each answer; or when the owner states something that belongs there (a standing rule, a key client, how the business sounds). Write a clean, well-organised version in their words (short Markdown bullets are fine). mode 'append' adds to the section instead of replacing it.",
+        "Write a section of the owner's Handbook, the description of the business every coworker works from. Use it during the interview, after each answer, or when the owner states something that belongs there (a standing rule, a key client, how the business sounds). When the owner's setting is \"Propose\", the change waits for their OK in the Inbox. Fails for an unknown section or empty content.",
       parameters: {
         type: 'object',
         properties: {
           section: { type: 'string', enum: HANDBOOK_SECTIONS.map((s) => s.id) },
-          content: { type: 'string' },
-          mode: { type: 'string', enum: ['replace', 'append'] },
+          content: { type: 'string', description: 'A clean, organized write-up in the owner’s words. Short Markdown bullets are fine.' },
+          mode: { type: 'string', enum: ['replace', 'append'], description: 'append adds to the section; replace (the default) rewrites it.' },
         },
         required: ['section', 'content'],
         additionalProperties: false,
@@ -80,7 +80,7 @@ export function memoryTools(host: MemoryToolHost): AgentTool<any>[] {
       if ('proposed' in written) return ok({ proposed: written.proposed, say: `I've proposed an update to “${written.title}” in your Handbook; it's waiting for your OK in the Inbox.` }, `Proposed a change to “${written.title}”`);
       const s = written;
       const n = host.interviewing() ? next() : undefined;
-      const say = host.interviewing() ? (n ? `Got it — that's “${s.title}” written. Next, ${n.ask}?` : `That's everything: your Handbook is written. The team works from it from now on.`) : `Added to “${s.title}” in your Handbook.`;
+      const say = host.interviewing() ? (n ? `That's “${s.title}” written. Next, ${n.ask}?` : `That's everything: your Handbook is written. The team works from it from now on.`) : `Added to “${s.title}” in your Handbook.`;
       if (host.interviewing() && !n) host.setInterview(false);
       return ok({ section: s.id, next: n ? `${n.title}: ${n.ask}` : null, say }, `Wrote “${s.title}”`);
     },
@@ -89,10 +89,10 @@ export function memoryTools(host: MemoryToolHost): AgentTool<any>[] {
   const remember: AgentTool<{ text?: unknown; kind?: unknown }> = {
     spec: {
       name: 'remember_this',
-      description: "Remember something durable the owner told you or asked you to remember (a fact, a preference, a decision, a person or client, a standing rule), as one self-contained sentence. Never store passwords, keys or card numbers.",
+      description: "Save something durable the owner told you or asked you to remember: a fact, a preference, a decision, a person or client, a standing rule. Refuses anything that looks like a password, key or card number.",
       parameters: {
         type: 'object',
-        properties: { text: { type: 'string' }, kind: { type: 'string', enum: MEMORY_KINDS.filter((k) => k !== 'excerpt') } },
+        properties: { text: { type: 'string', description: 'One self-contained sentence that names who and what.' }, kind: { type: 'string', enum: MEMORY_KINDS.filter((k) => k !== 'excerpt') } },
         required: ['text'],
         additionalProperties: false,
       },

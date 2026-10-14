@@ -26,7 +26,7 @@ export async function uploadFiles(files: Iterable<File>, scope?: string): Promis
     try {
       added.push((await api.addCard(file, scope)).card);
     } catch (err) {
-      errors.push(`${file.name}: ${err instanceof ApiError ? err.message : 'it could not be shared.'}`);
+      errors.push(`${file.name}: ${err instanceof ApiError ? err.message : 'it could not be shared. Try another file.'}`);
     }
   }
   return { added, errors };

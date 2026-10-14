@@ -42,5 +42,7 @@ test('add someone from the directory to the team', async ({ page }) => {
   await page.goto('/app/team');
   await expect(page.locator('[id="tech-lead"]')).toBeVisible();
   await page.locator('[id="tech-lead"]').getByRole('button', { name: /^Let .* go$/ }).click();
+  // The card asks first; the same words confirm it.
+  await page.locator('[id="tech-lead"]').getByRole('button', { name: /^Let .* go$/ }).click();
   await expect(page.locator('[id="tech-lead"]')).toHaveCount(0);
 });

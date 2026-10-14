@@ -17,7 +17,7 @@ export function ChiefPrompt() {
     api
       .chiefPrompt()
       .then(setView)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the prompt.'));
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the prompt. Reload the page to try again.'));
   }, []);
   const name = chiefName.value;
   return (

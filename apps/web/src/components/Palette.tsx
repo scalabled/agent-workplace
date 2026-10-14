@@ -270,6 +270,9 @@ function ListDialog() {
             }}
           />
           <kbd class="palette-esc">Esc</kbd>
+          <button type="button" class="icon-button palette-close" aria-label="Close" onClick={closePalette}>
+            <Icon name="close" size={20} />
+          </button>
         </div>
         <ul id="palette-list" role="listbox" class="palette-list" aria-label="Results">
           {results.map((item, i) => (
@@ -350,6 +353,9 @@ function PromptDialog({ ask }: { ask: PalettePrompt }) {
             }}
           />
           <kbd class="palette-esc">Esc</kbd>
+          <button type="button" class="icon-button palette-close" aria-label="Close" onClick={closePalette}>
+            <Icon name="close" size={20} />
+          </button>
         </div>
         {error ? (
           <p class="palette-empty" id="palette-prompt-help" role="alert">

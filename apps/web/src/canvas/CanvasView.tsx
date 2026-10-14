@@ -154,7 +154,7 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
             <h1 id="canvas-title" class="canvas-title">
               {c.title}
             </h1>
-            <CopyLink page={paths.canvasItem(canvasId)} label="Copy link to this" />
+            <CopyLink page={paths.canvasItem(canvasId)} label={c.kind === 'app' ? 'Copy link to this app' : 'Copy link to this document'} />
           </div>
         </div>
         <div class="canvas-actions">
@@ -218,13 +218,13 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
           title={`Edit “${c.title}”`}
           lede={`Say what should change. ${chiefName.value} builds a new version; this one stays on screen until it is ready, and every version is kept.`}
           label="What should change?"
-          placeholder={c.kind === 'app' ? 'e.g. Add a dark mode, and split the bill by percentage too' : 'e.g. Change the date to Saturday and put the prices in a table'}
+          placeholder={c.kind === 'app' ? 'For example: Add a dark mode, and split the bill by percentage too' : 'For example: Change the date to Saturday and put the prices in a table'}
           value=""
           maxLength={4000}
           min={3}
           multiline
           action="Make the change"
-          save={async (change) => ((await run(() => api.reviseCanvas(c.canvasId, change), 'That did not start.')) ? null : 'That did not start. Try again.')}
+          save={async (change) => ((await run(() => api.reviseCanvas(c.canvasId, change), 'That did not start. Try again.')) ? null : 'That did not start. Try again.')}
           onClose={() => setEditing(false)}
         />
       )}
@@ -266,7 +266,7 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
         {c.status === 'failed' && (
           <div class="canvas-failed">
             <p>{c.error ?? 'The build failed.'}</p>
-            <button type="button" class="button-primary button-small needs-contributor" disabled={busy} onClick={() => void run(() => api.retryCanvas(c.canvasId), 'That did not start.')}>
+            <button type="button" class="button-primary button-small needs-contributor" disabled={busy} onClick={() => void run(() => api.retryCanvas(c.canvasId), 'That did not start. Try again.')}>
               Build it again
             </button>
           </div>
@@ -279,7 +279,7 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
         <div class="canvas-report" role="alert">
           <p>
             It reported {reported.length === 1 ? 'a problem' : `${reported.length} problems`} when it ran.{' '}
-            <button type="button" class="button-primary button-small needs-contributor" disabled={busy} onClick={() => void run(() => api.repairCanvas(c.canvasId, reported), 'That did not start.')}>
+            <button type="button" class="button-primary button-small needs-contributor" disabled={busy} onClick={() => void run(() => api.repairCanvas(c.canvasId, reported), 'That did not start. Try again.')}>
               Fix {reported.length === 1 ? 'it' : 'them'}
             </button>
           </p>
@@ -301,7 +301,7 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
           class="canvas-change needs-contributor"
           onSubmit={(e) => {
             e.preventDefault();
-            if (change.trim()) void run(() => api.reviseCanvas(c.canvasId, change.trim()), 'That did not start.').then((ok) => ok && setChange(''));
+            if (change.trim()) void run(() => api.reviseCanvas(c.canvasId, change.trim()), 'That did not start. Try again.').then((ok) => ok && setChange(''));
           }}
         >
           <label class="visually-hidden" for="canvas-change">
@@ -336,7 +336,7 @@ export function CanvasView({ canvasId }: { canvasId: string }) {
                     dropCanvas(c.canvasId);
                     navigate(paths.canvas);
                   })
-                  .catch((err) => setError(errorOf(err, 'That did not go through.')))
+                  .catch((err) => setError(errorOf(err, 'That did not go through. Try again.')))
               }
             >
               Delete this version

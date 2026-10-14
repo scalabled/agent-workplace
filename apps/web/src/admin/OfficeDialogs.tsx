@@ -54,7 +54,7 @@ export function OfficeDialogs() {
       lede="For another business: its own Chief of Staff, team, memory and files, kept apart from this one. You choose its Chief of Staff next."
       label="Its name"
       value=""
-      placeholder="e.g. Amethyst & Co"
+      placeholder="For example: Amethyst & Co"
       maxLength={ORG_NAME_MAX}
       min={2}
       action="Start the office"

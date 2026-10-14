@@ -48,8 +48,8 @@ export function researchTools(ctx: ResearchContext): ResearchKit {
       tools.push({
         spec: {
           name: 'web_search',
-          description: 'Search the web for current information. Returns a short cited answer and its source URLs.',
-          parameters: { type: 'object', properties: { query: { type: 'string', description: 'What to search for, specific and self-contained' } }, required: ['query'], additionalProperties: false },
+          description: 'Search the web for current facts (prices, dates, rules, news). Returns a short cited answer and its source URLs. Fails when the daily search limit is reached.',
+          parameters: { type: 'object', properties: { query: { type: 'string', description: 'What to search for: specific and self-contained, with names, places and dates.' } }, required: ['query'], additionalProperties: false },
         },
         async execute(args: { query?: unknown }, tc) {
           const query = typeof args.query === 'string' ? args.query : '';
@@ -77,12 +77,12 @@ export function researchTools(ctx: ResearchContext): ResearchKit {
     tools.push({
       spec: {
         name: 'fetch_page',
-        description: 'Read a public web page as text (title and main content). Use it for a known URL, for example one a search returned.',
+        description: 'Read a public web page as text (title and main content). Use it for a known URL, such as one a search returned. Returns the title, the final URL and the text. Fails for private addresses, files that are not text, pages over 2 MB, slow sites and the daily limit.',
         parameters: {
           type: 'object',
           properties: {
-            url: { type: 'string', description: 'The http(s) URL to read' },
-            max_chars: { type: 'integer', description: 'Most characters to return (default 20000, at most 60000)' },
+            url: { type: 'string', description: 'The http or https URL to read.' },
+            max_chars: { type: 'integer', description: 'The most characters to return: 20000 by default, 60000 at most.' },
           },
           required: ['url'],
           additionalProperties: false,
@@ -110,6 +110,6 @@ export function researchTools(ctx: ResearchContext): ResearchKit {
     can.push('read a web page (fetch_page)');
   }
 
-  const describe = can.length ? `You can ${can.join(', ')}. Cite the sources you rely on by name, and mark anything you could not confirm as (unverified).` : '';
+  const describe = can.length ? `You can ${can.join(', ')}. Name the source of each fact you look up.` : '';
   return { tools, hosted, describe };
 }

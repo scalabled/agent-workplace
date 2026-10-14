@@ -32,10 +32,10 @@ export function mediaTools(host: MediaToolHost): AgentTool<any>[] {
     spec: {
       name: 'make_image',
       description:
-        'Make an image from a description (a product shot, a social post graphic, a banner, a logo idea, an illustration). Describe it fully: subject, style, colours, mood, any text on it. It takes a moment; you will post it here when it is ready, and it is kept in Files. Say you are making it, in a sentence.',
+        'Make an image from a description: a product shot, a social post graphic, a banner, a logo idea, an illustration. It takes a moment and is made in the background; you post it here when it is ready, and it is kept in Files. Returns the file id. Tell the owner in one sentence that you are making it. Fails when no image model is set up.',
       parameters: {
         type: 'object',
-        properties: { prompt: { type: 'string', description: 'The full description of the image.' }, aspect: { type: 'string', enum: [...IMAGE_ASPECTS], description: '1:1 square (default), 16:9 wide, 4:3, or 3:4 tall.' } },
+        properties: { prompt: { type: 'string', description: 'The full description: subject, style, colors, mood, and any text on the image.' }, aspect: { type: 'string', enum: [...IMAGE_ASPECTS], description: '1:1 square (default), 16:9 wide, 4:3, or 3:4 tall.' } },
         required: ['prompt'],
         additionalProperties: false,
       },
@@ -43,7 +43,7 @@ export function mediaTools(host: MediaToolHost): AgentTool<any>[] {
     },
     async execute(args) {
       const prompt = str(args.prompt);
-      if (prompt.length < 3) return fail('Describe the image first.', 'Say what it shows, its style and colours.');
+      if (prompt.length < 3) return fail('Describe the image first.', 'Say what it shows, its style and colors.');
       const r = await host.image({ prompt: prompt.slice(0, FILE_PROMPT_MAX), ...(typeof args.aspect === 'string' ? { aspect: args.aspect } : {}) });
       if (!r.ok) return fail(r.message, 'Tell the owner what is needed, or describe the image in words instead.');
       return ok({ fileId: r.file.fileId, status: r.file.status, say: `I'm making it now: “${r.file.title}”. It'll be here in a moment, and in [Files](/app/files).` }, `Making an image: ${r.file.title}`);
@@ -55,7 +55,7 @@ export function mediaTools(host: MediaToolHost): AgentTool<any>[] {
     const make: AgentTool<{ prompt?: unknown; aspect?: unknown; seconds?: unknown }> = {
       spec: {
         name: 'make_video',
-        description: `Make a short video (up to ${VIDEO_SECONDS_MAX} seconds) from a description: a product teaser, a social clip, an animated scene. Describe the scene, the camera movement and the mood. It takes a minute or two; you will post it here when it is ready, and it is kept in Files.`,
+        description: `Make a short video, up to ${VIDEO_SECONDS_MAX} seconds, from a description: a product teaser, a social clip, an animated scene. It takes a minute or two and is made in the background; you post it here when it is ready, and it is kept in Files. Returns the file id. Tell the owner in one sentence that you are making it. Fails when no video model is set up.`,
         parameters: {
           type: 'object',
           properties: {
@@ -87,10 +87,10 @@ export function stepImageTool(make: (req: { prompt: string; aspect?: string }) =
     spec: {
       name: 'make_image',
       description:
-        'Make an image for this piece of work (a product shot, a social graphic, a banner, an illustration) when the deliverable needs one. Describe it fully. Returns Markdown to put in your work where the image belongs. At most two per step.',
+        'Make an image for this piece of work when the deliverable needs one: a product shot, a social graphic, a banner, an illustration. Waits until the image is ready and returns Markdown; put it in your work where the image belongs. Use it at most twice per step. Fails when the image cannot be made; then describe the image in words instead.',
       parameters: {
         type: 'object',
-        properties: { prompt: { type: 'string', description: 'The full description of the image.' }, aspect: { type: 'string', enum: [...IMAGE_ASPECTS] } },
+        properties: { prompt: { type: 'string', description: 'The full description: subject, style, colors, mood, and any text on the image.' }, aspect: { type: 'string', enum: [...IMAGE_ASPECTS], description: '1:1 square (default), 16:9 wide, 4:3, or 3:4 tall.' } },
         required: ['prompt'],
         additionalProperties: false,
       },
@@ -98,7 +98,7 @@ export function stepImageTool(make: (req: { prompt: string; aspect?: string }) =
     },
     async execute(args) {
       const prompt = str(args.prompt);
-      if (prompt.length < 3) return fail('Describe the image first.', 'Say what it shows, its style and colours.');
+      if (prompt.length < 3) return fail('Describe the image first.', 'Say what it shows, its style and colors.');
       const r = await make({ prompt: prompt.slice(0, FILE_PROMPT_MAX), ...(typeof args.aspect === 'string' ? { aspect: args.aspect } : {}) });
       if (!r.ok) return fail(r.message, 'Describe the image in words in your work instead.');
       if (r.file.status !== 'ready' || !r.file.url) return fail(r.file.error ?? 'The image could not be made.', 'Describe the image in words in your work instead.');

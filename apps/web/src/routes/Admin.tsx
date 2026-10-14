@@ -246,22 +246,22 @@ function General() {
         </h2>
         <ul class="admin-links">
           <li>
-            <Link href={paths.floor}>Coworkers</Link> — open anyone’s profile, then “How they work”: instructions, tools, model and skills.
+            <Link href={paths.floor}>Coworkers</Link>: open anyone’s profile, then “How they work” to see their instructions, tools, model and skills.
           </li>
           <li>
-            <Link href={paths.chief}>How {chiefName.value} works</Link> — the exact prompt and tools.
+            <Link href={paths.chief}>How {chiefName.value} works</Link>: the exact prompt and tools.
           </li>
           <li>
-            <Link href={paths.skills}>Skills</Link> — the methods coworkers follow, editable.
+            <Link href={paths.skills}>Skills</Link>: the methods coworkers follow. You can edit them.
           </li>
           <li>
-            <Link href={paths.connectors}>Connectors</Link> — services the team may use, and what needs your OK.
+            <Link href={paths.connectors}>Connectors</Link>: services the team may use, and what needs your OK.
           </li>
           <li>
-            <Link href={paths.automations}>Automations</Link> — work that starts by itself.
+            <Link href={paths.automations}>Automations</Link>: work that starts by itself.
           </li>
           <li>
-            <Link href={paths.handbook}>Handbook</Link> and <Link href={paths.memory}>Memory</Link> — what the team knows about the business.
+            <Link href={paths.handbook}>Handbook</Link> and <Link href={paths.memory}>Memory</Link>: what the team knows about the business.
           </li>
         </ul>
       </section>
@@ -281,7 +281,7 @@ function People() {
     api
       .listMembers()
       .then(setData)
-      .catch((err) => setError(errorOf(err, 'Could not load the people.')));
+      .catch((err) => setError(errorOf(err, 'Could not load the people. Reload the page to try again.')));
   }, []);
   const run = async (fn: () => Promise<MembersResponse>) => {
     setBusy(true);
@@ -420,7 +420,7 @@ function Usage() {
     api
       .adminUsage(days)
       .then((r) => live && (setU(r), setError(null)))
-      .catch((err) => live && setError(errorOf(err, 'Could not load the usage.')));
+      .catch((err) => live && setError(errorOf(err, 'Could not load the usage. Reload the page to try again.')));
     return () => void (live = false);
   }, [days]);
   const peak = useMemo(() => Math.max(1, ...(u?.byDay ?? []).map((d) => d.input + d.output)), [u]);
@@ -713,7 +713,7 @@ function ConfigSection({ group }: { group: ConfigGroup }) {
     api
       .adminConfig()
       .then(setData)
-      .catch((err) => setError(errorOf(err, 'Could not load the settings.')));
+      .catch((err) => setError(errorOf(err, 'Could not load the settings. Reload the page to try again.')));
   }, [group]);
   const g = CONFIG_GROUPS.find((x) => x.id === group)!;
   const options = CONFIG_OPTIONS.filter((o) => o.group === group);

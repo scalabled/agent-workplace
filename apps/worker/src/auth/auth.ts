@@ -294,8 +294,8 @@ export async function mayCreateOrg(env: Env, email: string): Promise<{ ok: true 
 
 const ROLE_REFUSAL: Record<Role, string> = {
   reader: 'Sign in to continue.',
-  contributor: 'Readers can see everything but not change it. An owner can make you a contributor on the People page.',
-  owner: 'Only an owner can change this. Ask an owner, or they can make you one on the People page.',
+  contributor: 'Readers can see everything but not change it. An owner can make you a contributor in Admin, under People and roles.',
+  owner: 'Only an owner can change this. Ask an owner. They can make you an owner in Admin, under People and roles.',
 };
 
 /**

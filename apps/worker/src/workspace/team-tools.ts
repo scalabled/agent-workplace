@@ -40,8 +40,8 @@ export function teamTools(host: TeamToolHost): AgentTool<any>[] {
   const ask: AgentTool<{ who?: unknown; question?: unknown }> = {
     spec: {
       name: 'ask_coworker',
-      description: 'Ask a coworker a quick question in their field (by name or role: "Maya", "the bookkeeper", "a lawyer") and pass their answer on to the owner. Use it when the answer needs their expertise.',
-      parameters: { type: 'object', properties: { who: { type: 'string' }, question: { type: 'string' } }, required: ['who', 'question'], additionalProperties: false },
+      description: 'Ask a coworker a quick question in their field, by name or role ("Maya", "the bookkeeper", "a lawyer"). Use it when the answer needs their expertise. Returns their answer and a link to their desk; pass the answer on to the owner. Fails when nobody matches; then try their role.',
+      parameters: { type: 'object', properties: { who: { type: 'string', description: 'A name or a role.' }, question: { type: 'string', description: 'The question, with the context they need.' } }, required: ['who', 'question'], additionalProperties: false },
       mock: { triggers: TEAM_TRIGGERS.ask, args: (text: string) => ({ who: whoIn(TEAM_TRIGGERS.ask[0]!, text, 1), question: text }), reply: sayOf },
     },
     async execute(args, ctx) {
@@ -56,8 +56,8 @@ export function teamTools(host: TeamToolHost): AgentTool<any>[] {
   const hand: AgentTool<{ who?: unknown; message?: unknown }> = {
     spec: {
       name: 'hand_to_coworker',
-      description: "Hand the owner's request to the coworker whose job it is (by name or role). It lands on their desk with your note; they answer there and can start the work. Tell the owner, with a link to their desk.",
-      parameters: { type: 'object', properties: { who: { type: 'string' }, message: { type: 'string', description: "The request, in the owner's words, with any context they gave." } }, required: ['who', 'message'], additionalProperties: false },
+      description: "Hand the owner's request to the coworker whose job it is, by name or role. It lands on their desk with your note; they answer there and can start the work. Returns a link to their desk: tell the owner who has it, with the link. Fails when nobody matches; then try their role or handle it yourself.",
+      parameters: { type: 'object', properties: { who: { type: 'string', description: 'A name or a role.' }, message: { type: 'string', description: "The request, in the owner's words, with any context they gave." } }, required: ['who', 'message'], additionalProperties: false },
       mock: { triggers: TEAM_TRIGGERS.hand, args: (text: string) => ({ who: whoIn(TEAM_TRIGGERS.hand[0]!, text, 4) || whoIn(TEAM_TRIGGERS.hand[1]!, text, 2), message: text }), reply: sayOf },
     },
     async execute(args) {
@@ -74,7 +74,7 @@ export function teamTools(host: TeamToolHost): AgentTool<any>[] {
     spec: {
       name: 'hire_coworker',
       description:
-        'Hire a coworker onto the owner’s team (by name or role: "a bookkeeper", "Maya"), only when the owner asks you to hire someone or agrees to your suggestion. They join at once, with a welcome in Talk; the owner can let them go later. When the owner needs a role nobody on the team has, suggest who to hire first.',
+        'Hire a coworker onto the owner’s team, by name or role ("a bookkeeper", "Maya"). Use it only when the owner asks you to hire someone or agrees to your suggestion; when they need a role nobody has, suggest someone first. They join at once, with a welcome in Talk, and the owner can let them go later. Returns their name, title and desk link. Fails when nobody in the directory fits.',
       parameters: { type: 'object', properties: { who: { type: 'string', description: 'A name or a role.' } }, required: ['who'], additionalProperties: false },
       mock: { triggers: TEAM_TRIGGERS.hire, args: (text: string) => ({ who: whoIn(TEAM_TRIGGERS.hire[0]!, text, 1).replace(/\s+(to|for|who|and|please)\b.*$/i, '').trim() }), reply: sayOf },
     },
@@ -91,13 +91,13 @@ export function teamTools(host: TeamToolHost): AgentTool<any>[] {
     spec: {
       name: 'call_meeting',
       description:
-        'Call a meeting: coworkers from the team sit down together now and talk a question through, one after another, with you moderating; the first person invited chairs and sums up, and you bring the outcome back here. Use it when the owner wants a meeting, a brainstorm, the team’s views or a decision talked through. Invite 2 to 4 people by name or role (leave who empty and the people best placed for the topic are invited). For a project, pass project_id and its own team meets about it. The owner can listen in and take the floor. Tell them, with the link.',
+        'Call a meeting now: coworkers talk a question through in turns, with you moderating. Use it when the owner wants a meeting, a brainstorm, the team’s views or a decision talked through. Invite 2 to 4 people by name or role, or leave who empty to invite those best placed for the topic. The first person invited chairs and sums up, and you bring the outcome back here. For a project, pass project_id and its own team meets. The owner can listen in and take the floor. Returns the meeting link: give it to the owner. Fails when nobody on the team fits.',
       parameters: {
         type: 'object',
         properties: {
           topic: { type: 'string', description: 'The question to settle, in a sentence, with any context the owner gave.' },
-          who: { type: 'array', items: { type: 'string' }, description: 'Names or roles from the team; the first chairs.' },
-          project_id: { type: 'string', description: 'A project (prj_…) whose team should meet about it.' },
+          who: { type: 'array', items: { type: 'string' }, description: 'Names or roles from the team. The first one chairs.' },
+          project_id: { type: 'string', description: 'The id (prj_…) of a project whose team should meet about it.' },
         },
         required: ['topic'],
         additionalProperties: false,

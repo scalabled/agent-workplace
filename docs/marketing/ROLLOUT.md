@@ -40,10 +40,10 @@ We approve their work, and sometimes we argue with them in the meeting room.
 
 ### Lines to reuse
 
-- "Hire a team in a sentence. Watch it work."
+- "Hire an AI team. Watch it work."
 - "Your Chief of Staff runs the office. You make the calls."
 - "Put the team in a room."
-- "Nothing leaves the building without your yes."
+- "Nothing goes out until you approve it."
 - "This post was planned in a meeting of AI coworkers. A human approved it."
 
 ### Honesty rules (non-negotiable)

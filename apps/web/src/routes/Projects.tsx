@@ -73,7 +73,7 @@ export function Projects() {
             <Icon name="projects" size={28} class="empty-icon" />
             <p class="empty-title">Hire a team in a sentence</p>
             <p class="empty-text">
-              Tell {name} the outcome: “put together a team to launch our spring menu”. They pick the right specialists from the office, draft a plan where every step is reviewed, and ask for your OK before anyone starts.
+              Tell {name} the outcome you want, like “put together a team to launch our spring menu”. {name} picks the people and drafts a plan with a review for each step. Nothing starts until you approve it.
             </p>
             <button type="button" class="button-primary" onClick={staff}>
               Staff a team
@@ -111,7 +111,7 @@ export function Projects() {
             <Icon name="projects" size={28} class="empty-icon" />
             <p class="empty-title">Nothing delegated yet</p>
             <p class="empty-text">
-              Your Everyday project holds one-off tasks. Ask {name} to look into something; it runs here in the background while you keep talking, and the result lands in Talk.
+              Ask {name} to look into something. It runs here while you keep talking, and the result comes to Talk.
             </p>
             <button type="button" class="button-primary" onClick={delegate}>
               Delegate something

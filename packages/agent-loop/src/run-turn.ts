@@ -6,14 +6,30 @@ import type { AgentTool, CheckpointDirective, LoopEvent, RunTurnOptions, ToolOut
 
 export const DEFAULT_MAX_STEPS = 8;
 export const HARD_MAX_STEPS = 24;
-/** Tool output longer than this is cut before it goes back to the model (ARCHITECTURE §4.1). */
+/**
+ * Tool output longer than this is cut before it goes back to the model (ARCHITECTURE §4.1). The cut keeps the start
+ * and the end, with a stub between them that says what was left out (`clipToolOutput`).
+ */
 export const TOOL_OUTPUT_LIMIT = 20_000;
 /** An identical call (same tool, same arguments) that already failed this many times is not run again [BB]. */
 export const IDENTICAL_FAILURE_LIMIT = 2;
+/**
+ * An identical call runs at most this many times per turn. A later repeat does not run: the model gets the earlier
+ * successful result back with a note to use it or try something different.
+ */
+export const IDENTICAL_CALL_LIMIT = 2;
+/**
+ * After this many tool rounds in a row in which every call failed, the turn makes one tool-free wrap-up call and
+ * ends as `stuck`, so a failing loop does not spend the whole step ceiling.
+ */
+export const STUCK_ROUND_LIMIT = 4;
+
+const STUCK_NOTE = `Your last ${STUCK_ROUND_LIMIT} rounds of tool calls all failed. Do not call tools again in this turn. Say what you tried and what blocked you. Then give your best answer with what you have.`;
 
 /**
  * One agent turn: call the model, run any tool calls (in parallel), feed results back, repeat until the
- * model stops or the step ceiling is hit (then one tool-free wrap-up call). Between tool rounds the
+ * model stops or the step ceiling is hit (then one tool-free wrap-up call; the same after `STUCK_ROUND_LIMIT` failed
+ * tool rounds in a row, which ends the turn as `stuck`). Between tool rounds the
  * optional `checkpoint` hook can inject steering or stop the turn. A call that spends its whole budget thinking
  * (ends `length` with nothing to show) is sent again once with more room and less effort. Never throws for model
  * or tool failures: they come back as `finish: 'error'` (with the partial text) or as tool error outcomes.
@@ -33,7 +49,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
   const transcript: ChatMessage[] = [...opts.messages];
   const produced: ChatMessage[] = [];
   const usage: TurnResult['usage'] = { input: 0, output: 0, usd: 0 };
-  const failures = new Map<string, number>();
+  const repeats = new Map<string, Repeat>();
   const texts: string[] = [];
   const citations = new Map<string, { url: string; title?: string }>();
   let steps = 0;
@@ -44,6 +60,8 @@ export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
   let reasoningEffort = opts.reasoningEffort;
   let budget = opts.budget;
   let lengthRetryLeft = opts.emptyLengthRetry !== false;
+  let failedRounds = 0;
+  let stuck = false;
 
   const addUsage = (u: TurnResult['usage']) => {
     usage.input += u.input;
@@ -68,7 +86,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
 
   while (true) {
     if (signal.aborted) return result('cancelled');
-    const wrapUp = steps >= maxSteps;
+    const wrapUp = stuck || steps >= maxSteps;
     steps++;
     emit({ type: 'step', step: steps, ...(wrapUp ? { wrapUp: true } : {}) });
 
@@ -128,17 +146,17 @@ export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
 
     if (!collected.toolCalls.length || wrapUp) {
       push({ role: 'assistant', content: collected.text });
-      // Reaching the wrap-up call means the step ceiling was hit [BB]: report `length` even if it answered.
-      if (wrapUp) return result('length');
+      // Reaching the wrap-up call means the step ceiling was hit [BB] or the turn is stuck: report that even if it answered.
+      if (wrapUp) return result(stuck ? 'stuck' : 'length');
       return result(collected.finish === 'tool_calls' ? 'stop' : (collected.finish ?? 'incomplete'));
     }
 
     push({ role: 'assistant', content: collected.text, toolCalls: collected.toolCalls });
-    const outcomes = await Promise.all(collected.toolCalls.map((call) => runTool(call, tools, failures, steps, signal, emit)));
+    const outcomes = await Promise.all(collected.toolCalls.map((call) => runTool(call, tools, repeats, steps, signal, emit)));
     toolCalls += collected.toolCalls.length;
     collected.toolCalls.forEach((call, i) => {
       const o = outcomes[i]!;
-      push({ role: 'tool', toolCallId: call.id, name: call.name, content: clip(o.ok ? o.content : (o.content ?? o.error)), ...(o.ok ? {} : { isError: true }) });
+      push({ role: 'tool', toolCallId: call.id, name: call.name, content: clipToolOutput(o.ok ? o.content : (o.content ?? o.error)), ...(o.ok ? {} : { isError: true }) });
     });
 
     const ender = collected.toolCalls.find((_, i) => {
@@ -148,6 +166,7 @@ export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
     if (ender) return result('stop', { endedBy: ender.name });
     if (signal.aborted) return result('cancelled');
 
+    const notes: string[] = [];
     if (opts.checkpoint) {
       let directive: CheckpointDirective | void;
       try {
@@ -155,12 +174,20 @@ export async function runTurn(opts: RunTurnOptions): Promise<TurnResult> {
       } catch (err) {
         return result('error', { error: { message: err instanceof Error ? err.message : String(err), code: 'checkpoint' } });
       }
-      const notes = (directive?.inject ?? []).map((s) => s.trim()).filter(Boolean);
-      if (notes.length) push({ role: 'user', content: notes.join('\n\n') });
+      notes.push(...(directive?.inject ?? []).map((s) => s.trim()).filter(Boolean));
       emit({ type: 'checkpoint', step: steps, injected: notes.length });
-      if (directive?.stop === 'cancelled') return result('cancelled');
-      if (directive?.stop === 'done') return result('stop');
+      if (directive?.stop) {
+        if (notes.length) push({ role: 'user', content: notes.join('\n\n') });
+        return result(directive.stop === 'cancelled' ? 'cancelled' : 'stop');
+      }
     }
+    failedRounds = outcomes.every((o) => !o.ok) ? failedRounds + 1 : 0;
+    if (failedRounds >= STUCK_ROUND_LIMIT) {
+      stuck = true;
+      notes.push(STUCK_NOTE);
+    }
+    // One user message: some providers reject two in a row.
+    if (notes.length) push({ role: 'user', content: notes.join('\n\n') });
   }
 }
 
@@ -178,10 +205,18 @@ function stableJson(value: unknown): string {
     .join(',')}}`;
 }
 
+/** What the turn has seen of one signature (tool name plus arguments). */
+interface Repeat {
+  calls: number;
+  failures: number;
+  /** Content of the latest successful run. */
+  ok?: string;
+}
+
 async function runTool(
   call: ToolCall,
   tools: Map<string, AgentTool<any>>,
-  failures: Map<string, number>,
+  repeats: Map<string, Repeat>,
   step: number,
   signal: AbortSignal,
   emit: (e: LoopEvent) => void,
@@ -207,7 +242,14 @@ async function runTool(
   if (!tool) return end({ ok: false, error: `There is no tool called "${call.name}". Available tools: ${[...tools.keys()].join(', ') || 'none'}.` }, 'unknown tool');
 
   const signature = signatureOf(call.name, args);
-  if ((failures.get(signature) ?? 0) >= IDENTICAL_FAILURE_LIMIT) {
+  const seen = repeats.get(signature) ?? { calls: 0, failures: 0 };
+  repeats.set(signature, seen);
+  seen.calls++;
+  if (seen.calls > IDENTICAL_CALL_LIMIT && seen.ok !== undefined) {
+    const note = `[You already called ${call.name} with these arguments, and this is the earlier result. Use it, or try something different.]`;
+    return end({ ok: true, content: `${note}\n\n${seen.ok}`, summary: 'repeated call' });
+  }
+  if (seen.failures >= IDENTICAL_FAILURE_LIMIT) {
     return end({ ok: false, error: 'This identical tool call has already failed twice. Change the inputs, try another approach, or report the blocker.' }, 'repeated failure');
   }
   if (signal.aborted) return end({ ok: false, error: 'Cancelled before the tool ran.' }, 'cancelled');
@@ -218,10 +260,29 @@ async function runTool(
   } catch (err) {
     outcome = { ok: false, error: `The tool failed: ${err instanceof Error ? err.message : String(err)}` };
   }
-  failures.set(signature, outcome.ok ? 0 : (failures.get(signature) ?? 0) + 1);
+  if (outcome.ok) {
+    seen.failures = 0;
+    seen.ok = outcome.content;
+  } else seen.failures++;
   return end(outcome, outcome.ok ? undefined : 'failed');
 }
 
-function clip(s: string): string {
-  return s.length > TOOL_OUTPUT_LIMIT ? `${s.slice(0, TOOL_OUTPUT_LIMIT)}\n…[truncated ${s.length - TOOL_OUTPUT_LIMIT} characters]` : s;
+/**
+ * Long tool output keeps its start and its end; a stub line between them says what was left out. The cuts move to
+ * a line break when one is close, so neither part ends or starts mid-line.
+ */
+export function clipToolOutput(s: string, limit = TOOL_OUTPUT_LIMIT): string {
+  if (s.length <= limit) return s;
+  const headMax = Math.floor(limit * 0.7);
+  const tailMax = limit - headMax;
+  let head = headMax;
+  const headBreak = s.lastIndexOf('\n', headMax);
+  if (headBreak >= headMax * 0.8) head = headBreak;
+  let tail = s.length - tailMax;
+  const tailBreak = s.indexOf('\n', tail - 1);
+  if (tailBreak >= 0 && tailBreak < tail + tailMax * 0.2) tail = tailBreak + 1;
+  const cut = s.slice(head, tail);
+  const lines = Math.max(1, cut.split('\n').length - (cut.startsWith('\n') ? 1 : 0) - (cut.endsWith('\n') ? 1 : 0));
+  const stub = `[tool output elided: ${lines} ${lines === 1 ? 'line' : 'lines'} / ${cut.length} chars. Narrow the call to see that part.]`;
+  return `${s.slice(0, head)}\n${stub}\n${s.slice(tail)}`;
 }

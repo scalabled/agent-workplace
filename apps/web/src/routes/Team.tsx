@@ -4,7 +4,7 @@
 import { coworkerAgentId, CHIEF_ID } from '@headcount/protocol';
 import { firstName, personaVoiceRef, type PersonaSlim } from '@headcount/catalog';
 import type { TeamMemberView, TeamResponse } from '@headcount/protocol/ext/team';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { api, ApiError } from '../api/client';
 import { isOwner, mayContribute } from '../auth/session';
 import { catalog, loadCatalog } from '../catalog';
@@ -32,7 +32,7 @@ export function Team() {
     api
       .getTeam()
       .then(setTeam)
-      .catch((err) => setError(errorOf(err, 'Could not load your team.')));
+      .catch((err) => setError(errorOf(err, 'Could not load your team. Reload the page to try again.')));
   }, []);
   const c = catalog.value;
   const lead = currentLead.value;
@@ -44,7 +44,7 @@ export function Team() {
       setTeam(t);
       teamIds.value = t.members.map((m) => m.personaId);
     } catch (err) {
-      setError(errorOf(err, 'That did not go through.'));
+      setError(errorOf(err, 'That did not go through. Try again.'));
     }
   };
   return (
@@ -89,7 +89,7 @@ export function Team() {
                       await api.startInterview();
                       navigate(paths.talk);
                     } catch (err) {
-                      showToast(errorOf(err, 'That did not start.'));
+                      showToast(errorOf(err, 'That did not start. Try again.'));
                     }
                   }}
                 >
@@ -139,6 +139,12 @@ function MemberCard({ member: m, persona: p, team, onTeam, onRemove }: { member:
   const speaker = useSampleSpeaker(agentId, personaVoiceRef(p));
   const speaking = Boolean(localPresence.value[speaker.speakerId]?.speaking);
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const keep = useRef<HTMLButtonElement>(null);
+  // The × that opened the question is gone: focus moves to the safe answer.
+  useEffect(() => {
+    if (confirming) keep.current?.focus();
+  }, [confirming]);
   const [started, setStarted] = useState(m.started ?? null);
   const steward = m.firstTask.kind === 'second-brain';
   const sb = team.secondBrain;
@@ -200,12 +206,27 @@ function MemberCard({ member: m, persona: p, team, onTeam, onRemove }: { member:
               <span class="grant-name">Weekly</span>
             </label>
           )}
-          {isOwner.value && (
-            <button type="button" class="icon-button icon-button-sm team-remove" aria-label={`Let ${first} go`} title="Let them go (they stay in the directory; you can hire them again)" onClick={onRemove}>
+          {isOwner.value && !confirming && (
+            <button type="button" class="icon-button icon-button-sm team-remove" aria-label={`Let ${first} go`} title={`Let ${first} go`} onClick={() => setConfirming(true)}>
               <Icon name="close" size={14} />
             </button>
           )}
         </div>
+        {confirming && (
+          <div class="team-confirm" role="group" aria-label={`Let ${first} go?`}>
+            <p class="page-fine">
+              {first} leaves your team and stays in the directory. You can hire {first} again later.
+            </p>
+            <div class="team-actions">
+              <button type="button" class="button-quiet button-small button-danger" onClick={onRemove}>
+                Let {first} go
+              </button>
+              <button type="button" class="button-quiet button-small" ref={keep} onClick={() => setConfirming(false)}>
+                Keep {first}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </li>
   );

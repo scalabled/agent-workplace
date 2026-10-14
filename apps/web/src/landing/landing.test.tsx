@@ -6,9 +6,9 @@ import { coworkers, counts, images, leads, voiceSamples } from 'virtual:headcoun
 import { hexToOklch, nightAccent } from '../lib/accent';
 import { forcedThemeFor, initTheme, parseChoice, resolveTheme } from '../lib/theme';
 import { ageFloor, curate, hueGap, isSenior, isYoung } from './cast';
-import { countWord, FAQ, LIVING, MEETINGS, MODALITIES, OFFICE, SPEEDS, STEPS, TAGLINE, TALK_POINTS, TIERS, TRUST } from './content';
+import { countWord, FAQ, LIVING, MEETINGS, MODALITIES, OFFICE, STEPS, TAGLINE, TALK_POINTS, TIERS, TRUST } from './content';
 import { Landing } from './Landing';
-import { sampleText } from './LeadCarousel';
+import { hasSample, sampleText } from './LeadCarousel';
 import { srcsetOf } from './Picture';
 import { heroPeople, HERO_SIZE, wallPeople, WALL_SIZE } from './PortraitWall';
 import { DEMO_EXCHANGES, nextExchange, rng } from './sidetalk';
@@ -77,38 +77,35 @@ describe('casting helpers', () => {
 describe('honest copy (INC0 §4: present tense only for what works today)', () => {
   // What Inc 0 verifies. Anything else on the page must say "In the works" or "Planned".
   const BUILT = new Set([
-    'Delegate',
     'Hire your team',
-    'Meet and steer',
-    'Always reachable',
-    'Steer mid-flight',
-    'Text, push-to-talk or voice',
+    'Delegate',
+    'Watch and steer',
+    'Approve',
+    'Ask how it is going',
+    'Change direction',
+    'Type or talk',
     'Voice',
     'Images',
+    'Vision',
     'Video',
     'Documents',
     'Honest AI',
-    'Conversation',
-    'Work',
-    'Reflex',
     'Reflexes',
     'Passing-by chat',
     'Side-talk',
     'Mood and ambience',
-    'Vision',
-    'Approve',
     'Approvals',
     'Receipts',
     'Everyone stop',
-    'Called in a sentence',
-    'Your Chief moderates',
-    'Listen in, or speak up',
-    'The outcome comes to you',
-    'Start in a minute',
-    'Yours alone',
+    'Call a meeting',
+    'A chair and a moderator',
+    'Listen and speak',
+    'Then the work starts',
+    'Sign in with Google',
+    'Private to your office',
     'Bring your people',
   ]);
-  const all = [...STEPS.map((s) => ({ title: s.title, status: s.status })), ...LIVING, ...SPEEDS.map((s) => ({ title: s.name, status: s.status })), ...TALK_POINTS, ...MODALITIES, ...TRUST, ...MEETINGS, ...OFFICE];
+  const all = [...STEPS.map((s) => ({ title: s.title, status: s.status })), ...LIVING, ...TALK_POINTS, ...MODALITIES, ...TRUST, ...MEETINGS, ...OFFICE];
 
   it('gives every capability a status, and "Works today" only to built ones', () => {
     for (const f of all) {
@@ -125,9 +122,10 @@ describe('honest copy (INC0 §4: present tense only for what works today)', () =
     expect(MODALITIES.find((m) => m.title === 'Voice')!.body).not.toMatch(/each coworker/i);
   });
 
-  it('spells in US English', () => {
-    const text = JSON.stringify({ STEPS, LIVING, TALK_POINTS, MODALITIES, TRUST, MEETINGS, OFFICE, FAQ, TIERS });
+  it('spells in US English, without em dashes', () => {
+    const text = JSON.stringify({ TAGLINE, STEPS, LIVING, TALK_POINTS, MODALITIES, TRUST, MEETINGS, OFFICE, FAQ, TIERS });
     expect(text).not.toMatch(/sceptic|labelled|colour|optimis/i);
+    expect(text).not.toContain('\u2014');
   });
 });
 
@@ -219,7 +217,7 @@ describe('Landing page', () => {
     const h1 = host.querySelector('h1')!;
     expect(h1.textContent).toBe(TAGLINE.join(' '));
     // Screen readers get the sentence whole, not word by word.
-    expect(h1.getAttribute('aria-label')).toBe('Hire a team in a sentence. Watch it work.');
+    expect(h1.getAttribute('aria-label')).toBe('Hire an AI team. Watch it work.');
     expect(h1.querySelectorAll('.lp-line[aria-hidden="true"]').length).toBe(TAGLINE.length);
     expect([...host.querySelectorAll('.lp-lead-name')].map((n) => n.textContent)).toEqual(slimIndex.catalog.leads.map((l) => l.name));
     expect(host.textContent).toContain(`${countWord(leads.length, true)} personalities`);
@@ -233,8 +231,8 @@ describe('Landing page', () => {
     const enter = [...host.querySelectorAll('a')].filter((a) => a.textContent?.includes('Enter the office'));
     expect(enter.length).toBeGreaterThan(1);
     for (const a of enter) expect(a.getAttribute('href')).toBe('/app');
-    // Keyless: "Hear …" exactly where a pre-voiced sample ships with the page (never a browser voice).
-    expect(host.querySelectorAll('.lp-voice').length).toBe(leads.filter((l) => voiceSamples[l.id]).length);
+    // Keyless: "Hear …" exactly where a pre-voiced sample says the lead's current words (never a browser voice).
+    expect(host.querySelectorAll('.lp-voice').length).toBe(leads.filter(hasSample).length);
     // The hero image loads first; every other generated image is lazy and has alt text (or is decorative).
     const imgs = [...host.querySelectorAll('img')];
     expect(imgs[0]?.getAttribute('loading')).toBe('eager');
@@ -246,7 +244,8 @@ describe('Landing page', () => {
     // The pricing section ends in a call to action, and the emphasised tier says why, honestly.
     expect(host.querySelector('#pricing .lp-pricing-cta a')?.getAttribute('href')).toBe('/app');
     expect(host.querySelector('.lp-tier-note')?.textContent).toBe('Built for small teams');
-    // Nothing fabricated: no testimonials or customer claims.
+    // Nothing fabricated: no testimonials or customer claims; no em dashes in the copy.
     expect(host.textContent).not.toMatch(/testimonial|trusted by|customers love|\d+\+ (teams|customers|businesses)/i);
+    expect(host.textContent).not.toContain('\u2014');
   });
 });

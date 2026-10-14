@@ -323,7 +323,8 @@ test.describe('reduced motion', () => {
       return s.getState().camera.zoom;
     });
     expect(zoom).toBeCloseTo(5.6, 1);
-    expect((await officeState(page)).lod).toBe(2);
+    // The camera jumps at once; the level of detail follows on the next frame.
+    await expect.poll(async () => (await officeState(page)).lod).toBe(2);
   });
 });
 

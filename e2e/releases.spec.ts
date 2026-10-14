@@ -6,7 +6,7 @@ import { expectNoHorizontalScroll, onboarded } from './helpers';
 test('the releases page: the latest release, a guide to every feature, and links into the app', async ({ page, request }) => {
   await onboarded(request);
   await page.goto('/releases');
-  await expect(page).toHaveTitle(/^Releases — /);
+  await expect(page).toHaveTitle(/^Releases · /);
   await expect(page.getByRole('heading', { level: 1 })).toContainText('What’s new');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   // The app is not loaded on a public page.

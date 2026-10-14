@@ -51,7 +51,7 @@ export function AutonomySection() {
         setData(t);
         trustStop.value = t.stopped;
       })
-      .catch((err) => setError(errorOf(err, 'Could not load the autonomy settings.')));
+      .catch((err) => setError(errorOf(err, 'Could not load the autonomy settings. Reload the page to try again.')));
   useEffect(() => void load(), []);
   // Everyone stop can change from another page or tab.
   useEffect(() => {
@@ -139,7 +139,7 @@ export function AutonomySection() {
           </h2>
           <CopyLink page={paths.admin('autonomy')} label="Copy link to autonomy" what="Link to these settings" />
         </div>
-        <p class="page-fine">For each kind of action: do they ask first, prepare it for your OK, or just do it and tell you. Everything they do is in the audit log.</p>
+        <p class="page-fine">Pick a mode for each kind of action: ask first, prepare for your OK, or act and tell you. The audit log lists everything they do.</p>
         <ul class="trust-classes">
           {data.classes.map((c) => {
             const level = data.policy[c.id];
@@ -208,7 +208,7 @@ export function AutonomySection() {
             ))}
           </ul>
         ) : (
-          <p class="page-fine">None. When you approve an email you can allow more (for the rest of a task, a project or a day); it shows here until it ends or you take it back.</p>
+          <p class="page-fine">None. When you approve an email, you can allow more for a task, a project or a day. That permission shows here until it ends or you take it back.</p>
         )}
       </section>
       {waiting.length > 0 && (
@@ -275,7 +275,7 @@ export function AuditSection() {
       setEntries((cur) => (before ? [...(cur ?? []), ...r.entries] : r.entries));
       setNext(r.next);
     } catch (err) {
-      setError(errorOf(err, 'Could not load the audit log.'));
+      setError(errorOf(err, 'Could not load the audit log. Reload the page to try again.'));
     }
   };
   useEffect(() => {

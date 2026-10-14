@@ -45,7 +45,7 @@ async function shoot(browser: Browser, screen: string, path: string, ready: (pag
  * stop lasts longer than a portrait's fade-in: faces pause off screen, and a full-page capture shows them as left.
  */
 async function revealLanding(page: Page): Promise<void> {
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Hire a team');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Hire an AI team');
   const height = await page.evaluate(() => document.documentElement.scrollHeight);
   for (let y = 0; y <= height; y += 400) {
     await page.evaluate((top) => window.scrollTo(0, top), y);
@@ -73,7 +73,7 @@ test('capture Inc 0.6 screens', async ({ browser, request }) => {
   // 1. The landing page: the first screen, the full page, and the portrait wall with side-talk.
   await setWorkspace(request, { leadId: null, chiefName: null, voiceOn: false });
   await shoot(browser, 'landing-hero', '/', async (page) => {
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Hire a team');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Hire an AI team');
     await page.waitForTimeout(1800); // the kinetic tagline has landed
   });
   await shoot(browser, 'landing-full', '/', revealLanding, DEFAULT, true);

@@ -239,6 +239,16 @@
   font-size: var(--text-sm);
   color: var(--muted);
 }
+@media (pointer: coarse) {
+  .page-crumb {
+    margin-bottom: 0;
+  }
+  .page-crumb a {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--hit);
+  }
+}
 .page-fine {
   color: var(--faint);
   font-size: var(--text-sm);
@@ -482,6 +492,18 @@
   .step-body {
     padding-inline-start: var(--space-4);
   }
+  /* The title keeps the full row; the status and the step's buttons go under it, lined up with the title. */
+  .step-head {
+    flex-wrap: wrap;
+    row-gap: 0;
+  }
+  .step-main {
+    flex-basis: calc(100% - 1.4rem - 10px - 2 * var(--space-3));
+  }
+  .step-status {
+    margin-inline-start: calc(1.4rem + 10px + 2 * var(--space-3));
+    margin-inline-end: auto;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .project-card {
@@ -552,6 +574,15 @@
   grid-template-columns: 1fr auto;
   gap: var(--space-2);
   align-items: end;
+}
+/* Phones: the field takes the full width, so its placeholder stays readable; the button sits under it. */
+@media (max-width: 560px) {
+  .note-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .note-form > button {
+    justify-self: end;
+  }
 }
 .note-input,
 .channel-input {

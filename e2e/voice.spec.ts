@@ -4,13 +4,26 @@ import { fileURLToPath } from 'node:url';
 import { expect, test, type Page } from '@playwright/test';
 import { onboarded, recordFrames, say, setWorkspace, waitForFrame } from './helpers';
 
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+
 /** Pre-voiced landing samples shipped with the page (apps/web/public/marketing/voices). */
-function voiceSamples(): Record<string, { chunks: { file: string }[] }> {
+function voiceSamples(): Record<string, { text: string; chunks: { file: string }[] }> {
   try {
-    return JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'apps/web/public/marketing/voices/manifest.json'), 'utf8'));
+    return JSON.parse(readFileSync(join(ROOT, 'apps/web/public/marketing/voices/manifest.json'), 'utf8'));
   } catch {
     return {};
   }
+}
+
+/**
+ * The line a lead's ▶ says, built as the landing builds it (`sampleText`). A pre-voiced file plays only if it says
+ * exactly this line: after a cast rename the old recordings are skipped and the TTS route speaks.
+ */
+function sampleLine(first: string): string {
+  const quiz = JSON.parse(readFileSync(join(ROOT, 'catalog/leads/match-quiz.json'), 'utf8')) as { try_before_choosing?: { voice_preview_line?: string } };
+  const preview = quiz.try_before_choosing?.voice_preview_line;
+  const intro = `Hi, I'm ${first}.`;
+  return preview ? `${intro} ${preview.replace(/^Hi,\s*/i, '').replace(/^./, (c) => c.toUpperCase())}` : intro;
 }
 
 // The voice path in a real browser (project "voice": worker with --mock-media, Chromium's fake mic).
@@ -70,7 +83,8 @@ test('the landing page plays each lead in their own voice when a speech provider
   const name = ((await first.locator('.lp-lead-name').textContent()) ?? '').trim().split(/\s+/)[0]!;
   // A pre-voiced sample (static audio with its timing) plays without the TTS route; otherwise the route speaks.
   const leadId = await first.evaluate((el) => el.getAttribute('data-lead') ?? '');
-  const sample = voiceSamples()[leadId];
+  const recorded = voiceSamples()[leadId];
+  const sample = recorded?.text === sampleLine(name) ? recorded : null;
   const fetched = sample
     ? page.waitForRequest((r) => r.url().includes('/marketing/voices/') && r.method() === 'GET')
     : page.waitForRequest((r) => r.url().includes('/api/speech/tts') && r.method() === 'POST');

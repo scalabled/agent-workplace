@@ -17,6 +17,12 @@ export function sampleText(first: string, preview: string | null): string {
   return `${intro} ${preview.replace(/^Hi,\s*/i, '').replace(/^./, (c) => c.toUpperCase())}`;
 }
 
+/** A shipped sample plays only when it says this lead's current words (a renamed cast makes old recordings wrong). */
+export function hasSample(lead: Pick<LandingLead, 'id' | 'first'>): boolean {
+  const s = voiceSamples[lead.id];
+  return !!s?.chunks.length && s.text === sampleText(lead.first, voicePreview);
+}
+
 function LeadCard({ lead, canHear, index, total }: { lead: LandingLead; canHear: boolean; index: number; total: number }) {
   const view = useRef<FaceView | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -82,13 +88,13 @@ function LeadCard({ lead, canHear, index, total }: { lead: LandingLead; canHear:
             </ul>
           </div>
         )}
-        <p class="lp-lead-honesty">{lead.first} is an AI coworker. The backstory is character lore, not real events.</p>
+        <p class="lp-lead-honesty">{lead.first} is an AI. The backstory is fiction.</p>
       </div>
     </article>
   );
 }
 
-export function LeadCarousel({ canHear }: { canHear: (leadId: string) => boolean }) {
+export function LeadCarousel({ tts }: { tts: boolean }) {
   const track = useRef<HTMLDivElement>(null);
   const [edge, setEdge] = useState<{ start: boolean; end: boolean }>({ start: true, end: false });
 
@@ -117,7 +123,7 @@ export function LeadCarousel({ canHear }: { canHear: (leadId: string) => boolean
     <div class="lp-carousel" role="region" aria-roledescription="carousel" aria-label="Chiefs of Staff" data-at-start={edge.start || undefined} data-at-end={edge.end || undefined}>
       <div class="lp-track" ref={track} tabIndex={0}>
         {leads.map((l, i) => (
-          <LeadCard key={l.id} lead={l} canHear={canHear(l.id)} index={i} total={leads.length} />
+          <LeadCard key={l.id} lead={l} canHear={tts || hasSample(l)} index={i} total={leads.length} />
         ))}
       </div>
       <div class="lp-carousel-controls">

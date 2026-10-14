@@ -40,7 +40,7 @@ export function Automations() {
     api
       .listAutomations()
       .then((r) => setList(r.automations))
-      .catch((err) => setError(errorOf(err, 'Could not load the automations.')));
+      .catch((err) => setError(errorOf(err, 'Could not load the automations. Reload the page to try again.')));
   }, []);
   const put = (a: AutomationView) => setList((l) => (l ? (l.some((x) => x.automationId === a.automationId) ? l.map((x) => (x.automationId === a.automationId ? a : x)) : [...l, a]) : [a]));
   const drop = (id: string) => setList((l) => (l ?? []).filter((x) => x.automationId !== id));
@@ -174,7 +174,7 @@ function AutomationCard({ automation: a, onChange, onRemoved }: { automation: Au
                 void api
                   .removeAutomation(a.automationId)
                   .then(() => onRemoved(a.automationId))
-                  .catch((err) => setError(errorOf(err, 'That did not go through.')))
+                  .catch((err) => setError(errorOf(err, 'That did not go through. Try again.')))
               }
             >
               Delete {a.name}

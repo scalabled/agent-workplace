@@ -166,11 +166,40 @@ Everything the team writes for the owner follows one standard, after ASD-STE100 
 - `WRITING_STANDARD` (the full rules) is in every coworker's work prompt (section `writing`), background jobs and
   canvas documents.
 - `WRITING_SHORT` is in review prompts and the Chief's replies.
+- `CHAT_VOICE` sets the coworker voice in chat: the answer first, no filler openers, sign-offs or restating.
+- `SPOKEN_STYLE` is in every prompt whose reply is spoken aloud: the Chief in voice mode, desks and rooms.
+- `agents/prompt-text.test.ts` fails if a prompt constant, a built prompt or a tool description has an em dash.
 - Size limits: a step is under 300 words; a project deliverable is under 700; a job write-up is under 500; a meeting's
   close is under 150, as Decision, Who does what, Open, From the owner.
 
 The web renders model text as Markdown (`components/Markdown.tsx`); list rows use `plainText` (`lib/markdown.ts`).
 `.main` clips horizontal overflow, so wide content never widens the page on a phone.
+
+## Agent loop safeguards
+
+`packages/agent-loop/src/run-turn.ts` runs every model turn with tools. These limits keep a turn from looping or
+overflowing:
+
+| Constant | Value | Effect |
+|---|---|---|
+| `IDENTICAL_CALL_LIMIT` | 2 | The third identical call (same tool, same arguments) does not run. The model gets the earlier result and a note. |
+| `IDENTICAL_FAILURE_LIMIT` | 2 | A call that failed twice is blocked. |
+| `STUCK_ROUND_LIMIT` | 4 | After 4 rounds in which every call failed, one tool-free wrap-up call runs and the turn ends with finish `stuck`. |
+| `TOOL_OUTPUT_LIMIT` | 20,000 chars | `clipToolOutput` keeps 70% from the start and 30% from the end, with a stub line between them. |
+
+Clipping in the worker (`apps/worker/src/jobs/job-view.ts`):
+
+- `clipText`: one line. Use it for titles, previews and one-line notes.
+- `clipBlock`: keeps line breaks and cuts at a line or sentence end. Use it for Markdown: step work, drafts,
+  deliverables, summaries, decision bodies, and project frames.
+- `clipMiddle`: keeps the start and the end and drops whole lines from the middle. Meeting transcripts use it, so each
+  speaker hears the opening and the latest lines.
+
+Talk history (`apps/worker/src/workspace/talk.ts`): the last 40 messages, up to 24,000 characters. The last
+`HISTORY_VERBATIM` (6) messages stay word for word. Over budget, older messages over 800 characters are cut to their
+first 400 and a stub, oldest first, before any message is dropped.
+
+The project run inspector (Model calls on a project page) shows calls, tokens and time for each phase.
 
 ## Files
 

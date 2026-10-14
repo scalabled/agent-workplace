@@ -1,4 +1,4 @@
-// One coworker ready to work: their catalog persona with the owner's overrides applied — the instructions in force,
+// One coworker ready to work: their catalog persona with the owner's overrides applied: the instructions in force,
 // their enabled skills, their tool grants and the model that answers for them (biz-bot parity: per-agent provider,
 // model and reasoning effort; FORMATION: members start on their own provider preference, so a team's perspectives
 // really differ). Pure, apart from resolving the model on a registry.

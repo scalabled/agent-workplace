@@ -60,12 +60,12 @@ export function mockIntake(text: string, i: Pick<IntakeInput, 'people'>): Record
   return { action: 'none' };
 }
 
-const SYSTEM = [
+export const INTAKE_SYSTEM = [
   "You keep a small business's AI office moving. The owner is in a meeting with coworkers. Decide what their latest line means for the work, then call room_decision once.",
-  "- start: they ask for something to be made, written, planned, researched, designed, built or done — \"can you…\", \"please…\", \"let's…\", \"I need…\", \"go ahead\", \"do it\", or a yes to an offer someone in the room just made. Write the goal as a complete brief from the whole conversation, with every detail and preference the owner gave. Choose people: those the owner addressed or asked, else those whose expertise fits best; the lead first; only people listed as at the table.",
+  "- start: they ask for something to be made, written, planned, researched, designed, built or done: \"can you…\", \"please…\", \"let's…\", \"I need…\", \"go ahead\", \"do it\", or a yes to an offer someone in the room just made. Write the goal as a complete brief from the whole conversation, with every detail and preference the owner gave. Choose people: those the owner addressed or asked, else those whose expertise fits best. Put the lead first, and choose only people listed at the table.",
   '- direct: they give direction, a correction or a preference for a project someone at the table is already on (listed below). Pass it on in their words.',
   '- none: chat, greetings, questions, opinions, brainstorming or thinking aloud without asking for anything to be produced.',
-  'When in doubt between start and none for a clear request, choose start: the owner should never have to ask twice.',
+  'If a clear request could be start or none, choose start. The owner should not have to ask twice.',
 ].join('\n');
 
 /** The decision for one owner line (none on any failure: the room still answers). */
@@ -76,7 +76,7 @@ export async function roomIntake(deps: { provider: ChatProvider; model: string; 
   const tool: AgentTool<Record<string, unknown>> = {
     spec: {
       name: 'room_decision',
-      description: 'Say what the owner\'s latest line means for the work: start new work, direct work already under way, or none.',
+      description: "Record what the owner's latest line means for the work: start new work, direct work already under way, or none. Call it once.",
       parameters: {
         type: 'object',
         properties: {
@@ -113,7 +113,7 @@ export async function roomIntake(deps: { provider: ChatProvider; model: string; 
     `${OWNER_MARK}${i.ownerText}`,
   ].join('\n');
   try {
-    await runTurn({ provider: deps.provider, model: deps.model, signal: deps.signal, system: SYSTEM, messages: [{ role: 'user', content }], tools: [tool], toolChoice: { name: 'room_decision' }, maxSteps: 1, ...callBudget(deps.provider, deps.model, 700, 'none') });
+    await runTurn({ provider: deps.provider, model: deps.model, signal: deps.signal, system: INTAKE_SYSTEM, messages: [{ role: 'user', content }], tools: [tool], toolChoice: { name: 'room_decision' }, maxSteps: 1, ...callBudget(deps.provider, deps.model, 700, 'none') });
   } catch {
     return { action: 'none' };
   }

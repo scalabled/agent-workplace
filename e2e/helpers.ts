@@ -149,6 +149,19 @@ export function daytimeZone(at = new Date()): string {
   return zones.find((tz) => hour(tz) >= 10 && hour(tz) <= 16) ?? zones.find((tz) => hour(tz) >= 8 && hour(tz) <= 19)!;
 }
 
+/**
+ * A fixed-offset time zone where the local hour is `hour` right now. A spec with a fixed office clock (`?at=10:35`)
+ * uses it so the real local time agrees: the browser, the worker's owner-local time and the office all say
+ * mid-morning, never lunch or evening, whatever the clock of the machine says.
+ */
+export function zoneAtHour(hour: number, at = new Date()): string {
+  let offset = hour - at.getUTCHours();
+  if (offset < -12) offset += 24;
+  if (offset > 14) offset -= 24;
+  // IANA Etc/GMT names count hours west of UTC: Etc/GMT-3 is UTC+3.
+  return offset === 0 ? 'Etc/UTC' : `Etc/GMT${offset > 0 ? '-' : '+'}${Math.abs(offset)}`;
+}
+
 export interface Telemetry {
   kind: string;
   agentId: string;

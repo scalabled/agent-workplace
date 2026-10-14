@@ -41,7 +41,7 @@ export async function attachFiles(files: File[]): Promise<void> {
       else {
         forget(draft);
         patch(draft.key, null);
-        showNotice(r.errors.join(' ') || `${file.name} could not be shared.`, 'error', 8000);
+        showNotice(r.errors.join(' ') || `${file.name} could not be shared. Try another file.`, 'error', 8000);
       }
     }),
   );

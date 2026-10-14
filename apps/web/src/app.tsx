@@ -6,6 +6,7 @@ import { Announcer } from './components/Announcer';
 import { ChiefBubble } from './components/ChiefBubble';
 import { NowPlaying } from './meetings/NowPlaying';
 import { Nav } from './components/Nav';
+import { NotFound, PageBoundary } from './components/PageBoundary';
 import { closePalette, openPalette, Palette, paletteOpen } from './components/Palette';
 import { PttCaption } from './components/PttCaption';
 import { clientId } from './lib/client-id';
@@ -341,12 +342,7 @@ function Screen() {
     case 'inbox':
       return <Inbox />;
     default:
-      return (
-        <section class="page" aria-labelledby="nf-title">
-          <h1 id="nf-title">Not found</h1>
-          <p class="page-lede">There is nothing at this address. Use the places on the left, or press ⌘K.</p>
-        </section>
-      );
+      return <NotFound />;
   }
 }
 
@@ -381,7 +377,9 @@ export function App() {
       )}
       {!bare && <Nav />}
       <main class="main" id="main" tabIndex={-1}>
-        <Screen />
+        <PageBoundary resetKey={route.value.path}>
+          <Screen />
+        </PageBoundary>
       </main>
       {!bare && <ChiefBubble />}
       {!bare && <NowPlaying />}

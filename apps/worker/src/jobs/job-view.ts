@@ -10,9 +10,53 @@ export function isActive(job: Pick<JobSnapshot, 'status'>): boolean {
   return ACTIVE_JOB_STATUSES.has(job.status);
 }
 
+/** One line: whitespace collapses. For titles, previews and one-line notes. For Markdown, use clipBlock. */
 export function clipText(s: string, max: number): string {
   const t = s.replace(/\s+/g, ' ').trim();
   return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t;
+}
+
+function tidyBlock(s: string): string {
+  return s
+    .replace(/\r\n?/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/** Keeps line breaks (Markdown lists, tables, headings). Over `max`, cuts at the last line or sentence end. */
+export function clipBlock(s: string, max: number): string {
+  const t = tidyBlock(s);
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max - 1);
+  const at = Math.max(cut.lastIndexOf('\n'), cut.lastIndexOf('. ') + 1);
+  return `${(at >= max * 0.6 ? cut.slice(0, at) : cut).trimEnd()}…`;
+}
+
+/**
+ * Keeps the start and the end, and drops whole lines from the middle. For transcripts and logs, where the opening sets
+ * the task and the latest lines matter most. `headShare` is the part of `max` kept from the start.
+ */
+export function clipMiddle(s: string, max: number, headShare = 0.25): string {
+  const t = tidyBlock(s);
+  if (t.length <= max) return t;
+  const lines = t.split('\n');
+  const headMax = Math.floor(max * headShare);
+  let used = 0;
+  let h = 0;
+  while (h < lines.length && used + lines[h]!.length + 1 <= headMax) used += lines[h++]!.length + 1;
+  const tailMax = max - used - 48;
+  let tailUsed = 0;
+  let k = lines.length;
+  while (k > h && tailUsed + lines[k - 1]!.length + 1 <= tailMax) tailUsed += lines[--k]!.length + 1;
+  if (k === lines.length) {
+    // The last line alone is over the budget: keep characters from each end.
+    const keep = Math.max(0, max - headMax - 3);
+    return `${t.slice(0, headMax).trimEnd()}\n…\n${t.slice(t.length - keep).trimStart()}`;
+  }
+  const dropped = k - h;
+  const marker = `[${dropped} earlier line${dropped === 1 ? '' : 's'} left out]`;
+  return [...lines.slice(0, h), marker, ...lines.slice(k)].join('\n');
 }
 
 /** First sentence (≤ max chars) of a text, for partial findings and summaries. */
@@ -41,7 +85,7 @@ export function titleFromRequest(text: string): string {
   return t ? t[0]!.toUpperCase() + t.slice(1) : 'Background job';
 }
 
-/** One line per job: "“Office chairs” — step 3 of 5 (40%): comparing warranties. Latest: … Waiting to apply: …" */
+/** One line per job: "“Office chairs” is running, step 3 of 5 (40%): comparing warranties. Latest: … Waiting to apply: …" */
 export function describeJob(job: JobSnapshot): string {
   const pct = jobProgressPercent(job);
   const title = `“${job.title}”`;
@@ -86,7 +130,7 @@ export function workStateBlock(jobs: JobSnapshot[] | null, recentFinished = 3): 
   if (!active.length) lines.push('- No background jobs are running.');
   for (const j of active) {
     const pct = jobProgressPercent(j);
-    lines.push(`- [${j.jobId}] “${j.title}” — running, ${j.of ? `step ${j.step} of ${j.of}, ${pct}% done` : 'planning'}; now: ${j.label}`);
+    lines.push(`- [${j.jobId}] “${j.title}”: running, ${j.of ? `step ${j.step} of ${j.of}, ${pct}% done` : 'planning'}; now: ${j.label}`);
     if (j.partial) lines.push(`  latest finding: ${clipText(j.partial, 300)}`);
     const queued = j.steers.filter((s) => s.status === 'queued');
     const applied = j.steers.filter((s) => s.status === 'applied');
@@ -96,9 +140,9 @@ export function workStateBlock(jobs: JobSnapshot[] | null, recentFinished = 3): 
   if (finished.length) {
     lines.push('Recently finished:');
     for (const j of finished) {
-      if (j.status === 'done') lines.push(`- [${j.jobId}] “${j.title}” — done: ${clipText(j.summary ?? '', 300)}`);
-      else if (j.status === 'failed') lines.push(`- [${j.jobId}] “${j.title}” — failed: ${clipText(j.error?.message ?? '', 200)}`);
-      else lines.push(`- [${j.jobId}] “${j.title}” — cancelled`);
+      if (j.status === 'done') lines.push(`- [${j.jobId}] “${j.title}”: done: ${clipText(j.summary ?? '', 300)}`);
+      else if (j.status === 'failed') lines.push(`- [${j.jobId}] “${j.title}”: failed: ${clipText(j.error?.message ?? '', 200)}`);
+      else lines.push(`- [${j.jobId}] “${j.title}”: cancelled`);
     }
   }
   return lines.join('\n');

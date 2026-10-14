@@ -42,12 +42,16 @@ export const resumeProject = (id: string) => act(id, 'resume', () => api.resumeP
 /** Direction for the team; resolves true once the server queued it. */
 export const noteProject = (id: string, text: string, toId?: string) => act(id, 'note', () => api.noteProject(id, text, toId));
 
-/** Full step outputs and the deliverable (frames carry them clipped). */
-export async function loadProject(id: string): Promise<void> {
+/**
+ * Full step outputs and the deliverable (frames carry them clipped). 'missing': no project has this id. 'failed': the
+ * request failed; the feed may still have the clipped copy.
+ */
+export async function loadProject(id: string): Promise<'ok' | 'missing' | 'failed'> {
   try {
     upsertProject(await api.getProject(id));
-  } catch {
-    /* the feed still has the clipped copy */
+    return 'ok';
+  } catch (err) {
+    return err instanceof ApiError && err.status === 404 ? 'missing' : 'failed';
   }
 }
 

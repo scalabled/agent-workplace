@@ -27,7 +27,7 @@ export function Inbox() {
         <div class="panel empty">
           <Icon name="inbox" size={28} class="empty-icon" />
           <p class="empty-title">Nothing needs you</p>
-          <p class="empty-text">When a coworker needs a decision from you, it arrives here as a raised hand, and their face shows the hand too. Updates stay in Talk, so this only fills when you are needed.</p>
+          <p class="empty-text">When a coworker needs a decision from you, it arrives here as a raised hand. Their face shows the hand too. Updates stay in Talk, so this only fills when you are needed.</p>
         </div>
       )}
       <div class="decision-list">
@@ -35,7 +35,7 @@ export function Inbox() {
           <DecisionCard key={d.decisionId} decision={d} />
         ))}
       </div>
-      {relayable && <p class="page-fine">{questions ? `You can also just answer ${name} in Talk.` : `You can also just tell ${name} “go ahead”.`}</p>}
+      {relayable && <p class="page-fine">{questions ? `You can also answer ${name} in Talk.` : `You can also tell ${name} “go ahead” in Talk.`}</p>}
     </section>
   );
 }

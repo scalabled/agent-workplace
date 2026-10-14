@@ -39,19 +39,19 @@ export function sendEmailTool(port: EmailToolPort, opts: { owner?: string; test?
     spec: {
       name: 'send_email',
       description: [
-        `Send an email for the business (to a customer, supplier or anyone outside). It goes out only with ${owner}'s OK unless they allowed more, and exactly once: asking again for the same email does not send it twice.`,
+        `Send an email for the business to a customer, a supplier or anyone outside. Use it when ${owner} asks you to email someone, or when the work needs it and you have the address. Never guess an address: ask for it.`,
+        `It goes out only with ${owner}'s OK unless they allowed more, and exactly once: asking again for the same email does not send it twice.`,
         'Write the whole email: a clear subject, and plain text a busy person reads in 20 seconds, signed as yourself. A line saying you are an AI coworker is added.',
-        `Use it when ${owner} asks you to email someone, or when the work plainly needs it and you have the address. Never guess an address: ask for it.`,
-        `The result says what happened. Say "sent" only with a receipt id; otherwise say it is waiting for ${owner}'s OK.`,
+        `Returns what happened: sent (with a receipt id), waiting for the OK, held, declined, or not sent. Say "sent" only with a receipt id; otherwise say it is waiting for ${owner}'s OK.`,
         ...(opts.test ? ['Email is in test mode: it goes to a test mailbox inside Headcount and nothing leaves.'] : []),
       ].join(' '),
       parameters: {
         type: 'object',
         properties: {
           to: { type: 'array', items: { type: 'string' }, description: 'Email addresses.' },
-          cc: { type: 'array', items: { type: 'string' } },
-          subject: { type: 'string' },
-          text: { type: 'string', description: 'The email in plain text, greeting to sign-off.' },
+          cc: { type: 'array', items: { type: 'string' }, description: 'Email addresses to copy, if any.' },
+          subject: { type: 'string', description: 'A clear subject line.' },
+          text: { type: 'string', description: 'The email in plain text, from greeting to sign-off.' },
         },
         required: ['to', 'subject', 'text'],
         additionalProperties: false,

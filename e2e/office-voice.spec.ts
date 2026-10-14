@@ -143,7 +143,8 @@ test('the roundtable in voices: each answer in its speaker’s voice, in order, 
     await page.waitForTimeout(100);
   }
   expect(lit).toEqual(order);
-  const voiced = (await heard(page, since)).filter((h) => h.kind === 'answer');
+  // Only the people at the table: an announcement of earlier work may also be voiced in this window.
+  const voiced = (await heard(page, since)).filter((h) => h.kind === 'answer' && table.includes(h.speaker));
   expect(voiced.map((h) => h.speaker)).toEqual(order);
 
   // A second question with a slow room: while the first answer sounds, hold Space (focus outside the field).

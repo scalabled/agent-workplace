@@ -5,5 +5,5 @@ export const BRAND = {
   /** What it is, in three words. */
   tagline: 'The AI Office',
   /** One sentence for search results and link previews. */
-  description: 'An AI office for small businesses: hire a team of AI coworkers, meet with them, and get the work done, with your Chief of Staff running it.',
+  description: 'An AI office for small businesses. Your Chief of Staff runs a team of AI coworkers, and you approve what goes out.',
 } as const;

@@ -18,13 +18,21 @@ function manifest(): { key: string; alt: string; file: string }[] {
   return JSON.parse(readFileSync(join(ROOT, 'apps/web/public/marketing/manifest.json'), 'utf8'));
 }
 
-/** Leads with a pre-voiced sample shipped with the page ("Hear …" works for them without a key). */
-function voiceSamples(): Record<string, { chunks: { file: string }[] }> {
+/** Pre-voiced samples shipped with the page ("Hear …" works without a key when one says the lead's current line). */
+function voiceSamples(): Record<string, { text?: string; chunks: { file: string }[] }> {
   try {
     return JSON.parse(readFileSync(join(ROOT, 'apps/web/public/marketing/voices/manifest.json'), 'utf8'));
   } catch {
     return {};
   }
+}
+
+/** The line a lead's sample says, built as the landing builds it (`sampleText`). */
+function sampleLine(first: string): string {
+  const quiz = JSON.parse(readFileSync(join(ROOT, 'catalog/leads/match-quiz.json'), 'utf8')) as { try_before_choosing?: { voice_preview_line?: string } };
+  const preview = quiz.try_before_choosing?.voice_preview_line;
+  const intro = `Hi, I'm ${first}.`;
+  return preview ? `${intro} ${preview.replace(/^Hi,\s*/i, '').replace(/^./, (c) => c.toUpperCase())}` : intro;
 }
 
 /** Scroll the whole page in steps (reveals and lazy faces fire as a visitor would see them). */
@@ -42,8 +50,8 @@ test('the landing page: kinetic hero, the real cast, honest pricing, and no app 
   const sockets: string[] = [];
   page.on('websocket', (ws) => sockets.push(ws.url()));
   await page.goto('/');
-  await expect(page).toHaveTitle('Headcount — The AI Office');
-  await expect(page.getByRole('heading', { level: 1, name: 'Hire a team in a sentence. Watch it work.' })).toHaveText('Hire a team in a sentence. Watch it work.');
+  await expect(page).toHaveTitle('Headcount · The AI Office');
+  await expect(page.getByRole('heading', { level: 1, name: 'Hire an AI team. Watch it work.' })).toHaveText('Hire an AI team. Watch it work.');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
   // The hero shows the real cast (the catalog's faces, labelled as an illustration) over the generated office,
@@ -63,8 +71,8 @@ test('the landing page: kinetic hero, the real cast, honest pricing, and no app 
   // Chief of Staff carousel: every lead, named as the catalog names them today.
   const leads = await catalogLeads();
   await expect(page.locator('.lp-lead-name')).toHaveText(leads.map((l) => l.name));
-  // Keyless: "Hear …" only where a pre-voiced sample ships with the page (a browser voice would not be theirs).
-  const voiced = leads.filter((l) => voiceSamples()[l.id]);
+  // Keyless: "Hear …" only where a shipped sample says the lead's current line (a browser voice would not be theirs).
+  const voiced = leads.filter((l) => voiceSamples()[l.id]?.text === sampleLine(l.name.split(/\s+/)[0]!));
   await expect(page.locator('.lp-voice')).toHaveCount(voiced.length);
 
   // The living portrait wall: faces draw when it comes into view, and side-talk is marked as a demo.
@@ -82,7 +90,7 @@ test('the landing page: kinetic hero, the real cast, honest pricing, and no app 
   await expect(page.locator('.lp-tier')).toHaveCount(3);
   const text = await page.locator('.lp').innerText();
   expect(text).not.toMatch(/testimonial|trusted by|customers love|\d+\+ (teams|customers|businesses)/i);
-  for (const section of ['How it works', 'Meet your Chief of Staff', 'The living workforce', 'Talk while they work', 'Multimodal', 'Trust by design', 'Industry packs', 'Pricing', 'FAQ']) {
+  for (const section of ['How it works', 'Meet your Chief of Staff', 'The living workforce', 'Talk while they work', 'More than text', 'Trust by design', 'Industry packs', 'Pricing', 'Questions']) {
     await expect(page.locator('.lp-eyebrow', { hasText: section }).first()).toBeAttached();
   }
   // What is not built says so (the packs); what works today carries no pill.
@@ -94,7 +102,7 @@ test('the landing page: kinetic hero, the real cast, honest pricing, and no app 
   expect(await page.evaluate(() => '__headcount' in window)).toBe(false);
   expect(sockets.filter((u) => u.includes('/api/ws'))).toEqual([]);
 
-  // Walk in: first run lands on "Choose your Chief of Staff", and now the app connects.
+  // Enter the office: first run lands on "Choose your Chief of Staff", and now the app connects.
   await page.getByRole('navigation', { name: 'Headcount' }).getByRole('link', { name: 'Enter the office' }).click();
   await expect(page).toHaveURL(/\/app\/welcome$/);
   await expect(page.getByRole('heading', { name: 'Choose your Chief of Staff' })).toBeVisible();
@@ -102,7 +110,7 @@ test('the landing page: kinetic hero, the real cast, honest pricing, and no app 
   // Back goes back to the landing page (/app replaced itself with /app/welcome).
   await page.goBack();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Hire a team');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Hire an AI team');
 });
 
 test('a section link scrolls to its section, and Back from the app returns to where you were', async ({ page, request }) => {
@@ -128,7 +136,7 @@ test('an owner who chose light never sees the landing page flash light', async (
     new MutationObserver(record).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   });
   await page.goto('/');
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Hire a team');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Hire an AI team');
   await page.waitForTimeout(500);
   expect(await page.evaluate(() => (window as unknown as { __themes: string[] }).__themes)).not.toContain('light');
 });

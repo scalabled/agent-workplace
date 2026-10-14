@@ -146,8 +146,8 @@ export function builtinWhy(lead: Lead, answers: QuizAnswers): string {
     if (!best || w > best.w) best = { w, q, o };
   }
   if (!best) return lead.tagline;
-  // One colon per sentence reads better: the fact's own colon becomes a dash.
-  const f = fact(lead, best.q.fact).replace(/:\s/, ' — ');
+  // One colon per sentence: the fact's own colon becomes a comma.
+  const f = fact(lead, best.q.fact).replace(/:\s/, ', ');
   return f ? `${best.o.owner} ${possessive(lead)}: ${lowerFirst(f)}` : best.o.owner;
 }
 

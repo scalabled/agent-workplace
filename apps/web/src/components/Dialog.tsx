@@ -1,6 +1,6 @@
 // A focused dialog for one change at a time (rename the office, start another, what the team calls you): a title, a
 // line on what it does, the field, and its two buttons, so nothing on the page behind competes with it. Focus moves
-// in on open (to the first field) and back on close; Esc, the scrim and Cancel close it; the page behind does not
+// in on open (to the first field), Tab keeps it inside, and it goes back on close; Esc, the scrim and Cancel close it; the page behind does not
 // scroll. On phones it rises from the bottom. It renders at the end of <body> (a portal), so nothing on the page,
 // whatever its stacking, is ever drawn over it.
 import type { ComponentChildren } from 'preact';
@@ -18,7 +18,7 @@ export function Dialog({ title, lede, onClose, children, label }: { title: strin
       if (e.key === 'Escape') {
         e.stopPropagation();
         onClose();
-      }
+      } else if (e.key === 'Tab' && panel.current) trapTab(e, panel.current);
     };
     document.addEventListener('keydown', onKey);
     const overflow = document.body.style.overflow;
@@ -47,6 +47,22 @@ export function Dialog({ title, lede, onClose, children, label }: { title: strin
     </div>,
     document.body,
   );
+}
+
+/** Keep Tab inside a modal dialog: past the last control it wraps to the first, and back. */
+export function trapTab(e: KeyboardEvent, root: HTMLElement) {
+  const items = [...root.querySelectorAll<HTMLElement>('button, input, select, textarea, [href], [tabindex]:not([tabindex="-1"])')].filter((el) => !el.hasAttribute('disabled'));
+  if (!items.length) return;
+  const first = items[0]!;
+  const last = items[items.length - 1]!;
+  const at = document.activeElement;
+  if (e.shiftKey && (at === first || !items.includes(at as HTMLElement))) {
+    e.preventDefault();
+    last.focus();
+  } else if (!e.shiftKey && (at === last || !items.includes(at as HTMLElement))) {
+    e.preventDefault();
+    first.focus();
+  }
 }
 
 /**

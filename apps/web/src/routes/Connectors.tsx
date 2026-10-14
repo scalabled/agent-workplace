@@ -33,7 +33,7 @@ export function Connectors() {
     api
       .listConnectors()
       .then(setData)
-      .catch((err) => setError(errorOf(err, 'Could not load the connectors.')));
+      .catch((err) => setError(errorOf(err, 'Could not load the connectors. Reload the page to try again.')));
   }, []);
   const put = (c: ConnectorView) => setData((d) => (d ? { ...d, connectors: d.connectors.some((x) => x.connectorId === c.connectorId) ? d.connectors.map((x) => (x.connectorId === c.connectorId ? c : x)) : [...d.connectors, c] } : d));
   const drop = (id: string) => setData((d) => (d ? { ...d, connectors: d.connectors.filter((x) => x.connectorId !== id) } : d));

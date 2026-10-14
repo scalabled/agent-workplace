@@ -29,7 +29,7 @@ import { CopyLink } from '../links/CopyLink';
 import './pages.css';
 
 function roleWord(role: string): string {
-  return { lead: 'Lead', co_owner: 'Co-owner', reviewer: 'Reviewer', sceptic: 'Sceptic', specialist: 'Specialist', facilitator: 'Facilitator' }[role] ?? role;
+  return { lead: 'Lead', co_owner: 'Co-owner', reviewer: 'Reviewer', sceptic: 'Skeptic', specialist: 'Specialist', facilitator: 'Facilitator' }[role] ?? role;
 }
 
 const KIND_WORD: Record<DeliverableKind, string> = { document: 'A document', web: 'A web page', code: 'A code file' };
@@ -257,9 +257,15 @@ function PlanSettings({ project }: { project: TeamProjectSnapshot }) {
 export function ProjectDetail({ projectId }: { projectId: string }) {
   const [inspect, setInspect] = useState<{ stepId: string | null; title: string } | null>(null);
   const [adding, setAdding] = useState(false);
+  const [loaded, setLoaded] = useState<'loading' | 'ok' | 'missing' | 'failed'>('loading');
   useEffect(() => {
     void loadCatalog();
-    void loadProject(projectId);
+    setLoaded('loading');
+    let alive = true;
+    void loadProject(projectId).then((r) => alive && setLoaded(r));
+    return () => {
+      alive = false;
+    };
   }, [projectId]);
   // Reload the full outputs when the project finishes (frames carry them clipped).
   const project = teamProjects.value[projectId];
@@ -270,13 +276,37 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
 
   if (!project)
     return (
-      <section class="page project-page">
-        <p class="page-lede">
+      <section class="page project-page" aria-labelledby="project-title">
+        <p class="page-crumb">
           <Link href={paths.projects}>Projects</Link>
         </p>
-        <div class="panel empty">
-          <p class="empty-title">Loading the project…</p>
-        </div>
+        {loaded === 'missing' ? (
+          <div class="panel empty" role="alert">
+            <h1 id="project-title" class="empty-title">
+              Project not found
+            </h1>
+            <p class="empty-text">No project has this address. Check the link, or open Projects to see them all.</p>
+            <Link href={paths.projects} class="button-primary">
+              See all projects
+            </Link>
+          </div>
+        ) : loaded === 'failed' ? (
+          <div class="panel empty" role="alert">
+            <h1 id="project-title" class="empty-title">
+              The project did not load
+            </h1>
+            <p class="empty-text">Check your connection, then reload the page.</p>
+            <button type="button" class="button-primary" onClick={() => location.reload()}>
+              Reload the page
+            </button>
+          </div>
+        ) : (
+          <div class="panel empty" aria-busy="true">
+            <h1 id="project-title" class="empty-title">
+              Loading the project…
+            </h1>
+          </div>
+        )}
       </section>
     );
 

@@ -9,7 +9,7 @@ import { BRAND } from '@headcount/protocol';
 import { ORG_NAME_MAX } from '@headcount/protocol/ext/orgs';
 
 const REASON_TEXT: Record<SignInReason, string> = {
-  denied: 'That Google account cannot start an office here right now, and nobody has invited it yet. Ask an owner to add you on their People page.',
+  denied: 'That Google account cannot start an office here right now, and nobody has invited it yet. Ask an owner to add you in Admin, under People and roles.',
   failed: 'Google sign-in did not finish. Please try again.',
   expired: 'Your session ended. Sign in again to pick up where you left off.',
   unconfigured: 'Sign-in is not set up on this server yet (the Google client secret is missing).',
@@ -88,7 +88,7 @@ export function StartOrg({ name, email, canCreate }: { name: string; email: stri
           </form>
         ) : (
           <p class="signin-note" role="status">
-            {BRAND.name} is invite-only right now. Ask someone to invite <strong>{email}</strong>: they add it on their People page, and you will find their office here.
+            {BRAND.name} is invite-only right now. Ask someone to invite <strong>{email}</strong>: they add it in Admin, under People and roles. Then their office shows here.
           </p>
         )}
         <p class="signin-fine">

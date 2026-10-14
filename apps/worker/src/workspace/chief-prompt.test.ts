@@ -50,7 +50,7 @@ describe('buildChiefSystemPrompt', () => {
     // The live work state comes last (after the stable persona prefix).
     const state = prompt.indexOf('LIVE WORK STATE (');
     expect(state).toBeGreaterThan(prompt.indexOf(lead.honesty_note));
-    expect(prompt.slice(state)).toContain('[job_01] “Office chairs” — running, step 3 of 5, 40% done; now: Comparing warranties');
+    expect(prompt.slice(state)).toContain('[job_01] “Office chairs”: running, step 3 of 5, 40% done; now: Comparing warranties');
     expect(prompt.slice(state)).toContain('latest finding: Steelcase has a 12-year warranty.');
     expect(prompt.slice(state)).toContain('pending steering (applies at the next checkpoint): “also check delivery times”');
     if (honestyPolicyText(catalogFull.honestyPolicy)) expect(prompt).toContain('Catalog honesty policy');
@@ -88,7 +88,7 @@ describe('job views', () => {
   it('lists recently finished jobs in the work state block', () => {
     const block = workStateBlock([job({ jobId: 'job_02', status: 'done', summary: 'Buy the Aeron.' })]);
     expect(block).toContain('No background jobs are running.');
-    expect(block).toContain('[job_02] “Office chairs” — done: Buy the Aeron.');
+    expect(block).toContain('[job_02] “Office chairs”: done: Buy the Aeron.');
   });
 
   it('derives a short job title from the request', () => {

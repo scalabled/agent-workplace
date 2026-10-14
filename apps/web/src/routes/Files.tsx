@@ -38,7 +38,7 @@ export function Files() {
         upsertFiles(r.files);
         setCan(r.can);
       })
-      .catch((err) => setError(errorOf(err, 'Files could not be loaded.')));
+      .catch((err) => setError(errorOf(err, 'Files could not be loaded. Reload the page to try again.')));
     api
       .listCanvas()
       .then((r) => r.canvases.forEach(upsertCanvas))
@@ -87,7 +87,7 @@ export function Files() {
           </h2>
           {mayContribute.value && can && (can.image || can.video) && (
             <a href="#make" class="button-quiet button-small">
-              <Icon name="sparkle" size={14} /> Make an image or video
+              <Icon name="sparkle" size={14} /> Make an image or a video
             </a>
           )}
         </div>
@@ -98,7 +98,7 @@ export function Files() {
             ))}
           </ul>
         ) : (
-          <p class="page-fine">Nothing made yet. Describe one at the bottom of this page, or ask {chiefName.value} in Talk: “Make an image for our spring sale”.</p>
+          <p class="page-fine">Nothing made yet. Describe one at the bottom of this page, or ask {chiefName.value} in Talk to “make an image for our spring sale”.</p>
         )}
       </section>
 
@@ -210,7 +210,7 @@ function MakePanel({ can }: { can: { image: boolean; video: boolean } }) {
           rows={2}
           maxLength={1500}
           value={prompt}
-          placeholder={kind === 'image' ? 'e.g. A flat-lay of amethyst and rose quartz on white linen, soft morning light, room for text on the left' : 'e.g. A slow pan across a shelf of glowing crystals at dusk, warm light, dust in the air'}
+          placeholder={kind === 'image' ? 'For example: A flat-lay of amethyst and rose quartz on white linen, soft morning light, room for text on the left' : 'For example: A slow pan across a shelf of glowing crystals at dusk, warm light, dust in the air'}
           onInput={(e) => setPrompt((e.target as HTMLTextAreaElement).value)}
         />
       </label>
@@ -264,7 +264,7 @@ function EditImage({ file: f, onClose }: { file: FileView; onClose: () => void }
       title={`Edit “${f.title}”`}
       lede="Say what should change. A new version is made from this image, keeping everything else; the original stays in Files."
       label="What should change?"
-      placeholder="e.g. Change the date to Saturday and make the headline bigger"
+      placeholder="For example: Change the date to Saturday and make the headline bigger"
       value=""
       maxLength={FILE_CHANGE_MAX}
       min={3}

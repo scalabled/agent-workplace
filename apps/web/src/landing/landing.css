@@ -188,6 +188,7 @@
 .lp-nav-links a {
   display: inline-flex;
   align-items: center;
+  white-space: nowrap;
   min-height: var(--hit);
   padding: 0 var(--space-3);
   border-radius: var(--radius-pill);
@@ -208,8 +209,8 @@
   display: none;
 }
 
-/* Narrow screens: the section links move into a menu sheet under the bar. */
-@media (max-width: 900px) {
+/* Narrow screens: the section links move into a menu sheet under the bar (seven links need about 1100 px in one row). */
+@media (max-width: 1100px) {
   .lp-nav {
     gap: var(--space-3);
   }
@@ -827,11 +828,6 @@
   margin-top: var(--space-6);
 }
 
-.lp-center-text {
-  margin-top: var(--space-5);
-  text-align: center;
-}
-
 .lp-caption {
   display: flex;
   align-items: center;
@@ -854,34 +850,6 @@
   font-weight: 680;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-}
-
-/* The statement: the positioning, said once, big and centred (breaks the section template). */
-.lp-statement {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: clamp(80px, 12vw, 160px) var(--lp-gutter) 0;
-  text-align: center;
-}
-
-.lp-statement-text {
-  font-family: var(--font-display);
-  font-size: clamp(1.9rem, 4.4vw, 3.7rem);
-  font-weight: 680;
-  line-height: 1.1;
-  letter-spacing: -0.035em;
-  color: color-mix(in srgb, var(--ink) 52%, transparent);
-  text-wrap: balance;
-}
-
-.lp-statement-text strong {
-  display: block;
-  margin-top: 0.3em;
-  font-weight: 760;
-  background: var(--gradient-brand);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
 }
 
 /* Status chips: honest about what exists. */
@@ -1535,53 +1503,6 @@
   background: rgba(10, 11, 13, 0.66);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-}
-
-.lp-band .lp-note {
-  margin-top: var(--space-5);
-}
-
-.lp-speeds {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-}
-
-.lp-speed {
-  display: grid;
-  gap: 4px;
-  padding: var(--space-4);
-  border-radius: 16px;
-  border: 1px solid var(--line);
-  background: rgba(10, 11, 13, 0.6);
-}
-
-.lp-speed-name {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 8px;
-  font-size: var(--text-sm);
-  font-weight: 660;
-}
-
-.lp-speed:nth-child(1) .lp-speed-name {
-  color: var(--brand-teal);
-}
-
-.lp-speed:nth-child(2) .lp-speed-name {
-  color: var(--brand-violet);
-}
-
-.lp-speed:nth-child(3) .lp-speed-name {
-  color: var(--lamp);
-}
-
-.lp-speed-body {
-  color: var(--muted);
-  font-size: var(--text-xs);
-  line-height: 1.5;
 }
 
 @media (max-width: 1023px) {
@@ -2296,11 +2217,18 @@
   color: var(--lamp);
 }
 
-.lp-faq-item p {
+.lp-faq-item p,
+.lp-faq-item ul {
   max-width: 68ch;
   padding: 0 0 var(--space-5);
   color: var(--muted);
   line-height: 1.65;
+}
+
+.lp-faq-item ul {
+  margin-top: calc(-1 * var(--space-3));
+  padding-left: 1.25em;
+  list-style: disc;
 }
 
 /* ── final call to action ────────────────────────────────── */
@@ -2422,8 +2350,7 @@
     flex: 1 1 100%;
   }
   .lp-features,
-  .lp-band .lp-features,
-  .lp-speeds {
+  .lp-band .lp-features {
     grid-template-columns: minmax(0, 1fr);
   }
   .lp-footer-link {

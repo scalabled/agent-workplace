@@ -49,7 +49,7 @@ export function SecondBrain({ memoryText, onForget }: { memoryText: (id: string)
       onForget(id);
       setTeam((t) => (t && t.secondBrain.last ? { ...t, secondBrain: { ...t.secondBrain, last: { ...t.secondBrain.last, conflicts: t.secondBrain.last.conflicts.filter((c) => c.a !== id && c.b !== id), outdated: t.secondBrain.last.outdated.filter((o) => o.memoryId !== id) } } } : t));
     } catch (err) {
-      showToast(errorOf(err, 'That was not forgotten.'));
+      showToast(errorOf(err, 'That was not forgotten. Try again.'));
     }
   };
   const memo = (id: string) => (

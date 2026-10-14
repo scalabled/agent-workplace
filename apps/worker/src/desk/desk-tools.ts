@@ -29,13 +29,13 @@ export function instructionsTool(a: DeskActions, me: { name: string }, onWork: (
   return {
     spec: {
       name: 'change_how_i_work',
-      description: `When the owner tells you to work differently from now on (a standing preference about how you do your job: tone, format, what to always or never do), propose adding it to your own instructions. It waits for their OK on a card, and is undoable. Write it as an instruction to yourself, one or two sentences. Not for one-off requests.`,
-      parameters: { type: 'object', properties: { change: { type: 'string', description: 'The instruction to add, e.g. "Always give prices with VAT included."' }, why: { type: 'string', description: 'What the owner said, briefly.' } }, required: ['change'], additionalProperties: false },
+      description: `Propose a standing change to how you work (tone, format, what to always or never do) when the owner asks you to work differently from now on. Use it for standing preferences only; handle a one-off request directly. The change is added to your instructions after the owner approves it on a card in their Inbox, and they can undo it. Fails when the change is under 8 or over 1,000 characters.`,
+      parameters: { type: 'object', properties: { change: { type: 'string', description: 'The instruction to add, written to yourself in one or two sentences. Example: "Always give prices with tax included."' }, why: { type: 'string', description: 'What the owner said, briefly.' } }, required: ['change'], additionalProperties: false },
       mock: { triggers: [String.raw`\b(from now on|always|never|in future|going forward)\b.{0,80}\b(you|your)\b`], args: (text: string) => ({ change: text.trim(), why: 'The owner asked for it.' }), reply: sayOf },
     },
     async execute(args) {
       const change = str(args.change);
-      if (change.length < 8) return fail('Say the change as an instruction to yourself.', 'One or two sentences, e.g. "Always include VAT in prices."');
+      if (change.length < 8) return fail('Say the change as an instruction to yourself.', 'Write one or two sentences, for example "Always give prices with tax included."');
       if (change.length > 1000) return fail('Keep it under 1,000 characters.', 'Say it in one or two sentences.');
       const r = await propose(change, str(args.why) || 'The owner asked for it.');
       if (!r.ok) return fail(r.message, 'Tell the owner plainly.');
@@ -76,8 +76,8 @@ export function deskTools(a: DeskActions, me: { name: string }, chief: string, o
   const research: AgentTool<{ title?: unknown; brief?: unknown }> = {
     spec: {
       name: 'start_research',
-      description: `Start background research or a write-up for the owner (comparisons, suppliers, options, a first draft). It runs on its own, ${chief} keeps track of it, and the result appears in Talk and on the Projects page. Use it whenever the owner asks for something that needs looking into.`,
-      parameters: { type: 'object', properties: { title: { type: 'string', description: '3 to 7 words.' }, brief: { type: 'string', description: 'What to find or write, with every detail the owner gave.' } }, required: ['brief'], additionalProperties: false },
+      description: `Start background research or a write-up for the owner: a comparison, suppliers, options, a first draft. Use it when the owner asks for something that needs looking into. It runs on its own, ${chief} tracks it, and the result appears in Talk and on the Projects page. Returns the job id and title. Fails when the brief is under 8 characters.`,
+      parameters: { type: 'object', properties: { title: { type: 'string', description: 'A short title, 3 to 7 words.' }, brief: { type: 'string', description: 'What to find or write, with every detail the owner gave.' } }, required: ['brief'], additionalProperties: false },
       mock: { triggers: DESK_TRIGGERS.research, args: (text: string) => ({ title: titleOf(text), brief: text }), reply: sayOf },
     },
     async execute(args) {
@@ -92,8 +92,8 @@ export function deskTools(a: DeskActions, me: { name: string }, chief: string, o
   const project: AgentTool<{ goal?: unknown; title?: unknown }> = {
     spec: {
       name: 'start_project',
-      description: 'Start a team project you lead, for work with several steps or disciplines (a launch, a campaign, a plan, a proposal, a set of product pages). Colleagues who fit join you, the plan is drafted, and work starts straight away: the owner asked you, so there is nothing for them to approve.',
-      parameters: { type: 'object', properties: { goal: { type: 'string', description: "The outcome, in the owner's words, with every constraint." }, title: { type: 'string' } }, required: ['goal'], additionalProperties: false },
+      description: 'Start a team project you lead, for work with several steps or disciplines: a launch, a campaign, a plan, a proposal, a set of product pages. Colleagues who fit join you, the plan is drafted, and work starts at once. The owner asked you, so it needs no approval. Returns the project id, title, team and link. Fails when the goal is under 8 characters.',
+      parameters: { type: 'object', properties: { goal: { type: 'string', description: "The outcome, in the owner's words, with every constraint." }, title: { type: 'string', description: 'A short title, 3 to 7 words.' } }, required: ['goal'], additionalProperties: false },
       mock: { triggers: DESK_TRIGGERS.project, args: (text: string) => ({ goal: text }), reply: sayOf },
     },
     async execute(args) {
@@ -108,8 +108,8 @@ export function deskTools(a: DeskActions, me: { name: string }, chief: string, o
   const ask: AgentTool<{ who?: unknown; question?: unknown }> = {
     spec: {
       name: 'ask_colleague',
-      description: 'Ask a colleague a quick question when it is their expertise, by name or by role ("Maya", "the bookkeeper", "a lawyer"). You get their answer to pass on.',
-      parameters: { type: 'object', properties: { who: { type: 'string' }, question: { type: 'string' } }, required: ['who', 'question'], additionalProperties: false },
+      description: 'Ask a colleague a quick question in their field, by name or role ("Maya", "the bookkeeper", "a lawyer"). Returns their answer for you to pass on. Fails when nobody matches; then try their role, or answer from your own expertise.',
+      parameters: { type: 'object', properties: { who: { type: 'string', description: 'A name or a role.' }, question: { type: 'string', description: 'The question, with the context they need.' } }, required: ['who', 'question'], additionalProperties: false },
       mock: { triggers: DESK_TRIGGERS.ask, args: (text: string) => ({ who: new RegExp(DESK_TRIGGERS.ask[0]!, 'i').exec(text)?.[1] ?? '', question: text }), reply: sayOf },
     },
     async execute(args, ctx) {
@@ -124,8 +124,8 @@ export function deskTools(a: DeskActions, me: { name: string }, chief: string, o
   const remember: AgentTool<{ text?: unknown; kind?: unknown }> = {
     spec: {
       name: 'remember_this',
-      description: 'Remember something durable the owner told you (a fact, preference, decision, rule, a client or person), as one self-contained sentence, so the whole team knows it. Never passwords or card numbers.',
-      parameters: { type: 'object', properties: { text: { type: 'string' }, kind: { type: 'string', enum: ['fact', 'preference', 'decision', 'person', 'client', 'rule'] } }, required: ['text'], additionalProperties: false },
+      description: 'Save something durable the owner told you (a fact, preference, decision, rule, client or person) so the whole team knows it. Refuses anything that looks like a password, key or card number.',
+      parameters: { type: 'object', properties: { text: { type: 'string', description: 'One self-contained sentence that names who and what.' }, kind: { type: 'string', enum: ['fact', 'preference', 'decision', 'person', 'client', 'rule'] } }, required: ['text'], additionalProperties: false },
       mock: { triggers: DESK_TRIGGERS.remember, args: (text: string) => ({ text: text.replace(/^\s*(please )?remember (that )?/i, '').trim(), kind: /\b(always|never)\b/i.test(text) ? 'rule' : 'fact' }), reply: sayOf },
     },
     async execute(args) {
