@@ -129,6 +129,39 @@ describe('anthropic adapter', () => {
     ]);
   });
 
+  it('runs without thinking when the turn names a hosted call from an earlier response', async () => {
+    const turn = [
+      ['message_start', { type: 'message_start', message: { usage: { input_tokens: 9 } } }],
+      ['content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '' } }],
+      ['content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'sig-2' } }],
+      ['content_block_stop', { type: 'content_block_stop', index: 0 }],
+      ['content_block_start', { type: 'content_block_start', index: 1, content_block: { type: 'server_tool_use', id: 'srvtoolu_new', name: 'web_fetch', input: {}, caller: { type: 'server_tool', tool_id: 'srvtoolu_earlier' } } }],
+      ['content_block_stop', { type: 'content_block_stop', index: 1 }],
+      ['content_block_start', { type: 'content_block_start', index: 2, content_block: { type: 'tool_use', id: 'toolu_y', name: 'start_job', input: {} } }],
+      ['content_block_delta', { type: 'content_block_delta', index: 2, delta: { type: 'input_json_delta', partial_json: '{"title":"Rose quartz"}' } }],
+      ['content_block_stop', { type: 'content_block_stop', index: 2 }],
+      ['message_delta', { type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 7 } }],
+      ['message_stop', { type: 'message_stop' }],
+    ] as [string, object][];
+    const done = [
+      ['message_start', { type: 'message_start', message: { usage: { input_tokens: 1 } } }],
+      ['content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Done.' } }],
+      ['message_delta', { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 1 } }],
+      ['message_stop', { type: 'message_stop' }],
+    ] as [string, object][];
+    const { f, chat } = setup((_r, n) => sseResponse(n === 0 ? turn : done));
+    const first = await collectEvents(chat.chat({ messages: [{ role: 'user', content: 'find rose quartz' }], tools }));
+    const history: ChatMessage[] = [
+      { role: 'user', content: 'find rose quartz' },
+      { role: 'assistant', content: first.text, toolCalls: first.toolCalls },
+      { role: 'tool', toolCallId: 'toolu_y', name: 'start_job', content: '{"jobId":"job_3"}' },
+    ];
+    await collectEvents(chat.chat({ messages: history, tools }));
+    const body = f.calls[1]!.body as Record<string, any>;
+    expect(body.thinking).toBeUndefined();
+    expect(body.messages[1].content.map((b: { type: string }) => b.type)).toEqual(['tool_use']);
+  });
+
   it('runs a continuation without thinking when its thinking blocks are unknown, and maps tool_choice', async () => {
     const done = () => sseResponse([['message_start', { type: 'message_start', message: {} }], ['message_delta', { type: 'message_delta', delta: { stop_reason: 'end_turn' } }], ['message_stop', { type: 'message_stop' }]]);
     const { f, chat } = setup(done);

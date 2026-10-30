@@ -58,7 +58,7 @@ export function toAnthropicMessages(messages: ChatMessage[], names: ToolNames, r
     if (m.role === 'assistant') {
       const blocks: Block[] = [];
       const original = replayThinking && continuation && i === lastAssistant && m.toolCalls?.length ? turnByToolUse.get(m.toolCalls[0]!.id) : undefined;
-      if (original && m.toolCalls!.every((tc) => original.some((b) => b.type === 'tool_use' && b.id === tc.id))) {
+      if (original && m.toolCalls!.every((tc) => original.some((b) => b.type === 'tool_use' && b.id === tc.id)) && selfContained(original)) {
         out.push({ role: 'assistant', content: original });
         continuationWithThinking = true;
         return;
@@ -76,6 +76,16 @@ export function toAnthropicMessages(messages: ChatMessage[], names: ToolNames, r
   // Anthropic requires the first message to be from the user.
   if (!out.length || out[0]!.role !== 'user') out.unshift({ role: 'user', content: '(conversation start)' });
   return { messages: out, continuationWithThinking, continuation };
+}
+
+/**
+ * A turn can refer to hosted tool calls from an earlier response (a paused server-side search continues in the next
+ * one). Replayed alone, such a turn is refused ("source tool … not found"), so it is replayed only when every hosted
+ * call it names is in it.
+ */
+function selfContained(blocks: Block[]): boolean {
+  const defined = new Set(blocks.filter((b) => b.type === 'server_tool_use').map((b) => String(b.id)));
+  return (JSON.stringify(blocks).match(/srvtoolu_[A-Za-z0-9_-]+/g) ?? []).every((id) => defined.has(id));
 }
 
 function toToolChoice(choice: ChatRequest['toolChoice'], names: ToolNames): Block | undefined {
