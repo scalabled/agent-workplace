@@ -26,12 +26,13 @@ const alwaysThinks = (model: string) => /^claude-(fable-5|mythos-5|opus-5-5)/.te
 type Block = Record<string, unknown>;
 
 /**
- * Thinking blocks (with their signatures) that preceded a tool_use, keyed by tool_use id. With thinking on,
- * the continuation after tool results must replay them; our neutral transcript does not carry provider
- * state, so the adapter keeps it here (per isolate; a tool loop runs inside one Durable Object). When the
- * blocks are gone, that continuation runs without thinking instead of failing.
+ * The assistant content of a turn that thought and then called tools, block for block as Anthropic sent it, keyed by
+ * tool_use id. With thinking on, the continuation after tool results must send that message back unchanged: the
+ * thinking blocks with their signatures, in their places among text, hosted search and tool_use blocks. Our neutral
+ * transcript does not carry provider state, so the adapter keeps it here (per isolate; a tool loop runs inside one
+ * Durable Object). When it is gone, that continuation runs without thinking instead of failing.
  */
-const thinkingByToolUse = new LruMap<string, Block[]>(512);
+const turnByToolUse = new LruMap<string, Block[]>(512);
 
 interface Converted {
   messages: { role: 'user' | 'assistant'; content: string | Block[] }[];
@@ -56,12 +57,11 @@ export function toAnthropicMessages(messages: ChatMessage[], names: ToolNames, r
   messages.forEach((m, i) => {
     if (m.role === 'assistant') {
       const blocks: Block[] = [];
-      if (replayThinking && continuation && i === lastAssistant && m.toolCalls?.length) {
-        const cached = thinkingByToolUse.get(m.toolCalls[0]!.id);
-        if (cached?.length) {
-          blocks.push(...cached);
-          continuationWithThinking = true;
-        }
+      const original = replayThinking && continuation && i === lastAssistant && m.toolCalls?.length ? turnByToolUse.get(m.toolCalls[0]!.id) : undefined;
+      if (original && m.toolCalls!.every((tc) => original.some((b) => b.type === 'tool_use' && b.id === tc.id))) {
+        out.push({ role: 'assistant', content: original });
+        continuationWithThinking = true;
+        return;
       }
       if (m.content.trim()) blocks.push({ type: 'text', text: m.content });
       for (const tc of m.toolCalls ?? []) blocks.push({ type: 'tool_use', id: tc.id, name: names.wire(tc.name), input: argumentsObject(tc.arguments) });
@@ -142,7 +142,9 @@ async function* anthropicChat(http: HttpClient, req: ChatRequest, model: string)
   }
 
   const blocks = new Map<number, { type?: string; id?: string; name?: string; json: string; thinking: string; signature: string; data?: string }>();
-  const thinkingBlocks: Block[] = [];
+  // Every block of the reply in its place, as sent, for an exact replay after tool results.
+  const turn = new Map<number, Block>();
+  let thought = false;
   const toolUseIds: string[] = [];
   let input = 0;
   let cached = 0;
@@ -165,6 +167,7 @@ async function* anthropicChat(http: HttpClient, req: ChatRequest, model: string)
     } else if (type === 'content_block_start') {
       const cb = msg.content_block || {};
       blocks.set(msg.index ?? 0, { ...(cb.type ? { type: cb.type } : {}), ...(cb.id ? { id: cb.id } : {}), ...(cb.name ? { name: cb.name } : {}), json: '', thinking: cb.thinking ?? '', signature: cb.signature ?? '', ...(cb.data ? { data: cb.data } : {}) });
+      turn.set(msg.index ?? 0, { ...(cb as Block) });
       if (cb.type === 'web_search_tool_result' && Array.isArray(cb.content)) {
         for (const r of cb.content as { type?: string; url?: string; title?: string }[]) if (r.type === 'web_search_result' && r.url) yield { type: 'citation', url: r.url, ...(r.title ? { title: r.title } : {}) };
       }
@@ -175,6 +178,9 @@ async function* anthropicChat(http: HttpClient, req: ChatRequest, model: string)
     } else if (type === 'content_block_delta') {
       const d = msg.delta || {};
       const block = blocks.get(msg.index ?? 0);
+      const raw = turn.get(msg.index ?? 0);
+      if (raw && d.type === 'text_delta' && d.text) raw.text = String(raw.text ?? '') + d.text;
+      else if (raw && d.type === 'citations_delta' && d.citation) raw.citations = [...((raw.citations as unknown[]) ?? []), d.citation];
       if (d.type === 'text_delta' && d.text) {
         sawText = true;
         yield { type: 'text', delta: d.text };
@@ -190,14 +196,16 @@ async function* anthropicChat(http: HttpClient, req: ChatRequest, model: string)
       }
     } else if (type === 'content_block_stop') {
       const block = blocks.get(msg.index ?? 0);
+      const raw = turn.get(msg.index ?? 0);
+      if (raw && block) {
+        if (block.type === 'thinking') Object.assign(raw, { thinking: block.thinking, signature: block.signature });
+        else if (block.type === 'tool_use' || block.type === 'server_tool_use') raw.input = argumentsObject(normalizeArguments(block.json || (raw.input ? JSON.stringify(raw.input) : '')));
+        if (block.type === 'thinking' || block.type === 'redacted_thinking') thought = true;
+      }
       if (block?.type === 'tool_use') {
         const id = block.id || callId('toolu');
         toolUseIds.push(id);
         yield { type: 'tool_call', id, name: names.local(block.name || ''), arguments: normalizeArguments(block.json) };
-      } else if (block?.type === 'thinking') {
-        thinkingBlocks.push({ type: 'thinking', thinking: block.thinking, signature: block.signature });
-      } else if (block?.type === 'redacted_thinking' && block.data) {
-        thinkingBlocks.push({ type: 'redacted_thinking', data: block.data });
       }
     } else if (type === 'message_delta') {
       if (msg.delta?.stop_reason) stopReason = msg.delta.stop_reason;
@@ -212,7 +220,10 @@ async function* anthropicChat(http: HttpClient, req: ChatRequest, model: string)
   }
   // A stream that closes without message_stop was cut off; never report it as a complete reply.
   if (!sawStop) throw new ProviderError('anthropic', `${LABEL} stopped before the reply was complete. Try again.`, 502, true, 'incomplete');
-  if (thinkingBlocks.length) for (const id of toolUseIds) thinkingByToolUse.set(id, thinkingBlocks);
+  if (thought && toolUseIds.length) {
+    const content = [...turn.entries()].sort((a, b) => a[0] - b[0]).map(([, b]) => b);
+    for (const id of toolUseIds) turnByToolUse.set(id, content);
+  }
   const finish: FinishReason =
     stopReason === 'tool_use' ? 'tool_calls' : stopReason === 'max_tokens' || stopReason === 'model_context_window_exceeded' ? 'length' : stopReason === 'refusal' ? 'refusal' : stopReason === 'pause_turn' ? 'incomplete' : 'stop';
   if (finish === 'refusal' && !sawText) yield { type: 'text', delta: 'I cannot help with that.' };

@@ -54,6 +54,24 @@ describe('the reaction hint in a Chief of Staff turn', () => {
     expect(JSON.stringify(requests.filter(isTalk).at(-1)!.messages)).not.toContain('⟦');
   });
 
+  it('with email on, the last sentence of one step and the next step stay apart', async () => {
+    const talkCalls = () => requests.filter(isTalk).length;
+    const { requests } = useProviders({
+      chat: {
+        events: (req) => {
+          if (!isTalk(req)) return null;
+          if (talkCalls() === 1) return [{ type: 'text', delta: 'I will compare them shortly.' }, { type: 'tool_call', id: 'call_1', name: 'job_status', arguments: '{}' }, { type: 'done', finish: 'tool_calls' }] as ModelEvent[];
+          return text(["That's running now."]);
+        },
+      },
+    });
+    const s = await exprSetup({ MAIL_PROVIDER: 'sink' });
+    await s.talk('Compare amethyst suppliers');
+    const msg = (await s.ofType('talk.message')).at(-1)!;
+    expect(msg.data.text).toBe("I will compare them shortly.\n\nThat's running now.");
+    expect(s.liveOf('talk.delta').map((d) => d.data.delta).join('')).toBe(msg.data.text);
+  });
+
   it('asks for the token in the role directive, and for no opening laugh or acknowledgement', () => {
     const p = buildChiefSystemPrompt({ lead: undefined, chiefName: null, voiceOn: true, jobs: [], now: new Date(0) });
     expect(p).toContain('⟦react:laugh⟧');

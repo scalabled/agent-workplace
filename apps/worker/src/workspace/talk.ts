@@ -580,8 +580,12 @@ export async function runChiefTurn(host: TalkHost, spec: TurnSpec, state: TurnSt
       ...callBudget(resolved.provider, resolved.model, TALK_MAX_TOKENS, TALK_EFFORT),
       onEvent: (e) => {
         if (state.closed) return;
-        if (e.type === 'step') newStep = true;
-        else if (e.type === 'text' && e.delta) stream(e.delta);
+        if (e.type === 'step') {
+          // The guard holds a step's last sentence until whitespace follows; release it before the paragraph break.
+          const held = receiptGuard?.flush();
+          if (held) emit(heads.push(held));
+          newStep = true;
+        } else if (e.type === 'text' && e.delta) stream(e.delta);
       },
     });
     if (!state.closed) {

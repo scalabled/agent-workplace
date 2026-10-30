@@ -78,6 +78,57 @@ describe('anthropic adapter', () => {
     expect(body.messages[2]).toEqual({ role: 'user', content: [{ type: 'tool_result', tool_use_id: 'toolu_replay', content: '{"jobId":"job_1"}' }] });
   });
 
+  it('replays the turn exactly as sent when hosted search and a second thinking block sit between the blocks', async () => {
+    const turn = [
+      ['message_start', { type: 'message_start', message: { usage: { input_tokens: 9 } } }],
+      ['content_block_start', { type: 'content_block_start', index: 0, content_block: { type: 'thinking', thinking: '' } }],
+      ['content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'thinking_delta', thinking: 'Search first.' } }],
+      ['content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'signature_delta', signature: 'sig-1' } }],
+      ['content_block_stop', { type: 'content_block_stop', index: 0 }],
+      ['content_block_start', { type: 'content_block_start', index: 1, content_block: { type: 'server_tool_use', id: 'srvtoolu_1', name: 'web_search', input: {} } }],
+      ['content_block_delta', { type: 'content_block_delta', index: 1, delta: { type: 'input_json_delta', partial_json: '{"query":"amethyst wholesale"}' } }],
+      ['content_block_stop', { type: 'content_block_stop', index: 1 }],
+      ['content_block_start', { type: 'content_block_start', index: 2, content_block: { type: 'web_search_tool_result', tool_use_id: 'srvtoolu_1', content: [{ type: 'web_search_result', url: 'https://example.com/a', title: 'A', encrypted_content: 'enc' }] } }],
+      ['content_block_stop', { type: 'content_block_stop', index: 2 }],
+      ['content_block_start', { type: 'content_block_start', index: 3, content_block: { type: 'redacted_thinking', data: 'opaque' } }],
+      ['content_block_stop', { type: 'content_block_stop', index: 3 }],
+      ['content_block_start', { type: 'content_block_start', index: 4, content_block: { type: 'text', text: '' } }],
+      ['content_block_delta', { type: 'content_block_delta', index: 4, delta: { type: 'text_delta', text: 'Found one.' } }],
+      ['content_block_delta', { type: 'content_block_delta', index: 4, delta: { type: 'citations_delta', citation: { type: 'web_search_result_location', url: 'https://example.com/a', title: 'A', cited_text: 'x' } } }],
+      ['content_block_stop', { type: 'content_block_stop', index: 4 }],
+      ['content_block_start', { type: 'content_block_start', index: 5, content_block: { type: 'tool_use', id: 'toolu_x', name: 'start_job', input: {} } }],
+      ['content_block_delta', { type: 'content_block_delta', index: 5, delta: { type: 'input_json_delta', partial_json: '{"title":"Amethyst"}' } }],
+      ['content_block_stop', { type: 'content_block_stop', index: 5 }],
+      ['message_delta', { type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 7 } }],
+      ['message_stop', { type: 'message_stop' }],
+    ] as [string, object][];
+    const done = [
+      ['message_start', { type: 'message_start', message: { usage: { input_tokens: 1 } } }],
+      ['content_block_delta', { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Done.' } }],
+      ['message_delta', { type: 'message_delta', delta: { stop_reason: 'end_turn' }, usage: { output_tokens: 1 } }],
+      ['message_stop', { type: 'message_stop' }],
+    ] as [string, object][];
+    const { f, chat } = setup((_r, n) => sseResponse(n === 0 ? turn : done));
+    const first = await collectEvents(chat.chat({ messages: [{ role: 'user', content: 'find suppliers' }], tools }));
+    // The neutral transcript keeps only the text and the tool call; the replay must not depend on it.
+    const history: ChatMessage[] = [
+      { role: 'user', content: 'find suppliers' },
+      { role: 'assistant', content: `${first.text} (edited)`, toolCalls: first.toolCalls },
+      { role: 'tool', toolCallId: 'toolu_x', name: 'start_job', content: '{"jobId":"job_2"}' },
+    ];
+    await collectEvents(chat.chat({ messages: history, tools }));
+    const body = f.calls[1]!.body as Record<string, any>;
+    expect(body.thinking).toEqual({ type: 'adaptive', display: 'summarized' });
+    expect(body.messages[1].content).toEqual([
+      { type: 'thinking', thinking: 'Search first.', signature: 'sig-1' },
+      { type: 'server_tool_use', id: 'srvtoolu_1', name: 'web_search', input: { query: 'amethyst wholesale' } },
+      { type: 'web_search_tool_result', tool_use_id: 'srvtoolu_1', content: [{ type: 'web_search_result', url: 'https://example.com/a', title: 'A', encrypted_content: 'enc' }] },
+      { type: 'redacted_thinking', data: 'opaque' },
+      { type: 'text', text: 'Found one.', citations: [{ type: 'web_search_result_location', url: 'https://example.com/a', title: 'A', cited_text: 'x' }] },
+      { type: 'tool_use', id: 'toolu_x', name: 'start_job', input: { title: 'Amethyst' } },
+    ]);
+  });
+
   it('runs a continuation without thinking when its thinking blocks are unknown, and maps tool_choice', async () => {
     const done = () => sseResponse([['message_start', { type: 'message_start', message: {} }], ['message_delta', { type: 'message_delta', delta: { stop_reason: 'end_turn' } }], ['message_stop', { type: 'message_stop' }]]);
     const { f, chat } = setup(done);
