@@ -7,7 +7,7 @@ of AI coworkers who meet, plan and deliver real work: research, documents, sprea
 emails. Nothing leaves the office until you approve it.
 
 <p align="center">
-  <img src="docs/screens/talk.png" alt="Talk: the Chief of Staff answers out loud and reports on a background job" width="900" />
+  <img src="docs/screens/talk.png" alt="Talk: the Chief of Staff reports the result of a supplier research job it ran in the background" width="900" />
 </p>
 
 ## What it does
@@ -15,8 +15,8 @@ emails. Nothing leaves the office until you approve it.
 | | |
 |---|---|
 | <img src="docs/screens/project-plan.png" alt="A team project: the team, the plan and the forecast, waiting for approval" /> | **Staff a project in one sentence.** Say "put together a team to launch our spring collection". Your Chief of Staff picks the coworkers, drafts a plan and waits for your approval. The team then works step by step and reviews each other's work. |
-| <img src="docs/screens/office.png" alt="The office floor: coworkers at their desks and in huddles" /> | **Watch the office at work.** Coworkers sit at desks, walk to huddles and talk about real work. Click anyone to talk with them in place. |
-| <img src="docs/screens/meetings.png" alt="Meetings: a kickoff meeting with its transcript" /> | **Put the team in a room.** Call a meeting in a sentence. Each coworker speaks in their own voice, your Chief of Staff moderates, and the work they agree on starts when the meeting ends. |
+| <img src="docs/screens/office.png" alt="The office floor: coworkers at their desks and in a huddle by the cafe" /> | **Watch the office at work.** Coworkers sit at their desks, take breaks and huddle. Click anyone to talk with them in place. |
+| <img src="docs/screens/meetings.png" alt="A live kickoff meeting on a project page, with the Now playing bar" /> | **Put the team in a room.** Call a meeting in a sentence. Each coworker speaks in their own voice, your Chief of Staff moderates, and the work they agree on starts when the meeting ends. |
 | <img src="docs/screens/now.png" alt="The Now page: every job and project in progress" /> | **See everything on Now.** Every job and project in progress, its step and who is on it. Change direction or stop work at any time. |
 
 More:
