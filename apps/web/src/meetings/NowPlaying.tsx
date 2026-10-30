@@ -5,6 +5,7 @@ import { catalog } from '../catalog';
 import { chiefName, currentLead } from '../chief';
 import { Face, leadSubject, personaSubject } from '../components/Face';
 import { Icon } from '../components/Icon';
+import { plainText } from '../lib/markdown';
 import { navigate, paths } from '../router';
 import { audio } from '../voice/engine';
 import { takeVoice } from '../voice/handoff';
@@ -42,7 +43,7 @@ export function NowPlaying() {
         <p class="np-caption" aria-live="polite">
           {np.line ? (
             <>
-              <strong>{np.line.name}:</strong> {np.line.text}
+              <strong>{np.line.name}:</strong> {plainText(np.line.text)}
             </>
           ) : np.finished ? (
             'That was the whole meeting.'
