@@ -4,11 +4,13 @@
 // read (headers and body) has one deadline. Cloudflare's network also refuses private destinations in production;
 // these checks matter most in local development, where the worker runs on the owner's machine.
 
+import { BRAND } from '@headcount/protocol';
+
 export const FETCH_MAX_BYTES = 2_000_000;
 export const FETCH_TIMEOUT_MS = 15_000;
 const MAX_REDIRECTS = 4;
 const ALLOWED_PORTS = new Set(['', '80', '443', '8080', '8443']);
-const USER_AGENT = 'HeadcountFetch/1.0 (+https://headcount.app; reads public pages for the owner)';
+const USER_AGENT = `${BRAND.name.replace(/\s+/g, '')}Fetch/1.0 (reads public pages for the owner)`;
 
 export class FetchPageError extends Error {
   constructor(

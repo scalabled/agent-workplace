@@ -94,7 +94,7 @@ describe('email, exactly once', () => {
     expect(done?.type === 'effect.updated' && done.data.effect).toMatchObject({ status: 'done', receipt: { action: 'email.send', target: 'jo@example.com', provider: 'sink', undo: 'No undo: an email cannot be recalled.' } });
     // The grant covers the next email in the next 24 hours: out at once, no card.
     const again = await s.talk('Email sam@example.com about opening hours');
-    expect(again?.text).toMatch(/^Sent to sam@example\.com \(the test mailbox: nothing left Headcount\), receipt rcp_[a-f0-9]+\.$/);
+    expect(again?.text).toMatch(/^Sent to sam@example\.com \(the test mailbox: nothing left Agent Workplace\), receipt rcp_[a-f0-9]+\.$/);
     expect(await s.mailbox()).toHaveLength(2);
     expect(await s.open('effect')).toEqual([]);
     // The trail: asked, the grant (Undo takes it back), sent with its receipt (no undo).

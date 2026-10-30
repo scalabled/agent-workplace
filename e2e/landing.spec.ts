@@ -50,7 +50,7 @@ test('the landing page: kinetic hero, the real cast, honest pricing, and no app 
   const sockets: string[] = [];
   page.on('websocket', (ws) => sockets.push(ws.url()));
   await page.goto('/');
-  await expect(page).toHaveTitle('Headcount · The AI Office');
+  await expect(page).toHaveTitle('Agent Workplace · The AI Office');
   await expect(page.getByRole('heading', { level: 1, name: 'Hire an AI team. Watch it work.' })).toHaveText('Hire an AI team. Watch it work.');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
@@ -103,7 +103,7 @@ test('the landing page: kinetic hero, the real cast, honest pricing, and no app 
   expect(sockets.filter((u) => u.includes('/api/ws'))).toEqual([]);
 
   // Enter the office: first run lands on "Choose your Chief of Staff", and now the app connects.
-  await page.getByRole('navigation', { name: 'Headcount' }).getByRole('link', { name: 'Enter the office' }).click();
+  await page.getByRole('navigation', { name: 'Agent Workplace' }).getByRole('link', { name: 'Enter the office' }).click();
   await expect(page).toHaveURL(/\/app\/welcome$/);
   await expect(page.getByRole('heading', { name: 'Choose your Chief of Staff' })).toBeVisible();
   await expect.poll(() => sockets.some((u) => u.includes('/api/ws'))).toBe(true);
@@ -174,7 +174,7 @@ test.describe('phone width (375 px)', () => {
   test('the landing page fits: no horizontal scroll anywhere, faces first, one call to action at a time, a menu', async ({ page }) => {
     await page.goto('/');
     const heroCta = page.locator('.lp-hero').getByRole('link', { name: /Enter the office/ });
-    const navCta = page.getByRole('navigation', { name: 'Headcount' }).getByRole('link', { name: 'Enter the office' });
+    const navCta = page.getByRole('navigation', { name: 'Agent Workplace' }).getByRole('link', { name: 'Enter the office' });
     await expect(heroCta).toBeInViewport();
     // Real faces above the headline, and the nav's copy of the CTA waits until the hero's has scrolled away.
     expect(await page.locator('.lp-cast-tile:visible').count()).toBe(5);

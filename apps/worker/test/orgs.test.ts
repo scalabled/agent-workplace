@@ -178,7 +178,7 @@ describe('settings in a new organization', () => {
     expect(view.values.find((v) => v.key === 'MAIL_PROVIDER')?.locked).toBeUndefined();
     const raised = await dana.api('PUT', '/api/admin/config', { values: { CHAT_DAILY_LIMIT: '100000' } });
     expect(raised.status).toBe(400);
-    expect(raised.body.error.message).toMatch(/set by Headcount for every organization/);
+    expect(raised.body.error.message).toMatch(/set by Agent Workplace for every organization/);
     expect((await dana.api('PUT', '/api/admin/config', { values: { MAIL_PROVIDER: 'sink' } })).status).toBe(200);
     // The home organization's owner keeps every setting.
     const owner = await signIn(t, OWNER);

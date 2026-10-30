@@ -1,6 +1,7 @@
 // send_email (Inc 6): one tool for the Chief of Staff, a coworker at their desk, and a project step's lead. The email
 // is asked for, not sent directly: it goes out exactly once when the owner's autonomy setting and grants allow, and the
 // tool says truthfully what happened (sent with a receipt id, waiting for the OK, held, declined, or not sent).
+import { BRAND } from '@headcount/protocol';
 import type { AgentTool, ToolOutcome } from '@headcount/agent-loop';
 import type { EmailMessage } from '@headcount/protocol/ext/trust';
 import { EffectError, effectGuidance, effectSay, type EffectResult } from './effects';
@@ -43,7 +44,7 @@ export function sendEmailTool(port: EmailToolPort, opts: { owner?: string; test?
         `It goes out only with ${owner}'s OK unless they allowed more, and exactly once: asking again for the same email does not send it twice.`,
         'Write the whole email: a clear subject, and plain text a busy person reads in 20 seconds, signed as yourself. A line saying you are an AI coworker is added.',
         `Returns what happened: sent (with a receipt id), waiting for the OK, held, declined, or not sent. Say "sent" only with a receipt id; otherwise say it is waiting for ${owner}'s OK.`,
-        ...(opts.test ? ['Email is in test mode: it goes to a test mailbox inside Headcount and nothing leaves.'] : []),
+        ...(opts.test ? [`Email is in test mode: it goes to a test mailbox inside ${BRAND.name} and nothing leaves.`] : []),
       ].join(' '),
       parameters: {
         type: 'object',

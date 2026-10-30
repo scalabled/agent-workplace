@@ -17,14 +17,14 @@ async function setup() {
 describe('the office name in the agents’ instructions', () => {
   it('the Chief and a coworker say the office’s name, with what it is in brackets', async () => {
     const s = await setup();
-    expect(JSON.stringify((await s.api('GET', '/api/chief/prompt')).body)).toContain("Chief of Staff at Headcount (the owner's AI office)");
+    expect(JSON.stringify((await s.api('GET', '/api/chief/prompt')).body)).toContain("Chief of Staff at Agent Workplace (the owner's AI office)");
     const r = await s.api('PUT', '/api/org', { name: 'Amethyst & Co' });
     expect(r.status).toBe(200);
     expect(r.body.org.name).toBe('Amethyst & Co');
     expect((await s.api('GET', '/api/auth/me')).body.org.name).toBe('Amethyst & Co');
     const chief = JSON.stringify((await s.api('GET', '/api/chief/prompt')).body);
     expect(chief).toContain("Chief of Staff at Amethyst & Co (the owner's AI office)");
-    expect(chief).not.toContain('Chief of Staff in Headcount');
+    expect(chief).not.toContain('Chief of Staff in Agent Workplace');
     const coworker = JSON.stringify((await s.api('GET', '/api/agents/bookkeeper')).body);
     expect(coworker).toContain("an AI coworker at Amethyst & Co (the owner's AI office)");
   });

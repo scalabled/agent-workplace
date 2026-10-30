@@ -1,5 +1,6 @@
 // The connector catalog: biz-bot's eleven (public/connectors/catalog.json) and a keyless demo served inside the worker
 // when mocks are on (ENABLE_MOCK), so the whole flow can be tried and tested without the network.
+import { BRAND } from '@headcount/protocol';
 import type { ConnectorCatalogEntry } from '@headcount/protocol/ext/connectors';
 import type { Env } from '../env';
 
@@ -21,7 +22,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorCatalogEntry[] = [
 export const DEMO_CONNECTOR: ConnectorCatalogEntry = {
   id: 'demo-notebook',
   name: 'Demo notebook',
-  description: 'A tiny notebook served inside Headcount (mock mode only): list, read and add notes.',
+  description: `A tiny notebook served inside ${BRAND.name} (mock mode only): list, read and add notes.`,
   url: 'https://demo-notebook.mcp.invalid/mcp',
   auth: 'none',
   demo: true,

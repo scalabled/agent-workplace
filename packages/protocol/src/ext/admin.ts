@@ -8,6 +8,7 @@
 //   the deployment itself are shown but only change with the deployment. Keys are write-only.
 // - Usage. Every model call (chat, embeddings, speech, images) is metered by surface, coworker, provider and model:
 //   tokens in, out and cached, calls, errors, time, and cost where the provider reports it or a price is set here.
+import { BRAND } from '../brand';
 import type { Role } from '../routes';
 
 export type { Role };
@@ -128,7 +129,7 @@ export const CONFIG_OPTIONS: readonly ConfigOption[] = [
     key: 'MAIL_PROVIDER',
     group: 'email',
     label: 'Email',
-    help: 'Off: coworkers cannot send email. Test mailbox: emails stay inside Headcount, to try it safely. Resend: real email (needs a Resend key and a verified sender).',
+    help: `Off: coworkers cannot send email. Test mailbox: emails stay inside ${BRAND.name}, to try it safely. Resend: real email (needs a Resend key and a verified sender).`,
     kind: 'choice',
     fallback: '',
     choices: [

@@ -25,7 +25,7 @@ test('rename the office: its name is at the top of the app and in the tab', asyn
   await expect(page.locator('.nav .nav-brand-name')).toHaveText('Amethyst & Co');
   if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/office-name.png` });
   // Back to the product's name for the other specs.
-  expect((await request.put('/api/org', { data: { name: 'Headcount' } })).ok()).toBe(true);
+  expect((await request.put('/api/org', { data: { name: 'Agent Workplace' } })).ok()).toBe(true);
 });
 
 test.describe('phone width (390 px)', () => {

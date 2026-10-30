@@ -2,6 +2,7 @@
 // owner gives when approving, real actions (an email) that happen exactly once with a receipt, the audit trail with
 // Undo, and Everyone stop holding what has not gone out yet.
 
+import { BRAND } from '../brand';
 /** Kinds of action an agent can take, from harmless to consequential. */
 export type ActionClass = 'research' | 'workspace' | 'app_write' | 'external_send' | 'publish' | 'spend' | 'identity';
 
@@ -54,7 +55,7 @@ export const ACTION_CLASSES: readonly ActionClassInfo[] = [
   },
   {
     id: 'workspace',
-    label: 'Changes inside Headcount',
+    label: `Changes inside ${BRAND.name}`,
     hint: 'The Handbook and what they remember. Every change is in the audit log with Undo.',
     default: 'act_report',
     allowed: ['propose', 'act_report'],

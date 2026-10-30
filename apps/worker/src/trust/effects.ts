@@ -4,6 +4,7 @@
 // owner's grants), is written down as pending before any I/O, goes out with its key as the provider's idempotency key,
 // and gets a receipt. After a crash a pending effect is reconciled against the provider, never blindly replayed; when
 // nobody can tell whether it went out, the owner decides. Everyone stop holds what has not gone out.
+import { BRAND } from '@headcount/protocol';
 import { CHIEF_ID, type ActorId, type FrameInput } from '@headcount/protocol';
 import type { Decision, DecisionAnswer } from '@headcount/protocol/ext/projects';
 import {
@@ -392,7 +393,7 @@ export class Effects {
       actor: r0.agent_id,
       kind: 'email',
       action: 'email.sent',
-      summary: `${r0.agent_name} sent “${e.subject}” to ${receipt.target}${provider === 'sink' ? ' (test mailbox: nothing left Headcount)' : ''}${note ? `. ${note}` : ''}`,
+      summary: `${r0.agent_name} sent “${e.subject}” to ${receipt.target}${provider === 'sink' ? ` (test mailbox: nothing left ${BRAND.name})` : ''}${note ? `. ${note}` : ''}`,
       target: receipt.target,
       receipt,
       undo: { type: 'none', label: receipt.undo },
@@ -471,7 +472,7 @@ export class Effects {
 
   /** An email the owner sends themself from Admin → Email, to check the setup. It needs no OK: the owner is sending it. */
   async ownerTest(to: string, by: string): Promise<EffectResult> {
-    const email = normalizeEmail({ to: [to], subject: 'Headcount: a test email', text: 'This is a test from Headcount. If you can read it, your coworkers can send email.' });
+    const email = normalizeEmail({ to: [to], subject: `${BRAND.name}: a test email`, text: `This is a test from ${BRAND.name}. If you can read it, your coworkers can send email.` });
     const key = await effectKey(`test:${by}:${Math.floor(this.p.now() / 60_000)}`, email);
     const had = this.row(key);
     if (had) return this.result(had, true);
@@ -511,7 +512,7 @@ export class Effects {
 export function effectSay(r: EffectResult): string {
   switch (r.status) {
     case 'done':
-      return `${r.existing ? 'That email already went out' : 'Sent'} to ${r.receipt.target}${r.test ? ' (the test mailbox: nothing left Headcount)' : ''}, receipt ${r.receipt.receiptId}.`;
+      return `${r.existing ? 'That email already went out' : 'Sent'} to ${r.receipt.target}${r.test ? ` (the test mailbox: nothing left ${BRAND.name})` : ''}, receipt ${r.receipt.receiptId}.`;
     case 'awaiting':
       return "It's waiting for your OK in the Inbox; nothing has been sent yet.";
     case 'pending':

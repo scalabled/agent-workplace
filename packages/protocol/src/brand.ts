@@ -1,7 +1,7 @@
 // The product's name, in one place: a rename is a one-line change here (the web page titles and the worker's own words
 // read it too).
 export const BRAND = {
-  name: 'Headcount',
+  name: 'Agent Workplace',
   /** What it is, in three words. */
   tagline: 'The AI Office',
   /** One sentence for search results and link previews. */

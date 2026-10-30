@@ -3,6 +3,7 @@
 // brings (their `since` is the release's version, so they show as New); every change links to its guide entry.
 // Plain, present-tense copy for what works today; nothing that is not built goes here.
 
+import { BRAND } from '@headcount/protocol';
 export interface Area {
   id: string;
   title: string;
@@ -420,7 +421,7 @@ export const GUIDE: GuideEntry[] = [
     id: 'admin-name',
     area: 'admin',
     title: 'Your office’s own name',
-    what: 'The app shows your business’s name at the top and in the browser tab, in place of Headcount. Your Chief of Staff and coworkers use it when they talk about the office.',
+    what: `The app shows your business’s name at the top and in the browser tab, in place of ${BRAND.name}. Your Chief of Staff and coworkers use it when they talk about the office.`,
     steps: [
       'Click your office’s name at the top of the sidebar and choose “Rename this office”. You can also use ⌘K → “Rename this office”, or Rename under Admin → General → Organization.',
       'Type the name in the dialog and press Rename. Owners can rename the office at any time.',
@@ -472,7 +473,7 @@ export const RELEASES: Release[] = [
       { text: 'If a page fails, it says so and offers Reload the page and Go to Talk. An unknown page or project says it was not found and links back.' },
       { text: 'Letting a coworker go now asks first, on the Team page and on their profile.', guide: 'team-page' },
       { text: 'On phones, panels open above the bottom tabs, every button and field is at least 44 pixels tall, and the ⌘K menu has a Close button.' },
-      { text: 'The home page is shorter, and every line says what Headcount does today.' },
+      { text: `The home page is shorter, and every line says what ${BRAND.name} does today.` },
     ],
   },
   {

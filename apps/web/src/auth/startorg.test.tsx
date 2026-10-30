@@ -56,7 +56,7 @@ describe('starting an organization', () => {
     vi.stubGlobal('fetch', vi.fn(async () => json({ mode: 'google', signedIn: true, email: 'ivy@example.com', name: 'Ivy', role: 'reader', needsOrg: true })));
     await checkAuth();
     await act(() => render(<AuthGate>app</AuthGate>, host));
-    expect(host.textContent).toContain('Headcount is invite-only right now');
+    expect(host.textContent).toContain('Agent Workplace is invite-only right now');
     expect(host.querySelector('#org-name')).toBeNull();
   });
 
