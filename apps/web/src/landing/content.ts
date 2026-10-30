@@ -1,6 +1,6 @@
 // Landing page copy (PRODUCT.md §1–§3, §7, §9, §10; OWNER-DIRECTIVES D2, D3, D5). Honest by rule: no
 // testimonials, customer logos, customer counts or invented metrics. Every capability says whether it works today
-// (INC0 §4), is in the works, or is planned, and the present tense is kept for what works today. Prices are
+// (CORE §4), is in the works, or is planned, and the present tense is kept for what works today. Prices are
 // labeled planned. Coworker names never appear here: they come from the catalog at build time. Examples follow one
 // business (an online crystal shop) so the page reads as one story. Copy follows the writing standard
 // (apps/worker/src/agents/writing.ts): short sentences, plain words, no em dashes.

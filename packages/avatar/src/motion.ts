@@ -6,7 +6,7 @@
 // personagram-ai/src/web/avatar/face-lipsync.js (_updateSpeakingFrame/_updateIdleFrame), made
 // dt-based (so a 15/30/60 fps tier animates at the same speed) and freed from its own rAF loop.
 //
-// Living workforce (Inc 0.5, INC05-PLAN §3.7): a cue layer plays short reflex gestures (nod, look-up, glance…)
+// Living workforce (Inc 0.5): a cue layer plays short reflex gestures (nod, look-up, glance…)
 // on top of the state pose, and a mood palette (`expressionBias`) eases corner pull, brows, pitch, blink and sway.
 // Everything is pose parameters: no new assets, no new loops.
 import type { MouthSample, MouthSampler, PresenceState, VisemeParams } from '@headcount/protocol';
@@ -129,7 +129,7 @@ export const PALETTE_PRESETS: Readonly<Record<PaletteState, { cornerPull: number
 const GESTURES: ReadonlySet<FaceGesture> = new Set<FaceGesture>(['none', 'nod', 'double_nod', 'look_up', 'brow_flash', 'head_tilt', 'smile', 'wince', 'exhale', 'glance', 'still']);
 const PALETTE: ReadonlySet<PaletteState> = new Set<PaletteState>(['resting', 'thinking', 'delighted', 'concerned']);
 
-/** The smile gesture's corner pull and eye squint at full hold (visible on a 64 px face, INC05 feel review). */
+/** The smile gesture's corner pull and eye squint at full hold (visible on a 64 px face, LIVING feel review). */
 export const SMILE_CORNER_PULL = 0.7;
 export const SMILE_SQUINT = 0.22;
 /** The look-up's head pitch and the brow raise it holds. */

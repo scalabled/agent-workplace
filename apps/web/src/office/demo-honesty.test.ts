@@ -1,4 +1,4 @@
-// The office demo is the reference wiring others copy (OFFICE-PHASE2 §4.2.6, §4.5.12): its canned room and bubble
+// The office demo is the reference wiring others copy: its canned room and bubble
 // lines speak from expertise only. No metric movement, no figures, no promises of work, so a line like "it went up
 // nine points after the relaunch" or "I can have the one-pager by tomorrow noon" can never be copied into the app.
 import main from '../../../../packages/office/demo/main.ts?raw';

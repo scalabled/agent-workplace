@@ -1,4 +1,4 @@
-// Huddle choreography (OFFICE-LIFE §3.2): reading times, turn timing, facing and leans. Pure.
+// Huddle choreography: reading times, turn timing, facing and leans. Pure.
 import type { Facing, Point } from '../types';
 import type { HuddleScript, HuddleScriptLine } from './types';
 

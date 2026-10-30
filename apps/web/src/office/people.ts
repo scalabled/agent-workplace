@@ -1,4 +1,4 @@
-// Who is in the office (OFFICE-PHASE2 §4.5.3): the Chief of Staff, the coworkers the owner hired (their team), and
+// Who is in the office: the Chief of Staff, the coworkers the owner hired (their team), and
 // anyone brought into a team project under way (who sit in its pod), from the slim catalog the app already has (no new
 // fetch), and their personality for office life from GET /api/office/people. The rest of the directory is for hiring.
 import type { CatalogIndex, CatalogSlim, Lead } from '@headcount/catalog';

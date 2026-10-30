@@ -1,4 +1,4 @@
-// Walks along the aisles (OFFICE-PLAN §3.5, §4.5): a small graph of corridor × aisle intersections, shortest paths
+// Walks along the aisles: a small graph of corridor × aisle intersections, shortest paths
 // by Dijkstra. People leave their desk through the nearest corridor or the gap between benches, follow the aisles and
 // enter a room through its door.
 import type { Point } from '../types';

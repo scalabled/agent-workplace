@@ -1,4 +1,4 @@
-// The clip service (docs/dev/INC05-PLAN.md §3.5, §4 A2): render a line once per content-addressed key in exactly the
+// The clip service (§4 A2): render a line once per content-addressed key in exactly the
 // requested voice provider (no failover: a clip keyed for xAI is xAI audio), store it in R2 with its metadata and
 // alignment, and answer later requests from storage. Concurrent renders of one key in an isolate share one call.
 import { ProviderError, type Registry } from '@headcount/models';

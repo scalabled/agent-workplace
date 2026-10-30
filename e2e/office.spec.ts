@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { daytimeZone, frames, onboarded, recordFrames, setWorkspace, waitForFrame, type SeenFrame, OFFICE_SEATS, staffOffice } from './helpers';
 import { deskLight, officeState, openOffice, OWNER, restOn, screenOf, seatedInView, skipOfficeHint } from './office-helpers';
 
-// The Office on the Floor, keyless (Mock chat, no speech provider): OFFICE-PHASE2 §7.4 and OFFICE-PLAN §6.6. The
+// The Office on the Floor, keyless (Mock chat, no speech provider). The
 // Floor opens as the Office on a desktop; desk mode (passing by, quick chat, presence), the conference roundtable
 // (invite, captions in order, a new message cancels the rest, Esc leaves, one note in Talk), the reply guard live,
 // the toggle and the Directory, reduced motion and phones. Life at a fixed office clock: e2e/office-life.spec.ts.

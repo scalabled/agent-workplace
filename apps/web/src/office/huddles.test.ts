@@ -1,4 +1,4 @@
-// Small talk in the office (OFFICE-PHASE2 §4.5.7): the huddle engine over the bundle's packs, silent until the living
+// Small talk in the office: the huddle engine over the bundle's packs, silent until the living
 // runtime is ready, `avoid` from the exchanges already played, recency recorded only once a line was seen.
 import bundle from '@headcount/expressions/bundle';
 import { fixtureCatalog, PROFILES } from '@headcount/expressions/testing';

@@ -1,4 +1,4 @@
-// The office's own requests (OFFICE-PHASE2 §4.1, §4.3), light so the Floor can start the roster while the office chunk
+// The office's own requests, light so the Floor can start the roster while the office chunk
 // loads. Every failure of the roster is a null: the office then runs on neutral personalities.
 import type { ExprClipRef } from '@headcount/protocol/ext/expressions';
 import type { ExprHuddleRenderRequest, OfficePeopleResponse } from '@headcount/protocol/ext/rooms';

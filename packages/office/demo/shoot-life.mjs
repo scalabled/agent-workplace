@@ -1,4 +1,4 @@
-// Office life captures (OFFICE-LIFE §7.2 "Visual"): screens over time and motion frame sequences of the demo with
+// Office life captures: screens over time and motion frame sequences of the demo with
 // life running. Needs the demo server (vite.config.mjs; OFFICE_DEMO_PORT=5871 for example).
 //   node packages/office/demo/shoot-life.mjs [--url http://127.0.0.1:5871] [--out docs/dev/screens/office-life]
 //     [--only name,name] [--day 2026-09-29]

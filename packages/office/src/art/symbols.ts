@@ -1,4 +1,4 @@
-// The vector asset library (OFFICE-PLAN §1.5). Every asset is drawn for the 3/4 camera: its top face plus its south
+// The vector asset library. Every asset is drawn for the 3/4 camera: its top face plus its south
 // face, flat shapes with two or three tonal steps and a hairline top highlight. No outlines, no filters, no masks:
 // shadows and glows are shapes. Coordinates are projected u; each function documents its local origin.
 import { K_Y as KY, K_Z as KZ } from '../projection';

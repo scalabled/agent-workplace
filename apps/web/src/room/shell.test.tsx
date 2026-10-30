@@ -1,4 +1,4 @@
-// The app shell's Office Phase 2 hooks (OFFICE-PHASE2 §4.3, §4.6): room frames stay out of Talk, side-threads and
+// The app shell's Office Phase 2 hooks: room frames stay out of Talk, side-threads and
 // unread; a room line or a note is never voiced by the Chief's Talk voice; the note renders as one quiet line; global
 // Esc and Space defer to the page; the palette registry and "Set your name"; the onboarding name field is optional.
 import { slimIndex } from '@headcount/catalog/slim';

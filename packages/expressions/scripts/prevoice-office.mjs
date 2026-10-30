@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Pre-voice the office on a running worker (docs/dev/INC05.md "Pre-voicing"): each line rendered once, in each
+// Pre-voice the office on a running worker (docs/dev/LIVING.md "Pre-voicing"): each line rendered once, in each
 // agent's own voice, through the worker's clip endpoints only (GET /api/expr/catalog, GET /api/expr/agents/:id,
 // POST /api/expr/prevoice, GET /api/expr/prevoice/:runId). It never touches settings or the conversation.
 //

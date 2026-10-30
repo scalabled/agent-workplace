@@ -1,4 +1,4 @@
-// Faces in the office (OFFICE-PHASE2 §4.5.4): FaceView with its own chrome, the mouth only above token size, stored
+// Faces in the office: FaceView with its own chrome, the mouth only above token size, stored
 // landmarks only, registered for cues and mood, gone on destroy.
 import { describe, expect, it, vi } from 'vitest';
 import { REST_SAMPLE } from '@headcount/protocol';

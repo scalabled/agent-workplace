@@ -1,4 +1,4 @@
-// Planner simulation (OFFICE-LIFE §7.2 items 1–6): determinism, familiarity, caps, density, honesty and variety over
+// Planner simulation: determinism, familiarity, caps, density, honesty and variety over
 // the real catalog (164 coworkers + the Chief of Staff), on owner-local days.
 import { describe, expect, it } from 'vitest';
 import { planDay, planTask, replanFrom, segmentAt } from './planner';
@@ -46,7 +46,7 @@ describe('planDay', () => {
     make('lively');
     const t = performance.now();
     make('lively', new Date(2026, 9, 1));
-    // OFFICE-LIFE §7.1 asks ≤ 15 ms (built: ~40–60 ms on an M-class laptop, run in idle time); CI gets headroom.
+    // The target is ≤ 15 ms (built: ~40–60 ms on an M-class laptop, run in idle time); CI gets headroom.
     expect(performance.now() - t).toBeLessThan(400);
   });
 

@@ -1,4 +1,4 @@
-// The office's one <style id="hc-office-style"> (OFFICE-PLAN §1.4): palette tokens, SVG fill classes and the
+// The office's one <style id="hc-office-style">: palette tokens, SVG fill classes and the
 // component CSS. Reads the app tokens (--surface, --ink, --muted, --lamp, --hand, …) with fallbacks. Injected once per
 // document and removed when the last scene is destroyed.
 import { FILL_CSS, paletteCss } from './art/palette';
@@ -384,7 +384,7 @@ const CSS = `
 .hc-o-picker__note{font-size:12px;color:var(--o-label)}
 .hc-o-picker__note[data-full]{color:var(--o-halo-speak)}
 
-/* office life (OFFICE-LIFE §2.6, §3.3–§3.5, §4) */
+/* office life */
 .hc-o-seat__face{rotate:var(--lean,0deg);transition:opacity .15s,transform var(--o-dur) var(--o-ease),rotate .35s var(--o-ease),translate .25s var(--o-ease)}
 .hc-o-seat[data-talking] :is(.hc-o-seat__face,.hc-o-seat__ring){translate:0 -2px}
 .hc-o-seat[data-fade],.hc-o-body[data-fade]{transition:opacity .16s linear}

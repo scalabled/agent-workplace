@@ -1,4 +1,4 @@
-// Walks (OFFICE-LIFE §2.6): routes from desks and spots along the office's lanes, with keep-right lanes, rounded
+// Walks: routes from desks and spots along the office's lanes, with keep-right lanes, rounded
 // corners and a trapezoid speed profile. Pure. The plan's own room walks (plan/walk.ts) are unchanged.
 import { COL_PITCH, ROW_Y } from '../plan/geometry';
 import type { OfficePlan, OfficeSeat } from '../plan/types';

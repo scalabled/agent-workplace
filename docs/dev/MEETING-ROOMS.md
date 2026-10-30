@@ -1,4 +1,4 @@
-# Increment 2 · Rooms, voices and listen-in
+# Meetings: rooms, voices and listen-in
 
 A team's meetings are real now. The kickoff, a review of the work so far, or a discussion of your question runs as
 turns, one coworker after another. Your Chief of Staff opens and closes each meeting, and the lead chairs it. Each
@@ -11,7 +11,6 @@ speaker hears the meeting from their own seat.
 - **Now-playing bar.** The bar keeps a meeting going while you move around the app.
 
 Binding inputs:
-- [MVP-PLAN](../MVP-PLAN.md) Inc 2
 - [OWNER-DIRECTIVES](../OWNER-DIRECTIVES.md): D2 communication first, D3 minimalist
 - [catalog/FORMATION.md](../../catalog/FORMATION.md): voices unique within a team
 

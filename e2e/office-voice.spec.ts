@@ -2,7 +2,7 @@ import { expect, test, type Browser, type BrowserContext, type Page } from '@pla
 import { daytimeZone, frames, livingReady, onboarded, recordFrames, setWorkspace, waitForFrame, OFFICE_SEATS, staffOffice } from './helpers';
 import { frameHuddle, officeState, openOffice, OWNER, skipOfficeHint } from './office-helpers';
 
-// The Office with voice (project "living-voice": Mock chat, Mock TTS with timing, a fake microphone), OFFICE-PHASE2
+// The Office with voice (project "living-voice": Mock chat, Mock TTS with timing, a fake microphone)
 // §7.4 office-voice: room lines play in their speakers' voices, one after another, each speaker lit on the stage;
 // holding Space barges in within 300 ms and talks to the room, not the Chief of Staff; one voice per workspace: a
 // second tab never voices room lines or listen-in, and Listen voices a huddle's small talk once, on the ambient bus.

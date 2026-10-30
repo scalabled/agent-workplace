@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { frames, onboarded, recordFrames, setWorkspace, waitForFrame, OFFICE_SEATS, staffOffice, zoneAtHour } from './helpers';
 import { deskLight, frameHuddle, openOffice, OWNER, restOn, seatedInView, skipOfficeHint } from './office-helpers';
 
-// The office runs itself (OWNER-DIRECTIVES D3, D5; OFFICE-PHASE2 §7.4 office-life): a fixed office clock (`?at=10:35`,
+// The office runs itself (OWNER-DIRECTIVES D3, D5 office-life): a fixed office clock (`?at=10:35`,
 // the mid-morning coffee round) so the floor is the same on every run of a day. Keyless (Mock chat): huddles talk in
 // bubbles, a hover opens the huddle's card, Join greets the owner by name and becomes a group chat on the rooms
 // endpoint, leaving writes one quiet line in Talk; walkers stop when clicked; Follow keeps someone in view; the pill

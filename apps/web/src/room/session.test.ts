@@ -1,4 +1,4 @@
-// The room session (OFFICE-PHASE2 §4.4.1): the writer, the voicer ‖ player, barge-in and leaving, against a fake api,
+// The room session: the writer, the voicer ‖ player, barge-in and leaving, against a fake api,
 // fake speakers and a fake clock.
 import type { Frame, FrameType } from '@headcount/protocol';
 import type { RoomCancelRequest, RoomSayAccepted, RoomSayRequest } from '@headcount/protocol/ext/rooms';

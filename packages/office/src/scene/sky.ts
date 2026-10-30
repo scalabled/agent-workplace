@@ -1,4 +1,4 @@
-// The sky layer (OFFICE-PLAN §1.3, §5.1): a screen-space panorama behind the plate. The generated art for the time
+// The sky layer: a screen-space panorama behind the plate. The generated art for the time
 // of day (LQIP first, then the image), else the vector city; ≤ 60 CSS twinkle dots on real lit windows and ≤ 3
 // slow beacons; 0.12× parallax on pan and 0.25× on zoom; a 2 s crossfade between variants. No JS animation loop.
 // Below the plate's north floor line the sky gives way to the void (a --o-void veil fading in over 40 px from 12 px

@@ -221,7 +221,7 @@ Code: `apps/worker/src/files/` (`store.ts`, `video.ts`, `export.ts`, `routes.ts`
 
 ## The name
 
-`packages/protocol/src/brand.ts` holds `BRAND`. See `docs/dev/NAMING.md`.
+`packages/protocol/src/brand.ts` holds `BRAND`.
 
 ## Voice caching (shared, no personal data)
 

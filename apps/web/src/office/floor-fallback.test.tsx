@@ -1,5 +1,5 @@
 // When the office chunk cannot load, the Floor shows the Directory with one notice and keeps the owner's choice
-// (OFFICE-PHASE2 §4.5.1).
+//.
 import { slimIndex } from '@headcount/catalog/slim';
 import { render } from 'preact';
 import { act } from 'preact/test-utils';

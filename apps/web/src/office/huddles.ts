@@ -1,4 +1,4 @@
-// Small talk in the office (OFFICE-PHASE2 §4.5.7): the huddle engine of @headcount/expressions over the bundle's
+// Small talk in the office: the huddle engine of @headcount/expressions over the bundle's
 // huddle packs the living runtime already fetched (681 pre-authored, linted exchanges), wired as the office demo's
 // `huddle-lines.ts`. Until the runtime is ready `lines()` answers null and huddles stay quiet company. The packs
 // compile in idle time after life's first plan, or on the first line if that comes sooner (as in the demo), so the
@@ -27,7 +27,7 @@ import type { LivingRuntime } from '../living/types';
 
 export const HUDDLE_RECENCY_KEY = 'hc.expr.huddles.v1';
 export const RECENCY_SAVE_MS = 400;
-/** A recency snapshot larger than this is not stored (OFFICE-PHASE2 §6: ≤ 32 KB). */
+/** A recency snapshot larger than this is not stored (≤ 32 KB). */
 export const RECENCY_MAX_BYTES = 32 * 1024;
 /** The warm-up looks for the living runtime this often, this many times (30 s), then stops. */
 export const WARM_RETRY_MS = 500;

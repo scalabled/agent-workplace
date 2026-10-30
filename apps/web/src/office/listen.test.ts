@@ -1,4 +1,4 @@
-// Listen in (OFFICE-PHASE2 §4.5.10): only the voice owner, voice on, audio armed, a provider voice (keyless is
+// Listen in: only the voice owner, voice on, audio armed, a provider voice (keyless is
 // captions only), a voiceable line, no live mic, no conversation playing, and room in Listen's own budget (never the
 // shared ambient window; Quiet too: the owner asked). A render later than 1.2 s plays nothing.
 import type { HuddlePick } from '@headcount/expressions';

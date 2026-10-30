@@ -1,4 +1,4 @@
-// Office life tables (OFFICE-LIFE §2.2, §2.5, §2.6): Ambience caps, the time-of-day density curve, spot preferences
+// Office life tables: Ambience caps, the time-of-day density curve, spot preferences
 // per archetype, stroll speeds and the owner-local clock helpers. Pure data and tiny functions.
 import type { Ambience, ArchetypeName, LifeCaps, SpotKind } from './types';
 

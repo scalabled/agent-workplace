@@ -1,4 +1,4 @@
-// The Office in the app (OFFICE-PHASE2 §4.5.2): one imperative mount that wires @headcount/office to the app's state.
+// The Office in the app: one imperative mount that wires @headcount/office to the app's state.
 // The scene first (faces, presence, desk mode), then office life once the personalities arrive (or after a short
 // wait, on neutral ones), small talk from the living runtime's huddle packs, listen-in and Join, the Chief's real
 // work, the camera and life switches in ⌘K, and the room stage (C's binding) when it is loaded.
@@ -59,11 +59,11 @@ export const LIFE_START_CAP_MS = 1000;
 export const VEIL_CAP_MS = 1600;
 /** … and at the latest this long after life placed the opening (normally the first summary lifts it sooner). */
 export const REVEAL_AFTER_PLACED_MS = 400;
-/** Hover lines for someone away from their desk (OFFICE-LIFE A4): about being available, never a work status. */
+/** Hover lines for someone away from their desk: about being available, never a work status. */
 export const AVAILABILITY_TTL_MS = (text: string) => Math.min(9000, 4000 + 60 * text.length);
 export const CAMERA_KEY = 'hc.office.camera';
 
-/** C's stage binding (room/stage.ts, OFFICE-PHASE2 §4.4.2), typed structurally so the office runs before it lands. */
+/** C's stage binding (room/stage.ts), typed structurally so the office runs before it lands. */
 export interface StageBindingLike {
   onEnterRoom(roomId: string, participants: string[]): void;
   onInvite(roomId: string, ids: string[], info: { via: 'picker' | 'drag' | 'keyboard' }): void | boolean;
@@ -123,7 +123,7 @@ const hash = (s: string) => {
 const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 
 /**
- * Passing by someone (OFFICE-PHASE2 §4.5.6): in a huddle the scene shows the huddle's card (nothing here); away from
+ * Passing by someone: in a huddle the scene shows the huddle's card (nothing here); away from
  * their desk (a break, a visit, a walk) a dwell gets an availability line, never a work status and never voiced; at
  * their desk the living runtime's passing-by (a true line in their voice, in the tab with the voice).
  */
@@ -572,7 +572,7 @@ export function mountOffice(o: OfficeMountOptions): OfficeMount {
   // ── dev hook ──
   if (o.dev ?? import.meta.env.DEV) {
     const w = window as unknown as { __headcount?: Record<string, unknown> };
-    // OFFICE-PHASE2 §4.5.14: `life` is the running OfficeLife (null until it starts), `view()` the Floor's view.
+    // `life` is the running OfficeLife (null until it starts), `view()` the Floor's view.
     const hook = {
       scene,
       get life() {
@@ -601,7 +601,7 @@ export function mountOffice(o: OfficeMountOptions): OfficeMount {
     destroy() {
       if (destroyed) return;
       destroyed = true;
-      // Keys and effects off → stage → life → scene (OFFICE-PHASE2 §4.5.2).
+      // Keys and effects off → stage → life → scene.
       for (const d of disposers.splice(0)) {
         try {
           d();

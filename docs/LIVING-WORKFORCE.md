@@ -1,6 +1,6 @@
 # Headcount: The Living Workforce
 
-> **Status.** Spec v1.0, 28 September 2026. It makes owner directive **D5** ("A living workforce") buildable, together with D2 (communication first) and D3 (minimal UI). It is the design for MVP-PLAN **Inc 0.5** and the layer every later increment plugs into.
+> **Status.** Spec v1.0, 28 September 2026. It makes owner directive **D5** ("A living workforce") buildable, together with D2 (communication first) and D3 (minimal UI). It is the layer every later feature plugs into.
 >
 > **Binding inputs.** [OWNER-DIRECTIVES.md](OWNER-DIRECTIVES.md) D2, D3, D5; PRODUCT.md §4 vocabulary; ARCHITECTURE.md §2–§3 (objects, events), §7 (rooms), §8 (voice), §9 (faces); EXPERIENCE.md §4 (face states), §5 (voice), §8 (attention budget), §9.2 (accessibility). Where this document changes one of those, §0.2 lists the amendment.
 >
@@ -720,7 +720,7 @@ Runtime renders are idempotent by `clipKey`, cached in the workspace prefix, rat
 | Per hire (P0 + P1 + P2) | ≤ 4 min of audio | P0 ≈ 60 s. It is shown in the hire forecast as "voice setup ≈ $x", or "unknown" when there is no rate. |
 | Per workspace | ≤ 60 min of pre-voiced audio | Oldest P2 clips are evicted first. |
 | Runtime reflex TTS | ≤ 5 min/day | Within the voiced-seconds cap. |
-| Keyless | Mock: synthetic P0 generated instantly in the worker. Browser voice: no pre-voicing; `speechSynthesis` for verbal lines (≈ 50–250 ms start), nonverbal lines face-only. | Runs with zero keys (MVP-PLAN). |
+| Keyless | Mock: synthetic P0 generated instantly in the worker. Browser voice: no pre-voicing; `speechSynthesis` for verbal lines (≈ 50–250 ms start), nonverbal lines face-only. | Runs with zero keys. |
 
 ---
 

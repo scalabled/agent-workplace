@@ -32,7 +32,7 @@ export interface LivingRuntime {
   setAmbience(a: Ambience): void;
   cues(text: string): AffectCues;
   clipsDecoded(): number;
-  // ── the Office (OFFICE-PHASE2 §4.5.13) ──
+  // ── the Office ──
   /** The bundle's small-talk packs, kept at boot (null when the worker serves none). */
   readonly huddles: { version: string; packs: readonly unknown[] } | null;
   /** The runner's own rolling 10-minute window of voiced ambient audio, shared with the office's listen-in. */

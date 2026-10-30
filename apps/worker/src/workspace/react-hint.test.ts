@@ -1,4 +1,4 @@
-// The optional ⟦react:…⟧ head token (INC05-PLAN §4 A10): parsed while streaming, its hint rides on the first delta, and
+// The optional ⟦react:…⟧ head token (LIVING-PLAN §4 A10): parsed while streaming, its hint rides on the first delta, and
 // the token never reaches a delta, the persisted message, the history or TTS.
 import type { ModelEvent } from '@headcount/models';
 import { afterEach, describe, expect, it } from 'vitest';

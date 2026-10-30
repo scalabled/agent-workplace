@@ -1,4 +1,4 @@
-// Real events the office may mention (OFFICE-PHASE2 §4.5.8): the seq of each `job.done` frame this page applied,
+// Real events the office may mention: the seq of each `job.done` frame this page applied,
 // replay included, so grounded small talk can cite the ledger event it is about. Started with the living layer at
 // boot (before the feed replays), light (a map), and never a source of text: job titles and results stay private.
 import type { Frame } from '@headcount/protocol';

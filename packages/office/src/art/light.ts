@@ -1,4 +1,4 @@
-// The light layer (OFFICE-PLAN §1.2): four sources only. The skyline's window light is on the plate; this layer holds
+// The light layer: four sources only. The skyline's window light is on the plate; this layer holds
 // the pendants (ambient), the monitors (lit in the coworker's accent while they work or think), the desk lamps (Night
 // Shift only) and the floor halos (raised hand, speaking). Everything is a gradient shape (no filters); state changes
 // are attribute toggles on per-seat groups. The layer is composited with `mix-blend-mode: screen`.

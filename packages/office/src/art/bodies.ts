@@ -1,5 +1,5 @@
 // People seen from above at plan zoom (L0): shoulders in a muted version of the coworker's accent, head and hair.
-// Drawn in world space so the overview costs nothing per frame; faces replace them from L1 up (OFFICE-PLAN §2.1).
+// Drawn in world space so the overview costs nothing per frame; faces replace them from L1 up.
 import { K_Y, K_Z } from '../projection';
 import { rngFor } from '../rng';
 import type { Facing } from '../types';

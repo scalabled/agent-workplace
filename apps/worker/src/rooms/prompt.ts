@@ -1,4 +1,4 @@
-// Room prompts and the room projection (docs/dev/OFFICE-PHASE2.md §4.2.5). A responder in a conference room or a joined
+// Room prompts and the room projection. A responder in a conference room or a joined
 // huddle speaks from its persona's expertise in at most two short sentences, sees the last lines of this meeting only,
 // and never states figures, results or past events the owner did not give.
 import { chiefDisplayName, firstName, type Lead, type Persona } from '@headcount/catalog';

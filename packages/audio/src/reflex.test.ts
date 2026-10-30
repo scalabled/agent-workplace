@@ -1,4 +1,4 @@
-// Reflex and ambient lanes of the audio engine (INC05-PLAN §3.6): prepare/playPrepared, the priority ladder,
+// Reflex and ambient lanes of the audio engine: prepare/playPrepared, the priority ladder,
 // interjections, stopAtBoundary, activity, the keyless browser lane and the owner VAD, on a fake clock.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAudioEngine, INTERJECT_GAP_S, REFLEX_FADE_S, REFLEX_LEAD_S, SCHEDULE_LEAD_S, VAD_PAUSE_MS } from './engine';

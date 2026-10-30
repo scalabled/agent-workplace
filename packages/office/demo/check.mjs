@@ -18,7 +18,7 @@ const check = (name, ok, detail = '') => {
 const state = () => page.evaluate(() => window.office.getState());
 const log = () => page.evaluate(() => document.getElementById('log')?.textContent ?? '');
 
-// frame=0: life runs, but the office opens on its fit view (these checks measure the plan at fit, OFFICE-PLAN §9).
+// frame=0: life runs, but the office opens on its fit view (these checks measure the plan at fit).
 await page.goto(`${base}/?panel=0&tod=night&frame=0`);
 await page.waitForFunction(() => document.documentElement.dataset.ready === '1');
 await page.waitForTimeout(500);
@@ -131,7 +131,7 @@ await page.waitForTimeout(900);
 let s1 = await state();
 check('drag pans the camera', s1.camera.x > s0.camera.x + 20, `x ${s0.camera.x.toFixed(1)} → ${s1.camera.x.toFixed(1)}`);
 
-// Frame times while panning at neighbourhood zoom with faces mounted (the perf probe, OFFICE-PLAN §3.8).
+// Frame times while panning at neighbourhood zoom with faces mounted (the perf probe).
 await page.evaluate(() => window.office.zoomTo(3.2, { x: 440, y: 120 }));
 await page.waitForTimeout(1200);
 await page.evaluate(() => {

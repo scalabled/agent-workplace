@@ -1,4 +1,4 @@
-// Join a huddle (OFFICE-PHASE2 §4.5.11): a huddle room session with ≤ 4 members, the warmest greets you (by name when
+// Join a huddle: a huddle room session with ≤ 4 members, the warmest greets you (by name when
 // set), replies appear as their voice starts, errors are a notice, Leave signs off and closes with {leave: true}, and
 // "Open in a room" closes without a sign-off or a note.
 import type { HuddleInfo, OfficeLife } from '@headcount/office';

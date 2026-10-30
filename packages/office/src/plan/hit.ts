@@ -1,4 +1,4 @@
-// Hit-testing the plate (OFFICE-PLAN §4.2): which seat, room, amenity or neighbourhood lies under a projected point.
+// Hit-testing the plate: which seat, room, amenity or neighbourhood lies under a projected point.
 // Desks and chairs are tested on their projected tops (a click on a desk top lands on that desk), then the floor.
 import { K_Y, K_Z } from '../projection';
 import type { Point, Rect } from '../types';

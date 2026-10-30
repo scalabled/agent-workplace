@@ -1,4 +1,4 @@
-// The living runtime (INC05-PLAN §5, LIVING-WORKFORCE §11.4): one reflex runner per tab, fed by the owner feed,
+// The living runtime (LIVING-WORKFORCE §11.4): one reflex runner per tab, fed by the owner feed,
 // the voices and the Floor, and speaking through pre-voiced clips (or the browser voice when keyless). A lazy chunk:
 // `living/index.ts` loads it once the app is idle.
 import { effect, signal } from '@preact/signals';
@@ -81,7 +81,7 @@ const HOLD_MAX_MS = 8000;
 /** The next answer waits this long after the previous one for "back with you" / the acknowledgement to start. */
 const NEXT_REPLY_GRACE_MS = 450;
 const NEXT_REPLY_MAX_HOLD_MS = 12_000;
-/** A job-done announcement waits at most this long for its lead-in ("Nice.") to start: the lead-in itself gives up after its 3 s TTL (INC05-PLAN §3.4 celebrate). */
+/** A job-done announcement waits at most this long for its lead-in ("Nice.") to start: the lead-in itself gives up after its 3 s TTL (LIVING-PLAN §3.4 celebrate). */
 const LEAD_IN_MAX_HOLD_MS = 3200;
 const REMEMBER = 400;
 /** Face palettes follow the mood as it decays (the server only emits on events): recomputed this often. */
@@ -123,7 +123,7 @@ export interface RuntimeDeps {
   speakers?: RuntimeSpeakers;
   /** Dev builds: expose the runtime on window.__headcount.living. */
   devHook?: boolean;
-  /** The bundle's office small-talk packs (OFFICE-PHASE2 §4.5.13), kept for the Office. */
+  /** The bundle's office small-talk packs, kept for the Office. */
   huddles?: { version: string; packs: readonly unknown[] } | null;
 }
 
@@ -465,7 +465,7 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
 
   disposers.push(
     onFrame((frame: Frame, { live }) => {
-      // Room turns and joined huddles (OFFICE-PHASE2 §4.4) are not the runner's conversations: their voices and faces
+      // Room turns and joined huddles are not the runner's conversations: their voices and faces
       // belong to the office's room session.
       if (isRoomTalk(frame)) return;
       if (!live) {
@@ -812,7 +812,7 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
   };
 
   /**
-   * The office's greeting on Join and sign-off on Leave (OFFICE-PHASE2 §4.5.11): catalog selection with live grounding
+   * The office's greeting on Join and sign-off on Leave: catalog selection with live grounding
    * (the owner's name, a first meeting). The text comes back at once; the voice follows only in the tab that may voice,
    * with voice on and audio armed, from a clip (pre-voiced, or rendered now) that starts within its TTL. Keyless: text.
    */
@@ -845,7 +845,7 @@ export function createLivingRuntime(deps: RuntimeDeps): LivingRuntime {
           recency,
         );
       let res = pick(seed);
-      // Joining a huddle is greeted by name when the owner gave one (OFFICE-PHASE2 §0): among the lines the catalog
+      // Joining a huddle is greeted by name when the owner gave one: among the lines the catalog
       // allows right now, one that says the name wins; the pick stays deterministic (seeded) and pure.
       if (res.ok && intent === 'greeting' && state.owner?.firstName && res.utterance.fills.owner_name === undefined) {
         for (let k = 1; k <= NAMED_GREETING_TRIES; k++) {

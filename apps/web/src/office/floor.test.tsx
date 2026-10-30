@@ -1,4 +1,4 @@
-// The Floor's Office | Directory toggle (OFFICE-PHASE2 §4.5.1): no toggle before onboarding (always the Directory),
+// The Floor's Office | Directory toggle: no toggle before onboarding (always the Directory),
 // a radio group with arrow keys, the choice remembered, and the Office mounted lazily in place of the Directory's
 // tools (the fallback when the office cannot load is in floor-fallback.test.tsx).
 import { slimIndex } from '@headcount/catalog/slim';

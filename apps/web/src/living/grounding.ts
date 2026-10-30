@@ -5,7 +5,7 @@ import type { GroundingState } from '@headcount/expressions';
 import { CHIEF_ID, type JobSnapshot } from '@headcount/protocol';
 import type { ThreadItem } from '../store';
 
-/** Owner-local quiet hours until the interruption-budget settings exist (INC05-PLAN §9): see ./quiet. */
+/** Owner-local quiet hours until the interruption-budget settings exist: see ./quiet. */
 export { isQuietHours, QUIET_FROM_HOUR, QUIET_UNTIL_HOUR } from './quiet';
 /** Away this long before Talk opens with a hello (§3.4 greeting). */
 export const RETURNING_AFTER_MS = 3 * 60 * 60_000;

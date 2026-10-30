@@ -1,4 +1,4 @@
-// Places (OFFICE-LIFE §2.3): where people take breaks and huddle, derived from the plan's cells and props. Pure;
+// Places: where people take breaks and huddle, derived from the plan's cells and props. Pure;
 // not part of OfficePlan.hash. Every slot has a clear `front` point that the routes reach.
 import { COL_PITCH, CELL_W, ROW_Y } from '../plan/geometry';
 import type { OfficePlan, OfficeSeat, PlanCell } from '../plan/types';

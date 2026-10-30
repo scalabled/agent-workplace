@@ -1,4 +1,4 @@
-// Join a huddle (OFFICE-PHASE2 §4.5.11, OFFICE-LIFE §3.5): they turn toward you, the warmest greets you by name, and
+// Join a huddle: they turn toward you, the warmest greets you by name, and
 // you are in a group chat on the rooms endpoint (≤ 4 members, ≤ 2 answer each time, the same reply guard as rooms).
 // Replies appear over the speaker as their voice starts; errors are one notice, never a line in someone's mouth.
 // Leaving signs off (one passive bubble) and closes the meeting, which leaves one quiet line in Talk if you spoke.

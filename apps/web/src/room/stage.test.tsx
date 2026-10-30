@@ -1,4 +1,4 @@
-// The stage binding and the dock (OFFICE-PHASE2 §4.4.2–4.4.3): session events drive the scene's captions, floor line
+// The stage binding and the dock: session events drive the scene's captions, floor line
 // and speaker; the dock sends, mentions, shows errors and the transcript; leaving closes the meeting.
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

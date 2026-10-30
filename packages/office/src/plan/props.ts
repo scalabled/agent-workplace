@@ -1,4 +1,4 @@
-// Furniture and things (OFFICE-PLAN §1.5, §3.3, §3.4): where every desk, chair, plant, shelf, counter and wall goes.
+// Furniture and things: where every desk, chair, plant, shelf, counter and wall goes.
 // Variants are seeded per cell and seat, so the office looks lived-in but is identical on every load.
 import { rngFor } from '../rng';
 import type { District, Facing } from '../types';

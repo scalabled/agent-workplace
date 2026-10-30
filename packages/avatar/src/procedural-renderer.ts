@@ -587,7 +587,7 @@ export class ProceduralRenderer {
     ctx.strokeStyle = css(st.brow, 0.92);
     ctx.lineWidth = 3.1 * st.browWeight;
     ctx.lineCap = 'round';
-    // A concerned palette lifts the inner ends of the brows (INC05-PLAN §3.7: browInner = 0.4 × weight).
+    // A concerned palette lifts the inner ends of the brows (LIVING-PLAN §3.7: browInner = 0.4 × weight).
     const inner = clamp(pose.browInner ?? 0, 0, 1) * 3.4;
     for (const side of [-1, 1]) {
       const ex = head.cx + side * 23 * st.eyeSpacing + head.fx;

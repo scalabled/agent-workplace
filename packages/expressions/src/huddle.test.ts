@@ -1,4 +1,4 @@
-// Huddle small talk (docs/dev/OFFICE-LIFE.md §5, §6.2): compile rules and honesty lints, casting, grounding,
+// Huddle small talk: compile rules and honesty lints, casting, grounding,
 // recency across days, mood and context gates, timing, delivery, and parity with the validator's port. Fixtures are
 // the 12 seed exchanges in catalog/expressions/huddles (hd-*.001), pinned by id so new content never changes them.
 import { readdirSync, readFileSync } from 'node:fs';

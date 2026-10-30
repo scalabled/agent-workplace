@@ -1,4 +1,4 @@
-# Increment 0 · First Light
+# Core: Talk, background jobs and voice
 
 You pick a Chief of Staff from the 12 catalog leads, name them and talk: text or push-to-talk, with spoken replies
 and a face whose mouth follows the audio actually playing. You can interrupt at any time. You can hand them a
@@ -11,12 +11,12 @@ and a re-cast of all 176 people (12 leads, 164 coworkers) as modern knowledge wo
 shoot" art direction and a new generated portrait for each of them. It also fixes background jobs that failed with
 "The model returned an empty step." on reasoning models.
 
-**Inc 0.5** (§4c, [INC05.md](INC05.md)) makes the workforce feel alive: reflexes in each agent's own pre-voiced
+**Inc 0.5** (§4c, [LIVING.md](LIVING.md)) makes the workforce feel alive: reflexes in each agent's own pre-voiced
 voice (acknowledgements, fillers, laughs, backchannels in your pauses, instant replies to "thanks"), a job's progress
 and finish felt at Talk, passing-by lines and in-place chat on the Floor, all captioned and governed by one Ambience
 setting (Quiet · Lively · Buzzing).
 
-**Inc 0.7** (§4d, [OFFICE-PHASE2.md](OFFICE-PHASE2.md) §10) makes the Floor an office that runs itself: on a desktop
+**Inc 0.7** (§4d) makes the Floor an office that runs itself: on a desktop
 the Floor opens as the Office (desks by department, glass rooms, the city at the window), people keep their own
 rhythms (coffee, the water cooler, the lounge, the library) and chat in bubbles; rest on a face for a line, click
 anyone to chat in place, **Listen** to a huddle or **Join** it (you are greeted by name), and hold a meeting in a glass
@@ -25,7 +25,7 @@ room where up to three people answer in turn. The Directory is one toggle away.
 Everything runs without keys, on the Mock provider or your local Ollama. Adding a key upgrades one capability at a
 time; a capability without a provider is hidden, never shown broken.
 
-Contracts: [CONTRACTS.md](CONTRACTS.md). Plan: [../MVP-PLAN.md](../MVP-PLAN.md) (Inc 0). Cast art direction:
+Contracts: [CONTRACTS.md](CONTRACTS.md). Cast art direction:
 [../../catalog/ART-DIRECTION.md](../../catalog/ART-DIRECTION.md).
 
 ---
@@ -57,7 +57,7 @@ Tests:
 pnpm typecheck        # TypeScript 7, every package
 pnpm test             # Vitest, all packages and apps
 pnpm e2e              # Playwright: two keyless stacks (Mock :5183/:8797 and Mock + mock media :5184/:8798), fake mics
-pnpm e2e:screens      # regenerates docs/dev/screens/inc0.6/*.png on the keyless Mock stack (illustrated faces)
+pnpm e2e:screens      # regenerates docs/dev/screens/app/*.png on the keyless Mock stack (illustrated faces)
 pnpm build            # vite build + wrangler dry-run bundle
 ```
 
@@ -300,45 +300,10 @@ chosen lead's voice by the fast model, grounded only in the job's result (every 
 within 2.5 s, else the template. A pending row written with the mirrored frame guarantees one announcement even if
 the object restarts meanwhile. Local and Mock use the template.
 
-## 4b. Inc 0.6 review round (design and correctness)
-
-**Landing.** Every capability carries a status chip (INC0 §4 decides what may say "Works today"): the living
-workforce is In the works or Planned, approvals, receipts, Everyone stop and the industry packs are Planned, the
-Talk points no longer offer "pause", and Voice is "your Chief of Staff's own voice". The hero is built from the real
-cast (six portraits with the app's rings, captions and one Demo side-talk line under the faces; a strip of five above
-the headline on phones) over the office image as a darker backdrop. The headline is two lines, sized by width and
-height, so the call to action stays above the fold on laptops; its accessible name is the whole sentence. New
-rhythm: a centred statement band, a full-bleed living-workforce band, Models folded into Multimodal as a plain
-compatibility list, packs in one row, and a call to action under pricing with an honest "Built for small teams" label.
-The carousel shows exactly three leads on wide screens and a faded peek below that; split sections keep their media
-sticky beside long text. Wall tiles carry no hover affordance, show job titles only and clamp to two lines. Phones get
-a menu sheet, a 92% opaque nav, compact how-it-works and multimodal rows, and a two-column provider list. US spelling
-throughout.
-
-**Cast.** Eddie Ramos (vitiligo, grey temples), Nayra Choque (wheelchair backrest) and Amara Okafor, Esi Mensah and
-Jonas Brandt (apparent age) were repainted with the signature detail right after the prompt prefix and the age said
-outright, then their landmarks were measured again (`docs/dev/screens/cast/repainted-before-after.jpg`). ART-DIRECTION
-§8 now has a per-portrait approval checklist. The landing leads with the younger half of the cast (`landing/cast.ts`).
-
-**App.** Self-hosted fonts; night accents (each agent's hue at OKLCH lightness about 0.76) for rings, glows and labels
-on dark; the Talk header face wears the lamp's working arc while a job runs, and the status dot is filled (proof,
-lamp or hand); the phone bubble is 56 px and tucks away while you scroll down; the phone tab bar is 97% opaque;
-Projects is one surface with hairline rows, the status under the title on phones, a three-line summary, **Ask again**
-on failed or stopped jobs and "The write-up" instead of a repeated title; palette group labels use `--muted`.
-
-**Worker and models.** A cloud model the catalog does not know (an OpenAI-compatible gateway) gets its output budget
-only, never output + 8000. A failover re-sizes the call for the candidate that serves it (`ChatRequest.budget`), so
-Ollama behind a failed cloud chain never starts thinking. Gemini maps the explicit effort to `thinkingBudget` (0 on
-Flash for 'none'). A `?v=` portrait is cached for good only when the stored bytes carry that version.
-
-**Web shell.** The landing's dark theme is pinned before the first render (no light flash for owners who chose light),
-`/#pricing` scrolls to its section once the lazy page exists, the first render keeps the browser's own scroll, and
-Back from the app returns to where you were on the landing.
-
 ## 4c. Inc 0.5: the living workforce
 
 Everything about it (what is alive, how to tune Ambience, pre-voicing commands, the keyed reflex timeline, fixes and
-known gaps) is in [INC05.md](INC05.md); contracts in [CONTRACTS.md](CONTRACTS.md) §7. In short:
+known gaps) is in [LIVING.md](LIVING.md); contracts in [CONTRACTS.md](CONTRACTS.md) §7. In short:
 
 - Run it as before; opening Talk pre-voices the Chief of Staff's reflex lines in their own voice (keyless: the
   browser voice, or faces and captions with voice off). `pnpm dev --mock --mock-media` shows the whole voice path
@@ -350,13 +315,11 @@ known gaps) is in [INC05.md](INC05.md); contracts in [CONTRACTS.md](CONTRACTS.md
   in their voice, never promising work); Ambience in the Floor header and ⌘K.
 - `node packages/expressions/scripts/prevoice-office.mjs` pre-voices the 12 leads and the most staffed coworkers on a
   running worker (clip endpoints only, stops at the daily clip budget).
-- Screenshots: `docs/dev/screens/inc05/`.
 
 ## 4d. Inc 0.7: the Office
 
-The Floor's Office view with office life, joined huddles and the conference roundtable. Plan, contracts and the
-as-built record: [OFFICE-PHASE2.md](OFFICE-PHASE2.md) (§10), [CONTRACTS.md](CONTRACTS.md) §9; the office package:
-[OFFICE-PLAN.md](OFFICE-PLAN.md), [OFFICE-LIFE.md](OFFICE-LIFE.md). In short:
+The Floor's Office view with office life, joined huddles and the conference roundtable. Contracts:
+[CONTRACTS.md](CONTRACTS.md) §9. In short:
 
 - **Opens by itself.** A fine pointer at 900 px or wider opens the Floor as the Office (phones and touch: the
   Directory). The choice is remembered (`localStorage['hc.floor.view']`); `/app/floor?view=office|directory`,
@@ -382,42 +345,17 @@ as-built record: [OFFICE-PHASE2.md](OFFICE-PHASE2.md) (§10), [CONTRACTS.md](CON
 
 ## 5. Screenshots
 
-**Inc 0.7** — `docs/dev/screens/office-app/` (1440×900 and 375×812 at 2×, the Mock + mock-media e2e stack, owner
-name "Sam"): `office-night-l1`, `office-night-wide`, `office-desk-huddle`, `office-huddle-card`,
-`office-huddle-joined`, `office-hover-bubble`, `office-quick-chat`, `office-follow`, `office-whats-happening`,
-`office-stage-seated`, `office-stage-speaking` (voiced, speaker lit), `office-stage-not-voiced`,
-`office-stage-transcript`, `talk-room-note`, `directory-toggle`, `office-mobile-375`, `directory-mobile-375`.
-
-**Inc 0.6** — `docs/dev/screens/inc0.6/`, recaptured after the review round on the keyed stack (`pnpm dev`, Anthropic
-chat, real portraits, the five repainted faces; the screens spec with keyed waits, delegating "reusable cup programs
-for cafés in Portland" because the Chief of Staff remembered the coffee job) at 1440×900 (`-desktop`) and 375×812
-(`-mobile`), 2×, dark by default with the OS asking for light. The thread and Projects also show earlier keyed runs
-(the coffee job and a job that failed before the empty-step fix):
-
-- `landing-hero-*`, `landing-full-*` (the whole page), `landing-wall-*` (the cast wall with a side-talk bubble)
-- `welcome-*`: first run, pick your Chief of Staff
-- `talk-working-*`: a real Anthropic job running after delegate, status and steer
-- `talk-done-*`: the voiced announcement with its write-up open (`talk-done-desktop-light`: the light option)
-- `floor-*` (and `floor-desktop-light`), `profile-*`, `projects-*`, `inbox-*`
-
-`pnpm e2e:screens` writes the same file names from the keyless Mock stack (illustrated faces, Mock copy).
-`docs/dev/screens/cast/` has contact sheets of all 176 portraits (taken before the review round; the five repainted
-faces are in `repainted-before-after.jpg`).
-
-**Inc 0** — `docs/dev/screens/inc0/`, each in `desktop-light`, `desktop-dark`, `mobile-light` and `mobile-dark`
-(1440×900 and 375×812 at 2×), with the Inc 0 names and illustrated faces:
-
-- `welcome-*`: pick your Chief of Staff
-- `talk-working-*`: a background job running after delegate, status and steer ("Available · 1 job running")
-- `talk-done-*`: the completion announcement with its write-up open
-- `floor-*`: the Directory
-- `profile-*`: a coworker profile
-- `projects-*`: Everyday with the finished job open
-- `inbox-*`: the calm empty Inbox
+- `docs/dev/screens/office-app/`: the Office on the Floor (1440×900 and 375×812 at 2×). `pnpm exec playwright test
+  e2e/office-screens.spec.ts` writes them.
+- `docs/dev/screens/app/`: the landing page, welcome, Talk, Floor, profile, Projects and Inbox, at 1440×900
+  (`-desktop`) and 375×812 (`-mobile`). `pnpm e2e:screens` writes them from the keyless Mock stack.
+- `docs/dev/screens/office/` and `docs/dev/screens/office-life/`: the office package demo
+  (`packages/office/demo/shoot.mjs` and `shoot-life.mjs`).
+- `docs/dev/screens/cast/`: contact sheets of all 176 portraits.
 
 ## 6. Known gaps
 
-**The Office (Inc 0.7)** — in full in [OFFICE-PHASE2.md §10.7](OFFICE-PHASE2.md#107-known-gaps). In short: the office
+**The Office (Inc 0.7):** the office
 chunk is 116.9 kB gzip against a 70 kB budget (the scene package alone is 83 kB; Directory users load none of it);
 two ~120 ms tasks while the office opens, under its veil; no keyed run of the rooms yet; no voiced room fillers;
 small talk is grounded only in the Chief's finished jobs until Inc 1 events exist.
@@ -520,94 +458,3 @@ small talk is grounded only in the Chief's finished jobs until Inc 1 events exis
 - **Lip sync lives in one place.** The unused fusion driver copy in `packages/avatar` (and its tests for the PG
   "dropped first delta" and "early drain" fixes) was removed; `packages/audio` is the only lip-sync implementation, and
   both packages draw from one viseme table in `@headcount/protocol`.
-
-## 7. Integration changes (for reviewers)
-
-**Inc 0.7 (Office Phase 2)** — builders A (web office), B (worker rooms), C (web stage) and the integrator; the file
-map and the integrator's changes with their reasons: [OFFICE-PHASE2.md](OFFICE-PHASE2.md) §3.1 and §10.2. E2E:
-`e2e/office.spec.ts`, `office-life.spec.ts`, `office-voice.spec.ts` (project living-voice), `office-screens.spec.ts`
-(opt-in); specs that test the Directory pin it (`pinDirectory` in `e2e/helpers.ts`), because a desktop opens the
-Floor as the Office.
-
-**Inc 0.6 review round (design and correctness fixes, §4b)**
-- Landing: `content.ts` statuses, `Hero.tsx` real cast, `cast.ts`, `PortraitWall.tsx` (coworkers only, curated),
-  `Landing.tsx` (statement and band sections, merged models, approval illustration, packs row, pricing CTA, menu,
-  hash scroll), `LeadCarousel.tsx` and `voice.ts` (pre-voiced samples), `Picture.tsx` (`srcset`), `landing.css`.
-- Shared: `styles/fonts.css` and `public/fonts/` (OFL), `lib/accent.ts`, `lib/theme.ts` (`resolvedTheme`,
-  `forcedThemeFor`, `initTheme(pinned)`), `router.ts` (`lastNav`, `savedScroll`), `main.tsx`.
-- App: Talk header ring and dots, `ChiefBubble` tuck, tab bar opacity, Projects rows and Ask again, palette labels.
-- Models: `packages/models/src/budget.ts` (`callBudget`, `resizeRequest`, moved from agent-loop and re-exported),
-  `ChatRequest.budget`, `wrapChat` re-sizing, Gemini `geminiThinking`. Worker: portrait `immutable` only for stamped
-  bytes.
-- Scripts: `marketing-images.mjs` (srcset widths, lighter WebP), new `voice-samples.mjs`. Catalog: five portrait
-  prompts, Amara's hair wording, ART-DIRECTION §8 checklist.
-
-**Inc 0.6 round (dark theme, landing, cast, media, job fix)**
-- Stages integrated: the re-cast (`catalog/**`, `renames.json`, `ART-DIRECTION.md`, validator, catalog v2.0.0 and every
-  test and doc that named people), media (`/api/media/*`, marketing images, portrait concurrency, landmark
-  precompute, versioned immutable portrait URLs), portraits (all 176 regenerated with landmarks), the landing page and
-  dark theme (`apps/web`: `/` vs `/app`, lazy halves, `lib/theme.ts`, tokens), and the job fix (`callBudget`, the
-  thinking-only retry, Anthropic `thinking: disabled`, voiced announcements, no doubled failure sentence).
-- Integrator fixes from the keyed screenshots:
-  - Talk: the Activity row's dismiss button was invisible (`.icon-button-sm { position: relative }` in
-    components.css loads after talk.css and pulled it out of the row). The rule is now `.activity-row
-    .activity-dismiss`.
-  - Landing wall: side-talk bubbles covered the names of the row above and, on phones, each other. A bubble now sits
-    on the lower part of the speaker's own portrait (measured, so the staggered columns are followed), and the line
-    gives way to the reply instead of both showing.
-  - Faces: a blink drew two black ovals on anyone with a fringe (the lid colour was sampled at one point above the
-    eye, on the hair). The lid colour is now the median of five skin probes (brow bone and upper cheek), with a test.
-- Docs: this file and CONTRACTS.md (routes, `/api/media/*`, `callBudget` and `retry`, voiced announcements, theme,
-  commands and scripts).
-
-**Review round 2 (security, directives, avatar and audio)**
-- Worker: an origin guard on every route and the feed socket (`lib/origin.ts`, `ALLOWED_ORIGINS` from `dev.mjs`),
-  Host checks against DNS rebinding, and the exact JSON content type. Malformed `%`-escapes answer a JSON 404, and
-  matching and the body cap run inside the router's error handling. New error code `forbidden` (403).
-- Limits: `TTS_DAILY_LIMIT`, `STT_DAILY_LIMIT`, `CHAT_DAILY_LIMIT`, `JOB_DAILY_LIMIT`, `MAX_ACTIVE_JOBS`
-  (`lib/limits.ts`). Provider image URLs must be public `https:`, with checked redirects and a 5 MB streamed cap.
-- Jobs: steering during the write-up is applied and the write-up redone. Frames are mirrored per checkpoint, the
-  announcement is written in the same transaction as the mirrored `job.done`/`job.failed`/`job.cancelled {by:'owner'}`,
-  and a restarted WorkspaceDO clears a stale Thinking claim. The Chief of Staff no longer claims "working" for
-  background jobs: available while working (D2).
-- Web: a Talk count and bubble badge with one pulse for news off Talk; the screen-reader announcer moved to the
-  shell; announcements are their own named, timed messages. Renamed leads greet by the chosen name, and Choose shows
-  the typed name. Phones get a More tab (palette), a pinned Choose footer, a scroll to the matches after the quiz, and
-  job detail as a bottom sheet. The dock no longer covers new messages. One progress percent is shared with the
-  spoken status. Activity lists a finished job only until its outcome is in the thread, and any finished row can be
-  dismissed. Stop is set apart from Steer. Profile ("Ask … about …") and Projects ("Delegate something") have a
-  primary action, and the first starter is a delegation. Space held in the empty composer talks, and so does Space
-  held on the face or bubble. The composer shows a focus ring, instruction text meets 4.5:1 contrast, and the bubble
-  is hidden on Talk at every width, with the push-to-talk caption above the dock. Thinking and background work have
-  distinct rings. The Talk face is round, the keyless quiz intro drops its voice promise, the "Read story" target is
-  44 px, and the feed watchdog replaces half-open sockets.
-- Avatar and audio: `speaking` and the mouth follow heard time at the end too (output latency), and the analyser is
-  delayed to match. A silent tap no longer holds the mouth shut. Browser-voice sentences are capped at 60 tokens, and
-  the text rhythm stops 1.5 s past its estimate. "Longer on top" cuts are no longer long hair, and vitiligo and beauty
-  marks sit where the catalog says. Motion is seeded per person, and the portrait working copy is sized to the
-  display. Heroes no longer spend the tiles' budget. Landmarks are checked against the image version. The duplicate
-  lip-sync driver is gone: one viseme table lives in `@headcount/protocol` (`VISEME_PARAMS`).
-
-**Contracts and routes**
-- New routes `GET /api/jobs`, `GET /api/jobs/:id` and `GET /api/portraits`. The web now hydrates jobs from the first
-  and asks the portrait list once instead of probing every face.
-- New error code `rate_limited` (429). STT is capped at 10 MB, and missing-provider messages use plain words.
-- `WsClientMessage` (ping and resume). CONTRACTS.md now reflects every builder's changes.
-
-**Worker**
-- Mock speech is opt-in (`MOCK_MEDIA`, `--mock-media`), so keyless TTS/STT answer 503 naming the keys.
-- Jobs run on the `reason` tier with a 5-minute budget per checkpoint. A deadline counts as a failed attempt instead
-  of silently retrying forever. Talk and jobs require tool support.
-
-**Web fixes**
-- Replay paging, holding live frames until the gap is filled.
-- Replayed `workspace.updated` frames no longer send the app back to onboarding.
-- The Talk header ellipsizes long job sentences. Before, the phone page was 843 px wide and the bottom tabs were off
-  screen.
-- The face accessible label no longer repeats the name.
-- Landmarks are saved with the portrait version.
-
-**Tooling**
-- Each package pins TypeScript 7.
-- `dev.mjs` has the `--local` and `--mock-media` flags, and each Vite port has its own cache.
-- Playwright runs the voice project with a fake mic.

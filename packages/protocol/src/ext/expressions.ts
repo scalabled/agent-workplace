@@ -1,4 +1,4 @@
-// Inc 0.5 wire types of the living-workforce layer (docs/LIVING-WORKFORCE.md §10.4, docs/dev/INC05-PLAN.md §3).
+// Inc 0.5 wire types of the living-workforce layer (docs/LIVING-WORKFORCE.md §10.4).
 // Structural mirrors of @headcount/expressions (protocol cannot depend on it); a worker conformance test keeps them equal.
 import type { AgentId, MessageId, OpId, StreamId, TurnId } from '../ids';
 import type { Alignment, VoiceRef } from '../voice';

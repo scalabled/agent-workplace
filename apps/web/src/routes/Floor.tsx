@@ -2,7 +2,7 @@
 // and a department filter. Each card is a face, a name, a title and a one-liner; it opens the profile. The Floor
 // breathes (Inc 0.5, LIVING-WORKFORCE §8): rest the pointer on a desk and the face looks up with a short, true
 // line; Reply (or R) chats in place. Ambience sets how much of that happens.
-// Office Phase 2 (OFFICE-PHASE2 §4.5.1): an Office | Directory toggle. The Office (a lazy chunk the Directory never
+// Office Phase 2: an Office | Directory toggle. The Office (a lazy chunk the Directory never
 // loads) is the default on a fine pointer at least 900 px wide; the Directory stays the accessible alternative.
 import { Component, type ComponentChildren, type ComponentType } from 'preact';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';

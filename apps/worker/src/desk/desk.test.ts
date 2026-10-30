@@ -1,4 +1,4 @@
-// Floor quick-chat with a catalog coworker (INC05-PLAN §4 A11): frames with the coworker's agentId and surface 'floor',
+// Floor quick-chat with a catalog coworker (LIVING-PLAN §4 A11): frames with the coworker's agentId and surface 'floor',
 // kept out of the Chief's history, idempotent on opId, an honesty guard on work claims, phatic replies in their voice.
 import { fullIndex } from '@headcount/catalog/full';
 import type { ModelEvent } from '@headcount/models';

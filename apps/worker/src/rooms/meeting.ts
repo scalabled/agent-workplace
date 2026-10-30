@@ -1,5 +1,5 @@
 // What the ledger knows about one meeting: who spoke and how often (floor rotation), and the one quiet line Talk gets
-// when the owner leaves a room or huddle they spoke in (docs/dev/OFFICE-PHASE2.md §4.2.7). Pure.
+// when the owner leaves a room or huddle they spoke in. Pure.
 import type { Frame } from '@headcount/protocol';
 import { roomKindOf, type RoomId } from '@headcount/protocol/ext/rooms';
 import { listNames, meetingLines } from './prompt';

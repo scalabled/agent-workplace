@@ -1,4 +1,4 @@
-// GET /api/expr/catalog and /api/expr/agents/:id, and the Ambience setting (INC05-PLAN §3.2, §4 A1, A4, A5).
+// GET /api/expr/catalog and /api/expr/agents/:id, and the Ambience setting (§4 A1, A4, A5).
 import { compileCatalog, type ExpressionCatalogInput } from '@headcount/expressions';
 import { fullIndex } from '@headcount/catalog/full';
 import { afterEach, describe, expect, it } from 'vitest';

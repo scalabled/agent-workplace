@@ -1,4 +1,4 @@
-// The conference stage composition (OFFICE-PLAN §2.4): a pinhole view from the owner's seat at the near end of the
+// The conference stage composition: a pinhole view from the owner's seat at the near end of the
 // table, looking along it toward the far glass. Pure: seat and tent-card positions, perspective scale and tilt, in
 // stage pixels. Seats are spaced evenly on screen (evenly in 1/Z), far seats smaller (0.62) than near ones (0.96).
 // The table is sized to the party (the scene passes max(5, people + 1) seats), so a small meeting fills the frame.
@@ -202,7 +202,7 @@ export function tiltFor(seat: StageSeatPos, speaker: StageSeatPos | null, ownerS
 
 /**
  * Narrow screens (< 900 px): a stack instead of the long table. The speaker (or the first participant) is the hero
- * on top; everyone else is a row of tokens beneath (OFFICE-PLAN §2.4).
+ * on top; everyone else is a row of tokens beneath.
  */
 export function narrowPositions(w: number, h: number, count: number, heroIndex: number, top = 60, bottom = 150): { x: number; y: number; size: number }[] {
   const out: { x: number; y: number; size: number }[] = [];

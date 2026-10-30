@@ -1,4 +1,4 @@
-// Grounded small talk (OFFICE-PHASE2 §4.5.8, D5 "anything that mentions real work must be grounded in a real event"):
+// Grounded small talk (D5 "anything that mentions real work must be grounded in a real event"):
 // the only real events in Inc 0.7 are the Chief's finished jobs. Each becomes a team-visible `job.done` event spoken of
 // as "the write-up" (never its title, summary or result: those are the owner's words), citing the job.done frame's seq.
 // The article reads naturally in every template ("Congrats on the write-up", "The write-up is done"); the huddle engine

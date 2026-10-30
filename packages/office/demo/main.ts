@@ -1,6 +1,6 @@
 // The standalone Office demo: the real catalog (164 coworkers + the Chief of Staff), catalog-backed portraits from
 // the owner's worker through the dev proxy (read-only GETs), and a small panel to drive time of day, bubbles and a
-// conference room. Office life (docs/dev/OFFICE-LIFE.md) runs by default: people take breaks, huddle and chat.
+// conference room. Office life runs by default: people take breaks, huddle and chat.
 // URL params: tod=auto|night|dusk|day, theme=dark|light, panel=0, faces=portraits|initials, portraits=proxy|direct,
 // rm=1, seed=<n>, keys=document|scene, life=0 (off), amb=quiet|lively|buzzing, at=HH:MM (the demo clock),
 // day=YYYY-MM-DD, speed=<n> (a demo-only accelerated clock), lines=sample (skip the huddle engine), owner=<name>, work=<0–1>,
@@ -167,7 +167,7 @@ function roundtable(): void {
   if (st.mode !== 'conference' || !st.participants.length) return;
   for (const t of timers.splice(0)) clearTimeout(t);
   const order = st.participants.slice(0, 3);
-  // Honest room lines (OFFICE-PHASE2 §4.2.6): opinions and questions from expertise, never a figure, a result or a
+  // Honest room lines: opinions and questions from expertise, never a figure, a result or a
   // promise of work. The app's rooms pass the same reply guard; nobody should copy a line that claims otherwise.
   const lines = [
     'I’d lead with sell-through, not brand love.',
@@ -267,7 +267,7 @@ async function main(): Promise<void> {
         if (scene.getState().huddles.some((h) => h.members.includes(id))) return;
         const p = byId.get(id);
         const hash = Math.abs([...id].reduce((a, c) => a * 31 + c.charCodeAt(0), 7));
-        // Honesty (OFFICE-LIFE §2.9): someone on a break, in a huddle or walking is available, never "working on" something.
+        // Honesty: someone on a break, in a huddle or walking is available, never "working on" something.
         const where = life?.whereIs(id).state;
         const onBreak = where === 'break' || where === 'huddle' || where === 'walking' || where === 'visit';
         const pool = DEFAULT_STRINGS.life.availability;

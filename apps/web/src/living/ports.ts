@@ -1,4 +1,4 @@
-// The runner's ports in the browser (INC05-PLAN §5 B2): audio over the AudioEngine's reflex API (§3.6), faces over
+// The runner's ports in the browser (LIVING-PLAN §5 B2): audio over the AudioEngine's reflex API (§3.6), faces over
 // the face registry, captions over the caption signals, and runtime renders over POST /api/expr/render.
 import type { AudioEngine, BrowserVoiceHint, PreparedAudio, SpeakerActivity } from '@headcount/audio';
 import { fillKeyOf, type AudioBus, type PreparedClip, type ReflexAudioPort, type ReflexCaptionPort, type ReflexFacePort, type ReflexPlayHandle, type RenderRequest } from '@headcount/expressions';

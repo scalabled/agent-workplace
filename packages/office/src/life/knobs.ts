@@ -1,4 +1,4 @@
-// Personality becomes habits (OFFICE-LIFE §2.2): sociability, restlessness, humour and curiosity from the catalog
+// Personality becomes habits: sociability, restlessness, humour and curiosity from the catalog
 // sliders and traits, and spot preferences from the archetype blend. Pure.
 import { ARCHETYPES, PREF } from './tables';
 import type { PrefColumn } from './tables';

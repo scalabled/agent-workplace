@@ -1,4 +1,4 @@
-// The skyline art manifest (OFFICE-PLAN §1.3). Only scripts/office-art.mjs writes it; the office only reads it.
+// The skyline art manifest. Only scripts/office-art.mjs writes it; the office only reads it.
 // Paths are relative to `assetsBase` (default '/office/'). A missing manifest or image falls back to the vector city.
 import type { TimeOfDay } from '../types';
 

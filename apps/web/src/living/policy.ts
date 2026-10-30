@@ -1,6 +1,6 @@
 // Small pure decisions of the living layer, kept apart so they are easy to test.
 
-// ── sending while the Chief of Staff speaks (LIVING-WORKFORCE §2.3, INC05-PLAN §8.4) ──
+// ── sending while the Chief of Staff speaks (LIVING-WORKFORCE §2.3) ──
 /**
  * - `none`: nothing is sounding.
  * - `boundary`: stop at the end of the sentence now playing (a stop or steer cue, or more than 8 s left); the rest

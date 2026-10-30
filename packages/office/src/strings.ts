@@ -43,7 +43,7 @@ export interface OfficeStrings {
   seatLabel: (name: string, title: string, group: string, state: string) => string;
   minimap: string;
   nightShift: string;
-  /** Office life (OFFICE-LIFE §3.5, §4). */
+  /** Office life. */
   life: LifeStrings;
 }
 

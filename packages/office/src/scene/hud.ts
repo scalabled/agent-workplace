@@ -1,4 +1,4 @@
-// The office HUD (OFFICE-PLAN §4.1, §4.4, §4.6): Desks | Conference, Walk to, Find, zoom buttons and the mini-map.
+// The office HUD: Desks | Conference, Walk to, Find, zoom buttons and the mini-map.
 import type { OfficeStrings } from '../strings';
 import type { OfficeMode, Rect } from '../types';
 

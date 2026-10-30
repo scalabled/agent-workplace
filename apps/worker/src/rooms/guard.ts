@@ -1,4 +1,4 @@
-// The reply guard (docs/dev/OFFICE-PHASE2.md §4.2.6): every room, huddle and desk reply passes it. It releases whole
+// The reply guard: every room, huddle and desk reply passes it. It releases whole
 // sentences and replaces or drops any sentence that claims or promises work, states a figure the owner did not say,
 // reports a metric moving or a standing nobody measured, claims access to the owner's data, recounts an experience or
 // a human memory, or cites a study, and stops after `maxSentences`. Coworkers speak from expertise only: opinions,

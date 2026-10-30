@@ -1,4 +1,4 @@
-// The keyless skyline (OFFICE-PLAN §1.3): a procedural vector city in three silhouette layers of seeded towers, lit
+// The keyless skyline: a procedural vector city in three silhouette layers of seeded towers, lit
 // windows at 8–15 % density, a variant gradient, still water with reflections and, at night, a thin moon and red
 // beacons. Used when the manifest or image is missing, in tests and in the demo. Pure string output, < 5 ms.
 import { mulberry32 } from '../rng';

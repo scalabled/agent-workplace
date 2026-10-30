@@ -1,4 +1,4 @@
-// Limits and timings of the living-workforce layer in the worker (docs/dev/INC05-PLAN.md §3.4, §3.5).
+// Limits and timings of the living-workforce layer in the worker.
 import type { Env } from '../env';
 
 /** Env-backed limits (all optional; defaults here). */
@@ -29,7 +29,7 @@ export function exprLimit(env: Env, name: LimitName): number {
 }
 
 /**
- * Server reflex timings (INC05-PLAN §3.4). Mutable so tests can shorten them; production uses these values.
+ * Server reflex timings. Mutable so tests can shorten them; production uses these values.
  * - `fillerVoiceMs` / `fillerTextMs`: the thinking-filler safety net fires when no text delta arrived this long
  *   after the server turn started (voice / text exchange). In text the client's own "one sec" adapts to the model's
  *   usual first-token time (never before 2.5 s); the server's net comes later, so a common 2.8 s answer never gets

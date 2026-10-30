@@ -34,7 +34,7 @@ export interface CaptionLogEntry {
   at: number;
   agentId: string;
   text: string;
-  /** `smalltalk`: office small talk (OFFICE-PHASE2 §4.5.9), logged only. */
+  /** `smalltalk`: office small talk, logged only. */
   kind: CaptionKind | BubbleKind | 'smalltalk';
 }
 
@@ -145,7 +145,7 @@ export function showCaption(c: ShowCaption): void {
 }
 
 /**
- * Office small talk for the caption log only (OFFICE-PHASE2 §4.5.9): never a live caption, a bubble, what someone
+ * Office small talk for the caption log only: never a live caption, a bubble, what someone
  * "last said", or a live region. Small talk is non-factual by design, so nothing lives only here.
  */
 export function logCaption(e: { agentId: string; text: string; kind: 'smalltalk' }): void {

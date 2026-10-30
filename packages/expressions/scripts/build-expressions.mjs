@@ -3,7 +3,7 @@
 // the cleaned ExpressionCatalogInput plus its content `version`, which the worker imports and the browser
 // fetches from /api/expr/catalog. Lines or signature packs the engine rejects are dropped and reported in
 // generated/report.json, so content that is still being written never breaks the app.
-// Huddle packs (kind huddle_pack, catalog/expressions/huddles/*.json, docs/dev/OFFICE-LIFE.md §6.2) are compiled
+// Huddle packs (kind huddle_pack, catalog/expressions/huddles/*.json) are compiled
 // against the catalog the same lenient way and written as a separate top-level field,
 // `huddles: { version, packs }`; the expressions `version` and `compileCatalog(bundle.input)` do not change.
 //

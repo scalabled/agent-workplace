@@ -1,4 +1,4 @@
-// Listen in (OFFICE-PHASE2 §4.5.10, OFFICE-LIFE §3.6): the huddle the owner listens to speaks its small talk in
+// Listen in: the huddle the owner listens to speaks its small talk in
 // the speakers' own voices, on the ambient bus at −6 dB. Listening is the owner asking to hear them (D5: owner-directed
 // talk is exempt from the ambient budget), so it voices at Quiet too and does not spend the shared ambient window; its
 // own budget (90 s of voice per 10 minutes) keeps a long listen from running on. One voice per workspace: only the tab

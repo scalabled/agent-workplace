@@ -1,4 +1,4 @@
-// The push-to-talk target (OFFICE-PHASE2 §4.3): while a room or a joined huddle is open, pressing hushes the room
+// The push-to-talk target: while a room or a joined huddle is open, pressing hushes the room
 // (not the Chief), the words go to the room, and the Chief's face does not show listening. Restoring goes back to the
 // Chief; restores may come in any order.
 import type { PushToTalkOptions, PushToTalkResult } from '@headcount/audio';

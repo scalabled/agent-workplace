@@ -1,4 +1,4 @@
-// The conference stage's dock (OFFICE-PHASE2 §4.4.3), rendered with Preact into scene.dock(): one field to message
+// The conference stage's dock, rendered with Preact into scene.dock(): one field to message
 // the room (Enter sends; hold Space in the empty field, or hold the mic — or tap it, and tap again to send — to talk;
 // Esc on an empty field leaves — the scene handles that), the live words while push-to-talk listens, one line for errors, and a collapsed Transcript: the
 // accessible, non-live record of every line of the meeting, lines cut before they played marked "not heard".

@@ -1,4 +1,4 @@
-// The expression catalog inside the worker (docs/dev/INC05-PLAN.md §4 A1): the imported bundle, a lazily compiled
+// The expression catalog inside the worker (docs/dev/LIVING-PLAN.md §4 A1): the imported bundle, a lazily compiled
 // catalog (once per isolate, ~300 ms, never on a 202 path), agent profiles built from the full persona catalog,
 // an AgentIndex cache and the TTS provider each agent's reflexes use.
 import bundle from '@headcount/expressions/bundle';

@@ -1,4 +1,4 @@
-// Real state always wins (OFFICE-LIFE §2.9, D3): the claim ladder. Pure.
+// Real state always wins: the claim ladder. Pure.
 import type { PlaceRef } from './types';
 
 export type ClaimKind = 'owner' | 'room' | 'hand' | 'work' | 'conversation' | 'call' | 'host';

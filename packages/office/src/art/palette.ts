@@ -1,4 +1,4 @@
-// Palette tokens (OFFICE-PLAN §1.4). Every SVG fill is a class over a `--o-…` token, so a theme switch restyles the
+// Palette tokens. Every SVG fill is a class over a `--o-…` token, so a theme switch restyles the
 // plate without rebuilding it. App tokens (--surface, --ink, --lamp, --hand, …) are read with fallbacks.
 
 const DARK = `

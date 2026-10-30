@@ -1,4 +1,4 @@
-// Office life (docs/dev/OFFICE-LIFE.md §6.1): the public shapes of the autonomous layer. Declared locally like the
+// Office life: the public shapes of the autonomous layer. Declared locally like the
 // rest of @headcount/office (no dependencies); the host passes personality as plain data.
 import type { Facing, OfficePerson, Point, PresenceBadge, PresenceState } from '../types';
 

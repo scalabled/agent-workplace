@@ -94,7 +94,7 @@ describe('group cues and relevance', () => {
     expect(synthetic.order).toEqual(['cw_ada', 'cw_cy']);
   });
 
-  it('"you two", "both of you" and "you guys" ask the whole huddle (OFFICE-PHASE2 §10.7)', () => {
+  it('"you two", "both of you" and "you guys" ask the whole huddle', () => {
     const pair = [fake('Jip', 0), fake('Fleur', 1)];
     for (const text of [
       'What is the first thing you two would fix about how we launch?',

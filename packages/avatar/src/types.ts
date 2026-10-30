@@ -53,7 +53,7 @@ export interface FaceViewApi {
   attachSampler(sampler: MouthSampler | null): void;
   /** hero (1024 px, animated) · tile (animated, ≤3 at once) · token (still + ring). */
   setTier(tier: FaceTier): void;
-  /** A reflex gesture (+ optional palette expression) for cue.holdMs. Latest cue wins (INC05-PLAN §3.7). */
+  /** A reflex gesture (+ optional palette expression) for cue.holdMs. Latest cue wins. */
   cue(cue: FaceCue): void;
   /** The mood palette (mood.changed / expressionBias). null → neutral. */
   setExpressionBias(bias: ExpressionBias | null): void;

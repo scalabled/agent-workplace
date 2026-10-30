@@ -1,4 +1,4 @@
-// The office's clock (OFFICE-PHASE2 §4.5.14): the owner's local time. In dev builds only, `?at=HH:MM` on /app/floor
+// The office's clock: the owner's local time. In dev builds only, `?at=HH:MM` on /app/floor
 // shifts it (scene and life), so e2e and demos can open on 10:35 at the water cooler or 23:10 at the north glass.
 const AT_RE = /^(\d{1,2}):(\d{2})$/;
 

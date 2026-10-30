@@ -1,5 +1,5 @@
 // The product's name, in one place: a rename is a one-line change here (the web page titles and the worker's own words
-// read it too). "Headcount" is the working name while the owner decides (docs/dev/NAMING.md has the shortlist).
+// read it too).
 export const BRAND = {
   name: 'Headcount',
   /** What it is, in three words. */

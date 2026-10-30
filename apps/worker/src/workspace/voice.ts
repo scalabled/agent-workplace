@@ -1,4 +1,4 @@
-// One voice per workspace (docs/dev/INC05.md "Voice ownership"): every open /app tab gets every frame, but only one
+// One voice per workspace (docs/dev/LIVING.md "Voice ownership"): every open /app tab gets every frame, but only one
 // client speaks. The WorkspaceDO makes the client of the most recent owner interaction (a talk send, push-to-talk, a
 // steer, a desk reply, or an explicit `voice.claim` on a real gesture) the voice owner and broadcasts `voice.owner`.
 // When the owner's tab goes away, proactive speech falls to the most recently active connected client after a short

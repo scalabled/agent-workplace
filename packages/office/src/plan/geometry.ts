@@ -1,4 +1,4 @@
-// The floor plate template (OFFICE-PLAN §3.1). 1 u = 10 cm. Cells 96 × 80 u in an 8 × 3 grid; 16 u aisles between
+// The floor plate template. 1 u = 10 cm. Cells 96 × 80 u in an 8 × 3 grid; 16 u aisles between
 // columns; 14 u window clearance (north), a 24 u boulevard, an 18 u aisle and a 34 u reception strip (south).
 
 export const CELL_W = 96;
@@ -14,7 +14,7 @@ export const ROWS = 3;
 export const ROW_Y = [NORTH_CLEAR, NORTH_CLEAR + CELL_H + BOULEVARD, NORTH_CLEAR + CELL_H + BOULEVARD + CELL_H + LOWER_AISLE] as const;
 export const PLATE_H = ROW_Y[2] + CELL_H + RECEPTION; // 330
 
-/** Seat geometry inside a neighbourhood cell (OFFICE-PLAN §3.3). */
+/** Seat geometry inside a neighbourhood cell. */
 export const HEAD_W = 18;
 export const DESK_PITCH = 16;
 export const DESK_W = 15.4;

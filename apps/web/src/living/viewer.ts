@@ -1,4 +1,4 @@
-// What this tab tells the WorkspaceDO (INC05-PLAN §3.3): where the owner is (`viewer`, so event reflexes play
+// What this tab tells the WorkspaceDO: where the owner is (`viewer`, so event reflexes play
 // only at an agent's stage someone is watching) and which lines it just played (`expr.recent`, so server picks
 // avoid them). Both are fire-and-forget socket ops.
 import { signal } from '@preact/signals';
@@ -16,7 +16,7 @@ export const RECENT_MAX_PER_AGENT = 32;
  */
 export const RECENT_WINDOW_MS = 30 * 60_000;
 
-/** Where the owner is inside the Office view (OFFICE-PHASE2 §4.5.13): a conference room or a joined huddle's room. */
+/** Where the owner is inside the Office view: a conference room or a joined huddle's room. */
 export interface OfficeStage {
   mode: 'desks' | 'conference';
   roomId: string | null;

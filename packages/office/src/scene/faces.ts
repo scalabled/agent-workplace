@@ -1,4 +1,4 @@
-// Faces (OFFICE-PLAN §5.4): the host's faceFactory (FaceView in apps/web), else initials badges that mirror the
+// Faces: the host's faceFactory (FaceView in apps/web), else initials badges that mirror the
 // hc-face ring language. The office sizes and positions a FaceSlot's `el`; the host fills it.
 import type { FaceFactory, FaceSlot, FaceTier, OfficePerson, PresenceState } from '../types';
 

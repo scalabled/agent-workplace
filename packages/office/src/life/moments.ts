@@ -1,4 +1,4 @@
-// Moments, autopilot and follow (OFFICE-LIFE §4): what is worth looking at, when the optional autopilot may fly,
+// Moments, autopilot and follow: what is worth looking at, when the optional autopilot may fly,
 // and the critically damped spring that follows a walker. Pure maths.
 import type { Point } from '../types';
 import type { Moment } from './types';

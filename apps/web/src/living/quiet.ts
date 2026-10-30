@@ -1,4 +1,4 @@
-// Quiet hours (INC05-PLAN §9, LIVING-WORKFORCE §9.2): owner-local 22:00–07:00, when ambient chatter keeps to faces and
+// Quiet hours (LIVING-WORKFORCE §9.2): owner-local 22:00–07:00, when ambient chatter keeps to faces and
 // bubbles. The owner's own exchanges (a reply, a hover) keep their reflexes. The Ambience control says so and offers
 // "Lively anyway" for the rest of the night. Light on purpose (signals and storage only): the Floor header reads it
 // without loading the runtime.

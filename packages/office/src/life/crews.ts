@@ -1,4 +1,4 @@
-// Crews (OFFICE-LIFE §2.2): stable groups of 2–4 people who are often seen together. Formed once per people set,
+// Crews: stable groups of 2–4 people who are often seen together. Formed once per people set,
 // seeded by the sorted ids, greedy by descending sociability within a district. Pure.
 import { rngFor } from '../rng';
 import type { LifeKnobs } from './knobs';

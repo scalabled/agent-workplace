@@ -1,4 +1,4 @@
-// The static plate (OFFICE-PLAN §5.1): one SVG built once from an OfficePlan. Floors, carpets, glazing, furniture and
+// The static plate: one SVG built once from an OfficePlan. Floors, carpets, glazing, furniture and
 // things in painter's order. Repeated assets (desks, chairs, lamps, plants) are emitted once into <defs> and placed
 // with <use>, which keeps the DOM small. Coordinates are projected u (x, y·sin55° − z·cos55°).
 import { prefixClasses } from './palette';

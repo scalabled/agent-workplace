@@ -1,4 +1,4 @@
-// The living runtime's office additions (OFFICE-PHASE2 §4.5.13): the huddle packs kept at boot, the shared ambient
+// The living runtime's office additions: the huddle packs kept at boot, the shared ambient
 // voice window, mood and provider lookups, room frames ignored, the viewer reporting a room, and sayIntent (the Join
 // greeting and the sign-off), which never plays in a tab without the voice.
 import { slimIndex } from '@headcount/catalog/slim';

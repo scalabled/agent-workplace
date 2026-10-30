@@ -74,7 +74,7 @@ describe('casting helpers', () => {
   });
 });
 
-describe('honest copy (INC0 §4: present tense only for what works today)', () => {
+describe('honest copy (CORE §4: present tense only for what works today)', () => {
   // What Inc 0 verifies. Anything else on the page must say "In the works" or "Planned".
   const BUILT = new Set([
     'Hire your team',

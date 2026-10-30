@@ -1,4 +1,4 @@
-// createOfficeLife (OFFICE-LIFE §6.1): the runtime of the office's autonomous life. It plans the day (planner.ts),
+// createOfficeLife: the runtime of the office's autonomous life. It plans the day (planner.ts),
 // resolves real state over the plan (overrides.ts), moves people through the scene port, choreographs huddles and
 // their small talk (choreo.ts, the host's `lines` provider), and keeps everything inside the Ambience caps and
 // budgets. It never writes presence (O1) and runs no timers while the office is off-screen (O8).

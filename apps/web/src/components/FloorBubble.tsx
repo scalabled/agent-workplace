@@ -46,7 +46,7 @@ export interface FloorBubbleProps {
   deskLabel?: string;
   /** The Office: a "Follow" button beside Reply (the camera keeps them in view). */
   onFollow?(): void;
-  /** 'card' (the Directory, default): anchored to the card. 'anchor': over a face in the Office (OFFICE-PHASE2 §4.5.6). */
+  /** 'card' (the Directory, default): anchored to the card. 'anchor': over a face in the Office. */
   placement?: 'card' | 'anchor';
 }
 

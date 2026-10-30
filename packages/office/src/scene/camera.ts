@@ -1,4 +1,4 @@
-// Camera maths (OFFICE-PLAN §4.1), pure and DOM-free: fit, bounds with rubber-banding, zoom around a point, inertia
+// Camera maths, pure and DOM-free: fit, bounds with rubber-banding, zoom around a point, inertia
 // and flights. The camera is {x, y} in projected plate u at the viewport centre and `zoom` in screen px per u.
 import { fromScreen } from '../projection';
 import type { Camera, Point, Rect } from '../types';

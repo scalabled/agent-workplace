@@ -1,4 +1,4 @@
-// Floor control for rooms and joined huddles (docs/dev/OFFICE-PHASE2.md §4.2.3): who answers an owner message, in
+// Floor control for rooms and joined huddles: who answers an owner message, in
 // what order, and whether the Chief wraps up. Pure and deterministic, so the same meeting always plans the same way.
 import type { AffectCues } from '@headcount/expressions';
 import { CHIEF_ID } from '@headcount/protocol';

@@ -1,4 +1,4 @@
-// GET /api/office/people (docs/dev/OFFICE-PHASE2.md §4.2.8): the personality roster office life and the huddle engine
+// GET /api/office/people: the personality roster office life and the huddle engine
 // cast from: every catalog persona and, once a lead is chosen, the Chief. Built once per isolate per version; the
 // browser revalidates with the ETag (304 on a match).
 import { catalogFull, fullIndex } from '@headcount/catalog/full';

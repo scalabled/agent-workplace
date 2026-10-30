@@ -1,4 +1,4 @@
-// The invite picker (OFFICE-PLAN §4.5): a searchable list grouped by department, with face tokens, checkboxes and
+// The invite picker: a searchable list grouped by department, with face tokens, checkboxes and
 // "Invite N". It stops at the room's capacity and says so.
 import type { OfficeStrings } from '../strings';
 import type { FaceSlot, OfficePerson } from '../types';

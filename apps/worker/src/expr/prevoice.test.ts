@@ -1,4 +1,4 @@
-// Pre-voicing (INC05-PLAN §3.2 `exprPrevoice`, §4 A3): plan, skip and record stored clips, reuse finished runs, dry
+// Pre-voicing (LIVING-PLAN §3.2 `exprPrevoice`, §4 A3): plan, skip and record stored clips, reuse finished runs, dry
 // runs that spend nothing, the daily budget stop, and a runner that resumes after a restart.
 import { afterEach, describe, expect, it } from 'vitest';
 import { exprSetup, fakeTts, useProviders, type SpeechCall } from '../../test/expr-kit';

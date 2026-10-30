@@ -1,4 +1,4 @@
-// Routing (OFFICE-LIFE §7.2 item 7): every spot is reachable from every desk, no path crosses furniture or glass,
+// Routing: every spot is reachable from every desk, no path crosses furniture or glass,
 // lanes keep right, corners are rounded and the speed profile has no jumps.
 import { describe, expect, it } from 'vitest';
 import { AIS_Y, BLV_Y, blockedAt, buildGrid, lifeNav } from './nav';

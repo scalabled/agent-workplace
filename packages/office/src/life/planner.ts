@@ -1,4 +1,4 @@
-// The day plan (OFFICE-LIFE §2.5): one deterministic plan for the floor from the seed, the owner-local day, the
+// The day plan: one deterministic plan for the floor from the seed, the owner-local day, the
 // people, their personality and the Ambience. Pure: the same inputs give the same plan, byte for byte (O9).
 //
 // Order: knobs, preferences and crews → the Chief's rituals → crew huddles (everyone in the crew who is free) →

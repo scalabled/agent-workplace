@@ -1,4 +1,4 @@
-// POST /api/rooms/:roomId/say and /cancel (docs/dev/OFFICE-PHASE2.md §4.2.1): the owner talks to a conference room or
+// POST /api/rooms/:roomId/say and /cancel: the owner talks to a conference room or
 // a joined huddle. 202 at once; up to three responders answer in turn as talk.* frames with `surface: 'room'` on the
 // workspace socket, and `room.turn` says who is next. Cancel is the barge-in and the leave (with one note in Talk).
 import { fullIndex } from '@headcount/catalog/full';

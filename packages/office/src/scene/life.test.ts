@@ -1,4 +1,4 @@
-// The scene's office-life surface (OFFICE-LIFE §6.1 "Scene additions"): moves, small-talk bubbles and their cap,
+// The scene's office-life surface: moves, small-talk bubbles and their cap,
 // holds reported to life, huddle markers and the card, the What's happening pill, follow and teardown.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import slim from '../../../catalog/generated/slim.js';

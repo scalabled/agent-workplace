@@ -1,4 +1,4 @@
-// Department neighbourhoods and their districts (OFFICE-PLAN §3.2). Unknown groups are appended (district `run`).
+// Department neighbourhoods and their districts. Unknown groups are appended (district `run`).
 import type { District } from '../types';
 
 const DISTRICTS: readonly (readonly [District, readonly string[]])[] = [

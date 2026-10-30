@@ -1,4 +1,4 @@
-// The conference stage (OFFICE-PLAN §2.4, §4.5): a closer composition from the owner's seat at the near end of the
+// The conference stage: a closer composition from the owner's seat at the near end of the
 // table. Far glass with the city (Skyline room) or the living wall (Garden room; generated art, vector when keyless),
 // the walnut table in perspective and sized to the party, participants seated in chairs along it (chair back and
 // accent-tinted shoulders behind each face, tucked behind the table edge) with tent cards, the speaker lifted to hero

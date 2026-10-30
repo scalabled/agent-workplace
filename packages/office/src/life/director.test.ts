@@ -1,4 +1,4 @@
-// The director on a fake clock with a fake scene (OFFICE-LIFE §7.2 "Director"): the plan drives people, real state
+// The director on a fake clock with a fake scene: the plan drives people, real state
 // overrides it, the owner's attention holds people, huddles talk only in view and within budgets, and nothing runs
 // while the office is off-screen.
 import { describe, expect, it, vi } from 'vitest';

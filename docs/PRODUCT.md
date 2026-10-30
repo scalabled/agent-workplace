@@ -7,7 +7,7 @@
 > - **[OC] oncloudnine**: the senses and the single-assistant contract.
 > - **[PG] personagram-ai**: the face, the voice and the storefront.
 >
-> **[NEW]** marks white space none of them covers. *Tn* refers to tension *n* in `docs/research/capability-matrix.md` §5.
+> **[NEW]** marks white space none of them covers.
 >
 > **How this design was chosen.** Four concepts were judged on owner value, feasibility and brief coverage.
 > - **Product spine: Concept A** (*Righthand*, owner-first). It had the highest combined score: A 23.6, C 22.7, D 22.0, B 20.8.

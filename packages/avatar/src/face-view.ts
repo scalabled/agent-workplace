@@ -314,7 +314,7 @@ export class FaceView implements FaceViewApi, ScheduledFace {
   }
 
   /**
-   * A reflex gesture (+ optional palette expression) for cue.holdMs; the latest cue wins (INC05-PLAN §3.7).
+   * A reflex gesture (+ optional palette expression) for cue.holdMs; the latest cue wins.
    * Hero and tile animate it; a token and reduced motion show only the expression, as one still redraw.
    */
   cue(cue: FaceCue): void {
@@ -388,7 +388,7 @@ export class FaceView implements FaceViewApi, ScheduledFace {
       talking: this.motion.isTalking,
       reducedMotion: this.reducedMotion,
       frames: this.frames,
-      /** The palette expression shown, and the gesture now playing (INC05-PLAN §3.7). */
+      /** The palette expression shown, and the gesture now playing. */
       expression: this.motion.expression,
       cue: this.cueGesture,
       canvas: this.canvas ? { width: this.canvas.width, height: this.canvas.height } : null,

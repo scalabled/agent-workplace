@@ -1,6 +1,5 @@
 // One file of model ids (ARCHITECTURE §12.1). Ids are spelled exactly as the owner's current code uses them
-// (biz-bot worker/src/providers/*, oncloudnine server/providers/registry.ts, personagram-ai) — see
-// docs/research/biz-bot/bb1-backend-runtimes.md §3 and docs/research/capability-matrix.md §4.
+// (biz-bot worker/src/providers/*, oncloudnine server/providers/registry.ts, personagram-ai).
 // Gemini has no reference code; its ids are `-latest` aliases and the adapter rediscovers on a 404.
 import type { LatencyClass, ModelFlag, ModelInfo, ModelTier, ProviderId } from './types';
 

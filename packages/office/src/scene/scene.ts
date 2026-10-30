@@ -1,4 +1,4 @@
-// createOfficeScene (OFFICE-PLAN §5): the office floor as a framework-agnostic DOM scene. One CSS-transformed world
+// createOfficeScene: the office floor as a framework-agnostic DOM scene. One CSS-transformed world
 // layer (plate SVG + people-from-above + light), screen-space HTML for faces, labels and bubbles, a screen-space sky
 // behind, the conference stage and the HUD on top. A single rAF loop runs only while something moves.
 import { buildLightSvg } from '../art/light';
@@ -162,7 +162,7 @@ interface PView {
   cueSeq?: number;
 }
 
-/** An office-life walk: a function of time along a smooth path (OFFICE-LIFE §2.6). */
+/** An office-life walk: a function of time along a smooth path. */
 interface LifeWalk {
   profile: PathProfile;
   /** Scene clock (ms) at distance 0. */
@@ -328,7 +328,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
   const labelsEl = mk('div', 'hc-o-labels', root);
   labelsEl.setAttribute('aria-hidden', 'true');
   // Walkers at plan zoom: accent dots with a short fading trail on their own composited layer (transform-only
-  // updates, ≤ 30 Hz), so a walk never repaints the plate (OFFICE-LIFE §2.6 "Layering").
+  // updates, ≤ 30 Hz), so a walk never repaints the plate.
   const walkersEl = mk('div', 'hc-o-walkers', root);
   walkersEl.setAttribute('aria-hidden', 'true');
   const peopleEl = mk('div', 'hc-o-people', root);
@@ -1303,7 +1303,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     return dur + delay;
   };
 
-  // ── office life: walks (OFFICE-LIFE §2.6) ─────────────────────────────────────────────────────────────────
+  // ── office life: walks ─────────────────────────────────────────────────────────────────
   const FADE_MS = 160;
   const nav = () => lifeNav(plan);
   /** Where a place is, how the person faces there and whether they sit. */
@@ -1765,7 +1765,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     }
   };
   /**
-   * A bubble never covers anyone's face or name plate (OFFICE-LIFE §3.3, O5), a groupmate's or a bystander's, nor
+   * A bubble never covers anyone's face or name plate, a groupmate's or a bystander's, nor
    * another bubble or the open card: above the speaker, else shifted above-left or above-right (the tail stays on the
    * speaker), else below, else beside; as a last resort narrower (≤ 200 px) and lifted above the group's top-most face.
    */
@@ -2738,7 +2738,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
     mql = null;
   }
 
-  // ── office life: the layer, follow and autopilot (OFFICE-LIFE §3.5, §4) ─────────────────────────────────────
+  // ── office life: the layer, follow and autopilot ─────────────────────────────────────
   const huddleMembers = new Map<string, string[]>();
   const lifeJoined = new Set<string>();
   let lifeSummary: LifeSummary | null = null;
@@ -3204,7 +3204,7 @@ export function createOfficeScene(host: HTMLElement, options: OfficeOptions): Of
       return views.get(id)?.person.name ?? id;
     },
 
-    // ── office life (OFFICE-LIFE §6.1): the director drives the scene only through these ──
+    // ── office life: the director drives the scene only through these ──
     getPlan() {
       return plan;
     },

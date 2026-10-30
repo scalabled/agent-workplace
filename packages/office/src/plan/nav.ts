@@ -1,4 +1,4 @@
-// Keyboard navigation between occupied seats (OFFICE-PLAN §3.5, §4.3). Left and right follow the same bench side,
+// Keyboard navigation between occupied seats. Left and right follow the same bench side,
 // then the nearest seat on that line; up and down cross to the facing seat, then the nearest seat (by x) in the next
 // bench or row. prevZone / nextZone follow the fill order (the Chief sits before the first neighbourhood).
 import type { NavEntry, OfficeSeat, PlanZone } from './types';

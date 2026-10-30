@@ -150,7 +150,7 @@ function teaser(backstory: string): string {
 function Stage({ lead, match, previewLine }: { lead: Lead; match: Match | undefined; previewLine: string | undefined }) {
   const first = firstName(lead.name);
   const [name, setName] = useState(first);
-  // What the office calls the owner: optional, skipped by default (OFFICE-PHASE2 §4.6).
+  // What the office calls the owner: optional, skipped by default.
   const [ownerName, setOwnerName] = useState(settings.value?.ownerName ?? '');
   const [ownerError, setOwnerError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

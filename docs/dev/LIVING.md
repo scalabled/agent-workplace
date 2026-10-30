@@ -1,4 +1,4 @@
-# Increment 0.5 · The living workforce
+# The living workforce in the app
 
 The office now reacts like people who are paying attention. The Chief of Staff nods in your pauses while you hold to
 talk, laughs at a joke in their own style, answers "thanks", "hi" and "bye" at once without a model call, fills a slow
@@ -9,7 +9,7 @@ looks up with a short line in that coworker's own voice; press **R** to chat in 
 one control (Ambience) sets how much of this happens.
 
 Binding inputs: [OWNER-DIRECTIVES](../OWNER-DIRECTIVES.md) D5 (living workforce), D2, D3;
-[LIVING-WORKFORCE](../LIVING-WORKFORCE.md) (the spec); [INC05-PLAN](INC05-PLAN.md) (the build plan and its §8
+[LIVING-WORKFORCE](../LIVING-WORKFORCE.md) (the spec) (the build plan and its §8
 narrowings); contracts in [CONTRACTS.md](CONTRACTS.md) §7 and §8 (one voice per workspace).
 
 ---
@@ -209,13 +209,6 @@ Times are from the owner's action. "voiced" = the first sample heard.
 | +0.7 s | holds to talk: "Could you look into three packaging suppliers…" while the job runs | glance at the work, look-up, nod; filler at +1.2 s; "Copy. On it." as the steer is queued; the answer folds it into the running job |
 | job done (69 s) | stays at Talk | smile, mood `job.done`; "Mm. That's very satisfying." voiced 0.96 s after `job.done`, then the announcement (it waited for the lead-in) |
 
-Screenshots: [`screens/inc05/`](screens/inc05/) — `01-welcome` · `02-talk-ready` · `03-hello-reflex` (the live
-caption) · `04-answer-streaming` (the text filler bubble) · `05-answer-done` · `06-thanks-reflex` · `07-floor` (the
-Chief's card) · `08-passing-by` · `09`/`10`/`11-side-thread-*` · `12-ambience-control` · `13-joke-by-voice`
-("Eddie: Ha. You got me.") · `14-job-by-voice` · `16-job-done-celebrate` · `17-announcement` ·
-`18-thanks-after-answer` · `19-side-thread-long-answer` · `20-side-thread-thanks-no-echo` · after the review:
-`21-typed-joke-smiles` · `22-quiet-hours` · `23-phone-live-caption` · `24-quiet-hours-hover` (and `02`–`08`, `12`
-retaken on a Mock instance).
 
 ## 6. Integration changes (for reviewers)
 

@@ -1,5 +1,5 @@
 // The live huddle library (catalog/expressions/huddles/**) through the real engine and the real catalog
-// (docs/dev/OFFICE-LIFE.md §5.7 acceptance): everything compiles with nothing dropped, every exchange is castable by
+//: everything compiles with nothing dropped, every exchange is castable by
 // real catalog personas, a 1,000-pick fuzz with adversarial events leaks nothing and grounds every fact, daily caps
 // hold over a simulated day, picks stay under a millisecond, and the build writes a bundle whose huddles compile
 // strictly to the same version. The §5.7 quotas are gated by `validate-expressions.mjs --strict` (content, not engine).

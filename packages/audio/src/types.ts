@@ -123,7 +123,7 @@ export class MicError extends Error {
   }
 }
 
-// ── living workforce (Inc 0.5, docs/dev/INC05-PLAN.md §3.6) ─────────────────────
+// ── living workforce (Inc 0.5) ─────────────────────
 
 /** Which lane a sound plays on: answers (speak()), reflexes (owner-directed micro-talk), ambient (side-talk). */
 export type AudioBus = 'conversation' | 'reflex' | 'ambient';
@@ -229,7 +229,7 @@ export interface AudioEngine {
   support(): AudioSupport;
   destroy(): void;
 
-  // ── reflexes (Inc 0.5). The ladder: owner > answer > reflex > ambient (INC05-PLAN §3.6). ──
+  // ── reflexes (Inc 0.5). The ladder: owner > answer > reflex > ambient. ──
   /** Decode once (works before arm(): an OfflineAudioContext decodes when the main context does not exist yet). */
   prepare(bytes: ArrayBuffer, opts?: { key?: string; mime?: string; alignment?: Alignment | null; text?: string }): Promise<PreparedAudio>;
   /** Play a prepared clip on the speaker's reflex or ambient bus, through the speaker's mouth tap. */

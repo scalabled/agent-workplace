@@ -1,4 +1,4 @@
-// Seeded randomness: FNV-1a of ids → mulberry32. Never Math.random or time (OFFICE-PLAN §3.6).
+// Seeded randomness: FNV-1a of ids → mulberry32. Never Math.random or time.
 
 /** 32-bit FNV-1a hash of a string. */
 export function fnv1a(input: string): number {

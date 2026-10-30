@@ -93,7 +93,7 @@ export function registeredPaletteItems(): PaletteItem[] {
   return out;
 }
 
-/** "Set your name": what the office calls the owner in greetings (OFFICE-PHASE2 §4.6). */
+/** "Set your name": what the office calls the owner in greetings. */
 export function ownerNamePrompt(current: string | null): PalettePrompt {
   return {
     label: 'Your first name',

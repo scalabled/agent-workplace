@@ -1,4 +1,4 @@
-// Office Phase 2 wire types (docs/dev/OFFICE-PHASE2.md §4.1): conference rooms and huddle group chats on the rooms
+// Office Phase 2 wire types: conference rooms and huddle group chats on the rooms
 // endpoint, the office's personality roster, and listen-in huddle renders. Owned by B (WORKER-ROOMS).
 import { ulid, type AgentId, type MessageId, type OpId, type TurnId } from '../ids';
 import type { ExprAgentProfile, ExprTtsProvider } from './expressions';

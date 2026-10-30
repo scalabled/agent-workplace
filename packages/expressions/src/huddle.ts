@@ -1,4 +1,4 @@
-// Huddle small talk (docs/dev/OFFICE-LIFE.md §3, §5, §6.2): pre-authored exchanges of 2–4 turns for office huddles.
+// Huddle small talk: pre-authored exchanges of 2–4 turns for office huddles.
 // Exchanges are cast to the people present by personality, grounded only in real team-visible events, kept fresh
 // across days (floor-wide daily and weekly caps, a 14-day memory per participant), filled, timed for bubbles, and
 // mapped onto the existing delivery helpers for listen-in voice. Pure, isomorphic and deterministic: the same

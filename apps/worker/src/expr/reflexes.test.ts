@@ -1,4 +1,4 @@
-// Server reflexes, mood, attention and viewer state in the WorkspaceDO (INC05-PLAN §3.3, §3.4, §4 A6–A9).
+// Server reflexes, mood, attention and viewer state in the WorkspaceDO (§4 A6–A9).
 // Keyless (browser voice) unless a test says otherwise: browser lines are always instant, so reflex-grade picks work.
 import type { ChatRequest, ModelEvent } from '@headcount/models';
 import { CHIEF_ID, type Frame } from '@headcount/protocol';

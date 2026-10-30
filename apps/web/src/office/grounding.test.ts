@@ -1,4 +1,4 @@
-// Grounded small talk (OFFICE-PHASE2 §4.5.8): only the Chief's finished jobs of the last 8 hours whose job.done frame
+// Grounded small talk: only the Chief's finished jobs of the last 8 hours whose job.done frame
 // this page saw, spoken of as "write-up", never with the job's title, summary or result.
 import { CHIEF_ID, makeFrame, type Frame, type JobSnapshot } from '@headcount/protocol';
 import { afterEach, describe, expect, it } from 'vitest';

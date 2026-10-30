@@ -1,4 +1,4 @@
-// The passing-by dwell rule (OFFICE-PLAN §4.2, LIVING-WORKFORCE §8.1): `enter` fires at once; `dwell` fires when the
+// The passing-by dwell rule (LIVING-WORKFORCE §8.1): `enter` fires at once; `dwell` fires when the
 // pointer has rested ≥ 600 ms below 0.3 px/ms on the same person (keyboard focus: held 900 ms). Camera motion counts
 // as pointer motion, so nothing dwells during a pan or under inertia.
 import type { HoverVia } from '../types';

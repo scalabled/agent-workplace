@@ -4,7 +4,7 @@
 >
 > **Vocabulary** follows PRODUCT.md §4 exactly. Retired terms (§4.4) appear only as provenance, such as a file name.
 >
-> **Tags.** **[BB]** biz-bot · **[OC]** oncloudnine · **[PG]** personagram-ai · **[NEW]** white space none of them covers. Paths are relative to `reference/`. *Tn* is tension *n* in `docs/research/capability-matrix.md` §5; *S1–S5* are the Phase 0 spikes (PRODUCT §11.1). Phases: **P0**, **M** (MVP), **1** (v1), **2** (v2).
+> **Tags.** **[BB]** biz-bot · **[OC]** oncloudnine · **[PG]** personagram-ai · **[NEW]** white space none of them covers. Paths are relative to `reference/`. *S1–S5* are the Phase 0 spikes (PRODUCT §11.1). Phases: **P0**, **M** (MVP), **1** (v1), **2** (v2).
 
 ---
 

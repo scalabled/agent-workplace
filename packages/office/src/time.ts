@@ -1,7 +1,7 @@
 import type { TimeOfDay } from './types';
 
 /**
- * The skyline variant for a local time (OFFICE-PLAN §1.3): night 19:30–05:30, dusk 05:30–07:30 and 17:30–19:30
+ * The skyline variant for a local time: night 19:30–05:30, dusk 05:30–07:30 and 17:30–19:30
  * (also dawn), day 07:30–17:30. Boundaries belong to the variant that starts there.
  */
 export function timeOfDayAt(date: Date): TimeOfDay {

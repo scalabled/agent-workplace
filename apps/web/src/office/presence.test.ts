@@ -1,4 +1,4 @@
-// Real state in the office (OFFICE-PHASE2 §4.5.5): presence diffed into the scene, speaking from this tab's audio, the
+// Real state in the office: presence diffed into the scene, speaking from this tab's audio, the
 // Chief's running job as an activity, and pins while the owner talks with someone (and 20 s after).
 import { signal } from '@preact/signals';
 import { describe, expect, it, vi } from 'vitest';

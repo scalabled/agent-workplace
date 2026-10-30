@@ -1,4 +1,4 @@
-// Host insets (OfficeOptions.insets, OFFICE-PHASE2 §4.5.12): the host's own overlays over the office (the app's Chief
+// Host insets (OfficeOptions.insets): the host's own overlays over the office (the app's Chief
 // bubble in the bottom-right corner). Two adjacent edges reserve their corner; an edge with neither neighbour set
 // reserves the whole strip along it. HUD controls inside a reserved area move out of it, and bubbles never enter one.
 import type { OfficeInsets, Rect } from '../types';

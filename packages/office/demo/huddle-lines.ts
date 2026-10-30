@@ -1,5 +1,5 @@
 // The demo's small-talk provider: the real huddle engine of @headcount/expressions (pickExchange over the live
-// catalog/expressions/huddles/** content), wired as Phase 2 wires it (OFFICE-LIFE §7.3 item 7). Everything is loaded
+// catalog/expressions/huddles/** content), wired as Phase 2 wires it. Everything is loaded
 // lazily and by path (the office package keeps no dependencies); any failure falls back to the sample.
 //
 // Opening stays light (the review's startup fix): personality blends come straight from the catalog bundle's

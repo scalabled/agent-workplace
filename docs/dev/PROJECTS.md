@@ -1,4 +1,4 @@
-# Increment 1 · Hire a team in a sentence
+# Team projects
 
 Tell your Chief of Staff the outcome, "put together a team to launch our spring menu with a small campaign", and
 they staff a named team from the catalog (a lead, specialists, one sceptic), draft a reviewed plan with a forecast,
@@ -8,7 +8,7 @@ reviewing, and they sit together in a project pod in the office. The Chief tells
 the deliverable is ready. While they work you can give direction (it reaches the next step, and nobody is stopped),
 chat with anyone on the team about their live step, pause, resume, stop the project, or stop everything.
 
-Binding inputs: [MVP-PLAN](../MVP-PLAN.md) Inc 1, [OWNER-DIRECTIVES](../OWNER-DIRECTIVES.md) (D2 communication
+Binding inputs: [OWNER-DIRECTIVES](../OWNER-DIRECTIVES.md) (D2 communication
 first, D3 minimalist, D5 living workforce), [catalog/FORMATION.md](../../catalog/FORMATION.md) (recipes, the sceptic,
 voices).
 

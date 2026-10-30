@@ -1,4 +1,4 @@
-// The Office mount (OFFICE-PHASE2 §4.5.2, §4.5.15): 165 seats with the app's faces, life started on the roster (or
+// The Office mount: 165 seats with the app's faces, life started on the roster (or
 // on neutral personalities), the veil lifted once the opening is placed, hover routing, presence into the scene, the
 // ⌘K items, and an unmount that leaves no office, no style tag and no pending timers.
 import { slimIndex } from '@headcount/catalog/slim';

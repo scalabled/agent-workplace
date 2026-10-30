@@ -1,4 +1,4 @@
-// Clip service and routes (INC05-PLAN §3.2, §3.5): render once in exactly the agent's provider, store by scope with
+// Clip service and routes: render once in exactly the agent's provider, store by scope with
 // metadata and alignment, answer repeats from storage, and hold the budgets.
 import { ProviderError } from '@headcount/models';
 import { afterEach, describe, expect, it } from 'vitest';

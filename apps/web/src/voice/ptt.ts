@@ -4,7 +4,7 @@
 // when the provider cannot be reached; the browser's own speech recognition only when neither can run.
 // Starting to talk is a barge-in: the Chief of Staff stops speaking at once. The recording lifecycle
 // (permission, too-short presses, dictation) is the audio package's createPushToTalk.
-// While an office room or a joined huddle is open, push-to-talk goes there instead (the target, OFFICE-PHASE2 §4.3):
+// While an office room or a joined huddle is open, push-to-talk goes there instead (the target):
 // pressing hushes the room, the result is sent to it, and the Chief's face does not show listening.
 import { computed, signal, type ReadonlySignal } from '@preact/signals';
 import { createPushToTalk, type PushToTalk, type PushToTalkResult } from '@headcount/audio';

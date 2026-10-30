@@ -1,4 +1,4 @@
-// The living-workforce host inside the WorkspaceDO (docs/dev/INC05-PLAN.md §4 A5–A9): the single writer of viewer
+// The living-workforce host inside the WorkspaceDO (docs/dev/LIVING-PLAN.md §4 A5–A9): the single writer of viewer
 // state, the workspace recency memory, clip manifests, mood and attention, and the planner of the reflexes only the
 // server can know about (phatic replies, the thinking-filler safety net, acknowledgements, progress lines, the
 // celebration before an announcement, `oops` on a retried step, face cues). Everything it emits is ephemeral.

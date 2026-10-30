@@ -1,4 +1,4 @@
-// @headcount/office (OFFICE-PLAN §5.3): the Office view. A framework-agnostic 3/4 top-down office floor with desks,
+// @headcount/office: the Office view. A framework-agnostic 3/4 top-down office floor with desks,
 // glass conference rooms, typical office things and a city skyline, plus the conference stage. No dependencies.
 export { createOfficeScene } from './scene/scene';
 export { planOffice, DEFAULT_ROOMS } from './plan/plan';
@@ -10,7 +10,7 @@ export { project, unproject, toScreen, fromScreen } from './projection';
 export { fitCamera, cameraBounds, clampCamera, zoomAround } from './scene/camera';
 export type { OfficeStrings, LifeStrings } from './strings';
 
-// Office life (docs/dev/OFFICE-LIFE.md): the office runs itself.
+// Office life: the office runs itself.
 export { createOfficeLife } from './life/director';
 export type { LifeTimers, OfficeLife, OfficeLifeCallbacks, OfficeLifeOptions } from './life/director';
 export { planDay, replanFrom, segmentAt } from './life/planner';

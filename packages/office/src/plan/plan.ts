@@ -1,4 +1,4 @@
-// planOffice: a pure, deterministic floor plan from the catalog (OFFICE-PLAN §3). The same people, groups, lead and
+// planOffice: a pure, deterministic floor plan from the catalog. The same people, groups, lead and
 // rooms always give byte-identical JSON (`hash`). Seeds come from FNV-1a of ids, never Math.random or time.
 import { hashHex, rngFor } from '../rng';
 import type { District, Facing, OfficeGroup, OfficePerson, OfficeRoomSpec, Rect } from '../types';

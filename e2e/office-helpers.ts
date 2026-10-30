@@ -1,6 +1,6 @@
 import { expect, type BrowserContext, type Page } from '@playwright/test';
 
-// Office Phase 2 e2e helpers: the Office on the Floor (docs/dev/OFFICE-PHASE2.md §7.4). Dev builds expose the office
+// Office Phase 2 e2e helpers: the Office on the Floor. Dev builds expose the office
 // as window.__headcount.office = {scene, life, view(), stage(), huddles, ready()}; `?at=HH:MM` fixes the office clock
 // (scene and life) so the floor is the same on every run of a day.
 

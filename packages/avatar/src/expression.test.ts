@@ -1,4 +1,4 @@
-// Reflex gestures and the mood palette (INC05-PLAN §3.7): the FaceMotion cue layer and bias, FaceView's cue(),
+// Reflex gestures and the mood palette: the FaceMotion cue layer and bias, FaceView's cue(),
 // setExpressionBias(), data attributes, tiers, reduced motion and scheduler slots, and what the renderers draw.
 import type { MouthSampler } from '@headcount/protocol';
 import type { ExpressionBias, FaceGesture } from '@headcount/protocol/ext/expressions';

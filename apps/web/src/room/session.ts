@@ -1,4 +1,4 @@
-// One meeting in an office room or a joined huddle (OFFICE-PHASE2 §4.4.1), shared by the conference stage and the
+// One meeting in an office room or a joined huddle, shared by the conference stage and the
 // huddle chat. The writer reads this meeting's frames from the owner feed (talk.* with `surface: 'room'`, this room and
 // meeting; `room.turn`; errors of its turns); the player voices the lines in server order; the owner's words go to
 // POST /api/rooms/:roomId/say, and a barge-in or leaving to /cancel (sent after the say it interrupts, so the server

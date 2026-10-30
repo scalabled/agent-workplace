@@ -1,4 +1,4 @@
-// Faces in the office (OFFICE-PHASE2 §4.5.4): the office asks for a face per person and tier; the app answers with
+// Faces in the office: the office asks for a face per person and tier; the app answers with
 // FaceView (portrait or procedural fallback, state ring and glyph, the mouth on the audio engine's sampler above
 // token size), registered so reflex cues and the mood palette reach it. Stored landmarks only: detection never runs
 // in the office (budget §6).

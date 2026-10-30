@@ -1,4 +1,4 @@
-// Living-workforce routes (docs/dev/INC05-PLAN.md §3.2): the catalog bundle, agent expression profiles, clips and their
+// Living-workforce routes: the catalog bundle, agent expression profiles, clips and their
 // alignment, runtime renders and pre-voice runs. Keys stay server-side; errors are one sentence with their fix.
 import { isIntentId, renderUtterance, toDelivery, clipKey as keyOf, clipAlignmentUrl, clipUrl } from '@headcount/expressions';
 import { CHIEF_ID, ownerFirstNameOf, personaIdFromAgentId, type WorkspaceSettings } from '@headcount/protocol';

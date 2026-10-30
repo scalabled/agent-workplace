@@ -1,4 +1,4 @@
-// Office | Directory (OFFICE-PHASE2 §4.5.1): which view the Floor shows. Light on purpose (no office code): the Floor
+// Office | Directory: which view the Floor shows. Light on purpose (no office code): the Floor
 // route reads it before the lazy office chunk loads, and Directory users never load that chunk at all.
 //
 // Resolution: `?view=office|directory` (then remembered) → the remembered choice (localStorage['hc.floor.view']) →

@@ -1,4 +1,4 @@
-// Where a meeting is, in words (docs/dev/OFFICE-PHASE2.md §4.2.5, §4.2.7): the prompt's place phrase and the leave
+// Where a meeting is, in words: the prompt's place phrase and the leave
 // note read naturally for every huddle label the office sends ("water cooler", "by the window", "at Liban's desk").
 import { describe, expect, it } from 'vitest';
 import { meetingNoteText } from './meeting';

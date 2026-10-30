@@ -1,4 +1,4 @@
-// The `viewer` and `expr.recent` socket ops (docs/dev/INC05-PLAN.md §3.3, §4 A6): strict validation, and what a
+// The `viewer` and `expr.recent` socket ops (§4 A6): strict validation, and what a
 // socket attachment holds. Attachments survive hibernation (and must stay under 2 KB), so lists are capped.
 import type { ViewerState } from '@headcount/expressions';
 import type { ExprRecentOp, ExprSurface, ViewerOp } from '@headcount/protocol/ext/expressions';

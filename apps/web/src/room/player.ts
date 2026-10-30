@@ -1,4 +1,4 @@
-// The room's voicer ‖ player (OFFICE-PHASE2 §4.4.1). The server writes a room turn at machine speed (up to three
+// The room's voicer ‖ player. The server writes a room turn at machine speed (up to three
 // responders and a wrap-up, one after the other); this plays their lines in server order, one at a time, each in its
 // own voice. For line k the speaker is fed only while k ≤ playing + 2 (two lines of TTS look-ahead), and each fed line
 // waits behind a gate that opens when the line before it has ended and 250 ms have passed, so audio never overlaps.

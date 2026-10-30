@@ -67,7 +67,7 @@ describe('work events → mood and event reflexes (§2.5, §6.2)', () => {
   });
 });
 
-describe('reflex-grade server picks (instantOnly, INC05-PLAN §3.8)', () => {
+describe('reflex-grade server picks (instantOnly)', () => {
   const chiefState = () => makeState('cw_chief', 'Samuel', { owner: { firstName: null } });
 
   it('picks only a line whose clip is already in the manifest', async () => {

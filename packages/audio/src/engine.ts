@@ -10,7 +10,7 @@
 // generation, stops every scheduled and playing source at once (BB only reset a playhead and let sources
 // run on) and any chunk that arrives or finishes decoding later is dropped.
 //
-// Living workforce (Inc 0.5, INC05-PLAN §3.6): short pre-voiced clips play on a per-speaker reflex or ambient
+// Living workforce (Inc 0.5): short pre-voiced clips play on a per-speaker reflex or ambient
 // bus under the same speaker channel, so one mouth tap follows answers and micro-talk alike. Who may sound is a
 // ladder, owner > answer > reflex > ambient:
 //   1. the owner speaking (mic live) drops reflexes, except a `duringOwner` backchannel, ducked only 6 dB;

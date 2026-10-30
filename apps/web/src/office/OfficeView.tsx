@@ -1,4 +1,4 @@
-// The Office on the Floor (OFFICE-PHASE2 §4.5): a lazy chunk that Directory users never load. It mounts the office
+// The Office on the Floor: a lazy chunk that Directory users never load. It mounts the office
 // (./mount.ts) into one full-bleed element, lifts a short veil once life has placed everyone, renders the living
 // layer's bubbles over faces (the same FloorBubble and quick chat as the Directory, anchored in the scene), shows
 // one quiet first-run hint, and keeps one line for notices. Everything else is the scene's own.
@@ -151,7 +151,7 @@ function readHintSeen(): boolean {
   }
 }
 
-/** One quiet chip, once: the three gestures that matter. No tour, no modal (OFFICE-PHASE2 §4.5.14). */
+/** One quiet chip, once: the three gestures that matter. No tour, no modal. */
 function FirstRunHint() {
   const [open, setOpen] = useState(() => {
     let fine = false;

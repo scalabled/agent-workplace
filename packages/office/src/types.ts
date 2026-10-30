@@ -1,4 +1,4 @@
-// Public types of @headcount/office (OFFICE-PLAN §5.3). Declared locally: the package has no dependencies, and
+// Public types of @headcount/office. Declared locally: the package has no dependencies, and
 // PresenceState is a structural superset of @headcount/protocol's.
 import type { LifeScenePort } from './life/types';
 
@@ -71,7 +71,7 @@ export interface OfficeCallbacks {
   /** At most 2 per second. */
   onViewportChange?(v: { personIds: string[]; roomIds: string[]; zoom: number; lod: 0 | 1 | 2 }): void;
   onRequestDirectory?(): void;
-  /** Office life (OFFICE-LIFE §4): the camera follows someone (null = stopped). */
+  /** Office life: the camera follows someone (null = stopped). */
   onFollowChange?(personId: string | null): void;
   onAutopilotChange?(on: boolean): void;
   /** The Pause office life switch in the What's happening popover. */

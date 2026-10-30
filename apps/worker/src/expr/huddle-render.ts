@@ -1,4 +1,4 @@
-// POST /api/expr/huddle/render (docs/dev/OFFICE-PHASE2.md §4.2.9): one small-talk turn of an office huddle, rendered in
+// POST /api/expr/huddle/render: one small-talk turn of an office huddle, rendered in
 // the speaker's own voice for listen-in. The turn is rebuilt server-side from the compiled huddle packs (the client
 // sends only the exchange, the turn index and the fills), so the clip key matches the client's
 // `clipKey(toDelivery(huddleUtterance(pick, i), voice, provider))` and the same clip serves every device. Same render,

@@ -1,4 +1,4 @@
-// The office-life layer of the scene (OFFICE-LIFE §3.3–§3.5, §4.2–§4.3): huddle markers and the huddle card, the
+// The office-life layer of the scene: huddle markers and the huddle card, the
 // "What's happening" pill with its popover (moments with a primary action each, Autopilot, Pause), the Following chip
 // and the one-time autopilot offer. Plain DOM; positions come from the scene each frame.
 import type { HuddleAction, LifeSummary, Moment, ShowHuddleArgs } from '../life/types';

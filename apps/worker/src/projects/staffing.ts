@@ -202,7 +202,7 @@ export function titleFromGoal(goal: string): string {
 const PARALLEL = 2;
 
 /**
- * The plan card's forecast (MVP-PLAN Inc 1): rounds = the longer of the dependency chain and the steps two at a time;
+ * The plan card's forecast: rounds = the longer of the dependency chain and the steps two at a time;
  * each step is work and a review (plus a revision when asked), then the deliverable. Minutes assume a reasoning model
  * (about 1 to 2.5 minutes a round, 0.5 to 1.5 for the deliverable); Mock is faster.
  */

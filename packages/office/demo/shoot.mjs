@@ -1,4 +1,4 @@
-// Screenshots of the Office demo for review (OFFICE-PLAN §5.5). Needs the demo server (vite.config.mjs) running.
+// Screenshots of the Office demo for review. Needs the demo server (vite.config.mjs) running.
 //   node packages/office/demo/shoot.mjs [--only name,name] [--out docs/dev/screens/office] [--url http://127.0.0.1:5870]
 //     [--format jpeg|png]  (JPEG q88 at 2× by default: sharp, and ~0.5 MB per screen)
 import { mkdirSync } from 'node:fs';

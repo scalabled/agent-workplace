@@ -1,4 +1,4 @@
-# Inc 4 · Context and memory
+# Context and memory
 
 What the workspace knows about the business, three ways. All of it lives in the WorkspaceDO (`apps/worker/src/memory`).
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // node scripts/office-art.mjs: generates the Office view's photographic backdrops and wall art through the running
 // worker (POST /api/media/image; the worker holds the provider keys, this script never sees them), then writes
-// optimized copies and a manifest to apps/web/public/office/ for @headcount/office (docs/dev/OFFICE-PLAN.md §1.3).
+// optimized copies and a manifest to apps/web/public/office/ for @headcount/office.
 // This script owns apps/web/public/office/; the office engine only READS manifest.json, it never writes it.
 //
 // Assets (worker keys `office-<key>`; each one shows a fictional place with no text, logos, landmarks or people):
@@ -15,7 +15,7 @@
 //
 // manifest.json (paths are RELATIVE to the manifest, i.e. to the engine's assetsBase, default /office/):
 //   { version: 1, note,
-//     variants:   { night|dusk|day: Entry },    ← the floor skyline, as OFFICE-PLAN §1.3 specifies
+//     variants:   { night|dusk|day: Entry },    ← the floor skyline
 //     conference: { night|dusk: Entry,          ← the Skyline room's stage backdrop by time of day
 //                   garden: Entry },            ← the Garden room's stage backdrop (its living wall)
 //     art:        Entry[] }                     ← square wall art
@@ -339,7 +339,7 @@ function hueSat(r, g, b) {
 }
 
 /**
- * Backdrop analysis on a 640 px copy (OFFICE-PLAN §1.3).
+ * Backdrop analysis on a 640 px copy.
  * - horizon: the waterline, i.e. the dark shore band between the lit city and its reflections: the most prominent
  *   valley of the smoothed row luminance in 45–88 % of the height; without a clear valley, the strongest step.
  * - glow: the mean colour of the band just above the horizon.
@@ -470,7 +470,7 @@ function analyze(image, spec, width, height, override) {
     for (let y = Math.max(0, y0); y < Math.min(BH, y1); y++) for (let x = Math.max(0, x0); x < Math.min(BW, x1); x++) (s += bl[y * BW + x]), n++;
     return n ? s / n : 1;
   };
-  // Night only (OFFICE-PLAN §1.3): at dusk, warm windows against the orange sky read as red.
+  // Night only: at dusk, warm windows against the orange sky read as red.
   const beaconFloor = spec.timeOfDay !== 'night' ? 0 : spec.kind === 'conference' ? Math.round(BH * 0.9) : Math.round(((horizonY - H * 0.1) / H) * BH);
   const beaconCands = [];
   for (let y = 12; y < beaconFloor; y++) {

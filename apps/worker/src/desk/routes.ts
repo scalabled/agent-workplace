@@ -1,4 +1,4 @@
-// POST /api/desk/:personaId/say — a Floor quick-chat message to a catalog coworker (docs/dev/INC05-PLAN.md §3.2, A11).
+// POST /api/desk/:personaId/say — a Floor quick-chat message to a catalog coworker.
 // 202 at once; the reply streams on the workspace socket as talk.* frames with that agentId and `surface: 'floor'`.
 import { fullIndex } from '@headcount/catalog/full';
 import type { DeskSayAccepted, DeskSayRequest } from '@headcount/protocol/ext/expressions';

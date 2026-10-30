@@ -1,4 +1,4 @@
-// One voice per workspace (docs/dev/INC05.md "Voice ownership"). Every open /app tab gets every frame, but only the
+// One voice per workspace (docs/dev/LIVING.md "Voice ownership"). Every open /app tab gets every frame, but only the
 // voice owner voices answers, reflexes and clips; the others keep captions, text and faces. The WorkspaceDO decides
 // (`ready.data.voice`, `voice.owner`); this tab claims the voice on a real gesture (`voice.claim`) and with every owner
 // action (talk, steer, desk reply carry its client id). Tabs of the same browser hand over at once on a

@@ -1,4 +1,4 @@
-// Level of detail and the animation budget (OFFICE-PLAN §2.1, §2.5). Pure.
+// Level of detail and the animation budget. Pure.
 import type { FaceTier } from '../types';
 
 export type Lod = 0 | 1 | 2;

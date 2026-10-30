@@ -1,4 +1,4 @@
-// One room turn (docs/dev/OFFICE-PHASE2.md §4.2.4): the planned responders answer the owner's message one after the
+// One room turn: the planned responders answer the owner's message one after the
 // other at machine speed (the client paces playback), each a fast-tier, tool-free reply of at most two short sentences
 // through the reply guard, or a catalog reflex line for a phatic message. Frames carry `surface: 'room'`, the room and
 // the meeting; `room.turn` tells clients who is next. A newer owner message or a cancel closes the turn at once.

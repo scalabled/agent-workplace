@@ -1,4 +1,4 @@
-// Office | Directory (OFFICE-PHASE2 §4.5.1): ?view= wins and is remembered, then the remembered choice, then the
+// Office | Directory: ?view= wins and is remembered, then the remembered choice, then the
 // device default (the Office on a fine pointer ≥ 900 px, the Directory on phones and coarse pointers).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { clockShift, officeClock } from './clock';

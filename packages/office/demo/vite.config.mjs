@@ -1,4 +1,4 @@
-// Standalone demo for @headcount/office (OFFICE-PLAN §5.5). Run from the repo root:
+// Standalone demo for @headcount/office. Run from the repo root:
 //   node apps/web/node_modules/vite/bin/vite.js --config packages/office/demo/vite.config.mjs
 // or from packages/office/demo: npx vite. Serves apps/web/public (the skyline art under /office/) and proxies only
 // read-only GET /api/portraits* to the owner's worker (any other method gets a 404), so the demo can never write.

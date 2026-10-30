@@ -81,7 +81,7 @@ export interface ServerReflexArgs {
   topics?: readonly string[];
   /**
    * Reflex-grade picks (acknowledge, thinking filler): only lines whose clip is already rendered, so the voice can start
-   * at once (Inc 0.5, INC05-PLAN §3.8). Availability comes from `clips`, else from `manifest`; with neither, only Mock
+   * at once (Inc 0.5). Availability comes from `clips`, else from `manifest`; with neither, only Mock
    * and browser voices count as instant.
    */
   instantOnly?: boolean;

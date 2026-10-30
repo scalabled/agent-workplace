@@ -1,4 +1,4 @@
-// The office camera (OFFICE-PLAN §1.1): orthographic 3/4 top-down at 55° elevation, looking north, no rotation.
+// The office camera: orthographic 3/4 top-down at 55° elevation, looking north, no rotation.
 // A world point (x, y, z) in u (1 u = 10 cm; y grows south, z up) projects to (x, y·sin55° − z·cos55°).
 import type { Camera, Point } from './types';
 

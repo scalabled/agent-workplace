@@ -1,4 +1,4 @@
-// Host insets (OFFICE-PHASE2 §4.5.12): the app's Chief bubble corner keeps the HUD and bubbles out.
+// Host insets: the app's Chief bubble corner keeps the HUD and bubbles out.
 import { describe, expect, it } from 'vitest';
 import slim from '../../../catalog/generated/slim.js';
 import type { OfficeGroup, OfficePerson } from '../types';

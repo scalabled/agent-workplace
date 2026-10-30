@@ -1,4 +1,4 @@
-// Life navigation (OFFICE-LIFE §2.6, §2.7): an obstacle grid built from the plan's furniture, a lane graph of the
+// Life navigation: an obstacle grid built from the plan's furniture, a lane graph of the
 // office's aisles (the boulevard, the lower aisle, the vertical aisles, a window lane and a south lane), and A* on the
 // grid for the short legs in and out of a desk or a spot. Pure and cached per plan (not part of OfficePlan.hash).
 import { CELL_H, COL_PITCH, ROW_Y } from '../plan/geometry';

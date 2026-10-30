@@ -1,4 +1,4 @@
-// Floor quick-chat with a catalog coworker (docs/dev/INC05-PLAN.md §4 A11): a fast-tier, tool-free turn in the
+// Floor quick-chat with a catalog coworker (docs/dev/LIVING-PLAN.md §4 A11): a fast-tier, tool-free turn in the
 // persona's own voice, at most two short sentences. A guard releases the reply one sentence at a time and replaces any
 // sentence that claims or promises work they are not doing (H2) or states a figure, metric, experience or study the
 // owner did not give (the reply guard, rooms/guard.ts, Office Phase 2 §4.2.6). Inc 1: a coworker staffed on a team

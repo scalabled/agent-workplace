@@ -1,4 +1,4 @@
-// Real state in the office (OFFICE-PHASE2 §4.5.5): faces are the status UI. Presence from the store reaches the scene
+// Real state in the office: faces are the status UI. Presence from the store reaches the scene
 // (diffed, so a frame costs one comparison per agent), speaking follows the audio actually playing in this tab, and
 // real work overrides ambient life: the Chief's running job shows as work at their place (monitor lit, the running
 // sentence as the status; the server never claims the Chief busy, D2) and sets their activity (research walks them to

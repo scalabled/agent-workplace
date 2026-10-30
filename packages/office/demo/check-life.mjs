@@ -1,4 +1,4 @@
-// Office life probes (OFFICE-LIFE §7.2 "check.mjs gains life probes"), with real input in Chromium against the demo.
+// Office life probes, with real input in Chromium against the demo.
 //   node packages/office/demo/check-life.mjs [--url http://127.0.0.1:5871]
 import { chromium } from '@playwright/test';
 

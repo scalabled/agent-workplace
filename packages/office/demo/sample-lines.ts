@@ -1,5 +1,5 @@
 // A tiny built-in small-talk sample for the demo, used only when the expressions huddle engine or its content cannot
-// be loaded. Honest by construction (OFFICE-LIFE §5.4): no facts, no work claims, no human body except as a
+// be loaded. Honest by construction: no facts, no work claims, no human body except as a
 // counterfactual, never the owner, laughter never at a person.
 import type { HuddleLineRequest, HuddleScript } from '../src/index';
 

@@ -1,4 +1,4 @@
-// Real work maps to places (OFFICE-LIFE §2.9): a conservative verb classifier for Inc 0 job labels, and where each
+// Real work maps to places: a conservative verb classifier for Inc 0 job labels, and where each
 // activity is done. Anything unclear stays at the desk.
 import type { SpotKind, WorkActivity } from './types';
 

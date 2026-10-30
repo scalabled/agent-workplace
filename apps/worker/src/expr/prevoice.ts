@@ -1,4 +1,4 @@
-// Pre-voice planning (docs/dev/INC05-PLAN.md §3.2 `exprPrevoice`, §4 A3): which lines to render once in each agent's
+// Pre-voice planning (docs/dev/LIVING-PLAN.md §3.2 `exprPrevoice`, §4 A3): which lines to render once in each agent's
 // own voice. Either the engine plans (agents + tiers) or the caller passes a plan as `items`, each re-validated and
 // re-keyed here. The RunDO renders the result; this module never calls TTS.
 import { clipKey, lineOf, planPrevoice, renderUtterance, toDelivery, type AgentIndex, type CommonFills, type IntentId, type TtsDelivery } from '@headcount/expressions';

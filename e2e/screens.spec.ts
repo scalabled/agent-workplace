@@ -6,7 +6,7 @@ import { LEAD, pinDirectory, setWorkspace } from './helpers';
 
 // Inc 0.6 screenshots for the owner: the landing page and the app, desktop + phone, dark by default (the OS
 // asks for light, to show it no longer decides), plus the app's light option on two screens.
-// Writes docs/dev/screens/inc0.6/*.png. Opt-in so normal e2e runs never rewrite docs: `pnpm e2e:screens`.
+// Writes docs/dev/screens/app/*.png. Opt-in so normal e2e runs never rewrite docs: `pnpm e2e:screens`.
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'docs', 'dev', 'screens', 'inc0.6');
 
 interface Variant {

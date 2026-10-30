@@ -1,4 +1,4 @@
-// The conference stage, bound to the app (OFFICE-PHASE2 §4.4.2): entering a glass room opens a meeting (a room
+// The conference stage, bound to the app: entering a glass room opens a meeting (a room
 // session), mounts the dock and sends push-to-talk to the room; the session's events drive the stage's captions, floor
 // line and speaker highlight; leaving closes the meeting, which leaves one quiet line in Talk if the owner spoke.
 // Presence (the next responder thinking) comes from the store through the office's presence effect, and voiced lines

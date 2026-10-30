@@ -1,4 +1,4 @@
-// Clip durations from the audio bytes (docs/dev/INC05-PLAN.md §3.5): the WAV header, or an MP3 frame scan that
+// Clip durations from the audio bytes: the WAV header, or an MP3 frame scan that
 // reads a Xing/Info or VBRI header when present. Pure; no decoding.
 import type { Alignment } from '@headcount/protocol';
 

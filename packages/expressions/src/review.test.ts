@@ -1,4 +1,4 @@
-// The content and timing review (docs/dev/living-workforce-critique.md, E1–E25): the engine behaviours that keep
+// The content and timing review (E1–E25): the engine behaviours that keep
 // reflexes from presupposing what the owner said, wearing out over weeks, crowding the Floor or talking over a mood.
 import { describe, expect, it } from 'vitest';
 import { sniffOwnerText } from './affect';

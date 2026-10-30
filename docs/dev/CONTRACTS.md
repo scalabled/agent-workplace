@@ -1,9 +1,8 @@
 # Headcount · Increment 0 contracts
 
-These are the contracts of **Inc 0 "First Light"** (docs/MVP-PLAN.md), as built and integrated, plus **Inc 0.5 "the
-living workforce"** (§7, docs/dev/INC05.md), **one voice per workspace** (§8) and **Inc 0.7 "the Office"** (§9,
-docs/dev/OFFICE-PHASE2.md). Every package
-and route below is implemented; `docs/dev/INC0.md` says what works, how to run it and the demo script. For later
+These are the contracts of **Inc 0 "First Light"**, as built and integrated, plus **Inc 0.5 "the
+living workforce"** (§7, docs/dev/LIVING.md), **one voice per workspace** (§8) and **Inc 0.7 "the Office"** (§9). Every package
+and route below is implemented; `docs/dev/CORE.md` says what works, how to run it and the demo script. For later
 increments, builders still work **inside their own directories** and code against these contracts. If a contract
 has to change, ask the integrator; do not edit someone else's files.
 
@@ -21,11 +20,11 @@ Binding inputs: `docs/OWNER-DIRECTIVES.md` (D2 communication first, D3 minimal s
 | `pnpm test` | Vitest across all workspace projects (`vitest.config.ts` → `packages/*/vitest.config.ts`, `apps/*/vitest.config.ts`). One project: `pnpm vitest run --project worker`. |
 | `pnpm typecheck` | `tsc --noEmit` per package (worker also checks its test program; web also checks its Vite config), then root configs + e2e. Every package pins `typescript ^7.0.2` as a devDependency, so it never picks up a global `tsc` (Inc 0.5's `packages/expressions` still needs the same line). |
 | `pnpm e2e` | Playwright (Chromium with a fake mic and camera, mic permission granted, autoplay allowed) against two keyless stacks: project **chromium** on `dev.mjs --mock --fresh` (**:5183 / :8797**, state `.wrangler/e2e-state`), and projects **voice** (`e2e/voice.spec.ts`) and **living-voice** (`e2e/living-voice.spec.ts`, a fake mic that talks in 2.8 s stretches with 0.7 s pauses, generated into the OS temp dir by `playwright.config.ts`) on `dev.mjs --mock --mock-media --fresh` (**:5184 / :8798**, `.wrangler/e2e-voice-state`). Keyless even when `.dev.vars` has keys (`--mock` blanks them; `--var` beats `.dev.vars`, verified). |
-| `pnpm e2e:screens` | `HEADCOUNT_SCREENS=1` run of `e2e/screens.spec.ts` on the Mock stack (the committed Inc 0.6 set was captured with the same spec against the keyed `pnpm dev` stack, with longer waits): writes `docs/dev/screens/inc0.6/<screen>-<desktop\|mobile>[-light].png` (landing hero, full page and wall; welcome; talk working and done; floor; profile; projects; inbox). Dark by default, with the OS asking for light. Opt-in, so normal runs never rewrite docs. |
+| `pnpm e2e:screens` | `HEADCOUNT_SCREENS=1` run of `e2e/screens.spec.ts` on the Mock stack (the committed Inc 0.6 set was captured with the same spec against the keyed `pnpm dev` stack, with longer waits): writes `docs/dev/screens/app/<screen>-<desktop\|mobile>[-light].png` (landing hero, full page and wall; welcome; talk working and done; floor; profile; projects; inbox). Dark by default, with the OS asking for light. Opt-in, so normal runs never rewrite docs. |
 | `pnpm build` | Catalog bundle, `vite build` (web), `wrangler deploy --dry-run --outdir dist` (worker bundle check). |
 | `pnpm catalog:build` | Regenerates `packages/catalog/generated/*` (git-ignored). `--watch` to follow edits. |
 | `pnpm expressions:build` | Compiles `catalog/expressions/**` into `packages/expressions/generated/expressions.json` (git-ignored; the worker imports it, the web fetches it from `GET /api/expr/catalog`) and `report.json` (dropped lines). Writes only when the content changed. Runs in `postinstall`, `build`, `test`, `typecheck`, `e2e` and at `pnpm dev` start; `pnpm dev` rebuilds it when `catalog/expressions/**` changes (without `--no-watch`). `--check` fails on any dropped line. |
-| `node packages/expressions/scripts/prevoice-office.mjs` | Pre-voices the office on a running worker through its clip endpoints only (`GET /api/expr/catalog`, `GET /api/expr/agents/:id`, `POST /api/expr/prevoice`, `GET /api/expr/prevoice/:runId`): the 12 leads as they would be as Chief of Staff (`cw_<leadId>`: P0 plus slot-free `back_with_you`, `celebrate`, `oops`, `micro_status`) and the most staffed coworkers (`passing_by`, `greeting` an unstaffed coworker can say). `--dry-run`, `--leads`, `--coworkers <n>`, `--per-intent`, `--p0-per-intent`, `--max` (default 1500), `--reserve <n>` (leave n of today's clip renders for the owner), `--worker`, `--origin`. Stops at the daily clip budget; a later run skips what is stored. docs/dev/INC05.md §4. |
+| `node packages/expressions/scripts/prevoice-office.mjs` | Pre-voices the office on a running worker through its clip endpoints only (`GET /api/expr/catalog`, `GET /api/expr/agents/:id`, `POST /api/expr/prevoice`, `GET /api/expr/prevoice/:runId`): the 12 leads as they would be as Chief of Staff (`cw_<leadId>`: P0 plus slot-free `back_with_you`, `celebrate`, `oops`, `micro_status`) and the most staffed coworkers (`passing_by`, `greeting` an unstaffed coworker can say). `--dry-run`, `--leads`, `--coworkers <n>`, `--per-intent`, `--p0-per-intent`, `--max` (default 1500), `--reserve <n>` (leave n of today's clip renders for the owner), `--worker`, `--origin`. Stops at the daily clip budget; a later run skips what is stored. docs/dev/LIVING.md §4. |
 | `pnpm portraits:generate` | Asks the running worker to generate portraits, `--concurrency <1–8>` at a time (default 3) with `[i/n]` progress: the 12 leads by default; `--all` (176), `--department <id>[,id]`, `--only <id,id>`, `--force`, `--dry-run`, `--worker <url>`. Checks capabilities first, skips existing portraits, and stops starting new ones on 503 (naming the key), on 429 (daily limit) or after 3 failures in a row. Uses `?wait=1`. `--force` stores a new version and clears its landmarks. |
 | `node scripts/landmarks-precompute.mjs` | Measures landmarks for every stored portrait without them: headless Chromium opens `apps/web/public/dev/landmarks.html` on the running Vite server, which runs `@headcount/avatar`'s own MediaPipe detection and PUTs each result bound to the version it measured. `--only`, `--force`, `--delegate CPU\|GPU`, `--dry-run`, `--headed`, `--web <url>`. |
 | `node scripts/marketing-images.mjs` | Generates the landing's seven images through `POST /api/media/image` on the running worker and writes `apps/web/public/marketing/<key>.webp` (quality 74, never larger than its JPEG) + `<key>-640/1024/1600.webp` for `srcset` (each below the full width) + `.jpg` + `manifest.json` (`srcset: [{width, file}]`). `--list`, `--only`, `--force`, `--provider openai\|xai`, `--note`, `--reprocess` (re-encode the stored R2 originals), `--concurrency`, `--dry-run`, `--worker`. Needs `ffmpeg` and `cwebp`. |
@@ -495,20 +494,20 @@ is dropped after 400 ms). Browser speech is cut at 60 tokens, and its text-timed
 
 - Verified: `pnpm install`, `pnpm typecheck` (TypeScript 7 everywhere), `pnpm test`, `pnpm build`, `pnpm e2e`
   (chromium + voice projects), `pnpm e2e:screens`, and the full flow over HTTP/WebSocket on real workerd with Mock
-  and with Ollama `qwen3:32b`. Details, numbers, the demo script and known gaps: `docs/dev/INC0.md`.
+  and with Ollama `qwen3:32b`. Details, numbers, the demo script and known gaps: `docs/dev/CORE.md`.
 - Inc 0.6 (landing, dark theme, new cast, media, job fix) is integrated and verified the same way, plus the full flow
-  on the keyed stack with Anthropic (INC0.md §4, §4a).
+  on the keyed stack with Anthropic (CORE.md §4, §4a).
 - Inc 0.5 (the living workforce, §7) is integrated and verified the same way, plus a keyed session on the
-  integrator's own stack (docs/dev/INC05.md).
+  integrator's own stack (docs/dev/LIVING.md).
 - Inc 0.7 (the Office in the app, §9) is integrated and verified the same way: new e2e specs `office`, `office-life`,
-  `office-voice`, screens in `docs/dev/screens/office-app/` (OFFICE-PHASE2 §10).
+  `office-voice`, screens in `docs/dev/screens/office-app/`.
 - Still a stub: `RoomDO` (Inc 2): rooms and huddle chats run in the `WorkspaceDO` (§9.2). `RunDO` hosts the
   pre-voice runner (§7.4).
 
 ## 7. Inc 0.5 · the living workforce
 
-OWNER-DIRECTIVES D5, specified in docs/LIVING-WORKFORCE.md and planned in docs/dev/INC05-PLAN.md (the plan's §3 is
-the contract text; this section is the as-built summary). Operator notes, tuning and known gaps: docs/dev/INC05.md.
+OWNER-DIRECTIVES D5, specified in docs/LIVING-WORKFORCE.md and planned in docs/dev/LIVING-PLAN.md (the plan's §3 is
+the contract text; this section is the as-built summary). Operator notes, tuning and known gaps: docs/dev/LIVING.md.
 
 ### 7.1 Packages and ownership
 
@@ -621,7 +620,7 @@ carries `data-face-cue` while a gesture plays and always `data-face-expression`.
 
 Binding product rule (owner report, 29 September 2026: "I am hearing duplicate responses spoken out loud"): every
 open `/app` tab receives every frame, but **only one client speaks at a time**. Operator notes and verification:
-docs/dev/INC05.md §8.
+docs/dev/LIVING.md §8.
 
 - **Client id** (`apps/web/src/lib/client-id.ts`): one per browser tab, kept in `sessionStorage` (`hc-client-id`), so a
   reload keeps it and every other tab has its own. A marker that lives only while the page does (`hc-client-live`,
@@ -675,8 +674,7 @@ docs/dev/INC05.md §8.
 ## 9. Inc 0.7 · the Office (Office Phase 2)
 
 The Office on the Floor: desk mode, office life (people move, huddle and talk on their own), joined huddles and the
-conference roundtable. Plan and contracts: docs/dev/OFFICE-PHASE2.md (§4 is the contract text, §10 the as-built
-summary); the office package: docs/dev/OFFICE-PLAN.md §5.3, OFFICE-LIFE.md §8.2. Every new sound obeys §8.
+conference roundtable. Every new sound obeys §8.
 
 ### 9.1 HTTP routes and wire types (`packages/protocol/src/ext/rooms.ts`, `routes.ts`, `api.ts`)
 

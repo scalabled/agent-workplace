@@ -123,7 +123,7 @@ export function Projects() {
   );
 }
 
-/** "Everyone stop" (MVP-PLAN Inc 1): halts every running job and team project, after one confirming tap. */
+/** "Everyone stop": halts every running job and team project, after one confirming tap. */
 function EveryoneStop({ working }: { working: number }) {
   const [asking, setAsking] = useState(false);
   // Inc 6: the stop stays on (emails held) until an owner resumes it in Admin → Autonomy.
