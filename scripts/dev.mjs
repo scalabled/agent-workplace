@@ -8,7 +8,9 @@
 //   --local              local-only run: every cloud key blanked, Ollama kept (DEFAULT_CHAT=auto → Ollama when it
 //                        answers, else Mock). Nothing leaves the machine.
 //   --chat <provider>    pin the chat provider for this run (anthropic, openai, xai, gemini, openai-compatible,
-//                        ollama), for example when one provider's account is out of credit
+//                        ollama), for example when one provider's account is out of credit. Coworkers that
+//                        prefer Anthropic would still call it, so any other pin also blanks the Anthropic key
+//                        (it serves chat only; voices and images keep their keys).
 //   --mock-media         Mock TTS/STT answer and count as available (silent audio with timing, a fixed
 //                        transcript): demos the provider voice path without keys. Off by default (keyless → 503).
 //   --worker-port <n>    default 8787
@@ -172,7 +174,9 @@ if (flag('--mock')) {
   for (const key of CLOUD_KEYS) workerArgs.push('--var', `${key}:`);
 }
 if (flag('--mock-media')) workerArgs.push('--var', 'MOCK_MEDIA:true');
-if (opt('--chat', null) && !flag('--mock') && !flag('--local')) workerArgs.push('--var', `DEFAULT_CHAT:${opt('--chat', null)}`);
+const chat = !flag('--mock') && !flag('--local') ? opt('--chat', null) : null;
+if (chat) workerArgs.push('--var', `DEFAULT_CHAT:${chat}`);
+if (chat && chat !== 'anthropic') workerArgs.push('--var', 'ANTHROPIC_API_KEY:');
 start('worker', bin(workerDir, 'wrangler'), workerArgs, workerDir, { WRANGLER_SEND_METRICS: 'false' });
 start('web', bin(webDir, 'vite'), ['--port', String(webPort), '--strictPort'], webDir, {
   HEADCOUNT_WEB_PORT: String(webPort),
